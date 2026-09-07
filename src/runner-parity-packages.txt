@@ -1,0 +1,90 @@
+# runner-parity-packages.txt
+#
+# Canonical apt package manifest for GitHub ubuntu-24.04 hosted-runner parity.
+# Source of truth: actions/runner-images images/ubuntu/toolsets/toolset-2404.json
+# (apt.vital_packages + apt.common_packages + apt.cmd_packages), plus zstd from
+# their install-zstd.sh. Design: docs/18-runner-image-package-parity.md.
+#
+# One package per line; '#' starts a comment. Entries are LC_ALL=C sorted
+# within each section. The installer (install-parity-packages.sh) skips packages
+# present in the base image and installs the rest in a single transaction.
+#
+# Deliberately dropped from upstream (7) — do NOT re-add:
+#   dbus, fonts-noto-color-emoji, haveged, pollinate, ssh, systemd-coredump,
+#   xvfb — see docs/18 §3.2 for rationale.
+
+# --- apt.vital_packages (9) ---
+bzip2
+curl
+g++
+gcc
+jq
+make
+tar
+unzip
+wget
+
+# --- apt.common_packages (31 upstream, 28 kept) ---
+autoconf
+automake
+dnsutils
+dpkg
+dpkg-dev
+fakeroot
+gnupg2
+iproute2
+iputils-ping
+libicu-dev
+libsqlite3-dev
+libssl-dev
+libtool
+libyaml-dev
+locales
+mercurial
+openssh-client
+p7zip-rar
+pkg-config
+python-is-python3
+rpm
+texinfo
+tk
+tree
+tzdata
+upx
+xz-utils
+zsync
+
+# --- apt.cmd_packages (34 upstream, 30 kept) ---
+acl
+aria2
+binutils
+bison
+brotli
+coreutils
+file
+findutils
+flex
+ftp
+libnss3-tools
+lz4
+m4
+mediainfo
+net-tools
+netcat
+p7zip-full
+parallel
+patchelf
+pigz
+rsync
+shellcheck
+sphinxsearch
+sqlite3
+sshpass
+sudo
+swig
+telnet
+time
+zip
+
+# --- apt extras installed by upstream scripts (1) ---
+zstd

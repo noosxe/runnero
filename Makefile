@@ -63,6 +63,7 @@ fmt-web:
 ## test-scripts: run unit tests for runner image scripts
 test-scripts:
 	bash tests/unit/entrypoint_test.sh
+	bash tests/unit/parity_packages_test.sh
 
 ## lint: static analysis via golangci-lint
 lint: build-web
