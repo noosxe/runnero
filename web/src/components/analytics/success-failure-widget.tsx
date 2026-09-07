@@ -4,7 +4,8 @@ export interface SuccessFailureWidgetProps {
   totalJobs: number;
   successfulJobs: number;
   failedJobs: number;
-  successRatePercent: number;
+  /** Null when no concluded jobs exist in the window (docs/21 §5.6) — renders as "—". */
+  successRatePercent: number | null;
   averageRuntimeSeconds: number;
 }
 
@@ -49,10 +50,12 @@ export function SuccessFailureWidget({
         <div className="mt-4 flex items-center justify-between">
           <div>
             <div className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-              {successRatePercent.toFixed(1)}%
+              {successRatePercent === null ? "—" : `${successRatePercent.toFixed(1)}%`}
             </div>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-              Success Rate Across All Pools
+              {successRatePercent === null
+                ? "No concluded jobs in window"
+                : "Success Rate Across All Pools"}
             </p>
           </div>
 

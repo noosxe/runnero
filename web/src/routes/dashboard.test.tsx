@@ -11,6 +11,8 @@ const mockStats = {
   failedJobs24h: 3,
   averageRuntimeSeconds: 192.0,
   successRatePercent: 97.9,
+  knownOutcomeJobs: 142n,
+  queueTimedJobs: 142n,
   queueLatencyTrend: [
     {
       timestamp: "2026-09-04T00:00:00Z",
@@ -114,8 +116,31 @@ describe("DashboardPage", () => {
     expect(screen.getByText("142")).toBeInTheDocument();
     expect(screen.getAllByText("97.9%").length).toBeGreaterThan(0);
     expect(screen.getAllByText("3m 12s").length).toBeGreaterThan(0);
+    expect(screen.getByText("Avg queue wait: 4.2s")).toBeInTheDocument();
+    expect(screen.getByText("139 passed / 3 failed")).toBeInTheDocument();
     expect(screen.getByText("pool-arm64-prod")).toBeInTheDocument();
     expect(screen.getByText("runnero-arm64-prod-a8f12c")).toBeInTheDocument();
+  });
+
+  it("degrades job metrics truthfully when denominators are empty (docs/21 §5.6)", () => {
+    currentStats = {
+      ...mockStats,
+      totalJobs24h: 5,
+      successfulJobs24h: 5,
+      failedJobs24h: 0,
+      successRatePercent: 100,
+      knownOutcomeJobs: 0n,
+      queueTimedJobs: 0n,
+    };
+
+    render(<DashboardPage />);
+
+    // Known-outcome denominator empty: no fabricated 100% — an explicit "—".
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No concluded jobs in window").length).toBeGreaterThan(0);
+    expect(screen.getByText("Queue timing requires webhooks")).toBeInTheDocument();
+    // ...while the raw totals stay truthful.
+    expect(screen.getAllByText("5").length).toBeGreaterThan(0);
   });
 
   it("renders empty state when no runner pools or job executions exist", () => {
