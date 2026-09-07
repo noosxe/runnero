@@ -161,7 +161,7 @@ func TestDaemonServesHealthEndpoints(t *testing.T) {
 	}
 	want := map[string]string{"db": "ok", "docker": "ok", "auditor": "ok"}
 	if body := getHealth(t, base+"/readyz"); body.Status != "ready" || fmt.Sprint(body.Checks) != fmt.Sprint(want) {
-		t.Errorf("GET /readyz = %+v, want status ready with stub checks %v", body, want)
+		t.Errorf("GET /readyz = %+v, want status ready with checks %v", body, want)
 	}
 
 	cancel()
