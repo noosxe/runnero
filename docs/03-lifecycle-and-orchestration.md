@@ -41,6 +41,8 @@ messages, errs := cli.Events(ctx, types.EventsOptions{})
 
 Upon receiving a `"die"` or `"destroy"` event for a container matching the supervisor labels, the supervisor immediately triggers the provisioning of a replacement runner, keeping pool latency low.
 
+**Runner busy-state sync (planned, docs/19):** the audit cycle additionally polls the forge's registered-runner API (optional `RunnerLister` provider interface) and reconciles `IsBusy` for tracked runners, making busy/idle state converge every cycle. `workflow_job` webhooks remain the sub-second fast path; the poll heals missed or lost webhook events and prevents scale-down from draining runners that are actually mid-job.
+
 ## 3b. Dual-Mode Scaling Engine
 
 The supervisor supports two scaling modes, determined by each pool's `GitProvider.ScalingMode()`:

@@ -332,6 +332,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **Runner State Busy Sync:** Poll the forge's registered-runner API (`RunnerLister` provider interface, e.g. GitHub's runners endpoint with `busy`/`online` per runner) every audit cycle as the authoritative source of runner busy state, with `workflow_job` webhooks kept as the sub-second fast path — so the supervisor UI, API, and scaling decisions converge on real busy/idle state even when webhook events are missed or not configured (`docs/19`). *[Design Phase]*
 
 ---
 
