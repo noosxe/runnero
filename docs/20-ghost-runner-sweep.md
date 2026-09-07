@@ -2,8 +2,8 @@
 
 | | |
 | :--- | :--- |
-| **Status** | *[Design Phase]* — pending review |
-| **Milestone** | Ghost Runner Sweep (M24) |
+| **Status** | Shipped — implemented on `feature/ghost-runner-sweep` (design approved via PR #178) |
+| **Milestone** | Ghost Runner Sweep (M24) — RUN-114 → RUN-115 |
 | **Related** | `docs/03` §7 (Graceful Shutdown Protocol), `docs/19` (Runner State Busy Sync — provides the listing), `docs/02` §3.2 (Provider Abstractions) |
 | **Bug** | Orphaned GitHub runner registrations survive their containers and linger as `Offline` on the repo's Runners page |
 
@@ -96,8 +96,36 @@ Wiring the API into the death paths directly would close the window faster but d
 
 ## 7. Resolved Decisions (Design Review)
 
-_(to be recorded after review)_
+- **Design approved as proposed** (PR #178 merged without change requests):
+  listing-driven sweep with the five-rule gate, consecutive-cycle grace
+  instead of timestamps, fail-open retry semantics.
+- **Implementation order:** RUN-114 (sweep engine + tests) → RUN-115
+  (docs, this change).
 
 ## 8. Implementation Notes (as-built)
 
-_(to be recorded after implementation)_
+- **Structure:** `syncRunnerBusyStates` was split into `fetchRemoteRunners`
+  (shared listing helper returning `(listing, target)`) and
+  `applyRemoteBusyState` (busy convergence, semantics unchanged);
+  `ghostSweep` consumes the same listing immediately after. Both run in
+  `reconcilePoolWithProvider` before classification feeds scaling.
+- **API-call note:** pools with zero tracked runners previously skipped the
+  listing entirely; they now list once per cycle so scaled-to-zero pools
+  still sweep. Steady-state cost remains one list per pool per cycle.
+- **Counters** live in-memory on the controller (`ghostCounters`), guarded
+  by a dedicated mutex held for the whole sweep body — `reconcilePool` runs
+  concurrently (control loop + die-event handler), and the lock pattern
+  matches the existing drain paths, which already perform network calls
+  under lock.
+- **Exactly-once:** a successful deregistration drops the counter; the
+  listing then drops the name, keeping a re-registration start fresh. The
+  mock listing is static, so tests model forge removal explicitly.
+- **Tests (6, controller-level):** sweep lands on the Nth consecutive
+  offline cycle and fires exactly once; tracked (even offline-at-forge),
+  busy, and foreign-name entries are never swept; a single online cycle
+  resets the counter (flap protection); deregistration failure keeps the
+  counter and retries next cycle; busy sync + sweep share exactly one list
+  call per cycle.
+- **Config surface:** `ControllerOptions.GhostSweepOfflineCycles` (default
+  3) and `GhostSweepMaxDeregistrations` (default 50); non-positive values
+  fall back to defaults. No DB schema change.
