@@ -65,6 +65,8 @@ type mockGitProvider struct {
 	remoteRunners []provider.RemoteRunnerStatus
 	listErr       error
 	listCalls     int
+	deregErr      error
+	deregCalls    int
 }
 
 func (m *mockGitProvider) ListRunners(ctx context.Context, scope provider.RegistrationScope, targetURL string) ([]provider.RemoteRunnerStatus, error) {
@@ -85,6 +87,10 @@ func (m *mockGitProvider) GetRegistrationToken(ctx context.Context, scope provid
 }
 
 func (m *mockGitProvider) DeregisterRunner(ctx context.Context, scope provider.RegistrationScope, targetURL, runnerName string) error {
+	m.deregCalls++
+	if m.deregErr != nil {
+		return m.deregErr
+	}
 	m.deregistered = append(m.deregistered, runnerName)
 	return nil
 }
