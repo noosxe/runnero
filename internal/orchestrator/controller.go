@@ -817,6 +817,66 @@ func (c *PoolController) validateAndProvisionPool(ctx context.Context, p db.Runn
 	return c.reconcilePoolWithProvider(ctx, p, gitProv)
 }
 
+// syncRunnerBusyStates converges tracked runners' IsBusy flags with the
+// provider's registered-runner state (docs/19 §2.3). The forge API is the
+// authoritative source; workflow_job webhooks remain the sub-second fast path.
+// Best-effort by design: providers without RunnerLister support and listing
+// failures are skipped without blocking the reconcile (fail-open).
+func (c *PoolController) syncRunnerBusyStates(ctx context.Context, gitProv provider.GitProvider, p db.RunnerPool) {
+	if gitProv == nil || c.reconciler == nil {
+		return
+	}
+	lister, ok := gitProv.(provider.RunnerLister)
+	if !ok {
+		return
+	}
+
+	tracked := c.reconciler.TrackedPoolRunners(p.Name)
+	if len(tracked) == 0 {
+		return
+	}
+
+	targets := c.loadPoolTargets(ctx, p)
+	if len(targets) == 0 {
+		return
+	}
+
+	scope := provider.RegistrationScope(p.Scope)
+	for _, target := range targets {
+		remote, err := lister.ListRunners(ctx, scope, target)
+		if err != nil {
+			c.logger.Warn("syncing runner busy state failed",
+				"pool", p.Name, "target", target, "err", err)
+			continue
+		}
+
+		remoteByName := make(map[string]provider.RemoteRunnerStatus, len(remote))
+		for _, r := range remote {
+			remoteByName[r.Name] = r
+		}
+
+		for _, r := range tracked {
+			state, found := remoteByName[r.Name]
+			if !found {
+				// Absent from the listing: leave state untouched — the
+				// deregistration lifecycle owns runner removal (docs/19 §2.3).
+				continue
+			}
+			if !state.Online {
+				// Offline guard: preserve current state against
+				// registration/contact races (docs/19 §2.3).
+				continue
+			}
+			if r.IsBusy != state.Busy {
+				c.reconciler.MarkRunnerBusy(r.Name, state.Busy)
+			}
+		}
+		// First successful target satisfies the pool: all runners in a pool
+		// register under the same scope/target set (docs/02 §3.3).
+		return
+	}
+}
+
 func (c *PoolController) reconcilePool(ctx context.Context, p db.RunnerPool) error {
 	if c.providerResolver == nil {
 		c.setPoolError(p.Name, p.ID, ErrCodeProviderAuthFailed, "No Git provider resolver configured")
@@ -835,6 +895,12 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	if c.engine == nil || c.reconciler == nil {
 		return nil
 	}
+
+	// Converge runner busy state from the provider's registered-runner API
+	// (docs/19 §2.3) BEFORE the classification below feeds scaling decisions,
+	// so missed webhook events cannot cause mid-job drains or phantom idle.
+	// Webhooks remain the sub-second fast path; this poll heals drift.
+	c.syncRunnerBusyStates(ctx, gitProv, p)
 
 	tracked := c.reconciler.TrackedPoolRunners(p.Name)
 	var idleRunners []RunnerStatus
