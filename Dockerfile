@@ -71,6 +71,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Configure Go to leave the module cache writable, preventing cache permission issues
 ENV GOFLAGS="-modcacherw"
 
+# GitHub-hosted-runner parity environment (docs/18 §3.4): ImageOS/ImageVersion
+# identify the image to actions, RUNNER_TOOL_CACHE gives setup-* actions the
+# hosted-standard on-demand toolchain location.
+ENV ImageOS=ubuntu24
+ENV RUNNER_TOOL_CACHE=/opt/hostedtoolcache
+ARG IMAGE_VERSION=24.04.0
+ENV ImageVersion=${IMAGE_VERSION}
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install essential CLI tools required for runner setup, basic workflows, and Docker repository setup
@@ -105,11 +113,31 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install GitHub ubuntu-24.04 hosted-runner parity apt packages (docs/18 Tier 1).
+# The manifest-driven installer skips already-present packages and performs a
+# single apt transaction with list cleanup in this same layer.
+# hadolint ignore=DL3008 DL3009
+COPY src/runner-parity-packages.txt src/install-parity-packages.sh /tmp/parity/
+RUN /tmp/parity/install-parity-packages.sh /tmp/parity/runner-parity-packages.txt \
+    && rm -rf /tmp/parity
+
 # Establish a dedicated non-root user and group with UID 1001 and GID 1001 (Least Privilege)
 RUN groupadd -g 1001 runner \
     && useradd -m -u 1001 -g 1001 -s /bin/bash runner \
     && mkdir -p /home/runner/.cache /home/runner/.config \
     && chown -R 1001:1001 /home/runner
+
+# Grant the runner user passwordless sudo, matching GitHub-hosted runners
+# (docs/18 Tier 2 / §3.3). Sudo itself is installed by the parity manifest;
+# visudo validates the drop-in so a malformed file can never ship.
+RUN usermod -aG sudo runner \
+    && echo 'runner ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-runner \
+    && chmod 0440 /etc/sudoers.d/90-runner \
+    && visudo -cf /etc/sudoers.d/90-runner > /dev/null
+
+# Hosted-standard on-demand toolchain cache for actions/setup-* (docs/18 Tier 4)
+RUN mkdir -p /opt/hostedtoolcache \
+    && chown -R 1001:1001 /opt/hostedtoolcache
 
 # Copy verified binaries and runner distribution from downloader stage (read-only for non-root runner)
 COPY --from=downloader --chown=root:root --chmod=755 /build/bin/act_runner /usr/local/bin/act_runner

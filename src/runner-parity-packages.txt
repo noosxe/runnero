@@ -50,7 +50,8 @@ texinfo
 tk
 tree
 tzdata
-upx
+# Ubuntu package name for upstream 'upx' (UPX executable packer)
+upx-ucl
 xz-utils
 zsync
 
@@ -70,7 +71,8 @@ lz4
 m4
 mediainfo
 net-tools
-netcat
+# Virtual 'netcat' upstream; the openbsd variant is the standard provider
+netcat-openbsd
 p7zip-full
 parallel
 patchelf

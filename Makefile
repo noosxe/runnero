@@ -32,10 +32,6 @@ build-web:
 build: build-web
 	go build -ldflags "-X main.version=$(VERSION)" -o bin/$(BINARY) ./cmd/$(BINARY)
 
-## build-image-runner: build local runner container image
-build-image-runner:
-	docker build -f Dockerfile -t ghcr.io/noosxe/runnero:local .
-
 ## build-image-supervisor: build local supervisor container image
 build-image-supervisor:
 	docker build -f Dockerfile.supervisor -t ghcr.io/noosxe/runnero-supervisor:local .
@@ -59,6 +55,11 @@ lint-web:
 ## fmt-web: format frontend sources in place with oxfmt
 fmt-web:
 	cd web && pnpm run format
+
+## build-image-runner: build local runner container image
+build-image-runner:
+	docker build -f Dockerfile -t ghcr.io/noosxe/runnero:local \
+		--build-arg IMAGE_VERSION=24.04.$$(date +%Y%m) .
 
 ## test-scripts: run unit tests for runner image scripts
 test-scripts:
