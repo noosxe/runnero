@@ -168,6 +168,7 @@ message DiscoverTargetsResponse {
 service AuthProfileService {
   rpc ListAuthProfiles (ListAuthProfilesRequest) returns (ListAuthProfilesResponse);
   rpc CreateAuthProfile (CreateAuthProfileRequest) returns (CreateAuthProfileResponse);
+  rpc UpdateAuthProfile (UpdateAuthProfileRequest) returns (UpdateAuthProfileResponse); // Design: docs/17
   rpc DeleteAuthProfile (DeleteAuthProfileRequest) returns (DeleteAuthProfileResponse);
 }
 
@@ -195,6 +196,19 @@ message CreateAuthProfileRequest {
 }
 
 message CreateAuthProfileResponse {
+  AuthProfile profile = 1;
+}
+
+message UpdateAuthProfileRequest {
+  int64 id = 1;                   // Target profile (required, > 0)
+  string name = 2;                // New display name (required, unique)
+  string auth_method = 3;         // "github_app", "gitea_token", "forgejo_token", "pat"
+  int64 app_id = 4;               // GitHub App only (required > 0 for github_app)
+  bytes private_key = 5;          // Write-only; empty = keep existing key
+  string token = 6;               // Write-only; empty = keep existing token
+}
+
+message UpdateAuthProfileResponse {
   AuthProfile profile = 1;
 }
 

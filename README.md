@@ -330,6 +330,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **Auth Profile Editing:** *[Design Phase]* Full edit workflow for Git auth profiles (`docs/17`): rename, secret rotation (PAT / GitHub App key / Gitea & Forgejo tokens), and auth-method migration on existing profiles without deleting runner pools — with the write-only secret model and AES-256-GCM at-rest encryption preserved.
 
 ---
 
