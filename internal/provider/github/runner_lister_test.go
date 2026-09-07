@@ -213,3 +213,176 @@ func TestListRunnersAPIError(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func newRunnerTestClient(t *testing.T, mux *http.ServeMux) *github.Client {
+	t.Helper()
+	server := httptest.NewServer(mux)
+	t.Cleanup(func() { server.Close() })
+
+	client, err := github.NewPATProvider("valid-pat-secret", github.WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("NewPATProvider failed: %v", err)
+	}
+	return client
+}
+
+func TestDeregisterRunnerRepoScope(t *testing.T) {
+	var gotListQuery, gotDeleteMethod, gotDeletePath, gotDeleteAuth string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/my-org/my-repo/actions/runners/1001" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		gotDeleteMethod = r.Method
+		gotDeletePath = r.URL.Path
+		gotDeleteAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			gotListQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(runnersPayload(t, [][3]any{
+				{"runnero-idle", false, true},
+				{"runnero-ghost", false, false},
+			})))
+		default:
+			t.Errorf("unexpected method %s", r.Method)
+		}
+	})
+	client := newRunnerTestClient(t, mux)
+
+	err := client.DeregisterRunner(context.Background(), provider.ScopeRepo, "https://github.com/my-org/my-repo", "runnero-ghost")
+	if err != nil {
+		t.Fatalf("DeregisterRunner failed: %v", err)
+	}
+
+	// "runnero-ghost" is payload index 1 → id 1001.
+	if gotDeletePath != "/repos/my-org/my-repo/actions/runners/1001" {
+		t.Errorf("unexpected delete path: %s", gotDeletePath)
+	}
+	if gotDeleteMethod != http.MethodDelete {
+		t.Errorf("unexpected method: %s", gotDeleteMethod)
+	}
+	if gotDeleteAuth != "Bearer valid-pat-secret" {
+		t.Errorf("unexpected Authorization header: %q", gotDeleteAuth)
+	}
+	if gotListQuery != "per_page=100&page=1" {
+		t.Errorf("unexpected list query: %s", gotListQuery)
+	}
+}
+
+func TestDeregisterRunnerOrgAndEnterpriseScopes(t *testing.T) {
+	deleted := make(map[string]string) // subpath → scope key
+	mux := http.NewServeMux()
+	mux.HandleFunc("/orgs/my-org/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(runnersPayload(t, [][3]any{{"org-ghost", false, false}})))
+	})
+	mux.HandleFunc("/orgs/my-org/actions/runners/", func(w http.ResponseWriter, r *http.Request) {
+		deleted[r.URL.Path] = "org"
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("/enterprises/my-ent/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(runnersPayload(t, [][3]any{{"ent-ghost", false, false}})))
+	})
+	mux.HandleFunc("/enterprises/my-ent/actions/runners/", func(w http.ResponseWriter, r *http.Request) {
+		deleted[r.URL.Path] = "ent"
+		w.WriteHeader(http.StatusNoContent)
+	})
+	client := newRunnerTestClient(t, mux)
+	ctx := context.Background()
+
+	if err := client.DeregisterRunner(ctx, provider.ScopeOrg, "https://github.com/my-org", "org-ghost"); err != nil {
+		t.Fatalf("DeregisterRunner (org) failed: %v", err)
+	}
+	if err := client.DeregisterRunner(ctx, provider.ScopeGlobal, "https://github.com/my-ent", "ent-ghost"); err != nil {
+		t.Fatalf("DeregisterRunner (enterprise) failed: %v", err)
+	}
+
+	if deleted["/orgs/my-org/actions/runners/1000"] != "org" {
+		t.Errorf("expected org-scope delete of runner 1000, got %v", deleted)
+	}
+	if deleted["/enterprises/my-ent/actions/runners/1000"] != "ent" {
+		t.Errorf("expected enterprise-scope delete of runner 1000, got %v", deleted)
+	}
+}
+func TestDeregisterRunnerNameAbsentIsSuccess(t *testing.T) {
+	deleteCalled := false
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_, _ = w.Write([]byte(runnersPayload(t, [][3]any{{"someone-else", false, true}})))
+	})
+	client := newRunnerTestClient(t, mux)
+
+	if err := client.DeregisterRunner(context.Background(), provider.ScopeRepo, "https://github.com/my-org/my-repo", "runnero-gone"); err != nil {
+		t.Fatalf("absent name must be treated as success, got: %v", err)
+	}
+	if deleteCalled {
+		t.Error("no DELETE must be issued when the name cannot be resolved")
+	}
+}
+
+func TestDeregisterRunnerDelete404IsSuccess(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(runnersPayload(t, [][3]any{{"runnero-ghost", false, false}})))
+	})
+	client := newRunnerTestClient(t, mux)
+
+	if err := client.DeregisterRunner(context.Background(), provider.ScopeRepo, "https://github.com/my-org/my-repo", "runnero-ghost"); err != nil {
+		t.Fatalf("404 on delete (already removed) must be success, got: %v", err)
+	}
+}
+
+func TestDeregisterRunnerListError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			t.Error("DELETE must not be attempted when listing fails")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("boom"))
+	})
+	client := newRunnerTestClient(t, mux)
+
+	err := client.DeregisterRunner(context.Background(), provider.ScopeRepo, "https://github.com/my-org/my-repo", "runnero-ghost")
+	if err == nil {
+		t.Fatal("expected an error when listing fails")
+	}
+	if !strings.Contains(err.Error(), "status 500") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestDeregisterRunnerDeleteError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("forbidden"))
+	})
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(runnersPayload(t, [][3]any{{"runnero-ghost", false, false}})))
+	})
+	client := newRunnerTestClient(t, mux)
+
+	err := client.DeregisterRunner(context.Background(), provider.ScopeRepo, "https://github.com/my-org/my-repo", "runnero-ghost")
+	if err == nil {
+		t.Fatal("expected an error when the delete fails")
+	}
+	if !strings.Contains(err.Error(), "status 403") || !strings.Contains(err.Error(), "runnero-ghost") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

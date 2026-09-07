@@ -227,6 +227,24 @@ func (c *Client) GetRegistrationToken(ctx context.Context, scope provider.Regist
 	return tokenResp.Token, nil
 }
 
+
+// runnersEndpoint returns the registered-runners collection endpoint for the
+// scope, shared by ListRunners and DeregisterRunner (docs/19 §2.2, docs/20 §4.3).
+func runnersEndpoint(baseURL string, scope provider.RegistrationScope, owner, repo string) (string, error) {
+	switch scope {
+	case provider.ScopeRepo:
+		if repo == "" {
+			return "", fmt.Errorf("%w: repository name required for repo scope", ErrInvalidTargetURL)
+		}
+		return fmt.Sprintf("%s/repos/%s/%s/actions/runners", baseURL, owner, repo), nil
+	case provider.ScopeOrg:
+		return fmt.Sprintf("%s/orgs/%s/actions/runners", baseURL, owner), nil
+	case provider.ScopeGlobal:
+		return fmt.Sprintf("%s/enterprises/%s/actions/runners", baseURL, owner), nil
+	default:
+		return "", fmt.Errorf("unsupported registration scope: %q", scope)
+	}
+}
 // ListRunners implements provider.RunnerLister (docs/19 §2.2): returns the registered
 // runners and their busy/online state for the target, following the same scope-based
 // endpoints as the registration flow and reusing its token resolution.
@@ -241,19 +259,9 @@ func (c *Client) ListRunners(ctx context.Context, scope provider.RegistrationSco
 		return nil, err
 	}
 
-	var endpoint string
-	switch scope {
-	case provider.ScopeRepo:
-		if repo == "" {
-			return nil, fmt.Errorf("%w: repository name required for repo scope", ErrInvalidTargetURL)
-		}
-		endpoint = fmt.Sprintf("%s/repos/%s/%s/actions/runners", c.baseURL, owner, repo)
-	case provider.ScopeOrg:
-		endpoint = fmt.Sprintf("%s/orgs/%s/actions/runners", c.baseURL, owner)
-	case provider.ScopeGlobal:
-		endpoint = fmt.Sprintf("%s/enterprises/%s/actions/runners", c.baseURL, owner)
-	default:
-		return nil, fmt.Errorf("unsupported registration scope: %q", scope)
+	endpoint, err := runnersEndpoint(c.baseURL, scope, owner, repo)
+	if err != nil {
+		return nil, err
 	}
 
 	const perPage = 100
@@ -312,6 +320,109 @@ func (c *Client) ListRunners(ctx context.Context, scope provider.RegistrationSco
 		}
 	}
 	return all, nil
+}
+
+// DeregisterRunner implements provider.RunnerDeregistrar (docs/20 §4.3): removes a
+// registered runner from the forge by name. The runner id is resolved via the
+// scope's runners listing, then deleted with the same credential the
+// registration flow already uses. A name absent from the listing and a 404 on
+// delete both count as success — the ghost sweep re-runs every cycle and must
+// tolerate a forge that removed the registration concurrently.
+func (c *Client) DeregisterRunner(ctx context.Context, scope provider.RegistrationScope, targetURL, runnerName string) error {
+	owner, repo, err := parseTargetURL(targetURL)
+	if err != nil {
+		return err
+	}
+
+	authToken, err := c.getAuthBearerToken(ctx, owner, repo)
+	if err != nil {
+		return err
+	}
+
+	endpoint, err := runnersEndpoint(c.baseURL, scope, owner, repo)
+	if err != nil {
+		return err
+	}
+
+	const perPage = 100
+	// maxListPages bounds pagination as a loop guard against API misbehaviour;
+	// 50 pages × 100 runners is far beyond any realistic supervisor-managed fleet.
+	const maxListPages = 50
+
+	var runnerID int64
+	found := false
+	for page := 1; page <= maxListPages && !found; page++ {
+		listURL := fmt.Sprintf("%s?per_page=%d&page=%d", endpoint, perPage, page)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+authToken)
+		c.setCommonHeaders(req)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("listing registered runners to resolve %q: %w", runnerName, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			return fmt.Errorf("failed to list registered runners (status %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		}
+
+		var listResp struct {
+			Runners []struct {
+				ID   int64  `json:"id"`
+				Name string `json:"name"`
+			} `json:"runners"`
+		}
+		err = json.NewDecoder(resp.Body).Decode(&listResp)
+		closeErr := resp.Body.Close()
+		if err != nil {
+			return fmt.Errorf("decoding runners list response: %w", err)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("closing runners list response: %w", closeErr)
+		}
+
+		for _, r := range listResp.Runners {
+			if r.Name == runnerName {
+				runnerID = r.ID
+				found = true
+				break
+			}
+		}
+
+		// Stop at a short page; the API never pads trailing pages.
+		if len(listResp.Runners) < perPage {
+			break
+		}
+	}
+	if !found {
+		// Registration no longer exists — deregistration already complete.
+		return nil
+	}
+
+	deleteURL := fmt.Sprintf("%s/%d", endpoint, runnerID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, deleteURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	c.setCommonHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("deleting registered runner %q: %w", runnerName, err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusNotFound:
+		return nil
+	default:
+		return fmt.Errorf("failed to delete registered runner %q (status %d): %s", runnerName, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
 }
 
 // GetRenovateToken returns an installation access token (for Apps) or the PAT directly.
@@ -427,6 +538,7 @@ func (c *Client) getInstallationTokenByID(ctx context.Context, installationID in
 }
 
 var _ provider.AppMetadataProvider = (*Client)(nil)
+var _ provider.RunnerDeregistrar = (*Client)(nil)
 
 // GetAppMetadata returns the app's install URL and active installations list.
 func (c *Client) GetAppMetadata(ctx context.Context) (string, []provider.AppInstallation, error) {
