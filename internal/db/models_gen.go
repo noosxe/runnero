@@ -53,6 +53,12 @@ type JobHistory struct {
 	StartedAt        sql.NullTime   `json:"started_at"`
 	CompletedAt      sql.NullTime   `json:"completed_at"`
 	LogRetentionPath sql.NullString `json:"log_retention_path"`
+	JobID            sql.NullInt64  `json:"job_id"`
+	RunID            sql.NullInt64  `json:"run_id"`
+	WorkflowName     sql.NullString `json:"workflow_name"`
+	HeadBranch       sql.NullString `json:"head_branch"`
+	HeadSha          sql.NullString `json:"head_sha"`
+	Source           string         `json:"source"`
 	CreatedAt        time.Time      `json:"created_at"`
 }
 

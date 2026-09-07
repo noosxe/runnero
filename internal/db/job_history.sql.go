@@ -11,6 +11,77 @@ import (
 	"time"
 )
 
+const closeAllOpenJobsInterrupted = `-- name: CloseAllOpenJobsInterrupted :execrows
+UPDATE job_history
+SET completed_at = ?,
+    status = 'interrupted'
+WHERE completed_at IS NULL
+`
+
+func (q *Queries) CloseAllOpenJobsInterrupted(ctx context.Context, completedAt sql.NullTime) (int64, error) {
+	result, err := q.db.ExecContext(ctx, closeAllOpenJobsInterrupted, completedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const closeOpenJobRow = `-- name: CloseOpenJobRow :execrows
+UPDATE job_history
+SET completed_at = ?,
+    status = ?,
+    log_retention_path = ?
+WHERE pool_id = ?
+  AND runner_name = ?
+  AND completed_at IS NULL
+`
+
+type CloseOpenJobRowParams struct {
+	CompletedAt      sql.NullTime   `json:"completed_at"`
+	Status           string         `json:"status"`
+	LogRetentionPath sql.NullString `json:"log_retention_path"`
+	PoolID           int64          `json:"pool_id"`
+	RunnerName       string         `json:"runner_name"`
+}
+
+func (q *Queries) CloseOpenJobRow(ctx context.Context, arg CloseOpenJobRowParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, closeOpenJobRow,
+		arg.CompletedAt,
+		arg.Status,
+		arg.LogRetentionPath,
+		arg.PoolID,
+		arg.RunnerName,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const closeStaleOpenJobsSince = `-- name: CloseStaleOpenJobsSince :execrows
+UPDATE job_history
+SET completed_at = ?,
+    status = 'interrupted'
+WHERE completed_at IS NULL
+  AND started_at IS NOT NULL
+  AND started_at < ?
+  AND pool_id = ?
+`
+
+type CloseStaleOpenJobsSinceParams struct {
+	CompletedAt sql.NullTime `json:"completed_at"`
+	StartedAt   sql.NullTime `json:"started_at"`
+	PoolID      int64        `json:"pool_id"`
+}
+
+func (q *Queries) CloseStaleOpenJobsSince(ctx context.Context, arg CloseStaleOpenJobsSinceParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, closeStaleOpenJobsSince, arg.CompletedAt, arg.StartedAt, arg.PoolID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const countJobHistory = `-- name: CountJobHistory :one
 SELECT COUNT(*) FROM job_history
 `
@@ -62,10 +133,11 @@ INSERT INTO job_history (
     queued_at,
     started_at,
     completed_at,
-    log_retention_path
+    log_retention_path,
+    source
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?
-) RETURNING id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, created_at
+    ?, ?, ?, ?, ?, ?, ?, ?
+) RETURNING id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at
 `
 
 type CreateJobHistoryParams struct {
@@ -76,6 +148,7 @@ type CreateJobHistoryParams struct {
 	StartedAt        sql.NullTime   `json:"started_at"`
 	CompletedAt      sql.NullTime   `json:"completed_at"`
 	LogRetentionPath sql.NullString `json:"log_retention_path"`
+	Source           string         `json:"source"`
 }
 
 func (q *Queries) CreateJobHistory(ctx context.Context, arg CreateJobHistoryParams) (JobHistory, error) {
@@ -87,6 +160,7 @@ func (q *Queries) CreateJobHistory(ctx context.Context, arg CreateJobHistoryPara
 		arg.StartedAt,
 		arg.CompletedAt,
 		arg.LogRetentionPath,
+		arg.Source,
 	)
 	var i JobHistory
 	err := row.Scan(
@@ -98,6 +172,12 @@ func (q *Queries) CreateJobHistory(ctx context.Context, arg CreateJobHistoryPara
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.LogRetentionPath,
+		&i.JobID,
+		&i.RunID,
+		&i.WorkflowName,
+		&i.HeadBranch,
+		&i.HeadSha,
+		&i.Source,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -119,6 +199,8 @@ SELECT
     COUNT(*) as total_jobs,
     COALESCE(SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), 0) as successful_jobs,
     COALESCE(SUM(CASE WHEN status = 'failure' OR status = 'failed' THEN 1 ELSE 0 END), 0) as failed_jobs,
+    COALESCE(SUM(CASE WHEN status IN ('success', 'failure', 'cancelled', 'timeout') THEN 1 ELSE 0 END), 0) as known_outcome_jobs,
+    COALESCE(SUM(CASE WHEN queued_at IS NOT NULL THEN 1 ELSE 0 END), 0) as queue_timed_jobs,
     COALESCE(AVG(CASE WHEN started_at IS NOT NULL AND queued_at IS NOT NULL THEN (CAST(strftime('%s', replace(substr(started_at, 1, 19), 'T', ' ')) AS REAL) - CAST(strftime('%s', replace(substr(queued_at, 1, 19), 'T', ' ')) AS REAL)) END), 0.0) as avg_queue_seconds,
     COALESCE(AVG(CASE WHEN completed_at IS NOT NULL AND started_at IS NOT NULL THEN (CAST(strftime('%s', replace(substr(completed_at, 1, 19), 'T', ' ')) AS REAL) - CAST(strftime('%s', replace(substr(started_at, 1, 19), 'T', ' ')) AS REAL)) END), 0.0) as avg_runtime_seconds
 FROM job_history
@@ -132,6 +214,8 @@ type GetHourlyJobStatsSinceRow struct {
 	TotalJobs         int64       `json:"total_jobs"`
 	SuccessfulJobs    interface{} `json:"successful_jobs"`
 	FailedJobs        interface{} `json:"failed_jobs"`
+	KnownOutcomeJobs  interface{} `json:"known_outcome_jobs"`
+	QueueTimedJobs    interface{} `json:"queue_timed_jobs"`
 	AvgQueueSeconds   interface{} `json:"avg_queue_seconds"`
 	AvgRuntimeSeconds interface{} `json:"avg_runtime_seconds"`
 }
@@ -150,6 +234,8 @@ func (q *Queries) GetHourlyJobStatsSince(ctx context.Context, createdAt time.Tim
 			&i.TotalJobs,
 			&i.SuccessfulJobs,
 			&i.FailedJobs,
+			&i.KnownOutcomeJobs,
+			&i.QueueTimedJobs,
 			&i.AvgQueueSeconds,
 			&i.AvgRuntimeSeconds,
 		); err != nil {
@@ -167,7 +253,7 @@ func (q *Queries) GetHourlyJobStatsSince(ctx context.Context, createdAt time.Tim
 }
 
 const getJobHistoryById = `-- name: GetJobHistoryById :one
-SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, created_at FROM job_history
+SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at FROM job_history
 WHERE id = ? LIMIT 1
 `
 
@@ -183,6 +269,12 @@ func (q *Queries) GetJobHistoryById(ctx context.Context, id int64) (JobHistory, 
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.LogRetentionPath,
+		&i.JobID,
+		&i.RunID,
+		&i.WorkflowName,
+		&i.HeadBranch,
+		&i.HeadSha,
+		&i.Source,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -193,6 +285,8 @@ SELECT
     COUNT(*) as total_jobs,
     COALESCE(SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), 0) as successful_jobs,
     COALESCE(SUM(CASE WHEN status = 'failure' OR status = 'failed' THEN 1 ELSE 0 END), 0) as failed_jobs,
+    COALESCE(SUM(CASE WHEN status IN ('success', 'failure', 'cancelled', 'timeout') THEN 1 ELSE 0 END), 0) as known_outcome_jobs,
+    COALESCE(SUM(CASE WHEN queued_at IS NOT NULL THEN 1 ELSE 0 END), 0) as queue_timed_jobs,
     COALESCE(AVG(CASE WHEN started_at IS NOT NULL AND queued_at IS NOT NULL THEN (CAST(strftime('%s', replace(substr(started_at, 1, 19), 'T', ' ')) AS REAL) - CAST(strftime('%s', replace(substr(queued_at, 1, 19), 'T', ' ')) AS REAL)) END), 0.0) as avg_queue_seconds,
     COALESCE(AVG(CASE WHEN completed_at IS NOT NULL AND started_at IS NOT NULL THEN (CAST(strftime('%s', replace(substr(completed_at, 1, 19), 'T', ' ')) AS REAL) - CAST(strftime('%s', replace(substr(started_at, 1, 19), 'T', ' ')) AS REAL)) END), 0.0) as avg_runtime_seconds
 FROM job_history
@@ -203,6 +297,8 @@ type GetJobStatsSinceRow struct {
 	TotalJobs         int64       `json:"total_jobs"`
 	SuccessfulJobs    interface{} `json:"successful_jobs"`
 	FailedJobs        interface{} `json:"failed_jobs"`
+	KnownOutcomeJobs  interface{} `json:"known_outcome_jobs"`
+	QueueTimedJobs    interface{} `json:"queue_timed_jobs"`
 	AvgQueueSeconds   interface{} `json:"avg_queue_seconds"`
 	AvgRuntimeSeconds interface{} `json:"avg_runtime_seconds"`
 }
@@ -214,14 +310,34 @@ func (q *Queries) GetJobStatsSince(ctx context.Context, createdAt time.Time) (Ge
 		&i.TotalJobs,
 		&i.SuccessfulJobs,
 		&i.FailedJobs,
+		&i.KnownOutcomeJobs,
+		&i.QueueTimedJobs,
 		&i.AvgQueueSeconds,
 		&i.AvgRuntimeSeconds,
 	)
 	return i, err
 }
 
+const getOpenJobRow = `-- name: GetOpenJobRow :one
+SELECT id FROM job_history
+WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL
+LIMIT 1
+`
+
+type GetOpenJobRowParams struct {
+	PoolID     int64  `json:"pool_id"`
+	RunnerName string `json:"runner_name"`
+}
+
+func (q *Queries) GetOpenJobRow(ctx context.Context, arg GetOpenJobRowParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getOpenJobRow, arg.PoolID, arg.RunnerName)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listJobHistory = `-- name: ListJobHistory :many
-SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, created_at FROM job_history
+SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at FROM job_history
 ORDER BY id DESC
 LIMIT ? OFFSET ?
 `
@@ -249,6 +365,12 @@ func (q *Queries) ListJobHistory(ctx context.Context, arg ListJobHistoryParams) 
 			&i.StartedAt,
 			&i.CompletedAt,
 			&i.LogRetentionPath,
+			&i.JobID,
+			&i.RunID,
+			&i.WorkflowName,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.Source,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -265,7 +387,7 @@ func (q *Queries) ListJobHistory(ctx context.Context, arg ListJobHistoryParams) 
 }
 
 const listJobHistoryByPoolId = `-- name: ListJobHistoryByPoolId :many
-SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, created_at FROM job_history
+SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at FROM job_history
 WHERE pool_id = ?
 ORDER BY id DESC
 LIMIT ? OFFSET ?
@@ -295,6 +417,12 @@ func (q *Queries) ListJobHistoryByPoolId(ctx context.Context, arg ListJobHistory
 			&i.StartedAt,
 			&i.CompletedAt,
 			&i.LogRetentionPath,
+			&i.JobID,
+			&i.RunID,
+			&i.WorkflowName,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.Source,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -308,6 +436,47 @@ func (q *Queries) ListJobHistoryByPoolId(ctx context.Context, arg ListJobHistory
 		return nil, err
 	}
 	return items, nil
+}
+
+const openJobLifecycleRow = `-- name: OpenJobLifecycleRow :one
+INSERT INTO job_history (
+    pool_id,
+    runner_name,
+    status,
+    started_at,
+    source
+) VALUES (
+    ?, ?, 'running', ?, 'transition'
+) RETURNING id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at
+`
+
+type OpenJobLifecycleRowParams struct {
+	PoolID     int64        `json:"pool_id"`
+	RunnerName string       `json:"runner_name"`
+	StartedAt  sql.NullTime `json:"started_at"`
+}
+
+func (q *Queries) OpenJobLifecycleRow(ctx context.Context, arg OpenJobLifecycleRowParams) (JobHistory, error) {
+	row := q.db.QueryRowContext(ctx, openJobLifecycleRow, arg.PoolID, arg.RunnerName, arg.StartedAt)
+	var i JobHistory
+	err := row.Scan(
+		&i.ID,
+		&i.PoolID,
+		&i.RunnerName,
+		&i.Status,
+		&i.QueuedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.LogRetentionPath,
+		&i.JobID,
+		&i.RunID,
+		&i.WorkflowName,
+		&i.HeadBranch,
+		&i.HeadSha,
+		&i.Source,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const pruneJobHistoryOlderThan = `-- name: PruneJobHistoryOlderThan :many
@@ -351,7 +520,7 @@ func (q *Queries) PruneJobHistoryOlderThan(ctx context.Context, arg PruneJobHist
 }
 
 const searchJobHistory = `-- name: SearchJobHistory :many
-SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, created_at FROM job_history
+SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at FROM job_history
 WHERE (?1 = 0 OR pool_id = ?1)
   AND (?2 = '' OR runner_name LIKE '%' || ?2 || '%')
   AND (?3 = '' OR status = ?3)
@@ -391,6 +560,12 @@ func (q *Queries) SearchJobHistory(ctx context.Context, arg SearchJobHistoryPara
 			&i.StartedAt,
 			&i.CompletedAt,
 			&i.LogRetentionPath,
+			&i.JobID,
+			&i.RunID,
+			&i.WorkflowName,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.Source,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -412,7 +587,7 @@ SET status = ?,
     completed_at = ?,
     log_retention_path = ?
 WHERE id = ?
-RETURNING id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, created_at
+RETURNING id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at
 `
 
 type UpdateJobHistoryStatusParams struct {
@@ -439,6 +614,12 @@ func (q *Queries) UpdateJobHistoryStatus(ctx context.Context, arg UpdateJobHisto
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.LogRetentionPath,
+		&i.JobID,
+		&i.RunID,
+		&i.WorkflowName,
+		&i.HeadBranch,
+		&i.HeadSha,
+		&i.Source,
 		&i.CreatedAt,
 	)
 	return i, err

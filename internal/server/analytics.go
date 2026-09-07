@@ -70,6 +70,28 @@ func toFloat64(v any) float64 {
 	}
 }
 
+func toInt64(v any) int64 {
+	switch val := v.(type) {
+	case int64:
+		return val
+	case int:
+		return int64(val)
+	case float64:
+		return int64(val)
+	case []byte:
+		var n int64
+		_, _ = fmt.Sscanf(string(val), "%d", &n)
+		return n
+	default:
+		if v != nil {
+			var n int64
+			_, _ = fmt.Sscanf(fmt.Sprintf("%v", v), "%d", &n)
+			return n
+		}
+	}
+	return 0
+}
+
 func toInt32(v any) int32 {
 	switch val := v.(type) {
 	case int64:
@@ -290,6 +312,9 @@ func (s *AnalyticsService) GetSystemStats(ctx context.Context, req *connect.Requ
 		})
 	}
 
+	knownOutcomeJobs := toInt64(row.KnownOutcomeJobs)
+	queueTimedJobs := toInt64(row.QueueTimedJobs)
+
 	return connect.NewResponse(&supervisorv1.GetSystemStatsResponse{
 		TotalActiveRunners:      active,
 		TotalIdleRunners:        idle,
@@ -300,6 +325,8 @@ func (s *AnalyticsService) GetSystemStats(ctx context.Context, req *connect.Requ
 		AverageRuntimeSeconds:   avgRuntime,
 		SuccessRatePercent:      successRate,
 		QueueLatencyTrend:       trend,
+		KnownOutcomeJobs:        knownOutcomeJobs,
+		QueueTimedJobs:          queueTimedJobs,
 		HostArch:                HostArch(),
 		HostOs:                  HostOS(),
 	}), nil

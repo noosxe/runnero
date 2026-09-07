@@ -198,17 +198,90 @@ func (d *DB) Path() string {
 }
 
 // RecordJobTimeout records a timeout event into job_history for a force-terminated hung runner (docs/03 §4, §7).
+// If the runner has an open lifecycle row (docs/21 §5.2), it is closed as 'timeout' instead — never two rows for one job.
 func (d *DB) RecordJobTimeout(ctx context.Context, poolID int64, runnerName, logPath string, startedAt, completedAt time.Time) error {
-	_, err := d.CreateJobHistory(ctx, CreateJobHistoryParams{
+	rows, err := d.CloseOpenJobRow(ctx, CloseOpenJobRowParams{
+		CompletedAt:      sql.NullTime{Time: completedAt.UTC(), Valid: true},
+		Status:           "timeout",
+		LogRetentionPath: sql.NullString{String: logPath, Valid: logPath != ""},
+		PoolID:           poolID,
+		RunnerName:       runnerName,
+	})
+	if err == nil && rows > 0 {
+		return nil
+	}
+
+	_, err = d.CreateJobHistory(ctx, CreateJobHistoryParams{
 		PoolID:           poolID,
 		RunnerName:       runnerName,
 		Status:           "timeout",
 		StartedAt:        sql.NullTime{Time: startedAt, Valid: !startedAt.IsZero()},
 		CompletedAt:      sql.NullTime{Time: completedAt, Valid: !completedAt.IsZero()},
 		LogRetentionPath: sql.NullString{String: logPath, Valid: logPath != ""},
+		Source:           "timeout",
 	})
 	if err != nil {
 		return fmt.Errorf("recording job timeout: %w", err)
 	}
 	return nil
+}
+
+// OpenTransitionJob opens a job_history row for a runner observed transitioning
+// to busy (docs/21 §5.2). Idempotent: if the runner already has an open row
+// (partial unique index docs/21 §5.7), the call is a no-op.
+func (d *DB) OpenTransitionJob(ctx context.Context, poolID int64, runnerName string, startedAt time.Time) error {
+	if _, err := d.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: runnerName}); err == nil {
+		return nil // already open
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("checking open job row: %w", err)
+	}
+	_, err := d.OpenJobLifecycleRow(ctx, OpenJobLifecycleRowParams{
+		PoolID:     poolID,
+		RunnerName: runnerName,
+		StartedAt:  sql.NullTime{Time: startedAt.UTC(), Valid: !startedAt.IsZero()},
+	})
+	if err != nil {
+		return fmt.Errorf("opening transition job row: %w", err)
+	}
+	return nil
+}
+
+// CloseTransitionJob closes a runner's open job_history row with the given
+// terminal status (docs/21 §5.2). A no-op when no row is open.
+func (d *DB) CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status, logPath string, completedAt time.Time) error {
+	if _, err := d.CloseOpenJobRow(ctx, CloseOpenJobRowParams{
+		CompletedAt:      sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
+		Status:           status,
+		LogRetentionPath: sql.NullString{String: logPath, Valid: logPath != ""},
+		PoolID:           poolID,
+		RunnerName:       runnerName,
+	}); err != nil {
+		return fmt.Errorf("closing transition job row: %w", err)
+	}
+	return nil
+}
+
+// CloseInterruptedOpenJobs force-closes every open job_history row as
+// 'interrupted' (docs/21 §5.4 boot recovery). Returns the number of rows closed.
+func (d *DB) CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error) {
+	rows, err := d.CloseAllOpenJobsInterrupted(ctx, sql.NullTime{Time: completedAt.UTC(), Valid: true})
+	if err != nil {
+		return 0, fmt.Errorf("closing interrupted job rows: %w", err)
+	}
+	return rows, nil
+}
+
+// CloseStaleOpenJobs force-closes open job_history rows for a pool whose
+// started_at predates the cutoff as 'interrupted' (docs/21 §5.4 belt-and-braces).
+// Returns the number of rows closed.
+func (d *DB) CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, completedAt time.Time) (int64, error) {
+	rows, err := d.CloseStaleOpenJobsSince(ctx, CloseStaleOpenJobsSinceParams{
+		CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: true},
+		StartedAt:   sql.NullTime{Time: cutoff.UTC(), Valid: true},
+		PoolID:      poolID,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("closing stale job rows: %w", err)
+	}
+	return rows, nil
 }
