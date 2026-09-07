@@ -80,6 +80,14 @@ CREATE TABLE job_history (
     FOREIGN KEY(pool_id) REFERENCES runner_pools(id) ON DELETE CASCADE
 );
 
+
+> **Planned extension (docs/21, Design Phase):** `job_history` gains external job
+> metadata columns (`job_id`, `run_id`, `workflow_name`, `head_branch`, `head_sha`), a
+> `source` column, and an extended status vocabulary (`queued`, `running`,
+> `completed`, `interrupted`) to support the job lifecycle recorder — at most one
+> open row per `(pool_id, runner_name)` via partial unique index. See
+> [docs/21-job-history-recording.md](21-job-history-recording.md).
+
 CREATE TABLE audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,

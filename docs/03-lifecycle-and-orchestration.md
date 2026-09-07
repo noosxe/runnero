@@ -43,6 +43,8 @@ Upon receiving a `"die"` or `"destroy"` event for a container matching the super
 
 **Runner busy-state sync (docs/19):** every audit cycle reconciles `IsBusy` for tracked runners against the forge's registered-runner API (optional `RunnerLister` provider interface; GitHub implemented), so busy/idle state converges each cycle. `workflow_job` webhooks remain the sub-second fast path; the poll heals missed or lost webhook events and prevents scale-down from draining runners that are actually mid-job. Offline runners and names absent from the listing keep their last-known state; listing failures fail open.
 
+**Job lifecycle recording (docs/21):** the same busy-state transitions double as the primary job-history recording signal (webhookless-safe); `workflow_job` webhooks enrich rows with authoritative timestamps, job ids, and conclusions. Feeds the dashboard job KPIs and the History page.
+
 ## 3b. Dual-Mode Scaling Engine
 
 The supervisor supports two scaling modes, determined by each pool's `GitProvider.ScalingMode()`:
