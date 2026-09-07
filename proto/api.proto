@@ -68,6 +68,14 @@ service PoolService {
   rpc DiscoverTargets (DiscoverTargetsRequest) returns (DiscoverTargetsResponse);
 }
 
+enum PoolHealthStatus {
+  POOL_HEALTH_STATUS_UNSPECIFIED = 0;
+  POOL_HEALTH_STATUS_HEALTHY = 1;
+  POOL_HEALTH_STATUS_PROVISIONING = 2;
+  POOL_HEALTH_STATUS_DEGRADED = 3;
+  POOL_HEALTH_STATUS_PAUSED = 4;
+}
+
 message Pool {
   int64 id = 1;
   string name = 2;
@@ -97,6 +105,14 @@ message Pool {
 
   // Multi-target URLs
   repeated string target_urls = 20;
+
+  // Operational State & Diagnostics (read-only, populated by server)
+  PoolHealthStatus health_status = 21;
+  string current_intent = 22;
+  string last_error = 23;
+  string last_error_code = 24;
+  string last_error_timestamp = 25;
+  string last_reconciled_at = 26;
 }
 
 message RenovateConfig {
@@ -179,6 +195,16 @@ message WatchRunnersRequest {
 
 message WatchRunnersResponse {
   repeated RunnerInstance runners = 1;
+  int32 active_runners = 2;
+  int32 idle_runners = 3;
+
+  // Real-time operational diagnostics pushed over the stream
+  PoolHealthStatus health_status = 4;
+  string current_intent = 5;
+  string last_error = 6;
+  string last_error_code = 7;
+  string last_error_timestamp = 8;
+  string last_reconciled_at = 9;
 }
 
 message DiscoverTargetsRequest {

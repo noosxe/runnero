@@ -143,6 +143,9 @@ type PoolController struct {
 	state         ControllerState
 	lastHeartbeat time.Time
 	logger        *slog.Logger
+
+	diagMu      sync.RWMutex
+	diagnostics map[string]PoolDiagnosticState
 }
 
 // NewPoolController creates a new lifecycle control loop engine.
@@ -196,6 +199,7 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		scaleToZeroGracePeriod: gracePeriod,
 		state:                  StateStopped,
 		logger:                 logging.For("controller"),
+		diagnostics:            make(map[string]PoolDiagnosticState),
 	}
 }
 
@@ -793,15 +797,20 @@ func (c *PoolController) loadPoolTargets(ctx context.Context, p db.RunnerPool) [
 
 func (c *PoolController) validateAndProvisionPool(ctx context.Context, p db.RunnerPool) error {
 	if c.providerResolver == nil {
+		c.setPoolError(p.Name, p.ID, ErrCodeProviderAuthFailed, "No Git provider resolver configured")
 		return nil
 	}
 
 	gitProv, err := c.providerResolver.ResolveProvider(ctx, p.AuthProfileID)
 	if err != nil {
+		code, msg := ClassifyReconcileError(err)
+		c.setPoolError(p.Name, p.ID, code, msg)
 		return fmt.Errorf("resolving provider for pool %q: %w", p.Name, err)
 	}
 
 	if err := gitProv.ValidateCredentials(ctx); err != nil {
+		code, msg := ClassifyReconcileError(err)
+		c.setPoolError(p.Name, p.ID, code, msg)
 		return fmt.Errorf("validating provider credentials for pool %q: %w", p.Name, err)
 	}
 
@@ -810,10 +819,13 @@ func (c *PoolController) validateAndProvisionPool(ctx context.Context, p db.Runn
 
 func (c *PoolController) reconcilePool(ctx context.Context, p db.RunnerPool) error {
 	if c.providerResolver == nil {
+		c.setPoolError(p.Name, p.ID, ErrCodeProviderAuthFailed, "No Git provider resolver configured")
 		return nil
 	}
 	gitProv, err := c.providerResolver.ResolveProvider(ctx, p.AuthProfileID)
 	if err != nil {
+		code, msg := ClassifyReconcileError(err)
+		c.setPoolError(p.Name, p.ID, code, msg)
 		return fmt.Errorf("resolving provider: %w", err)
 	}
 	return c.reconcilePoolWithProvider(ctx, p, gitProv)
@@ -838,6 +850,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 
 	targets := c.loadPoolTargets(ctx, p)
 	if len(targets) == 0 {
+		c.setPoolError(p.Name, p.ID, ErrCodeTargetNotFound, "No target repository or organization configured")
 		return nil
 	}
 
@@ -943,8 +956,17 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	queuedForPool := int64(c.QueueLengthForPool(p.Name))
 	needed := effectiveTarget - (activeCount + queuedForPool)
 	if needed <= 0 {
+		intent := ""
+		if p.MinIdleRunners == 0 {
+			intent = fmt.Sprintf("Scale-to-zero active (%d active runner(s))", activeCount)
+		} else {
+			intent = fmt.Sprintf("Warm pool satisfied (%d/%d idle runner(s))", len(idleRunners), p.MinIdleRunners)
+		}
+		c.setPoolHealthy(p.Name, p.ID, intent)
 		return nil
 	}
+
+	c.setPoolProvisioning(p.Name, p.ID, fmt.Sprintf("Launching %d runner(s) (target idle: %d, current idle: %d)", needed, effectiveTarget, len(idleRunners)))
 
 	c.logger.Info("reconciling idle runners for pool",
 		"pool", p.Name,
@@ -972,16 +994,26 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 				"global_active", c.TotalActiveRunners(),
 				"global_max", c.globalMaxRunners,
 			)
+			c.setPoolError(p.Name, p.ID, ErrCodeGlobalQuotaSaturated, fmt.Sprintf("Global runner quota saturated (%d/%d): queued provisioning request", c.TotalActiveRunners(), c.globalMaxRunners))
 			c.enqueueRequest(p.Name, targetURL)
 			continue
 		}
 
 		if err := c.spawnSingleRunner(ctx, p, gitProv, onDemand, targetURL); err != nil {
+			code, msg := ClassifyReconcileError(err)
+			c.setPoolError(p.Name, p.ID, code, msg)
 			return err
 		}
 		activeCount++
 	}
 
+	intent := ""
+	if p.MinIdleRunners == 0 {
+		intent = fmt.Sprintf("Scale-to-zero active (%d active runner(s))", activeCount)
+	} else {
+		intent = fmt.Sprintf("Warm pool satisfied (%d/%d idle runner(s))", len(idleRunners)+int(needed), p.MinIdleRunners)
+	}
+	c.setPoolHealthy(p.Name, p.ID, intent)
 	return nil
 }
 
@@ -1100,6 +1132,89 @@ func (c *PoolController) PoolStats(poolName string) (active int32, idle int32) {
 		}
 	}
 	return active, idle
+}
+
+// PoolDiagnostics returns the live operational health, intent, and reconciliation diagnostics for a pool.
+func (c *PoolController) PoolDiagnostics(poolName string) server.PoolDiagnostics {
+	c.diagMu.RLock()
+	defer c.diagMu.RUnlock()
+
+	diag, ok := c.diagnostics[poolName]
+	if !ok {
+		return server.PoolDiagnostics{
+			HealthStatus:  string(HealthHealthy),
+			CurrentIntent: "Ready",
+		}
+	}
+	return server.PoolDiagnostics{
+		HealthStatus:       string(diag.HealthStatus),
+		CurrentIntent:      diag.CurrentIntent,
+		LastError:          diag.LastError,
+		LastErrorCode:      diag.LastErrorCode,
+		LastErrorTimestamp: diag.LastErrorTimestamp,
+		LastReconciledAt:   diag.LastReconciledAt,
+	}
+}
+
+func (c *PoolController) setPoolProvisioning(poolName string, poolID int64, intent string) {
+	c.diagMu.Lock()
+	defer c.diagMu.Unlock()
+
+	diag, ok := c.diagnostics[poolName]
+	if !ok {
+		diag = PoolDiagnosticState{
+			PoolID:   poolID,
+			PoolName: poolName,
+		}
+	}
+	diag.HealthStatus = HealthProvisioning
+	diag.CurrentIntent = intent
+	diag.LastReconciledAt = time.Now().UTC()
+	c.diagnostics[poolName] = diag
+}
+
+func (c *PoolController) setPoolHealthy(poolName string, poolID int64, intent string) {
+	c.diagMu.Lock()
+	defer c.diagMu.Unlock()
+
+	diag, ok := c.diagnostics[poolName]
+	if !ok {
+		diag = PoolDiagnosticState{
+			PoolID:   poolID,
+			PoolName: poolName,
+		}
+	}
+	diag.HealthStatus = HealthHealthy
+	diag.CurrentIntent = intent
+	diag.LastError = ""
+	diag.LastErrorCode = ""
+	diag.LastReconciledAt = time.Now().UTC()
+	c.diagnostics[poolName] = diag
+}
+
+func (c *PoolController) setPoolError(poolName string, poolID int64, code, msg string) {
+	c.diagMu.Lock()
+	defer c.diagMu.Unlock()
+
+	diag, ok := c.diagnostics[poolName]
+	if !ok {
+		diag = PoolDiagnosticState{
+			PoolID:   poolID,
+			PoolName: poolName,
+		}
+	}
+	diag.HealthStatus = HealthDegraded
+	diag.LastErrorCode = code
+	diag.LastError = msg
+	diag.LastErrorTimestamp = time.Now().UTC()
+	diag.LastReconciledAt = time.Now().UTC()
+	c.diagnostics[poolName] = diag
+}
+
+func (c *PoolController) removePoolDiagnostics(poolName string) {
+	c.diagMu.Lock()
+	defer c.diagMu.Unlock()
+	delete(c.diagnostics, poolName)
 }
 
 // SystemRunnerStats returns the total active (busy executing job) and idle runner counts across all pools.
@@ -1264,6 +1379,8 @@ func (c *PoolController) drainPool(ctx context.Context, poolName string) {
 	}
 	c.queue = remaining
 	c.mu.Unlock()
+
+	c.removePoolDiagnostics(poolName)
 }
 
 // PoolRunners returns all active/idle runners currently tracked for a pool as server.RunnerInstanceInfo.

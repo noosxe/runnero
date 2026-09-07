@@ -7,6 +7,7 @@ import type {
   WatchPoolsResponse,
   WatchRunnersResponse,
   LogChunk,
+  Pool,
 } from "../../gen/api_pb";
 
 export type StreamStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error";
@@ -248,6 +249,25 @@ export function useWatchRunners(poolId: bigint, options?: StreamOptions) {
       if (res.runners) {
         queryClient.setQueryData(queryKeys.runners(poolId), res.runners);
       }
+      queryClient.setQueryData<Pool[]>(queryKeys.pools, (old) => {
+        if (!old) return old;
+        return old.map((p) => {
+          if (p.id === poolId) {
+            return {
+              ...p,
+              activeRunners: res.activeRunners,
+              idleRunners: res.idleRunners,
+              healthStatus: res.healthStatus,
+              currentIntent: res.currentIntent,
+              lastError: res.lastError,
+              lastErrorCode: res.lastErrorCode,
+              lastErrorTimestamp: res.lastErrorTimestamp,
+              lastReconciledAt: res.lastReconciledAt,
+            };
+          }
+          return p;
+        });
+      });
     },
     [queryClient, poolId],
   );

@@ -14,7 +14,10 @@ import {
 } from "../lib/api/query-hooks";
 import { useWatchRunners, useStreamRunnerLogs } from "../lib/api/streaming-hooks";
 import { LogTerminal } from "../components/terminal/log-terminal";
-import type { RunnerInstance, Pool } from "../gen/api_pb";
+import { PoolHealthBadge } from "../components/pools/pool-health-badge";
+import { PoolStatusBanner } from "../components/pools/pool-status-banner";
+import { PoolDiagnosticsCard } from "../components/pools/pool-diagnostics-card";
+import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
 import {
   ArrowLeft,
   Server,
@@ -117,6 +120,7 @@ export function PoolDetailPage() {
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {pool.name}
               </h1>
+              <PoolHealthBadge status={pool.healthStatus} size="md" />
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium border ${
                   isStreamActive
@@ -150,6 +154,10 @@ export function PoolDetailPage() {
         </div>
       </div>
 
+      {/* Operational Status & Diagnostics */}
+      <PoolStatusBanner pool={pool} />
+      <PoolDiagnosticsCard pool={pool} />
+
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
@@ -172,7 +180,28 @@ export function PoolDetailPage() {
             <span className="text-2xl font-bold text-slate-900 dark:text-white">
               {idleInstances}
             </span>
-            <span className="text-xs text-slate-400">target: {pool.minIdleRunners}</span>
+            <span
+              className={`text-xs ${
+                pool.healthStatus === PoolHealthStatus.DEGRADED &&
+                pool.minIdleRunners > 0 &&
+                idleInstances === 0
+                  ? "font-medium text-rose-600 dark:text-rose-400"
+                  : pool.healthStatus === PoolHealthStatus.PROVISIONING &&
+                      idleInstances < pool.minIdleRunners
+                    ? "font-medium text-amber-600 dark:text-amber-400"
+                    : "text-slate-400"
+              }`}
+            >
+              target: {pool.minIdleRunners}
+              {pool.healthStatus === PoolHealthStatus.DEGRADED &&
+              pool.minIdleRunners > 0 &&
+              idleInstances === 0
+                ? " (Reconciliation Failed)"
+                : pool.healthStatus === PoolHealthStatus.PROVISIONING &&
+                    idleInstances < pool.minIdleRunners
+                  ? " (Provisioning...)"
+                  : ""}
+            </span>
           </div>
         </div>
 

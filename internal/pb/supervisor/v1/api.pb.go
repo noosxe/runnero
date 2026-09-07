@@ -21,6 +21,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type PoolHealthStatus int32
+
+const (
+	PoolHealthStatus_POOL_HEALTH_STATUS_UNSPECIFIED  PoolHealthStatus = 0
+	PoolHealthStatus_POOL_HEALTH_STATUS_HEALTHY      PoolHealthStatus = 1
+	PoolHealthStatus_POOL_HEALTH_STATUS_PROVISIONING PoolHealthStatus = 2
+	PoolHealthStatus_POOL_HEALTH_STATUS_DEGRADED     PoolHealthStatus = 3
+	PoolHealthStatus_POOL_HEALTH_STATUS_PAUSED       PoolHealthStatus = 4
+)
+
+// Enum value maps for PoolHealthStatus.
+var (
+	PoolHealthStatus_name = map[int32]string{
+		0: "POOL_HEALTH_STATUS_UNSPECIFIED",
+		1: "POOL_HEALTH_STATUS_HEALTHY",
+		2: "POOL_HEALTH_STATUS_PROVISIONING",
+		3: "POOL_HEALTH_STATUS_DEGRADED",
+		4: "POOL_HEALTH_STATUS_PAUSED",
+	}
+	PoolHealthStatus_value = map[string]int32{
+		"POOL_HEALTH_STATUS_UNSPECIFIED":  0,
+		"POOL_HEALTH_STATUS_HEALTHY":      1,
+		"POOL_HEALTH_STATUS_PROVISIONING": 2,
+		"POOL_HEALTH_STATUS_DEGRADED":     3,
+		"POOL_HEALTH_STATUS_PAUSED":       4,
+	}
+)
+
+func (x PoolHealthStatus) Enum() *PoolHealthStatus {
+	p := new(PoolHealthStatus)
+	*p = x
+	return p
+}
+
+func (x PoolHealthStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PoolHealthStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_proto_enumTypes[0].Descriptor()
+}
+
+func (PoolHealthStatus) Type() protoreflect.EnumType {
+	return &file_api_proto_enumTypes[0]
+}
+
+func (x PoolHealthStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PoolHealthStatus.Descriptor instead.
+func (PoolHealthStatus) EnumDescriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{0}
+}
+
 type SetupAdminRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
@@ -350,9 +405,16 @@ type Pool struct {
 	ImageUpdateAvailable bool   `protobuf:"varint,18,opt,name=image_update_available,json=imageUpdateAvailable,proto3" json:"image_update_available,omitempty"`
 	LatestImage          string `protobuf:"bytes,19,opt,name=latest_image,json=latestImage,proto3" json:"latest_image,omitempty"`
 	// Multi-target URLs
-	TargetUrls    []string `protobuf:"bytes,20,rep,name=target_urls,json=targetUrls,proto3" json:"target_urls,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	TargetUrls []string `protobuf:"bytes,20,rep,name=target_urls,json=targetUrls,proto3" json:"target_urls,omitempty"`
+	// Operational State & Diagnostics (read-only, populated by server)
+	HealthStatus       PoolHealthStatus `protobuf:"varint,21,opt,name=health_status,json=healthStatus,proto3,enum=supervisor.v1.PoolHealthStatus" json:"health_status,omitempty"`
+	CurrentIntent      string           `protobuf:"bytes,22,opt,name=current_intent,json=currentIntent,proto3" json:"current_intent,omitempty"`
+	LastError          string           `protobuf:"bytes,23,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	LastErrorCode      string           `protobuf:"bytes,24,opt,name=last_error_code,json=lastErrorCode,proto3" json:"last_error_code,omitempty"`
+	LastErrorTimestamp string           `protobuf:"bytes,25,opt,name=last_error_timestamp,json=lastErrorTimestamp,proto3" json:"last_error_timestamp,omitempty"`
+	LastReconciledAt   string           `protobuf:"bytes,26,opt,name=last_reconciled_at,json=lastReconciledAt,proto3" json:"last_reconciled_at,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Pool) Reset() {
@@ -523,6 +585,48 @@ func (x *Pool) GetTargetUrls() []string {
 		return x.TargetUrls
 	}
 	return nil
+}
+
+func (x *Pool) GetHealthStatus() PoolHealthStatus {
+	if x != nil {
+		return x.HealthStatus
+	}
+	return PoolHealthStatus_POOL_HEALTH_STATUS_UNSPECIFIED
+}
+
+func (x *Pool) GetCurrentIntent() string {
+	if x != nil {
+		return x.CurrentIntent
+	}
+	return ""
+}
+
+func (x *Pool) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
+func (x *Pool) GetLastErrorCode() string {
+	if x != nil {
+		return x.LastErrorCode
+	}
+	return ""
+}
+
+func (x *Pool) GetLastErrorTimestamp() string {
+	if x != nil {
+		return x.LastErrorTimestamp
+	}
+	return ""
+}
+
+func (x *Pool) GetLastReconciledAt() string {
+	if x != nil {
+		return x.LastReconciledAt
+	}
+	return ""
 }
 
 type RenovateConfig struct {
@@ -1364,8 +1468,17 @@ func (x *WatchRunnersRequest) GetIntervalMs() int32 {
 type WatchRunnersResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Runners       []*RunnerInstance      `protobuf:"bytes,1,rep,name=runners,proto3" json:"runners,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ActiveRunners int32                  `protobuf:"varint,2,opt,name=active_runners,json=activeRunners,proto3" json:"active_runners,omitempty"`
+	IdleRunners   int32                  `protobuf:"varint,3,opt,name=idle_runners,json=idleRunners,proto3" json:"idle_runners,omitempty"`
+	// Real-time operational diagnostics pushed over the stream
+	HealthStatus       PoolHealthStatus `protobuf:"varint,4,opt,name=health_status,json=healthStatus,proto3,enum=supervisor.v1.PoolHealthStatus" json:"health_status,omitempty"`
+	CurrentIntent      string           `protobuf:"bytes,5,opt,name=current_intent,json=currentIntent,proto3" json:"current_intent,omitempty"`
+	LastError          string           `protobuf:"bytes,6,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	LastErrorCode      string           `protobuf:"bytes,7,opt,name=last_error_code,json=lastErrorCode,proto3" json:"last_error_code,omitempty"`
+	LastErrorTimestamp string           `protobuf:"bytes,8,opt,name=last_error_timestamp,json=lastErrorTimestamp,proto3" json:"last_error_timestamp,omitempty"`
+	LastReconciledAt   string           `protobuf:"bytes,9,opt,name=last_reconciled_at,json=lastReconciledAt,proto3" json:"last_reconciled_at,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *WatchRunnersResponse) Reset() {
@@ -1403,6 +1516,62 @@ func (x *WatchRunnersResponse) GetRunners() []*RunnerInstance {
 		return x.Runners
 	}
 	return nil
+}
+
+func (x *WatchRunnersResponse) GetActiveRunners() int32 {
+	if x != nil {
+		return x.ActiveRunners
+	}
+	return 0
+}
+
+func (x *WatchRunnersResponse) GetIdleRunners() int32 {
+	if x != nil {
+		return x.IdleRunners
+	}
+	return 0
+}
+
+func (x *WatchRunnersResponse) GetHealthStatus() PoolHealthStatus {
+	if x != nil {
+		return x.HealthStatus
+	}
+	return PoolHealthStatus_POOL_HEALTH_STATUS_UNSPECIFIED
+}
+
+func (x *WatchRunnersResponse) GetCurrentIntent() string {
+	if x != nil {
+		return x.CurrentIntent
+	}
+	return ""
+}
+
+func (x *WatchRunnersResponse) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
+func (x *WatchRunnersResponse) GetLastErrorCode() string {
+	if x != nil {
+		return x.LastErrorCode
+	}
+	return ""
+}
+
+func (x *WatchRunnersResponse) GetLastErrorTimestamp() string {
+	if x != nil {
+		return x.LastErrorTimestamp
+	}
+	return ""
+}
+
+func (x *WatchRunnersResponse) GetLastReconciledAt() string {
+	if x != nil {
+		return x.LastReconciledAt
+	}
+	return ""
 }
 
 type DiscoverTargetsRequest struct {
@@ -4258,7 +4427,7 @@ const file_api_proto_rawDesc = "" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x19\n" +
 	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\x12\x1b\n" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
-	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\xda\x05\n" +
+	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\xee\a\n" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -4281,7 +4450,14 @@ const file_api_proto_rawDesc = "" +
 	"\x16image_update_available\x18\x12 \x01(\bR\x14imageUpdateAvailable\x12!\n" +
 	"\flatest_image\x18\x13 \x01(\tR\vlatestImage\x12\x1f\n" +
 	"\vtarget_urls\x18\x14 \x03(\tR\n" +
-	"targetUrls\"e\n" +
+	"targetUrls\x12D\n" +
+	"\rhealth_status\x18\x15 \x01(\x0e2\x1f.supervisor.v1.PoolHealthStatusR\fhealthStatus\x12%\n" +
+	"\x0ecurrent_intent\x18\x16 \x01(\tR\rcurrentIntent\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\x17 \x01(\tR\tlastError\x12&\n" +
+	"\x0flast_error_code\x18\x18 \x01(\tR\rlastErrorCode\x120\n" +
+	"\x14last_error_timestamp\x18\x19 \x01(\tR\x12lastErrorTimestamp\x12,\n" +
+	"\x12last_reconciled_at\x18\x1a \x01(\tR\x10lastReconciledAt\"e\n" +
 	"\x0eRenovateConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12#\n" +
 	"\rcron_schedule\x18\x02 \x01(\tR\fcronSchedule\x12\x14\n" +
@@ -4330,9 +4506,18 @@ const file_api_proto_rawDesc = "" +
 	"\x13WatchRunnersRequest\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\x03R\x06poolId\x12\x1f\n" +
 	"\vinterval_ms\x18\x02 \x01(\x05R\n" +
-	"intervalMs\"O\n" +
+	"intervalMs\"\xad\x03\n" +
 	"\x14WatchRunnersResponse\x127\n" +
-	"\arunners\x18\x01 \x03(\v2\x1d.supervisor.v1.RunnerInstanceR\arunners\"V\n" +
+	"\arunners\x18\x01 \x03(\v2\x1d.supervisor.v1.RunnerInstanceR\arunners\x12%\n" +
+	"\x0eactive_runners\x18\x02 \x01(\x05R\ractiveRunners\x12!\n" +
+	"\fidle_runners\x18\x03 \x01(\x05R\vidleRunners\x12D\n" +
+	"\rhealth_status\x18\x04 \x01(\x0e2\x1f.supervisor.v1.PoolHealthStatusR\fhealthStatus\x12%\n" +
+	"\x0ecurrent_intent\x18\x05 \x01(\tR\rcurrentIntent\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\x06 \x01(\tR\tlastError\x12&\n" +
+	"\x0flast_error_code\x18\a \x01(\tR\rlastErrorCode\x120\n" +
+	"\x14last_error_timestamp\x18\b \x01(\tR\x12lastErrorTimestamp\x12,\n" +
+	"\x12last_reconciled_at\x18\t \x01(\tR\x10lastReconciledAt\"V\n" +
 	"\x16DiscoverTargetsRequest\x12&\n" +
 	"\x0fauth_profile_id\x18\x01 \x01(\x03R\rauthProfileId\x12\x14\n" +
 	"\x05scope\x18\x02 \x01(\tR\x05scope\"\xbe\x01\n" +
@@ -4532,7 +4717,13 @@ const file_api_proto_rawDesc = "" +
 	"\x19DismissImageUpdateRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"6\n" +
 	"\x1aDismissImageUpdateResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\xf7\x01\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess*\xbb\x01\n" +
+	"\x10PoolHealthStatus\x12\"\n" +
+	"\x1ePOOL_HEALTH_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aPOOL_HEALTH_STATUS_HEALTHY\x10\x01\x12#\n" +
+	"\x1fPOOL_HEALTH_STATUS_PROVISIONING\x10\x02\x12\x1f\n" +
+	"\x1bPOOL_HEALTH_STATUS_DEGRADED\x10\x03\x12\x1d\n" +
+	"\x19POOL_HEALTH_STATUS_PAUSED\x10\x042\xf7\x01\n" +
 	"\vAuthService\x12Q\n" +
 	"\n" +
 	"SetupAdmin\x12 .supervisor.v1.SetupAdminRequest\x1a!.supervisor.v1.SetupAdminResponse\x12B\n" +
@@ -4593,179 +4784,183 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
+var file_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_api_proto_goTypes = []any{
-	(*SetupAdminRequest)(nil),           // 0: supervisor.v1.SetupAdminRequest
-	(*SetupAdminResponse)(nil),          // 1: supervisor.v1.SetupAdminResponse
-	(*LoginRequest)(nil),                // 2: supervisor.v1.LoginRequest
-	(*LoginResponse)(nil),               // 3: supervisor.v1.LoginResponse
-	(*GetSessionRequest)(nil),           // 4: supervisor.v1.GetSessionRequest
-	(*GetSessionResponse)(nil),          // 5: supervisor.v1.GetSessionResponse
-	(*Pool)(nil),                        // 6: supervisor.v1.Pool
-	(*RenovateConfig)(nil),              // 7: supervisor.v1.RenovateConfig
-	(*ListPoolsRequest)(nil),            // 8: supervisor.v1.ListPoolsRequest
-	(*ListPoolsResponse)(nil),           // 9: supervisor.v1.ListPoolsResponse
-	(*CreatePoolRequest)(nil),           // 10: supervisor.v1.CreatePoolRequest
-	(*CreatePoolResponse)(nil),          // 11: supervisor.v1.CreatePoolResponse
-	(*UpdatePoolRequest)(nil),           // 12: supervisor.v1.UpdatePoolRequest
-	(*UpdatePoolResponse)(nil),          // 13: supervisor.v1.UpdatePoolResponse
-	(*DeletePoolRequest)(nil),           // 14: supervisor.v1.DeletePoolRequest
-	(*DeletePoolResponse)(nil),          // 15: supervisor.v1.DeletePoolResponse
-	(*WatchPoolsRequest)(nil),           // 16: supervisor.v1.WatchPoolsRequest
-	(*WatchPoolsResponse)(nil),          // 17: supervisor.v1.WatchPoolsResponse
-	(*RunnerInstance)(nil),              // 18: supervisor.v1.RunnerInstance
-	(*ListRunnersRequest)(nil),          // 19: supervisor.v1.ListRunnersRequest
-	(*ListRunnersResponse)(nil),         // 20: supervisor.v1.ListRunnersResponse
-	(*TerminateRunnerRequest)(nil),      // 21: supervisor.v1.TerminateRunnerRequest
-	(*TerminateRunnerResponse)(nil),     // 22: supervisor.v1.TerminateRunnerResponse
-	(*WatchRunnersRequest)(nil),         // 23: supervisor.v1.WatchRunnersRequest
-	(*WatchRunnersResponse)(nil),        // 24: supervisor.v1.WatchRunnersResponse
-	(*DiscoverTargetsRequest)(nil),      // 25: supervisor.v1.DiscoverTargetsRequest
-	(*DiscoveredTarget)(nil),            // 26: supervisor.v1.DiscoveredTarget
-	(*AppInstallation)(nil),             // 27: supervisor.v1.AppInstallation
-	(*DiscoverTargetsResponse)(nil),     // 28: supervisor.v1.DiscoverTargetsResponse
-	(*AuthProfile)(nil),                 // 29: supervisor.v1.AuthProfile
-	(*ListAuthProfilesRequest)(nil),     // 30: supervisor.v1.ListAuthProfilesRequest
-	(*ListAuthProfilesResponse)(nil),    // 31: supervisor.v1.ListAuthProfilesResponse
-	(*CreateAuthProfileRequest)(nil),    // 32: supervisor.v1.CreateAuthProfileRequest
-	(*CreateAuthProfileResponse)(nil),   // 33: supervisor.v1.CreateAuthProfileResponse
-	(*DeleteAuthProfileRequest)(nil),    // 34: supervisor.v1.DeleteAuthProfileRequest
-	(*DeleteAuthProfileResponse)(nil),   // 35: supervisor.v1.DeleteAuthProfileResponse
-	(*GetOnboardingStatusRequest)(nil),  // 36: supervisor.v1.GetOnboardingStatusRequest
-	(*GetOnboardingStatusResponse)(nil), // 37: supervisor.v1.GetOnboardingStatusResponse
-	(*CompleteOnboardingRequest)(nil),   // 38: supervisor.v1.CompleteOnboardingRequest
-	(*CompleteOnboardingResponse)(nil),  // 39: supervisor.v1.CompleteOnboardingResponse
-	(*GetAppSettingsRequest)(nil),       // 40: supervisor.v1.GetAppSettingsRequest
-	(*AppSettingEntry)(nil),             // 41: supervisor.v1.AppSettingEntry
-	(*GetAppSettingsResponse)(nil),      // 42: supervisor.v1.GetAppSettingsResponse
-	(*SetAppSettingRequest)(nil),        // 43: supervisor.v1.SetAppSettingRequest
-	(*SetAppSettingResponse)(nil),       // 44: supervisor.v1.SetAppSettingResponse
-	(*JobRecord)(nil),                   // 45: supervisor.v1.JobRecord
-	(*GetJobHistoryRequest)(nil),        // 46: supervisor.v1.GetJobHistoryRequest
-	(*GetJobHistoryResponse)(nil),       // 47: supervisor.v1.GetJobHistoryResponse
-	(*GetJobRecordRequest)(nil),         // 48: supervisor.v1.GetJobRecordRequest
-	(*GetJobRecordResponse)(nil),        // 49: supervisor.v1.GetJobRecordResponse
-	(*LatencyBucket)(nil),               // 50: supervisor.v1.LatencyBucket
-	(*GetSystemStatsRequest)(nil),       // 51: supervisor.v1.GetSystemStatsRequest
-	(*GetSystemStatsResponse)(nil),      // 52: supervisor.v1.GetSystemStatsResponse
-	(*WatchDashboardRequest)(nil),       // 53: supervisor.v1.WatchDashboardRequest
-	(*WatchDashboardResponse)(nil),      // 54: supervisor.v1.WatchDashboardResponse
-	(*StreamRunnerLogsRequest)(nil),     // 55: supervisor.v1.StreamRunnerLogsRequest
-	(*LogChunk)(nil),                    // 56: supervisor.v1.LogChunk
-	(*GetRunnerLogsRequest)(nil),        // 57: supervisor.v1.GetRunnerLogsRequest
-	(*GetRunnerLogsResponse)(nil),       // 58: supervisor.v1.GetRunnerLogsResponse
-	(*RenovateRun)(nil),                 // 59: supervisor.v1.RenovateRun
-	(*TriggerRenovateRunRequest)(nil),   // 60: supervisor.v1.TriggerRenovateRunRequest
-	(*TriggerRenovateRunResponse)(nil),  // 61: supervisor.v1.TriggerRenovateRunResponse
-	(*GetRenovateStatusRequest)(nil),    // 62: supervisor.v1.GetRenovateStatusRequest
-	(*GetRenovateStatusResponse)(nil),   // 63: supervisor.v1.GetRenovateStatusResponse
-	(*ListRenovateHistoryRequest)(nil),  // 64: supervisor.v1.ListRenovateHistoryRequest
-	(*ListRenovateHistoryResponse)(nil), // 65: supervisor.v1.ListRenovateHistoryResponse
-	(*ImageUpdate)(nil),                 // 66: supervisor.v1.ImageUpdate
-	(*CheckImageUpdateRequest)(nil),     // 67: supervisor.v1.CheckImageUpdateRequest
-	(*CheckImageUpdateResponse)(nil),    // 68: supervisor.v1.CheckImageUpdateResponse
-	(*PullImageRequest)(nil),            // 69: supervisor.v1.PullImageRequest
-	(*PullImageResponse)(nil),           // 70: supervisor.v1.PullImageResponse
-	(*ListImageUpdatesRequest)(nil),     // 71: supervisor.v1.ListImageUpdatesRequest
-	(*ListImageUpdatesResponse)(nil),    // 72: supervisor.v1.ListImageUpdatesResponse
-	(*DismissImageUpdateRequest)(nil),   // 73: supervisor.v1.DismissImageUpdateRequest
-	(*DismissImageUpdateResponse)(nil),  // 74: supervisor.v1.DismissImageUpdateResponse
+	(PoolHealthStatus)(0),               // 0: supervisor.v1.PoolHealthStatus
+	(*SetupAdminRequest)(nil),           // 1: supervisor.v1.SetupAdminRequest
+	(*SetupAdminResponse)(nil),          // 2: supervisor.v1.SetupAdminResponse
+	(*LoginRequest)(nil),                // 3: supervisor.v1.LoginRequest
+	(*LoginResponse)(nil),               // 4: supervisor.v1.LoginResponse
+	(*GetSessionRequest)(nil),           // 5: supervisor.v1.GetSessionRequest
+	(*GetSessionResponse)(nil),          // 6: supervisor.v1.GetSessionResponse
+	(*Pool)(nil),                        // 7: supervisor.v1.Pool
+	(*RenovateConfig)(nil),              // 8: supervisor.v1.RenovateConfig
+	(*ListPoolsRequest)(nil),            // 9: supervisor.v1.ListPoolsRequest
+	(*ListPoolsResponse)(nil),           // 10: supervisor.v1.ListPoolsResponse
+	(*CreatePoolRequest)(nil),           // 11: supervisor.v1.CreatePoolRequest
+	(*CreatePoolResponse)(nil),          // 12: supervisor.v1.CreatePoolResponse
+	(*UpdatePoolRequest)(nil),           // 13: supervisor.v1.UpdatePoolRequest
+	(*UpdatePoolResponse)(nil),          // 14: supervisor.v1.UpdatePoolResponse
+	(*DeletePoolRequest)(nil),           // 15: supervisor.v1.DeletePoolRequest
+	(*DeletePoolResponse)(nil),          // 16: supervisor.v1.DeletePoolResponse
+	(*WatchPoolsRequest)(nil),           // 17: supervisor.v1.WatchPoolsRequest
+	(*WatchPoolsResponse)(nil),          // 18: supervisor.v1.WatchPoolsResponse
+	(*RunnerInstance)(nil),              // 19: supervisor.v1.RunnerInstance
+	(*ListRunnersRequest)(nil),          // 20: supervisor.v1.ListRunnersRequest
+	(*ListRunnersResponse)(nil),         // 21: supervisor.v1.ListRunnersResponse
+	(*TerminateRunnerRequest)(nil),      // 22: supervisor.v1.TerminateRunnerRequest
+	(*TerminateRunnerResponse)(nil),     // 23: supervisor.v1.TerminateRunnerResponse
+	(*WatchRunnersRequest)(nil),         // 24: supervisor.v1.WatchRunnersRequest
+	(*WatchRunnersResponse)(nil),        // 25: supervisor.v1.WatchRunnersResponse
+	(*DiscoverTargetsRequest)(nil),      // 26: supervisor.v1.DiscoverTargetsRequest
+	(*DiscoveredTarget)(nil),            // 27: supervisor.v1.DiscoveredTarget
+	(*AppInstallation)(nil),             // 28: supervisor.v1.AppInstallation
+	(*DiscoverTargetsResponse)(nil),     // 29: supervisor.v1.DiscoverTargetsResponse
+	(*AuthProfile)(nil),                 // 30: supervisor.v1.AuthProfile
+	(*ListAuthProfilesRequest)(nil),     // 31: supervisor.v1.ListAuthProfilesRequest
+	(*ListAuthProfilesResponse)(nil),    // 32: supervisor.v1.ListAuthProfilesResponse
+	(*CreateAuthProfileRequest)(nil),    // 33: supervisor.v1.CreateAuthProfileRequest
+	(*CreateAuthProfileResponse)(nil),   // 34: supervisor.v1.CreateAuthProfileResponse
+	(*DeleteAuthProfileRequest)(nil),    // 35: supervisor.v1.DeleteAuthProfileRequest
+	(*DeleteAuthProfileResponse)(nil),   // 36: supervisor.v1.DeleteAuthProfileResponse
+	(*GetOnboardingStatusRequest)(nil),  // 37: supervisor.v1.GetOnboardingStatusRequest
+	(*GetOnboardingStatusResponse)(nil), // 38: supervisor.v1.GetOnboardingStatusResponse
+	(*CompleteOnboardingRequest)(nil),   // 39: supervisor.v1.CompleteOnboardingRequest
+	(*CompleteOnboardingResponse)(nil),  // 40: supervisor.v1.CompleteOnboardingResponse
+	(*GetAppSettingsRequest)(nil),       // 41: supervisor.v1.GetAppSettingsRequest
+	(*AppSettingEntry)(nil),             // 42: supervisor.v1.AppSettingEntry
+	(*GetAppSettingsResponse)(nil),      // 43: supervisor.v1.GetAppSettingsResponse
+	(*SetAppSettingRequest)(nil),        // 44: supervisor.v1.SetAppSettingRequest
+	(*SetAppSettingResponse)(nil),       // 45: supervisor.v1.SetAppSettingResponse
+	(*JobRecord)(nil),                   // 46: supervisor.v1.JobRecord
+	(*GetJobHistoryRequest)(nil),        // 47: supervisor.v1.GetJobHistoryRequest
+	(*GetJobHistoryResponse)(nil),       // 48: supervisor.v1.GetJobHistoryResponse
+	(*GetJobRecordRequest)(nil),         // 49: supervisor.v1.GetJobRecordRequest
+	(*GetJobRecordResponse)(nil),        // 50: supervisor.v1.GetJobRecordResponse
+	(*LatencyBucket)(nil),               // 51: supervisor.v1.LatencyBucket
+	(*GetSystemStatsRequest)(nil),       // 52: supervisor.v1.GetSystemStatsRequest
+	(*GetSystemStatsResponse)(nil),      // 53: supervisor.v1.GetSystemStatsResponse
+	(*WatchDashboardRequest)(nil),       // 54: supervisor.v1.WatchDashboardRequest
+	(*WatchDashboardResponse)(nil),      // 55: supervisor.v1.WatchDashboardResponse
+	(*StreamRunnerLogsRequest)(nil),     // 56: supervisor.v1.StreamRunnerLogsRequest
+	(*LogChunk)(nil),                    // 57: supervisor.v1.LogChunk
+	(*GetRunnerLogsRequest)(nil),        // 58: supervisor.v1.GetRunnerLogsRequest
+	(*GetRunnerLogsResponse)(nil),       // 59: supervisor.v1.GetRunnerLogsResponse
+	(*RenovateRun)(nil),                 // 60: supervisor.v1.RenovateRun
+	(*TriggerRenovateRunRequest)(nil),   // 61: supervisor.v1.TriggerRenovateRunRequest
+	(*TriggerRenovateRunResponse)(nil),  // 62: supervisor.v1.TriggerRenovateRunResponse
+	(*GetRenovateStatusRequest)(nil),    // 63: supervisor.v1.GetRenovateStatusRequest
+	(*GetRenovateStatusResponse)(nil),   // 64: supervisor.v1.GetRenovateStatusResponse
+	(*ListRenovateHistoryRequest)(nil),  // 65: supervisor.v1.ListRenovateHistoryRequest
+	(*ListRenovateHistoryResponse)(nil), // 66: supervisor.v1.ListRenovateHistoryResponse
+	(*ImageUpdate)(nil),                 // 67: supervisor.v1.ImageUpdate
+	(*CheckImageUpdateRequest)(nil),     // 68: supervisor.v1.CheckImageUpdateRequest
+	(*CheckImageUpdateResponse)(nil),    // 69: supervisor.v1.CheckImageUpdateResponse
+	(*PullImageRequest)(nil),            // 70: supervisor.v1.PullImageRequest
+	(*PullImageResponse)(nil),           // 71: supervisor.v1.PullImageResponse
+	(*ListImageUpdatesRequest)(nil),     // 72: supervisor.v1.ListImageUpdatesRequest
+	(*ListImageUpdatesResponse)(nil),    // 73: supervisor.v1.ListImageUpdatesResponse
+	(*DismissImageUpdateRequest)(nil),   // 74: supervisor.v1.DismissImageUpdateRequest
+	(*DismissImageUpdateResponse)(nil),  // 75: supervisor.v1.DismissImageUpdateResponse
 }
 var file_api_proto_depIdxs = []int32{
-	7,  // 0: supervisor.v1.Pool.renovate:type_name -> supervisor.v1.RenovateConfig
-	6,  // 1: supervisor.v1.ListPoolsResponse.pools:type_name -> supervisor.v1.Pool
-	6,  // 2: supervisor.v1.CreatePoolRequest.pool:type_name -> supervisor.v1.Pool
-	6,  // 3: supervisor.v1.CreatePoolResponse.pool:type_name -> supervisor.v1.Pool
-	6,  // 4: supervisor.v1.UpdatePoolRequest.pool:type_name -> supervisor.v1.Pool
-	6,  // 5: supervisor.v1.UpdatePoolResponse.pool:type_name -> supervisor.v1.Pool
-	6,  // 6: supervisor.v1.WatchPoolsResponse.pools:type_name -> supervisor.v1.Pool
-	18, // 7: supervisor.v1.ListRunnersResponse.runners:type_name -> supervisor.v1.RunnerInstance
-	18, // 8: supervisor.v1.WatchRunnersResponse.runners:type_name -> supervisor.v1.RunnerInstance
-	26, // 9: supervisor.v1.DiscoverTargetsResponse.targets:type_name -> supervisor.v1.DiscoveredTarget
-	27, // 10: supervisor.v1.DiscoverTargetsResponse.installations:type_name -> supervisor.v1.AppInstallation
-	29, // 11: supervisor.v1.ListAuthProfilesResponse.profiles:type_name -> supervisor.v1.AuthProfile
-	29, // 12: supervisor.v1.CreateAuthProfileResponse.profile:type_name -> supervisor.v1.AuthProfile
-	41, // 13: supervisor.v1.GetAppSettingsResponse.settings:type_name -> supervisor.v1.AppSettingEntry
-	45, // 14: supervisor.v1.GetJobHistoryResponse.jobs:type_name -> supervisor.v1.JobRecord
-	45, // 15: supervisor.v1.GetJobRecordResponse.job:type_name -> supervisor.v1.JobRecord
-	50, // 16: supervisor.v1.GetSystemStatsResponse.queue_latency_trend:type_name -> supervisor.v1.LatencyBucket
-	52, // 17: supervisor.v1.WatchDashboardResponse.stats:type_name -> supervisor.v1.GetSystemStatsResponse
-	6,  // 18: supervisor.v1.WatchDashboardResponse.pools:type_name -> supervisor.v1.Pool
-	45, // 19: supervisor.v1.WatchDashboardResponse.recent_jobs:type_name -> supervisor.v1.JobRecord
-	56, // 20: supervisor.v1.GetRunnerLogsResponse.lines:type_name -> supervisor.v1.LogChunk
-	59, // 21: supervisor.v1.GetRenovateStatusResponse.last_run:type_name -> supervisor.v1.RenovateRun
-	59, // 22: supervisor.v1.ListRenovateHistoryResponse.runs:type_name -> supervisor.v1.RenovateRun
-	66, // 23: supervisor.v1.CheckImageUpdateResponse.update:type_name -> supervisor.v1.ImageUpdate
-	66, // 24: supervisor.v1.ListImageUpdatesResponse.updates:type_name -> supervisor.v1.ImageUpdate
-	0,  // 25: supervisor.v1.AuthService.SetupAdmin:input_type -> supervisor.v1.SetupAdminRequest
-	2,  // 26: supervisor.v1.AuthService.Login:input_type -> supervisor.v1.LoginRequest
-	4,  // 27: supervisor.v1.AuthService.GetSession:input_type -> supervisor.v1.GetSessionRequest
-	8,  // 28: supervisor.v1.PoolService.ListPools:input_type -> supervisor.v1.ListPoolsRequest
-	10, // 29: supervisor.v1.PoolService.CreatePool:input_type -> supervisor.v1.CreatePoolRequest
-	12, // 30: supervisor.v1.PoolService.UpdatePool:input_type -> supervisor.v1.UpdatePoolRequest
-	14, // 31: supervisor.v1.PoolService.DeletePool:input_type -> supervisor.v1.DeletePoolRequest
-	16, // 32: supervisor.v1.PoolService.WatchPools:input_type -> supervisor.v1.WatchPoolsRequest
-	19, // 33: supervisor.v1.PoolService.ListRunners:input_type -> supervisor.v1.ListRunnersRequest
-	21, // 34: supervisor.v1.PoolService.TerminateRunner:input_type -> supervisor.v1.TerminateRunnerRequest
-	23, // 35: supervisor.v1.PoolService.WatchRunners:input_type -> supervisor.v1.WatchRunnersRequest
-	25, // 36: supervisor.v1.PoolService.DiscoverTargets:input_type -> supervisor.v1.DiscoverTargetsRequest
-	30, // 37: supervisor.v1.AuthProfileService.ListAuthProfiles:input_type -> supervisor.v1.ListAuthProfilesRequest
-	32, // 38: supervisor.v1.AuthProfileService.CreateAuthProfile:input_type -> supervisor.v1.CreateAuthProfileRequest
-	34, // 39: supervisor.v1.AuthProfileService.DeleteAuthProfile:input_type -> supervisor.v1.DeleteAuthProfileRequest
-	36, // 40: supervisor.v1.OnboardingService.GetOnboardingStatus:input_type -> supervisor.v1.GetOnboardingStatusRequest
-	40, // 41: supervisor.v1.OnboardingService.GetAppSettings:input_type -> supervisor.v1.GetAppSettingsRequest
-	43, // 42: supervisor.v1.OnboardingService.SetAppSetting:input_type -> supervisor.v1.SetAppSettingRequest
-	38, // 43: supervisor.v1.OnboardingService.CompleteOnboarding:input_type -> supervisor.v1.CompleteOnboardingRequest
-	46, // 44: supervisor.v1.AnalyticsService.GetJobHistory:input_type -> supervisor.v1.GetJobHistoryRequest
-	48, // 45: supervisor.v1.AnalyticsService.GetJobRecord:input_type -> supervisor.v1.GetJobRecordRequest
-	51, // 46: supervisor.v1.AnalyticsService.GetSystemStats:input_type -> supervisor.v1.GetSystemStatsRequest
-	53, // 47: supervisor.v1.AnalyticsService.WatchDashboard:input_type -> supervisor.v1.WatchDashboardRequest
-	55, // 48: supervisor.v1.LogService.StreamRunnerLogs:input_type -> supervisor.v1.StreamRunnerLogsRequest
-	57, // 49: supervisor.v1.LogService.GetRunnerLogs:input_type -> supervisor.v1.GetRunnerLogsRequest
-	60, // 50: supervisor.v1.RenovateService.TriggerRenovateRun:input_type -> supervisor.v1.TriggerRenovateRunRequest
-	62, // 51: supervisor.v1.RenovateService.GetRenovateStatus:input_type -> supervisor.v1.GetRenovateStatusRequest
-	64, // 52: supervisor.v1.RenovateService.ListRenovateHistory:input_type -> supervisor.v1.ListRenovateHistoryRequest
-	67, // 53: supervisor.v1.ImageUpdateService.CheckImageUpdate:input_type -> supervisor.v1.CheckImageUpdateRequest
-	69, // 54: supervisor.v1.ImageUpdateService.PullImage:input_type -> supervisor.v1.PullImageRequest
-	71, // 55: supervisor.v1.ImageUpdateService.ListImageUpdates:input_type -> supervisor.v1.ListImageUpdatesRequest
-	73, // 56: supervisor.v1.ImageUpdateService.DismissImageUpdate:input_type -> supervisor.v1.DismissImageUpdateRequest
-	1,  // 57: supervisor.v1.AuthService.SetupAdmin:output_type -> supervisor.v1.SetupAdminResponse
-	3,  // 58: supervisor.v1.AuthService.Login:output_type -> supervisor.v1.LoginResponse
-	5,  // 59: supervisor.v1.AuthService.GetSession:output_type -> supervisor.v1.GetSessionResponse
-	9,  // 60: supervisor.v1.PoolService.ListPools:output_type -> supervisor.v1.ListPoolsResponse
-	11, // 61: supervisor.v1.PoolService.CreatePool:output_type -> supervisor.v1.CreatePoolResponse
-	13, // 62: supervisor.v1.PoolService.UpdatePool:output_type -> supervisor.v1.UpdatePoolResponse
-	15, // 63: supervisor.v1.PoolService.DeletePool:output_type -> supervisor.v1.DeletePoolResponse
-	17, // 64: supervisor.v1.PoolService.WatchPools:output_type -> supervisor.v1.WatchPoolsResponse
-	20, // 65: supervisor.v1.PoolService.ListRunners:output_type -> supervisor.v1.ListRunnersResponse
-	22, // 66: supervisor.v1.PoolService.TerminateRunner:output_type -> supervisor.v1.TerminateRunnerResponse
-	24, // 67: supervisor.v1.PoolService.WatchRunners:output_type -> supervisor.v1.WatchRunnersResponse
-	28, // 68: supervisor.v1.PoolService.DiscoverTargets:output_type -> supervisor.v1.DiscoverTargetsResponse
-	31, // 69: supervisor.v1.AuthProfileService.ListAuthProfiles:output_type -> supervisor.v1.ListAuthProfilesResponse
-	33, // 70: supervisor.v1.AuthProfileService.CreateAuthProfile:output_type -> supervisor.v1.CreateAuthProfileResponse
-	35, // 71: supervisor.v1.AuthProfileService.DeleteAuthProfile:output_type -> supervisor.v1.DeleteAuthProfileResponse
-	37, // 72: supervisor.v1.OnboardingService.GetOnboardingStatus:output_type -> supervisor.v1.GetOnboardingStatusResponse
-	42, // 73: supervisor.v1.OnboardingService.GetAppSettings:output_type -> supervisor.v1.GetAppSettingsResponse
-	44, // 74: supervisor.v1.OnboardingService.SetAppSetting:output_type -> supervisor.v1.SetAppSettingResponse
-	39, // 75: supervisor.v1.OnboardingService.CompleteOnboarding:output_type -> supervisor.v1.CompleteOnboardingResponse
-	47, // 76: supervisor.v1.AnalyticsService.GetJobHistory:output_type -> supervisor.v1.GetJobHistoryResponse
-	49, // 77: supervisor.v1.AnalyticsService.GetJobRecord:output_type -> supervisor.v1.GetJobRecordResponse
-	52, // 78: supervisor.v1.AnalyticsService.GetSystemStats:output_type -> supervisor.v1.GetSystemStatsResponse
-	54, // 79: supervisor.v1.AnalyticsService.WatchDashboard:output_type -> supervisor.v1.WatchDashboardResponse
-	56, // 80: supervisor.v1.LogService.StreamRunnerLogs:output_type -> supervisor.v1.LogChunk
-	58, // 81: supervisor.v1.LogService.GetRunnerLogs:output_type -> supervisor.v1.GetRunnerLogsResponse
-	61, // 82: supervisor.v1.RenovateService.TriggerRenovateRun:output_type -> supervisor.v1.TriggerRenovateRunResponse
-	63, // 83: supervisor.v1.RenovateService.GetRenovateStatus:output_type -> supervisor.v1.GetRenovateStatusResponse
-	65, // 84: supervisor.v1.RenovateService.ListRenovateHistory:output_type -> supervisor.v1.ListRenovateHistoryResponse
-	68, // 85: supervisor.v1.ImageUpdateService.CheckImageUpdate:output_type -> supervisor.v1.CheckImageUpdateResponse
-	70, // 86: supervisor.v1.ImageUpdateService.PullImage:output_type -> supervisor.v1.PullImageResponse
-	72, // 87: supervisor.v1.ImageUpdateService.ListImageUpdates:output_type -> supervisor.v1.ListImageUpdatesResponse
-	74, // 88: supervisor.v1.ImageUpdateService.DismissImageUpdate:output_type -> supervisor.v1.DismissImageUpdateResponse
-	57, // [57:89] is the sub-list for method output_type
-	25, // [25:57] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	8,  // 0: supervisor.v1.Pool.renovate:type_name -> supervisor.v1.RenovateConfig
+	0,  // 1: supervisor.v1.Pool.health_status:type_name -> supervisor.v1.PoolHealthStatus
+	7,  // 2: supervisor.v1.ListPoolsResponse.pools:type_name -> supervisor.v1.Pool
+	7,  // 3: supervisor.v1.CreatePoolRequest.pool:type_name -> supervisor.v1.Pool
+	7,  // 4: supervisor.v1.CreatePoolResponse.pool:type_name -> supervisor.v1.Pool
+	7,  // 5: supervisor.v1.UpdatePoolRequest.pool:type_name -> supervisor.v1.Pool
+	7,  // 6: supervisor.v1.UpdatePoolResponse.pool:type_name -> supervisor.v1.Pool
+	7,  // 7: supervisor.v1.WatchPoolsResponse.pools:type_name -> supervisor.v1.Pool
+	19, // 8: supervisor.v1.ListRunnersResponse.runners:type_name -> supervisor.v1.RunnerInstance
+	19, // 9: supervisor.v1.WatchRunnersResponse.runners:type_name -> supervisor.v1.RunnerInstance
+	0,  // 10: supervisor.v1.WatchRunnersResponse.health_status:type_name -> supervisor.v1.PoolHealthStatus
+	27, // 11: supervisor.v1.DiscoverTargetsResponse.targets:type_name -> supervisor.v1.DiscoveredTarget
+	28, // 12: supervisor.v1.DiscoverTargetsResponse.installations:type_name -> supervisor.v1.AppInstallation
+	30, // 13: supervisor.v1.ListAuthProfilesResponse.profiles:type_name -> supervisor.v1.AuthProfile
+	30, // 14: supervisor.v1.CreateAuthProfileResponse.profile:type_name -> supervisor.v1.AuthProfile
+	42, // 15: supervisor.v1.GetAppSettingsResponse.settings:type_name -> supervisor.v1.AppSettingEntry
+	46, // 16: supervisor.v1.GetJobHistoryResponse.jobs:type_name -> supervisor.v1.JobRecord
+	46, // 17: supervisor.v1.GetJobRecordResponse.job:type_name -> supervisor.v1.JobRecord
+	51, // 18: supervisor.v1.GetSystemStatsResponse.queue_latency_trend:type_name -> supervisor.v1.LatencyBucket
+	53, // 19: supervisor.v1.WatchDashboardResponse.stats:type_name -> supervisor.v1.GetSystemStatsResponse
+	7,  // 20: supervisor.v1.WatchDashboardResponse.pools:type_name -> supervisor.v1.Pool
+	46, // 21: supervisor.v1.WatchDashboardResponse.recent_jobs:type_name -> supervisor.v1.JobRecord
+	57, // 22: supervisor.v1.GetRunnerLogsResponse.lines:type_name -> supervisor.v1.LogChunk
+	60, // 23: supervisor.v1.GetRenovateStatusResponse.last_run:type_name -> supervisor.v1.RenovateRun
+	60, // 24: supervisor.v1.ListRenovateHistoryResponse.runs:type_name -> supervisor.v1.RenovateRun
+	67, // 25: supervisor.v1.CheckImageUpdateResponse.update:type_name -> supervisor.v1.ImageUpdate
+	67, // 26: supervisor.v1.ListImageUpdatesResponse.updates:type_name -> supervisor.v1.ImageUpdate
+	1,  // 27: supervisor.v1.AuthService.SetupAdmin:input_type -> supervisor.v1.SetupAdminRequest
+	3,  // 28: supervisor.v1.AuthService.Login:input_type -> supervisor.v1.LoginRequest
+	5,  // 29: supervisor.v1.AuthService.GetSession:input_type -> supervisor.v1.GetSessionRequest
+	9,  // 30: supervisor.v1.PoolService.ListPools:input_type -> supervisor.v1.ListPoolsRequest
+	11, // 31: supervisor.v1.PoolService.CreatePool:input_type -> supervisor.v1.CreatePoolRequest
+	13, // 32: supervisor.v1.PoolService.UpdatePool:input_type -> supervisor.v1.UpdatePoolRequest
+	15, // 33: supervisor.v1.PoolService.DeletePool:input_type -> supervisor.v1.DeletePoolRequest
+	17, // 34: supervisor.v1.PoolService.WatchPools:input_type -> supervisor.v1.WatchPoolsRequest
+	20, // 35: supervisor.v1.PoolService.ListRunners:input_type -> supervisor.v1.ListRunnersRequest
+	22, // 36: supervisor.v1.PoolService.TerminateRunner:input_type -> supervisor.v1.TerminateRunnerRequest
+	24, // 37: supervisor.v1.PoolService.WatchRunners:input_type -> supervisor.v1.WatchRunnersRequest
+	26, // 38: supervisor.v1.PoolService.DiscoverTargets:input_type -> supervisor.v1.DiscoverTargetsRequest
+	31, // 39: supervisor.v1.AuthProfileService.ListAuthProfiles:input_type -> supervisor.v1.ListAuthProfilesRequest
+	33, // 40: supervisor.v1.AuthProfileService.CreateAuthProfile:input_type -> supervisor.v1.CreateAuthProfileRequest
+	35, // 41: supervisor.v1.AuthProfileService.DeleteAuthProfile:input_type -> supervisor.v1.DeleteAuthProfileRequest
+	37, // 42: supervisor.v1.OnboardingService.GetOnboardingStatus:input_type -> supervisor.v1.GetOnboardingStatusRequest
+	41, // 43: supervisor.v1.OnboardingService.GetAppSettings:input_type -> supervisor.v1.GetAppSettingsRequest
+	44, // 44: supervisor.v1.OnboardingService.SetAppSetting:input_type -> supervisor.v1.SetAppSettingRequest
+	39, // 45: supervisor.v1.OnboardingService.CompleteOnboarding:input_type -> supervisor.v1.CompleteOnboardingRequest
+	47, // 46: supervisor.v1.AnalyticsService.GetJobHistory:input_type -> supervisor.v1.GetJobHistoryRequest
+	49, // 47: supervisor.v1.AnalyticsService.GetJobRecord:input_type -> supervisor.v1.GetJobRecordRequest
+	52, // 48: supervisor.v1.AnalyticsService.GetSystemStats:input_type -> supervisor.v1.GetSystemStatsRequest
+	54, // 49: supervisor.v1.AnalyticsService.WatchDashboard:input_type -> supervisor.v1.WatchDashboardRequest
+	56, // 50: supervisor.v1.LogService.StreamRunnerLogs:input_type -> supervisor.v1.StreamRunnerLogsRequest
+	58, // 51: supervisor.v1.LogService.GetRunnerLogs:input_type -> supervisor.v1.GetRunnerLogsRequest
+	61, // 52: supervisor.v1.RenovateService.TriggerRenovateRun:input_type -> supervisor.v1.TriggerRenovateRunRequest
+	63, // 53: supervisor.v1.RenovateService.GetRenovateStatus:input_type -> supervisor.v1.GetRenovateStatusRequest
+	65, // 54: supervisor.v1.RenovateService.ListRenovateHistory:input_type -> supervisor.v1.ListRenovateHistoryRequest
+	68, // 55: supervisor.v1.ImageUpdateService.CheckImageUpdate:input_type -> supervisor.v1.CheckImageUpdateRequest
+	70, // 56: supervisor.v1.ImageUpdateService.PullImage:input_type -> supervisor.v1.PullImageRequest
+	72, // 57: supervisor.v1.ImageUpdateService.ListImageUpdates:input_type -> supervisor.v1.ListImageUpdatesRequest
+	74, // 58: supervisor.v1.ImageUpdateService.DismissImageUpdate:input_type -> supervisor.v1.DismissImageUpdateRequest
+	2,  // 59: supervisor.v1.AuthService.SetupAdmin:output_type -> supervisor.v1.SetupAdminResponse
+	4,  // 60: supervisor.v1.AuthService.Login:output_type -> supervisor.v1.LoginResponse
+	6,  // 61: supervisor.v1.AuthService.GetSession:output_type -> supervisor.v1.GetSessionResponse
+	10, // 62: supervisor.v1.PoolService.ListPools:output_type -> supervisor.v1.ListPoolsResponse
+	12, // 63: supervisor.v1.PoolService.CreatePool:output_type -> supervisor.v1.CreatePoolResponse
+	14, // 64: supervisor.v1.PoolService.UpdatePool:output_type -> supervisor.v1.UpdatePoolResponse
+	16, // 65: supervisor.v1.PoolService.DeletePool:output_type -> supervisor.v1.DeletePoolResponse
+	18, // 66: supervisor.v1.PoolService.WatchPools:output_type -> supervisor.v1.WatchPoolsResponse
+	21, // 67: supervisor.v1.PoolService.ListRunners:output_type -> supervisor.v1.ListRunnersResponse
+	23, // 68: supervisor.v1.PoolService.TerminateRunner:output_type -> supervisor.v1.TerminateRunnerResponse
+	25, // 69: supervisor.v1.PoolService.WatchRunners:output_type -> supervisor.v1.WatchRunnersResponse
+	29, // 70: supervisor.v1.PoolService.DiscoverTargets:output_type -> supervisor.v1.DiscoverTargetsResponse
+	32, // 71: supervisor.v1.AuthProfileService.ListAuthProfiles:output_type -> supervisor.v1.ListAuthProfilesResponse
+	34, // 72: supervisor.v1.AuthProfileService.CreateAuthProfile:output_type -> supervisor.v1.CreateAuthProfileResponse
+	36, // 73: supervisor.v1.AuthProfileService.DeleteAuthProfile:output_type -> supervisor.v1.DeleteAuthProfileResponse
+	38, // 74: supervisor.v1.OnboardingService.GetOnboardingStatus:output_type -> supervisor.v1.GetOnboardingStatusResponse
+	43, // 75: supervisor.v1.OnboardingService.GetAppSettings:output_type -> supervisor.v1.GetAppSettingsResponse
+	45, // 76: supervisor.v1.OnboardingService.SetAppSetting:output_type -> supervisor.v1.SetAppSettingResponse
+	40, // 77: supervisor.v1.OnboardingService.CompleteOnboarding:output_type -> supervisor.v1.CompleteOnboardingResponse
+	48, // 78: supervisor.v1.AnalyticsService.GetJobHistory:output_type -> supervisor.v1.GetJobHistoryResponse
+	50, // 79: supervisor.v1.AnalyticsService.GetJobRecord:output_type -> supervisor.v1.GetJobRecordResponse
+	53, // 80: supervisor.v1.AnalyticsService.GetSystemStats:output_type -> supervisor.v1.GetSystemStatsResponse
+	55, // 81: supervisor.v1.AnalyticsService.WatchDashboard:output_type -> supervisor.v1.WatchDashboardResponse
+	57, // 82: supervisor.v1.LogService.StreamRunnerLogs:output_type -> supervisor.v1.LogChunk
+	59, // 83: supervisor.v1.LogService.GetRunnerLogs:output_type -> supervisor.v1.GetRunnerLogsResponse
+	62, // 84: supervisor.v1.RenovateService.TriggerRenovateRun:output_type -> supervisor.v1.TriggerRenovateRunResponse
+	64, // 85: supervisor.v1.RenovateService.GetRenovateStatus:output_type -> supervisor.v1.GetRenovateStatusResponse
+	66, // 86: supervisor.v1.RenovateService.ListRenovateHistory:output_type -> supervisor.v1.ListRenovateHistoryResponse
+	69, // 87: supervisor.v1.ImageUpdateService.CheckImageUpdate:output_type -> supervisor.v1.CheckImageUpdateResponse
+	71, // 88: supervisor.v1.ImageUpdateService.PullImage:output_type -> supervisor.v1.PullImageResponse
+	73, // 89: supervisor.v1.ImageUpdateService.ListImageUpdates:output_type -> supervisor.v1.ListImageUpdatesResponse
+	75, // 90: supervisor.v1.ImageUpdateService.DismissImageUpdate:output_type -> supervisor.v1.DismissImageUpdateResponse
+	59, // [59:91] is the sub-list for method output_type
+	27, // [27:59] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -4778,13 +4973,14 @@ func file_api_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   8,
 		},
 		GoTypes:           file_api_proto_goTypes,
 		DependencyIndexes: file_api_proto_depIdxs,
+		EnumInfos:         file_api_proto_enumTypes,
 		MessageInfos:      file_api_proto_msgTypes,
 	}.Build()
 	File_api_proto = out.File

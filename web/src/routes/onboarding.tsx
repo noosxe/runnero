@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { create } from "@bufbuild/protobuf";
+import { PoolSchema } from "../gen/api_pb";
 import { getSuggestedRunnerLabels } from "../lib/utils/labels";
 import {
   useOnboardingStatus,
@@ -329,9 +331,7 @@ export function OnboardingPage() {
           .filter(Boolean);
 
         await createPoolMutation.mutateAsync({
-          pool: {
-            $typeName: "supervisor.v1.Pool",
-            id: 0n,
+          pool: create(PoolSchema, {
             name: poolName.trim(),
             provider: deducedProvider,
             repositoryUrl: repositoryUrl.trim(),
@@ -348,23 +348,18 @@ export function OnboardingPage() {
             allowDocker: effectiveAllowDocker,
             renovate: renovateEnabled
               ? {
-                  $typeName: "supervisor.v1.RenovateConfig",
                   enabled: true,
                   cronSchedule: renovateCron.trim() || "0 2 * * *",
                   image: renovateImage.trim() || "renovate/renovate:latest",
                 }
               : undefined,
-            activeRunners: 0,
-            idleRunners: 0,
             authProfileId: createdAuthProfileId ?? 1n,
             scope,
             cpuLimit: cpuLimit.trim() || "2.0",
             memoryLimit: memoryLimit.trim() || "4GB",
             maxRunnerLifetimeSeconds: 7200,
-            imageUpdateAvailable: false,
-            latestImage: "",
             targetUrls: repositoryUrl.trim() ? [repositoryUrl.trim()] : [],
-          },
+          }),
         });
       }
 

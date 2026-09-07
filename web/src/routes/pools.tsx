@@ -13,7 +13,10 @@ import {
   ArrowUpRight,
   Info,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
+import { PoolHealthBadge } from "../components/pools/pool-health-badge";
+import { PoolHealthStatus } from "../gen/api_pb";
 
 export function PoolsPage() {
   const { data: pools, isLoading } = usePools();
@@ -25,6 +28,7 @@ export function PoolsPage() {
   const [search, setSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
   const [scopeFilter, setScopeFilter] = useState("all");
+  const [healthFilter, setHealthFilter] = useState("all");
 
   // Create Pool Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,9 +48,16 @@ export function PoolsPage() {
       const matchesScope =
         scopeFilter === "all" || (p.scope || "repo").toLowerCase() === scopeFilter.toLowerCase();
 
-      return matchesSearch && matchesProvider && matchesScope;
+      const matchesHealth =
+        healthFilter === "all" ||
+        (healthFilter === "healthy" && p.healthStatus === PoolHealthStatus.HEALTHY) ||
+        (healthFilter === "provisioning" && p.healthStatus === PoolHealthStatus.PROVISIONING) ||
+        (healthFilter === "degraded" && p.healthStatus === PoolHealthStatus.DEGRADED) ||
+        (healthFilter === "paused" && p.healthStatus === PoolHealthStatus.PAUSED);
+
+      return matchesSearch && matchesProvider && matchesScope && matchesHealth;
     });
-  }, [pools, search, providerFilter, scopeFilter]);
+  }, [pools, search, providerFilter, scopeFilter, healthFilter]);
 
   return (
     <div className="space-y-6">
@@ -156,6 +167,18 @@ export function PoolsPage() {
             <option value="org">Organization</option>
             <option value="global">Global</option>
           </select>
+
+          <select
+            value={healthFilter}
+            onChange={(e) => setHealthFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          >
+            <option value="all">All Health States</option>
+            <option value="healthy">Healthy</option>
+            <option value="provisioning">Provisioning</option>
+            <option value="degraded">Degraded</option>
+            <option value="paused">Paused</option>
+          </select>
         </div>
       </div>
 
@@ -228,9 +251,16 @@ export function PoolsPage() {
                           </span>
                         )}
                       </div>
+                      {p.currentIntent && (
+                        <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 italic flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 inline-block shrink-0" />
+                          <span className="truncate">{p.currentIntent}</span>
+                        </p>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <PoolHealthBadge status={p.healthStatus} size="sm" />
                       <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 uppercase tracking-wider dark:bg-blue-950/50 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
                         {p.provider}
                       </span>
@@ -239,6 +269,41 @@ export function PoolsPage() {
                       </span>
                     </div>
                   </div>
+
+                  {p.healthStatus === PoolHealthStatus.DEGRADED && (
+                    <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-xs text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-rose-900 dark:text-rose-200">
+                                Reconciliation Error
+                              </span>
+                              {p.lastErrorCode && (
+                                <span className="font-mono text-[10px] bg-rose-100 dark:bg-rose-900/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800">
+                                  {p.lastErrorCode}
+                                </span>
+                              )}
+                            </div>
+                            {p.lastError && (
+                              <p className="mt-1 font-mono text-[11px] break-words line-clamp-2 text-rose-700 dark:text-rose-300">
+                                {p.lastError}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {p.lastErrorCode?.includes("AUTH") && (
+                          <Link
+                            to="/profiles"
+                            className="shrink-0 text-[11px] font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100 underline decoration-rose-400"
+                          >
+                            Fix Auth &rarr;
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Utilization Progress Bar */}
                   <div className="mt-5">
@@ -277,6 +342,16 @@ export function PoolsPage() {
                       <span className="text-slate-400">Idle Warm Target</span>
                       <div className="mt-0.5 text-base font-bold text-slate-900 dark:text-white">
                         {p.minIdleRunners}
+                        {p.healthStatus === PoolHealthStatus.DEGRADED && p.minIdleRunners > 0 && (
+                          <span className="ml-1 text-[10px] font-normal text-rose-600 dark:text-rose-400">
+                            (Failed)
+                          </span>
+                        )}
+                        {p.healthStatus === PoolHealthStatus.PROVISIONING && (
+                          <span className="ml-1 text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                            (Warming)
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div>

@@ -9,8 +9,18 @@ import {
 import { QueueLatencyChart } from "../components/analytics/queue-latency-chart";
 import { SuccessFailureWidget } from "../components/analytics/success-failure-widget";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import { Activity, CheckCircle2, Clock, Server, XCircle, Terminal } from "lucide-react";
+import {
+  Activity,
+  CheckCircle2,
+  Clock,
+  Server,
+  XCircle,
+  Terminal,
+  AlertTriangle,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { PoolHealthBadge } from "../components/pools/pool-health-badge";
+import { PoolHealthStatus } from "../gen/api_pb";
 
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return "—";
@@ -50,6 +60,7 @@ export function DashboardPage() {
   const { data: updates } = useImageUpdates();
 
   const hasAuthProfiles = Boolean(authProfiles && authProfiles.length > 0);
+  const degradedPools = pools?.filter((p) => p.healthStatus === PoolHealthStatus.DEGRADED) ?? [];
 
   const totalJobs = stats?.totalJobs24h ?? 0;
   const successfulJobs = stats?.successfulJobs24h ?? 0;
@@ -93,6 +104,38 @@ export function DashboardPage() {
       {/* Pending Image Updates Banner */}
       {updates && updates.length > 0 && (
         <ImageUpdateNotification updates={updates} poolNameLookup={poolNameLookup} />
+      )}
+
+      {/* Degraded Pool Warning Banner */}
+      {degradedPools.length > 0 && (
+        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-xs text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200 shadow-xs">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="font-semibold text-rose-900 dark:text-rose-100">
+              {degradedPools.length === 1
+                ? `Runner Pool "${degradedPools[0].name}" is Degraded`
+                : `${degradedPools.length} Runner Pools are Degraded`}
+            </p>
+            <p className="text-[11px] text-rose-700 dark:text-rose-300">
+              Runner provisioning or reconciliation encountered errors. Inspect diagnostics to
+              resolve configuration or credential issues.
+            </p>
+            {degradedPools.length === 1 && degradedPools[0].lastError && (
+              <p className="mt-1 font-mono text-[11px] text-rose-800 dark:text-rose-300 truncate">
+                {degradedPools[0].lastError}
+              </p>
+            )}
+          </div>
+          <Link
+            to={degradedPools.length === 1 ? "/pools/$poolId" : "/pools"}
+            params={
+              degradedPools.length === 1 ? { poolId: degradedPools[0].id.toString() } : undefined
+            }
+            className="shrink-0 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600"
+          >
+            Inspect Diagnostics &rarr;
+          </Link>
+        </div>
       )}
 
       {/* Primary KPI Cards */}
@@ -226,17 +269,25 @@ export function DashboardPage() {
                 params={{ poolId: p.id.toString() }}
                 className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all hover:border-blue-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-600"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400 truncate">
                     {p.name}
                   </span>
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                    {p.provider}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <PoolHealthBadge status={p.healthStatus} size="sm" />
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                      {p.provider}
+                    </span>
+                  </div>
                 </div>
                 <div className="mt-2 truncate text-xs text-slate-500 dark:text-slate-400">
                   {p.repositoryUrl}
                 </div>
+                {p.currentIntent && (
+                  <div className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 italic truncate">
+                    {p.currentIntent}
+                  </div>
+                )}
                 <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-400">
                   <span>
                     Active:{" "}
@@ -244,7 +295,15 @@ export function DashboardPage() {
                   </span>
                   <span>
                     Idle Target:{" "}
-                    <strong className="text-slate-900 dark:text-white">{p.minIdleRunners}</strong>
+                    <strong
+                      className={
+                        p.healthStatus === PoolHealthStatus.DEGRADED && p.minIdleRunners > 0
+                          ? "text-rose-600 dark:text-rose-400"
+                          : "text-slate-900 dark:text-white"
+                      }
+                    >
+                      {p.minIdleRunners}
+                    </strong>
                   </span>
                   <span>
                     Max:{" "}
