@@ -131,6 +131,8 @@ Triggered by `Ctrl+C` or emergency stop. The supervisor drains immediately witho
 
 > **Note**: The per-pool `max_runner_lifetime_seconds` continues to apply independently during normal operation — a job exceeding its lifetime is force-killed regardless of shutdown state. The `shutdown_timeout_seconds` setting only governs the maximum wait during a graceful `SIGTERM` shutdown.
 
+> **Ghost registrations**: no shutdown path can deregister runners whose containers died ungracefully (OOM kills, `docker kill`, host power loss bypass the agent's trap and `--ephemeral` cleanup). The audit loop sweeps such orphaned registrations via the provider's deregistration API — see **[docs/20-ghost-runner-sweep.md](20-ghost-runner-sweep.md)**.
+
 ## 8. Pool Operational Diagnostics & Intent Tracking
 
 To provide full observability into the background reconciliation engine, `orchestrator.PoolController` tracks operational intent, health state, and reconciliation failure diagnostics per pool:

@@ -333,6 +333,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **Ghost Runner Sweep:** Automatic deregistration of orphaned runner registrations (e.g. after ungraceful container deaths — OOM kills, host reboots, supervisor downtime) that would otherwise linger as `Offline` entries on the forge's Runners page: the audit loop reuses the M23 provider listing to spot idle, offline, untracked `runnero-*` registrations and removes them via the existing deregistration API after a short consecutive-cycle grace window — busy and tracked runners are exempt, foreign (non-`runnero-`) registrations are never touched, and failures fail open (`docs/20`). *[Design Phase]*
 
 ---
 
