@@ -225,8 +225,13 @@ Single SQLite migration (recreate-table pattern):
   open/close hooked into the busy-state sync and reap paths, boot + belt-and-braces
   crash recovery, redefined stats queries with new API denominators, truthful UI
   degradation (§5.6), db/orchestrator/frontend tests.
-- **Phase 2 — webhook enrichment**: payload timestamp fields, upsert/merge rules,
-  dedup invariant tests.
+- **Phase 2 — webhook enrichment** *(shipped)*: payload timestamp fields
+  (`created_at`/`started_at`/`completed_at`), unique index on the external job id
+  (migration 005), transactional upsert/merge rules covering all four start
+  branches (promote stub, attach to transition row, absorb stub into transition
+  row, insert fresh) and both close branches (by external id with duplicate
+  cleanup, fallback by runner with job-id enrichment), queued-event upsert
+  before capacity gating, and db/orchestrator dedup invariant tests.
 - **Phase 3 — conclusion enrichment**: `RunnerLatestJobs` capability (GitHub first),
   config toggle, fail-open tests.
 - Phases are independently shippable; Phase 1 alone makes every dashboard indicator
