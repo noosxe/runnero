@@ -81,11 +81,13 @@ CREATE TABLE job_history (
 );
 
 
-> **Planned extension (docs/21, Design Phase):** `job_history` gains external job
+> **Lifecycle extension (docs/21, shipped):** `job_history` carries external job
 > metadata columns (`job_id`, `run_id`, `workflow_name`, `head_branch`, `head_sha`), a
-> `source` column, and an extended status vocabulary (`queued`, `running`,
-> `completed`, `interrupted`) to support the job lifecycle recorder — at most one
-> open row per `(pool_id, runner_name)` via partial unique index. See
+> `source` discriminator (`transition` / `webhook` / `timeout`), and the extended
+> status vocabulary (`queued`, `running`, `completed`, `interrupted` added to the
+> legacy outcome set). A partial unique index enforces at most one open row per
+> `(pool_id, runner_name)`; the busy-state transition recorder opens and closes
+> these rows, boot recovery closes stale ones as `interrupted`. See
 > [docs/21-job-history-recording.md](21-job-history-recording.md).
 
 CREATE TABLE audit_logs (

@@ -1,7 +1,7 @@
 # Job History Recording (docs/21)
 
-> **Status: Design Phase** — awaiting review. Implementation must not start before
-> this document is approved and merged.
+> **Status: Phase 1 shipped** (transition recorder, schema, stats semantics).
+> Phases 2–3 (webhook enrichment, conclusion enrichment) remain planned.
 
 ## 1. Problem Statement
 
@@ -199,12 +199,32 @@ Single SQLite migration (recreate-table pattern):
 
 ## 8. Resolved Decisions (Design Review)
 
-*(to be filled during review)*
+- **Primary recorder is the busy-state transition, not webhooks** — confirmed
+  during review: typical local/NAT deployments never receive webhooks, yet jobs
+  still run (the forge's native scheduler dispatches to registered idle runners).
+  Webhook-only recording would have left the dashboard dead on exactly those
+  deployments.
+- **Boot recovery is unconditional**: at startup every open row is closed as
+  `interrupted` before the initial convergence pass; currently-busy runners get a
+  fresh row opened from their next listing observation. This keeps recovery
+  stateless (no "was it really mid-job?" heuristics).
+- **Container-death status mapping**: exit code 0 closes a row as `completed`
+  (the ephemeral runner exits 0 after a clean job+deregistration), any other code
+  or an unknown code as `interrupted`. Refining this per job via the forge API is
+  Phase 3's job, not the reap path's.
+- **Partial unique index exempts empty runner names** (`runner_name != ''`), so
+  Phase 2 webhook `queued` rows (pre-runner-assignment) are not constrained by
+  the runner-slot invariant.
+- **Stats truthfulness is server-driven**: the API returns the denominators
+  (`known_outcome_jobs`, `queue_timed_jobs`) and the frontend renders "—" only
+  when they are empty — no sentinel values on the wire.
 
 ## 9. Implementation Plan
 
-- **Phase 1 — transition recorder**: schema migration, transition open/close in the
-  orchestrator, crash recovery, query + UI semantics (§5.6), stats tests.
+- **Phase 1 — transition recorder** *(shipped)*: schema migration (004), transition
+  open/close hooked into the busy-state sync and reap paths, boot + belt-and-braces
+  crash recovery, redefined stats queries with new API denominators, truthful UI
+  degradation (§5.6), db/orchestrator/frontend tests.
 - **Phase 2 — webhook enrichment**: payload timestamp fields, upsert/merge rules,
   dedup invariant tests.
 - **Phase 3 — conclusion enrichment**: `RunnerLatestJobs` capability (GitHub first),
