@@ -37,7 +37,7 @@ pools:
     min_idle_runners: 2
     max_concurrency: 5
     labels: ["frontend", "node-20"]
-    runner_image: "ghcr.io/noosxe/runner-aio:latest"
+    runner_image: "ghcr.io/noosxe/runnero:latest"
     allow_docker: false
     max_runner_lifetime_seconds: 7200
     cpu_limit: "2.0"
@@ -55,7 +55,7 @@ pools:
     min_idle_runners: 1
     max_concurrency: 3
     labels: ["backend"]
-    runner_image: "ghcr.io/noosxe/runner-aio:latest"
+    runner_image: "ghcr.io/noosxe/runnero:latest"
     allow_docker: true
     max_runner_lifetime_seconds: 7200
     cpu_limit: "4.0"

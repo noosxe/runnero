@@ -1,4 +1,4 @@
-# gh-runner — AIO Supervisor
+# runnero — Multi-Provider Actions Runner & Supervisor
 #
 # All targets are intended to run inside the Nix development shell:
 #   nix develop --command make <target>
@@ -10,7 +10,7 @@
 # path no longer exists in the Nix store.
 export CGO_ENABLED := 0
 
-BINARY := supervisor
+BINARY := runnero-supervisor
 PKG     := ./...
 
 .PHONY: build build-web build-image-runner build-image-supervisor test test-race test-scripts test-web test-e2e test-e2e-ui clean-e2e lint lint-web fmt fmt-web vet tidy clean generate proto-lint

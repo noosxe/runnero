@@ -1,4 +1,4 @@
-name: gh-runner-e2e
+name: runnero-e2e
 
 networks:
   e2e-net:

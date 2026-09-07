@@ -15,9 +15,9 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
-	"github.com/noosxe/gh-runner/internal/server"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 func generateRSAPEMForLeakageTest(t *testing.T) string {
@@ -156,7 +156,7 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 			Provider:       "github",
 			RepositoryUrl:  "https://github.com/myorg/repo",
 			Scope:          "repo",
-			RunnerImage:    "ghcr.io/noosxe/runner-aio:latest",
+			RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 			MaxConcurrency: 5,
 			MinIdleRunners: 1,
 			Labels:         []string{"self-hosted"},
@@ -174,7 +174,7 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 			Provider:       "github",
 			RepositoryUrl:  "https://github.com/myorg/repo",
 			Scope:          "repo",
-			RunnerImage:    "ghcr.io/noosxe/runner-aio:v2",
+			RunnerImage:    "ghcr.io/noosxe/runnero:v2",
 			MaxConcurrency: 10,
 			MinIdleRunners: 2,
 			Labels:         []string{"self-hosted", "arm64"},

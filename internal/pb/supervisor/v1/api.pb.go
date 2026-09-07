@@ -4579,7 +4579,7 @@ const file_api_proto_rawDesc = "" +
 	"\x10CheckImageUpdate\x12&.supervisor.v1.CheckImageUpdateRequest\x1a'.supervisor.v1.CheckImageUpdateResponse\x12N\n" +
 	"\tPullImage\x12\x1f.supervisor.v1.PullImageRequest\x1a .supervisor.v1.PullImageResponse\x12c\n" +
 	"\x10ListImageUpdates\x12&.supervisor.v1.ListImageUpdatesRequest\x1a'.supervisor.v1.ListImageUpdatesResponse\x12i\n" +
-	"\x12DismissImageUpdate\x12(.supervisor.v1.DismissImageUpdateRequest\x1a).supervisor.v1.DismissImageUpdateResponseBDZBgithub.com/noosxe/gh-runner/internal/pb/supervisor/v1;supervisorv1b\x06proto3"
+	"\x12DismissImageUpdate\x12(.supervisor.v1.DismissImageUpdateRequest\x1a).supervisor.v1.DismissImageUpdateResponseBBZ@github.com/noosxe/runnero/internal/pb/supervisor/v1;supervisorv1b\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once

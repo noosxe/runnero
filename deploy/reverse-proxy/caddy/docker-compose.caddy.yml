@@ -1,7 +1,7 @@
 services:
   caddy:
     image: caddy:2.9-alpine
-    container_name: ghrs-caddy
+    container_name: runnero-caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -15,13 +15,13 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     networks:
-      - ghrs-net
+      - runnero-net
     depends_on:
       - supervisor
 
   supervisor:
     image: ghcr.io/noosxe/runnero-supervisor:latest
-    container_name: ghrs-supervisor
+    container_name: runnero-supervisor
     restart: unless-stopped
     environment:
       # Required: 32+ byte encryption key for database and derived JWT secret
@@ -36,7 +36,7 @@ services:
       - supervisor_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - ghrs-net
+      - runnero-net
     # Do not expose port 8090 to host directly; all traffic flows through Caddy
     expose:
       - "8090"
@@ -47,5 +47,5 @@ volumes:
   supervisor_data:
 
 networks:
-  ghrs-net:
+  runnero-net:
     driver: bridge

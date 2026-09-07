@@ -83,7 +83,7 @@ export MOCK_LOG_GH_RUN="${TEST_TMP}/gh_run.log"
 		MOCK_LOG_GH_RUN="${MOCK_LOG_GH_RUN}" \
 		GITHUB_REPOSITORY_URL="https://github.com/my-org/my-repo" \
 		RUNNER_TOKEN="gh_token_123" \
-		RUNNER_NAME="test-gh-runner" \
+		RUNNER_NAME="test-runnero" \
 		RUNNER_LABELS="github-label" \
 		bash "${ENTRYPOINT}" > /dev/null 2>&1
 )
@@ -211,7 +211,7 @@ LOG_GH_TRAP="${TEST_TMP}/gh_trap.log"
 		MOCK_LOG_GH_CONFIG="${LOG_GH_TRAP}" \
 		GITHUB_REPOSITORY_URL="https://github.com/my-org/my-repo" \
 		RUNNER_TOKEN="gh_trap_token" \
-		RUNNER_NAME="trap-gh-runner" \
+		RUNNER_NAME="trap-runnero" \
 		bash "${ENTRYPOINT}" > /dev/null 2>&1
 ) &
 ENTRYPOINT_PID=$!

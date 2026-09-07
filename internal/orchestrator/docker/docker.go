@@ -17,8 +17,8 @@ import (
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 var (
@@ -416,7 +416,7 @@ func (c *Client) TerminateRunner(ctx context.Context, containerID string) error 
 }
 
 // AuditRunners inspects all active and exited supervisor-managed runner containers
-// by querying the Docker daemon for the com.github-runner-supervisor.managed=true label.
+// by querying the Docker daemon for the com.runnero.managed=true label.
 func (c *Client) AuditRunners(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 	c.mu.RLock()
 	docker := c.docker

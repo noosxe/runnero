@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/webhook"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/webhook"
 )
 
 // NormalizeRepositoryURL cleans and normalizes a repository or organization URL

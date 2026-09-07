@@ -5,7 +5,7 @@ import { HistoryDetailPage } from "./history-detail";
 const mockJob = {
   id: 101n,
   poolId: 10n,
-  runnerName: "ghrs-arm64-prod-a8f12c",
+  runnerName: "runnero-arm64-prod-a8f12c",
   status: "success",
   queuedAt: "2026-09-04T00:00:00Z",
   startedAt: "2026-09-04T00:00:03Z",
@@ -61,7 +61,7 @@ describe("HistoryDetailPage", () => {
   it("renders job execution summary metrics and historical log terminal", () => {
     render(<HistoryDetailPage />);
 
-    expect(screen.getByText("ghrs-arm64-prod-a8f12c")).toBeInTheDocument();
+    expect(screen.getByText("runnero-arm64-prod-a8f12c")).toBeInTheDocument();
     expect(screen.getAllByText("arm64-prod-pool").length).toBeGreaterThan(0);
     expect(screen.getByText("2m 42s")).toBeInTheDocument();
     expect(screen.getByText("3.0s")).toBeInTheDocument();

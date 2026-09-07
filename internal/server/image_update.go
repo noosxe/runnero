@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/noosxe/gh-runner/internal/db"
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/internal/db"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
 )
 
 // ImageUpdateDatabase defines database operations needed for image update notifications.
@@ -139,7 +139,7 @@ func (s *ImageUpdateService) CheckImageUpdate(ctx context.Context, req *connect.
 
 	imageRef := strings.TrimSpace(p.RunnerImage)
 	if imageRef == "" {
-		imageRef = "ghcr.io/noosxe/runner-aio:latest"
+		imageRef = "ghcr.io/noosxe/runnero:latest"
 	}
 
 	var localDigest string

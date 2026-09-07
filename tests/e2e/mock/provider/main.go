@@ -51,8 +51,8 @@ func handleGitHubApp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"id":   123456,
-		"name": "gh-runner-e2e-app",
-		"slug": "gh-runner-e2e-app",
+		"name": "runnero-e2e-app",
+		"slug": "runnero-e2e-app",
 	})
 }
 

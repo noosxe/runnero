@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 type mockPoolRepo struct {
@@ -118,7 +118,7 @@ func TestPoolController_BootAndMinIdleProvisioning(t *testing.T) {
 		MinIdleRunners: 3,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux","arm64"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:    true,
 		CpuLimit:       sql.NullString{String: "2", Valid: true},
 		MemoryLimit:    sql.NullString{String: "4g", Valid: true},
@@ -284,7 +284,7 @@ func TestPoolController_HandleContainerEvent_ReapAndReplenish(t *testing.T) {
 		Scope:          "repo",
 		AuthProfileID:  20,
 		MinIdleRunners: 2,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -382,7 +382,7 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
 		MaxConcurrency: 2,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 	poolB := db.RunnerPool{
 		ID:             2,
@@ -393,7 +393,7 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
 		MaxConcurrency: 2,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{poolA, poolB}}
@@ -542,7 +542,7 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 		MinIdleRunners:           2,
 		MaxConcurrency:           5,
 		MaxRunnerLifetimeSeconds: 5, // 5 second limit
-		RunnerImage:              "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -885,7 +885,7 @@ func TestPoolController_PerPoolSettingsRuntimeReload(t *testing.T) {
 		AuthProfileID:  1,
 		MinIdleRunners: 1,
 		MaxConcurrency: 5,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{
@@ -1039,8 +1039,8 @@ func TestPoolController_TaskExitHandlerReap(t *testing.T) {
 
 func TestPoolController_ImageUpdateHandoff_Replenisher(t *testing.T) {
 	ctx := context.Background()
-	oldImage := "ghcr.io/noosxe/runner-aio:v1.0.0"
-	newImage := "ghcr.io/noosxe/runner-aio:v2.0.0"
+	oldImage := "ghcr.io/noosxe/runnero:v1.0.0"
+	newImage := "ghcr.io/noosxe/runnero:v2.0.0"
 
 	pool := db.RunnerPool{
 		ID:             1,
@@ -1177,7 +1177,7 @@ func TestPoolController_ForgejoPollingScaling_AuditLoopPicksUpQueuedJob(t *testi
 		MinIdleRunners: 1,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -1258,7 +1258,7 @@ func TestPoolController_ForgejoPollingScaling_MaxConcurrencyRespected(t *testing
 		MinIdleRunners: 1,
 		MaxConcurrency: 3, // capped at 3
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -1332,7 +1332,7 @@ func TestPoolController_ForgejoPollingScaling_GlobalQuotaSaturation(t *testing.T
 		MinIdleRunners: 1,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -1411,7 +1411,7 @@ func TestPoolController_ForgejoPollingScaling_ErrorHandledGracefully(t *testing.
 		MinIdleRunners: 2,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -1478,7 +1478,7 @@ func TestPoolController_WebhookProviderDoesNotPoll(t *testing.T) {
 		MinIdleRunners: 1,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}

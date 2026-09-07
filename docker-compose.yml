@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.supervisor
     image: ghcr.io/noosxe/runnero-supervisor:latest
-    container_name: gh-runner-supervisor
+    container_name: runnero-supervisor
     restart: unless-stopped
     ports:
       - "${SUPERVISOR_PORT:-8090}:8090"
@@ -40,14 +40,14 @@ services:
       dockerfile: Dockerfile
       args:
         - GH_RUNNER_VERSION=2.337.0
-    image: ghcr.io/noosxe/runner-aio:latest
-    container_name: runner-aio
+    image: ghcr.io/noosxe/runnero:latest
+    container_name: runnero
     init: true
     restart: unless-stopped
     environment:
       - GITHUB_REPOSITORY_URL=${GITHUB_REPOSITORY_URL:-}
       - RUNNER_TOKEN=${RUNNER_TOKEN:-}
-      - RUNNER_NAME=${RUNNER_NAME:-runner-aio}
+      - RUNNER_NAME=${RUNNER_NAME:-runnero}
       - RUNNER_LABELS=${RUNNER_LABELS:-self-hosted,linux,arm64}
       - RUNNER_WORKDIR=${RUNNER_WORKDIR:-_work}
     volumes:

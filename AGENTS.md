@@ -185,7 +185,7 @@ When creating new files, structure the repository logically as follows:
 │       ├── build.yml         # CI/CD: Multi-arch Docker build & push (via Buildx)
 │       └── lint.yml          # CI/CD: Automated shell and Docker linter checks
 ├── cmd/
-│   └── supervisor/           # Go entrypoint (Cobra CLI & daemon runner)
+│   └── runnero-supervisor/   # Go entrypoint (Cobra CLI & daemon runner)
 ├── internal/
 │   ├── config/               # Koanf config parser (YAML/TOML/ENV/Flags)
 │   ├── db/                   # DB abstraction (sqlc, goose migrations, modernc.org/sqlite)
@@ -207,7 +207,7 @@ When creating new files, structure the repository logically as follows:
 └── AGENTS.md                 # This file
 ```
 
-> **Note:** The Go module (`go.mod`, `github.com/noosxe/gh-runner`) lives at the repository root — Go packages import as `github.com/noosxe/gh-runner/internal/...`. The `src/` directory contains only the runner-image shell scripts and is intentionally outside the Go module.
+> **Note:** The Go module (`go.mod`, `github.com/noosxe/runnero`) lives at the repository root — Go packages import as `github.com/noosxe/runnero/internal/...`. The `src/` directory contains only the runner-image shell scripts and is intentionally outside the Go module.
 
 ---
 

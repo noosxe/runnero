@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E configuration for gh-runner supervisor.
+ * Playwright E2E configuration for runnero supervisor.
  * Connects to the containerized supervisor daemon running on port 8090.
  */
 export default defineConfig({

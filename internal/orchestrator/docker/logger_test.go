@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/logging"
+	"github.com/noosxe/runnero/internal/logging"
 )
 
 // TestModuleLoggerTagged proves this package instantiates its module

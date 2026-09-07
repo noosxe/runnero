@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/provider/github"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/provider/github"
 )
 
 func setupMockGitHubServer(t *testing.T) *httptest.Server {

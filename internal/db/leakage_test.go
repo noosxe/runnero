@@ -167,7 +167,7 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 		MinIdleRunners:           2,
 		MaxConcurrency:           10,
 		Labels:                   `["self-hosted","linux"]`,
-		RunnerImage:              "ghcr.io/noosxe/runner-aio:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:              false,
 		MaxRunnerLifetimeSeconds: 3600,
 	})
@@ -184,7 +184,7 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 		MinIdleRunners:           1,
 		MaxConcurrency:           5,
 		Labels:                   `["self-hosted","arm64"]`,
-		RunnerImage:              "ghcr.io/noosxe/runner-aio:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:              false,
 		MaxRunnerLifetimeSeconds: 3600,
 	})
@@ -201,7 +201,7 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 		MinIdleRunners:           1,
 		MaxConcurrency:           5,
 		Labels:                   `["self-hosted","fine"]`,
-		RunnerImage:              "ghcr.io/noosxe/runner-aio:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:              false,
 		MaxRunnerLifetimeSeconds: 3600,
 	})
@@ -218,7 +218,7 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 		MinIdleRunners:           1,
 		MaxConcurrency:           3,
 		Labels:                   `["gitea","dood"]`,
-		RunnerImage:              "ghcr.io/noosxe/runner-aio:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:              true,
 		MaxRunnerLifetimeSeconds: 3600,
 	})
@@ -235,7 +235,7 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 		MinIdleRunners:           1,
 		MaxConcurrency:           3,
 		Labels:                   `["forgejo","dood"]`,
-		RunnerImage:              "ghcr.io/noosxe/runner-aio:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:              true,
 		MaxRunnerLifetimeSeconds: 3600,
 	})

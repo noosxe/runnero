@@ -1,13 +1,13 @@
 # CI/CD Pipeline Architecture & Path-Based Filtering
 
-This document defines the architectural design, filtering rules, security controls, and operational patterns for continuous integration and multi-architecture container publishing in the **gh-runner** repository.
+This document defines the architectural design, filtering rules, security controls, and operational patterns for continuous integration and multi-architecture container publishing in the **runnero** repository.
 
 ---
 
 ## 1. Architectural Overview & Design Goals
 
 The repository is organized as a unified monorepo hosting multiple interdependent components:
-- **Supervisor Daemon (`cmd/supervisor`, `internal/`)**: Go 1.24+ daemon, SQLite persistence, and ConnectRPC backend.
+- **Supervisor Daemon (`cmd/runnero-supervisor`, `internal/`)**: Go 1.24+ daemon, SQLite persistence, and ConnectRPC backend.
 - **Embedded Web UI (`web/`)**: React 19, TypeScript, TanStack Router/Query, and TailwindCSS frontend.
 - **Protobuf Schemas (`proto/`)**: ConnectRPC service and message definitions compiled to Go stubs and TypeScript clients.
 - **Runner Runtime (`src/`, `tests/unit/`)**: Container lifecycle shell scripts for GitHub, Gitea, and Forgejo actions.
@@ -125,7 +125,7 @@ The table below defines the exact path filters evaluated across all workflows:
 | **Go CI** (`go.yml`) | `go` | `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Makefile`<br/>`.github/workflows/go.yml` | Any modification to backend Go code, database queries/migrations, Protobuf schemas, Go module dependencies, build automation, or the workflow itself. |
 | **Web CI** (`web.yml`) | `web` | `web/**`<br/>`proto/**`<br/>`.github/workflows/web.yml` | Any modification to the React SPA, frontend dependencies (`pnpm-lock.yaml`), shared Protobuf schemas, or the frontend workflow. |
 | **Lint CI** (`lint.yml`) | `scripts`<br/>`docker` | `src/**`<br/>`tests/**`<br/>`Dockerfile`<br/>`Dockerfile.supervisor`<br/>`.dockerignore`<br/>`.github/workflows/lint.yml` | `scripts`: Triggers `shellcheck` and script unit tests on runner bash scripts.<br/>`docker`: Triggers `hadolint` on container files. |
-| **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`tests/**`<br/>`.github/workflows/build.yml` | Modifications to the `runner-aio` container definition, scripts, or release workflow. |
+| **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`tests/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition, scripts, or release workflow. |
 | **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image` | `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum`<br/>`.github/workflows/supervisor-build.yml` | Modifications to the supervisor binary context, embedded web UI assets, or container recipe. |
 
 ### Handling Cross-Cutting Changes

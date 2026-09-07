@@ -14,7 +14,7 @@ const mockPools = [
     id: 1n,
     name: "pool-arm64-prod",
     provider: "github",
-    runnerImage: "ghcr.io/noosxe/runner-aio:v1.1.0",
+    runnerImage: "ghcr.io/noosxe/runnero:v1.1.0",
   },
 ];
 
@@ -22,8 +22,8 @@ const mockUpdates = [
   {
     id: 101n,
     poolId: 1n,
-    currentImage: "ghcr.io/noosxe/runner-aio:v1.1.0",
-    latestDigest: "ghcr.io/noosxe/runner-aio:v1.2.0",
+    currentImage: "ghcr.io/noosxe/runnero:v1.1.0",
+    latestDigest: "ghcr.io/noosxe/runnero:v1.2.0",
     status: "available",
   },
 ];

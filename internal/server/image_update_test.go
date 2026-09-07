@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/noosxe/gh-runner/internal/db"
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/internal/db"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
 )
 
 type mockImageUpdateDB struct {
@@ -66,7 +66,7 @@ func TestImageUpdateServiceLifecycle(t *testing.T) {
 			1: {
 				ID:          1,
 				Name:        "pool-linux-ci",
-				RunnerImage: "ghcr.io/noosxe/runner-aio:v1.1.0",
+				RunnerImage: "ghcr.io/noosxe/runnero:v1.1.0",
 			},
 		},
 	}
@@ -120,12 +120,12 @@ func TestImageUpdateServiceLifecycle(t *testing.T) {
 	if !pullRes.Msg.Success {
 		t.Errorf("PullImage response success = false")
 	}
-	if len(mockPuller.pulledImages) != 1 || mockPuller.pulledImages[0] != "ghcr.io/noosxe/runner-aio:v1.1.0" {
-		t.Errorf("expected pulled image %s, got %v", "ghcr.io/noosxe/runner-aio:v1.1.0", mockPuller.pulledImages)
+	if len(mockPuller.pulledImages) != 1 || mockPuller.pulledImages[0] != "ghcr.io/noosxe/runnero:v1.1.0" {
+		t.Errorf("expected pulled image %s, got %v", "ghcr.io/noosxe/runnero:v1.1.0", mockPuller.pulledImages)
 	}
 
 	// 4. Dismiss Image Update
-	newUp := svc.FlagUpdate(1, "ghcr.io/noosxe/runner-aio:v1.1.0", "ghcr.io/noosxe/runner-aio:v1.2.0")
+	newUp := svc.FlagUpdate(1, "ghcr.io/noosxe/runnero:v1.1.0", "ghcr.io/noosxe/runnero:v1.2.0")
 	dismissRes, err := client.DismissImageUpdate(ctx, connect.NewRequest(&supervisorv1.DismissImageUpdateRequest{
 		Id: newUp.Id,
 	}))
@@ -165,7 +165,7 @@ func (m *mockRegistryChecker) BumpTag(imageRef, newDigest string) {
 
 func TestCheckImageUpdate_DetectsBumpedTag(t *testing.T) {
 	ctx := context.Background()
-	testImage := "ghcr.io/noosxe/runner-aio:v1.0.0"
+	testImage := "ghcr.io/noosxe/runnero:v1.0.0"
 	initialDigest := "sha256:1111111111111111111111111111111111111111111111111111111111111111"
 	bumpedDigest := "sha256:2222222222222222222222222222222222222222222222222222222222222222"
 
@@ -298,8 +298,8 @@ func TestCheckImageUpdate_DetectsBumpedTag(t *testing.T) {
 func TestCheckImageUpdate_PerPoolScoping(t *testing.T) {
 	ctx := context.Background()
 
-	pool1Image := "ghcr.io/noosxe/runner-aio:v1.0.0"
-	pool2Image := "ghcr.io/noosxe/runner-aio:v2.0.0"
+	pool1Image := "ghcr.io/noosxe/runnero:v1.0.0"
+	pool2Image := "ghcr.io/noosxe/runnero:v2.0.0"
 
 	mockDB := &mockImageUpdateDB{
 		pools: map[int64]db.RunnerPool{
@@ -409,7 +409,7 @@ func TestCheckImageUpdate_RegistryError(t *testing.T) {
 
 func TestImageUpdate_BackgroundPullAndStatusTransition(t *testing.T) {
 	ctx := context.Background()
-	testImage := "ghcr.io/noosxe/runner-aio:v1.1.0"
+	testImage := "ghcr.io/noosxe/runnero:v1.1.0"
 	bumpedDigest := "sha256:3333333333333333333333333333333333333333333333333333333333333333"
 
 	mockDB := &mockImageUpdateDB{
@@ -501,7 +501,7 @@ func TestImageUpdate_BackgroundPullAndStatusTransition(t *testing.T) {
 
 func TestImageUpdate_BackgroundPullFailure(t *testing.T) {
 	ctx := context.Background()
-	testImage := "ghcr.io/noosxe/runner-aio:v1.2.0"
+	testImage := "ghcr.io/noosxe/runnero:v1.2.0"
 
 	mockDB := &mockImageUpdateDB{
 		pools: map[int64]db.RunnerPool{
@@ -563,7 +563,7 @@ func TestImageUpdate_BackgroundPullFailure(t *testing.T) {
 
 func TestImageUpdate_DismissImageUpdate(t *testing.T) {
 	ctx := context.Background()
-	testImage := "ghcr.io/noosxe/runner-aio:v1.3.0"
+	testImage := "ghcr.io/noosxe/runnero:v1.3.0"
 
 	mockDB := &mockImageUpdateDB{
 		pools: map[int64]db.RunnerPool{

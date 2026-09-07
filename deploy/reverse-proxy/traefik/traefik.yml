@@ -1,4 +1,4 @@
-# Traefik v3 reverse-proxy configuration for gh-runner supervisor
+# Traefik v3 reverse-proxy configuration for runnero-supervisor
 # Handles automated TLS certificate resolution via Let's Encrypt and routes traffic.
 
 global:
@@ -35,4 +35,4 @@ certificatesResolvers:
 providers:
   docker:
     exposedByDefault: false
-    network: ghrs-net
+    network: runnero-net

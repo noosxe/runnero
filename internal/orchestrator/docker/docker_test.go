@@ -19,9 +19,9 @@ import (
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/orchestrator/docker"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/orchestrator/docker"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 type nopPullResponse struct {
@@ -254,7 +254,7 @@ func TestDockerClient_SpawnRunner(t *testing.T) {
 	}
 
 	// Verify Naming
-	if !strings.HasPrefix(createdName, "ghrs-arm64-pool-") {
+	if !strings.HasPrefix(createdName, "runnero-arm64-pool-") {
 		t.Errorf("unexpected container name: %q", createdName)
 	}
 
@@ -464,12 +464,12 @@ func TestDockerClient_AuditRunners(t *testing.T) {
 				Items: []container.Summary{
 					{
 						ID:    "cnt-1",
-						Names: []string{"/ghrs-pool-a-abcdef"},
+						Names: []string{"/runnero-pool-a-abcdef"},
 						State: "running",
 						Labels: map[string]string{
 							orchestrator.LabelManaged:   "true",
 							orchestrator.LabelPoolName:  "pool-a",
-							orchestrator.LabelID:        "ghrs-pool-a-abcdef",
+							orchestrator.LabelID:        "runnero-pool-a-abcdef",
 							orchestrator.LabelSpawnedAt: "2026-09-03T12:00:00Z",
 						},
 						NetworkSettings: &container.NetworkSettingsSummary{
@@ -497,7 +497,7 @@ func TestDockerClient_AuditRunners(t *testing.T) {
 		t.Fatalf("expected 1 runner status, got %d", len(statuses))
 	}
 	s := statuses[0]
-	if s.ID != "cnt-1" || s.Name != "ghrs-pool-a-abcdef" || s.PoolName != "pool-a" || s.State != "running" || s.IPAddress != "172.17.0.2" {
+	if s.ID != "cnt-1" || s.Name != "runnero-pool-a-abcdef" || s.PoolName != "pool-a" || s.State != "running" || s.IPAddress != "172.17.0.2" {
 		t.Errorf("unexpected mapped runner status: %+v", s)
 	}
 
@@ -837,7 +837,7 @@ func TestDockerClient_ImageOperations(t *testing.T) {
 		imageInspectFn: func(ctx context.Context, imageID string, inspectOpts ...client.ImageInspectOption) (client.ImageInspectResult, error) {
 			return client.ImageInspectResult{
 				InspectResponse: dockerimage.InspectResponse{
-					RepoDigests: []string{"ghcr.io/noosxe/runner-aio@sha256:digest-abc"},
+					RepoDigests: []string{"ghcr.io/noosxe/runnero@sha256:digest-abc"},
 				},
 			}, nil
 		},
@@ -848,14 +848,14 @@ func TestDockerClient_ImageOperations(t *testing.T) {
 		t.Fatalf("failed to create client: %v", err)
 	}
 
-	if err := cli.PullImage(ctx, "ghcr.io/noosxe/runner-aio:latest"); err != nil {
+	if err := cli.PullImage(ctx, "ghcr.io/noosxe/runnero:latest"); err != nil {
 		t.Fatalf("PullImage failed: %v", err)
 	}
-	if pulled != "ghcr.io/noosxe/runner-aio:latest" {
-		t.Errorf("expected pulled image %s, got %s", "ghcr.io/noosxe/runner-aio:latest", pulled)
+	if pulled != "ghcr.io/noosxe/runnero:latest" {
+		t.Errorf("expected pulled image %s, got %s", "ghcr.io/noosxe/runnero:latest", pulled)
 	}
 
-	digest, err := cli.GetLocalImageDigest(ctx, "ghcr.io/noosxe/runner-aio:latest")
+	digest, err := cli.GetLocalImageDigest(ctx, "ghcr.io/noosxe/runnero:latest")
 	if err != nil {
 		t.Fatalf("GetLocalImageDigest failed: %v", err)
 	}
@@ -866,7 +866,7 @@ func TestDockerClient_ImageOperations(t *testing.T) {
 
 func TestDockerClient_ImageHandoff_InFlightJobUnchanged(t *testing.T) {
 	ctx := context.Background()
-	tag := "ghcr.io/noosxe/runner-aio:latest"
+	tag := "ghcr.io/noosxe/runnero:latest"
 	digestV1 := "sha256:1111111111111111111111111111111111111111111111111111111111111111"
 	digestV2 := "sha256:2222222222222222222222222222222222222222222222222222222222222222"
 

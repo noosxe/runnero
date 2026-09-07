@@ -1,6 +1,6 @@
 # Reverse-Proxy TLS Termination: Caddy & Traefik
 
-This document provides production deployment architectures, operational configurations, and verification procedures for terminating TLS in front of the **gh-runner AIO Supervisor**.
+This document provides production deployment architectures, operational configurations, and verification procedures for terminating TLS in front of the **runnero AIO Supervisor**.
 
 ---
 
@@ -20,8 +20,8 @@ graph LR
         Proxy[Reverse Proxy<br/>Ports 80 / 443<br/>TLS Termination & HSTS]
     end
 
-    subgraph Internal Isolated Network [ghrs-net]
-        Supervisor[gh-runner Supervisor<br/>Plain HTTP :8090<br/>SUPERVISOR_SECURE_COOKIE=true]
+    subgraph Internal Isolated Network [runnero-net]
+        Supervisor[runnero Supervisor<br/>Plain HTTP :8090<br/>SUPERVISOR_SECURE_COOKIE=true]
         DB[(SQLite DB)]
     end
 
@@ -73,7 +73,7 @@ Terminating TLS at the reverse proxy automatically enables **HTTP/2** (and **HTT
 
 ## 3. Session Cookie Security (`SUPERVISOR_SECURE_COOKIE`)
 
-The supervisor manages administrator authentication sessions using an `HttpOnly` cookie named `ghrs_session` that carries an encrypted and cryptographically signed JWT.
+The supervisor manages administrator authentication sessions using an `HttpOnly` cookie named `session_token` that carries an encrypted and cryptographically signed JWT.
 
 ### Configuration Contract
 By default, the supervisor omits the `Secure` cookie attribute (`SUPERVISOR_SECURE_COOKIE=false`) to ensure local development environments operating over `http://localhost:8090` function without browser rejection.
@@ -83,14 +83,14 @@ When deployed in production behind a TLS reverse proxy, operators **must** enabl
 | Setting Mechanism | Syntax / Example |
 | :--- | :--- |
 | **Environment Variable** | `SUPERVISOR_SECURE_COOKIE=true` |
-| **CLI Flag** | `supervisor daemon --secure-cookie` |
+| **CLI Flag** | `runnero-supervisor daemon --secure-cookie` |
 | **YAML / TOML Settings File** | `secure-cookie: true` |
 
 ### Resulting Cookie Attributes
 When `SUPERVISOR_SECURE_COOKIE=true` is enabled, the supervisor generates session cookies with strict security flags:
 
 ```http
-Set-Cookie: ghrs_session=<signed-jwt>; Path=/; HttpOnly; Secure; SameSite=Strict
+Set-Cookie: session_token=<signed-jwt>; Path=/; HttpOnly; Secure; SameSite=Strict
 ```
 
 - `Secure`: The browser will **never** transmit the session cookie over unencrypted plain HTTP connections, defending against Man-in-the-Middle (MitM) token extraction.
@@ -101,14 +101,14 @@ Set-Cookie: ghrs_session=<signed-jwt>; Path=/; HttpOnly; Secure; SameSite=Strict
 
 ## 4. Production Deployment with Caddy
 
-[Caddy](https://caddyserver.com/) is the recommended reverse proxy for gh-runner. It provides zero-configuration automated TLS certificates via Let's Encrypt and ZeroSSL, native HTTP/3 support, and a concise configuration syntax.
+[Caddy](https://caddyserver.com/) is the recommended reverse proxy for runnero. It provides zero-configuration automated TLS certificates via Let's Encrypt and ZeroSSL, native HTTP/3 support, and a concise configuration syntax.
 
 Ready-to-use configuration files are provided in `deploy/reverse-proxy/caddy/`.
 
 ### 4.1 Caddyfile (`deploy/reverse-proxy/caddy/Caddyfile`)
 
 ```caddyfile
-# Caddy reverse-proxy configuration for gh-runner supervisor
+# Caddy reverse-proxy configuration for runnero supervisor
 # Terminates TLS with automatic Let's Encrypt / ZeroSSL ACME certificates.
 # ConnectRPC server streaming requires unbuffered proxying (`flush_interval -1`).
 
@@ -130,7 +130,7 @@ Ready-to-use configuration files are provided in `deploy/reverse-proxy/caddy/`.
         Referrer-Policy "strict-origin-when-cross-origin"
     }
 
-    # Reverse proxy upstream to the gh-runner supervisor container
+    # Reverse proxy upstream to the runnero supervisor container
     reverse_proxy supervisor:8090 {
         # CRITICAL: Disable response buffering for ConnectRPC server-streaming RPCs
         # (StreamRunnerLogs, WatchDashboard, WatchPools, WatchRunners).
@@ -153,7 +153,7 @@ Ready-to-use configuration files are provided in `deploy/reverse-proxy/caddy/`.
 services:
   caddy:
     image: caddy:2.9-alpine
-    container_name: ghrs-caddy
+    container_name: runnero-caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -167,13 +167,13 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     networks:
-      - ghrs-net
+      - runnero-net
     depends_on:
       - supervisor
 
   supervisor:
     image: ghcr.io/noosxe/runnero-supervisor:latest
-    container_name: ghrs-supervisor
+    container_name: runnero-supervisor
     restart: unless-stopped
     environment:
       # Required: 32+ byte encryption key for database and derived JWT secret
@@ -188,7 +188,7 @@ services:
       - supervisor_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - ghrs-net
+      - runnero-net
     # Port 8090 is exposed to internal network only, never published to host
     expose:
       - "8090"
@@ -199,7 +199,7 @@ volumes:
   supervisor_data:
 
 networks:
-  ghrs-net:
+  runnero-net:
     driver: bridge
 ```
 
@@ -228,7 +228,7 @@ Ready-to-use configuration files are provided in `deploy/reverse-proxy/traefik/`
 services:
   traefik:
     image: traefik:v3.3
-    container_name: ghrs-traefik
+    container_name: runnero-traefik
     restart: unless-stopped
     command:
       - "--global.checknewversion=false"
@@ -245,7 +245,7 @@ services:
       # Docker provider integration
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=ghrs-net"
+      - "--providers.docker.network=runnero-net"
     ports:
       - "80:80"
       - "443:443"
@@ -253,11 +253,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_acme:/letsencrypt
     networks:
-      - ghrs-net
+      - runnero-net
 
   supervisor:
     image: ghcr.io/noosxe/runnero-supervisor:latest
-    container_name: ghrs-supervisor
+    container_name: runnero-supervisor
     restart: unless-stopped
     environment:
       - SUPERVISOR_DB_ENCRYPTION_KEY=${SUPERVISOR_DB_ENCRYPTION_KEY}
@@ -269,7 +269,7 @@ services:
       - supervisor_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - ghrs-net
+      - runnero-net
     labels:
       - "traefik.enable=true"
       # Route HTTPS requests for the domain to supervisor
@@ -296,7 +296,7 @@ volumes:
   supervisor_data:
 
 networks:
-  ghrs-net:
+  runnero-net:
     driver: bridge
 ```
 
@@ -385,7 +385,7 @@ curl -i -k -X POST https://runner.example.com/supervisor.v1.AuthService/Login \
 ```
 Expected header:
 ```http
-Set-Cookie: ghrs_session=...; Path=/; HttpOnly; Secure; SameSite=Strict
+Set-Cookie: session_token=...; Path=/; HttpOnly; Secure; SameSite=Strict
 ```
 Verify that `Secure` is explicitly present.
 

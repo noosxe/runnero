@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/orchestrator/docker"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/orchestrator/docker"
 )
 
 func TestDockerClient_WithMockDockerAPIClient(t *testing.T) {
@@ -66,7 +66,7 @@ func TestDockerClient_WithMockDockerAPIClient(t *testing.T) {
 		require.NoError(t, err)
 
 		cfg := orchestrator.RunnerConfig{
-			Name:     "ghrs-ci-pool-abc12345",
+			Name:     "runnero-ci-pool-abc12345",
 			PoolName: "ci-pool",
 			Image:    "ghcr.io/actions/runner:latest",
 			RepoURL:  "https://github.com/org/repo",
@@ -98,7 +98,7 @@ func TestDockerClient_WithMockDockerAPIClient(t *testing.T) {
 		require.NoError(t, err)
 
 		cfg := orchestrator.RunnerConfig{
-			Name:     "ghrs-ci-pool-fail",
+			Name:     "runnero-ci-pool-fail",
 			PoolName: "ci-pool",
 			Image:    "ghcr.io/actions/runner:latest",
 			RepoURL:  "https://github.com/org/repo",
@@ -155,14 +155,14 @@ func TestDockerClient_WithMockDockerAPIClient(t *testing.T) {
 		// Case 1: Network already exists
 		mockAPI.On("NetworkList", mock.Anything, mock.AnythingOfType("client.NetworkListOptions")).Return(client.NetworkListResult{
 			Items: []network.Summary{
-				{Network: network.Network{ID: "net-existing-id", Name: "gh-runner-net"}},
+				{Network: network.Network{ID: "net-existing-id", Name: "runnero-net"}},
 			},
 		}, nil).Once()
 
 		client, err := docker.NewClient(ctx, docker.WithAPIClient(mockAPI))
 		require.NoError(t, err)
 
-		netID, err := client.EnsureNetwork(ctx, "gh-runner-net")
+		netID, err := client.EnsureNetwork(ctx, "runnero-net")
 		require.NoError(t, err)
 		assert.Equal(t, "net-existing-id", netID)
 
@@ -176,7 +176,7 @@ func TestDockerClient_WithMockDockerAPIClient(t *testing.T) {
 			Items: []container.Summary{
 				{
 					ID:    "cnt-audited-1",
-					Names: []string{"/ghrs-pool1-0001"},
+					Names: []string{"/runnero-pool1-0001"},
 					State: "running",
 					Labels: map[string]string{
 						orchestrator.LabelManaged:   "true",
@@ -199,7 +199,7 @@ func TestDockerClient_WithMockDockerAPIClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, statuses, 1)
 		assert.Equal(t, "cnt-audited-1", statuses[0].ID)
-		assert.Equal(t, "ghrs-pool1-0001", statuses[0].Name)
+		assert.Equal(t, "runnero-pool1-0001", statuses[0].Name)
 		assert.Equal(t, "pool1", statuses[0].PoolName)
 		assert.Equal(t, "running", statuses[0].State)
 		assert.Equal(t, "172.17.0.2", statuses[0].IPAddress)

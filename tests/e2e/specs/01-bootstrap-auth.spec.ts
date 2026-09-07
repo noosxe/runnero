@@ -33,7 +33,7 @@ test.describe('Flow 01: System Bootstrap & Authentication', () => {
     await page.goto('/settings');
     // Expect redirect to login with redirect param
     await page.waitForURL(/\/login\?redirect=%2Fsettings/);
-    await expect(page.getByText(/Sign in to gh-runner/i)).toBeVisible();
+    await expect(page.getByText(/Sign in to (Supervisor|Runnero)/i)).toBeVisible();
 
     await context.close();
   });

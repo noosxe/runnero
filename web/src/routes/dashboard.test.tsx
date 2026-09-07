@@ -39,7 +39,7 @@ const mockHistory = {
   jobs: [
     {
       id: 101n,
-      runnerName: "ghrs-arm64-prod-a8f12c",
+      runnerName: "runnero-arm64-prod-a8f12c",
       status: "success",
       durationSeconds: 165.0,
       queueTimeSeconds: 3.2,
@@ -115,7 +115,7 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("97.9%").length).toBeGreaterThan(0);
     expect(screen.getAllByText("3m 12s").length).toBeGreaterThan(0);
     expect(screen.getByText("pool-arm64-prod")).toBeInTheDocument();
-    expect(screen.getByText("ghrs-arm64-prod-a8f12c")).toBeInTheDocument();
+    expect(screen.getByText("runnero-arm64-prod-a8f12c")).toBeInTheDocument();
   });
 
   it("renders empty state when no runner pools or job executions exist", () => {

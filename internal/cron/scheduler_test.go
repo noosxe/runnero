@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
+	"github.com/noosxe/runnero/internal/db"
 )
 
 func TestScheduler_VirtualClock_FiresOnSchedule(t *testing.T) {

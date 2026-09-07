@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	"github.com/noosxe/gh-runner/internal/db"
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/db"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 type mockStatsProvider struct {
@@ -169,7 +169,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 			MinIdleRunners:           2,
 			MaxConcurrency:           10,
 			Labels:                   []string{"self-hosted", "linux", "arm64"},
-			RunnerImage:              "ghcr.io/noosxe/gh-runner:latest",
+			RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 			AllowDocker:              true,
 			CpuLimit:                 "2.0",
 			MemoryLimit:              "4Gi",
@@ -231,7 +231,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 			MinIdleRunners:           4,
 			MaxConcurrency:           15,
 			Labels:                   []string{"self-hosted", "linux", "arm64", "gpu"},
-			RunnerImage:              "ghcr.io/noosxe/gh-runner:v2",
+			RunnerImage:              "ghcr.io/noosxe/runnero:v2",
 			AllowDocker:              true,
 			CpuLimit:                 "4.0",
 			MemoryLimit:              "8Gi",
@@ -430,7 +430,7 @@ func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 	runnerMgr.runners["runner-mgmt-pool"] = []server.RunnerInstanceInfo{
 		{
 			ID:        "cnt-alpha",
-			Name:      "ghrs-runner-alpha",
+			Name:      "runnero-runner-alpha",
 			PoolName:  "runner-mgmt-pool",
 			State:     "running",
 			IPAddress: "172.18.0.2",
@@ -438,7 +438,7 @@ func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 		},
 		{
 			ID:        "cnt-beta",
-			Name:      "ghrs-runner-beta",
+			Name:      "runnero-runner-beta",
 			PoolName:  "runner-mgmt-pool",
 			State:     "running",
 			IPAddress: "172.18.0.3",
@@ -552,7 +552,7 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 	runnerMgr.runners["stream-pool"] = []server.RunnerInstanceInfo{
 		{
 			ID:        "stream-cnt-1",
-			Name:      "ghrs-stream-1",
+			Name:      "runnero-stream-1",
 			PoolName:  "stream-pool",
 			State:     "running",
 			IPAddress: "172.18.0.9",

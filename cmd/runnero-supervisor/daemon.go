@@ -11,17 +11,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/noosxe/gh-runner/internal/cron"
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/keys"
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/orchestrator/docker"
-	"github.com/noosxe/gh-runner/internal/provider"
-	_ "github.com/noosxe/gh-runner/internal/provider/forgejo"
-	_ "github.com/noosxe/gh-runner/internal/provider/gitea"
-	_ "github.com/noosxe/gh-runner/internal/provider/github"
-	"github.com/noosxe/gh-runner/internal/renovate"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/cron"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/keys"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/orchestrator/docker"
+	"github.com/noosxe/runnero/internal/provider"
+	_ "github.com/noosxe/runnero/internal/provider/forgejo"
+	_ "github.com/noosxe/runnero/internal/provider/gitea"
+	_ "github.com/noosxe/runnero/internal/provider/github"
+	"github.com/noosxe/runnero/internal/renovate"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 // daemonShutdownTimeout bounds the HTTP drain window on SIGTERM/SIGINT:

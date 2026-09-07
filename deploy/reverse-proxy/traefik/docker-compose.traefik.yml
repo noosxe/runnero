@@ -1,7 +1,7 @@
 services:
   traefik:
     image: traefik:v3.3
-    container_name: ghrs-traefik
+    container_name: runnero-traefik
     restart: unless-stopped
     command:
       - "--global.checknewversion=false"
@@ -15,7 +15,7 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=ghrs-net"
+      - "--providers.docker.network=runnero-net"
     ports:
       - "80:80"
       - "443:443"
@@ -23,11 +23,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_acme:/letsencrypt
     networks:
-      - ghrs-net
+      - runnero-net
 
   supervisor:
     image: ghcr.io/noosxe/runnero-supervisor:latest
-    container_name: ghrs-supervisor
+    container_name: runnero-supervisor
     restart: unless-stopped
     environment:
       # Required: 32+ byte encryption key
@@ -41,7 +41,7 @@ services:
       - supervisor_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - ghrs-net
+      - runnero-net
     labels:
       - "traefik.enable=true"
       # Route HTTPS requests for the domain to supervisor
@@ -68,5 +68,5 @@ volumes:
   supervisor_data:
 
 networks:
-  ghrs-net:
+  runnero-net:
     driver: bridge

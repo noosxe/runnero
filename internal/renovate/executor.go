@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/cron"
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/provider"
+	"github.com/noosxe/runnero/internal/cron"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/provider"
 )
 
 var (

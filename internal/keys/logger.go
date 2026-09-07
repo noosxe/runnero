@@ -1,6 +1,6 @@
 package keys
 
-import "github.com/noosxe/gh-runner/internal/logging"
+import "github.com/noosxe/runnero/internal/logging"
 
 // logger tags every record emitted by this package with module="keys"
 // (docs/06 §1: per-module loggers are mandated for every backend module).

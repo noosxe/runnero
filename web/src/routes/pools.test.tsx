@@ -7,7 +7,7 @@ const mockPools = [
     id: 1n,
     name: "arm64-prod-pool",
     provider: "github",
-    repositoryUrl: "https://github.com/noosxe/gh-runner",
+    repositoryUrl: "https://github.com/noosxe/runnero",
     scope: "repo",
     minIdleRunners: 2,
     maxConcurrency: 10,
@@ -15,10 +15,10 @@ const mockPools = [
     cpuLimit: "4",
     memoryLimit: "8G",
     allowDocker: true,
-    runnerImage: "ghcr.io/noosxe/runner-aio:latest",
+    runnerImage: "ghcr.io/noosxe/runnero:latest",
     maxRunnerLifetimeSeconds: 7200,
     targetUrls: [
-      "https://github.com/noosxe/gh-runner",
+      "https://github.com/noosxe/runnero",
       "https://github.com/noosxe/frontend",
       "https://github.com/noosxe/docs",
     ],
@@ -66,9 +66,9 @@ vi.mock("../lib/api/query-hooks", () => ({
   useDiscoverTargets: () => ({
     data: [
       {
-        name: "gh-runner",
-        fullName: "noosxe/gh-runner",
-        htmlUrl: "https://github.com/noosxe/gh-runner",
+        name: "runnero",
+        fullName: "noosxe/runnero",
+        htmlUrl: "https://github.com/noosxe/runnero",
         description: "Lightweight runner",
         isPrivate: false,
         avatarUrl: "",

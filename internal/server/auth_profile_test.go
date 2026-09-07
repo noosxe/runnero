@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	"github.com/noosxe/gh-runner/internal/db"
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/db"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 type mockValidator struct {

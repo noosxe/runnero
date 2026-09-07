@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/provider"
+	"github.com/noosxe/runnero/internal/provider"
 )
 
 func TestRateLimitTransport_RetryAfterInteger(t *testing.T) {

@@ -13,9 +13,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/labstack/echo/v5"
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
-	"github.com/noosxe/gh-runner/web"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/web"
 )
 
 // DisabledJSONCodec explicitly overrides the default "json" codec in Connect,

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/orchestrator"
 )
 
 func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
@@ -15,7 +15,7 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 	liveHostContainers := []orchestrator.RunnerStatus{
 		{
 			ID:        "c-running-1",
-			Name:      "ghrs-pool-a-111111",
+			Name:      "runnero-pool-a-111111",
 			PoolName:  "pool-a",
 			State:     "running",
 			IPAddress: "172.20.0.2",
@@ -23,7 +23,7 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 		},
 		{
 			ID:        "c-running-2",
-			Name:      "ghrs-pool-a-222222",
+			Name:      "runnero-pool-a-222222",
 			PoolName:  "pool-a",
 			State:     "running",
 			IPAddress: "172.20.0.3",
@@ -31,7 +31,7 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 		},
 		{
 			ID:        "c-exited-3",
-			Name:      "ghrs-pool-b-333333",
+			Name:      "runnero-pool-b-333333",
 			PoolName:  "pool-b",
 			State:     "exited",
 			IPAddress: "172.20.0.4",
@@ -104,7 +104,7 @@ func TestReconciler_TrackAndUntrack(t *testing.T) {
 
 	status := orchestrator.RunnerStatus{
 		ID:       "c-100",
-		Name:     "ghrs-pool-x-100",
+		Name:     "runnero-pool-x-100",
 		PoolName: "pool-x",
 		State:    "running",
 	}

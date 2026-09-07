@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 func TestHostArchAndOS(t *testing.T) {

@@ -103,7 +103,7 @@ func handleNetworks(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode([]map[string]any{
 		{
 			"Id":     "net-e2e-mock-123456",
-			"Name":   "gh-runner-net",
+			"Name":   "runnero-net",
 			"Driver": "bridge",
 			"Scope":  "local",
 		},
@@ -119,7 +119,7 @@ func handleContainerCreate(w http.ResponseWriter, r *http.Request) {
 
 	mu.Lock()
 	id := fmt.Sprintf("cnt-mock-%04d", counter)
-	name := fmt.Sprintf("/ghrs-runner-%04d", counter)
+	name := fmt.Sprintf("/runnero-runner-%04d", counter)
 	counter++
 
 	cnt := &containerState{

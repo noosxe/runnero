@@ -7,7 +7,7 @@ const mockPools = [
     id: 1n,
     name: "arm64-prod-pool",
     provider: "github",
-    repositoryUrl: "https://github.com/noosxe/gh-runner",
+    repositoryUrl: "https://github.com/noosxe/runnero",
     renovate: {
       enabled: true,
       cronSchedule: "0 3 * * 1",
@@ -18,7 +18,7 @@ const mockPools = [
     id: 2n,
     name: "amd64-staging-pool",
     provider: "github",
-    repositoryUrl: "https://github.com/noosxe/gh-runner-staging",
+    repositoryUrl: "https://github.com/noosxe/runnero-staging",
     renovate: {
       enabled: false,
       cronSchedule: "0 4 * * 0",

@@ -3,8 +3,8 @@ package supervisorv1_test
 import (
 	"testing"
 
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -18,7 +18,7 @@ func TestProtoSchemasAndStubs(t *testing.T) {
 		MinIdleRunners:           2,
 		MaxConcurrency:           10,
 		Labels:                   []string{"self-hosted", "arm64"},
-		RunnerImage:              "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:              true,
 		AuthProfileId:            42,
 		Scope:                    "repo",

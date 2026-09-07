@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/orchestrator"
 )
 
 func TestDockerHealthTracker_DegradedAndRecovery(t *testing.T) {

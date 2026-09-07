@@ -8,7 +8,7 @@ import (
 
 const (
 	// DefaultNetworkName is the supervisor-managed bridge network for runner communication (OQ #22).
-	DefaultNetworkName = "ghrs-supervisor"
+	DefaultNetworkName = "runnero-supervisor"
 )
 
 // RunnerConfig defines parameters for spawning an ephemeral runner or task container.

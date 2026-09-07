@@ -53,7 +53,7 @@ graph TD
         M3["github.com/moby/moby/v2<br/>Daemon Engine Only"]
     end
 
-    App["gh-runner Supervisor"] -.->|Migrate to| M1
+    App["runnero Supervisor"] -.->|Migrate to| M1
     App -.->|Migrate to| M2
 ```
 
