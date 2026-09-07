@@ -81,6 +81,25 @@ type RunnerDeregistrar interface {
 	DeregisterRunner(ctx context.Context, scope RegistrationScope, targetURL, runnerName string) error
 }
 
+// RemoteRunnerStatus is the provider-reported state of one registered runner (docs/19 §2.1).
+type RemoteRunnerStatus struct {
+	// Name is the runner name as registered at the forge.
+	Name string
+	// Busy reports whether the runner is currently executing a job.
+	Busy bool
+	// Online reports whether the forge considers the runner reachable/recently contacted.
+	Online bool
+}
+
+// RunnerLister is optionally implemented by GitProviders whose API exposes registered-runner state (docs/19 §2).
+// The orchestrator polls it every audit cycle as the authoritative busy-state source; workflow_job webhooks
+// remain the sub-second fast path. Callers must type-assert; providers that cannot answer simply do not
+// implement it.
+type RunnerLister interface {
+	// ListRunners returns the registered runners and their state for the target URL and scope.
+	ListRunners(ctx context.Context, scope RegistrationScope, targetURL string) ([]RemoteRunnerStatus, error)
+}
+
 // AppInstallation represents an installation of a Git App (e.g. GitHub App) on an account.
 type AppInstallation struct {
 	ID                  int64  `json:"id"`

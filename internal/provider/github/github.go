@@ -52,6 +52,13 @@ type Client struct {
 	appHTMLURL string
 }
 
+// Compile-time interface conformance checks.
+var (
+	_ provider.GitProvider           = (*Client)(nil)
+	_ provider.RenovateTokenProvider = (*Client)(nil)
+	_ provider.RunnerLister          = (*Client)(nil)
+)
+
 // ClientOption configures a GitHub Client.
 type ClientOption func(*Client)
 
@@ -218,6 +225,93 @@ func (c *Client) GetRegistrationToken(ctx context.Context, scope provider.Regist
 		return "", errors.New("empty registration token received from GitHub API")
 	}
 	return tokenResp.Token, nil
+}
+
+// ListRunners implements provider.RunnerLister (docs/19 §2.2): returns the registered
+// runners and their busy/online state for the target, following the same scope-based
+// endpoints as the registration flow and reusing its token resolution.
+func (c *Client) ListRunners(ctx context.Context, scope provider.RegistrationScope, targetURL string) ([]provider.RemoteRunnerStatus, error) {
+	owner, repo, err := parseTargetURL(targetURL)
+	if err != nil {
+		return nil, err
+	}
+
+	authToken, err := c.getAuthBearerToken(ctx, owner, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	var endpoint string
+	switch scope {
+	case provider.ScopeRepo:
+		if repo == "" {
+			return nil, fmt.Errorf("%w: repository name required for repo scope", ErrInvalidTargetURL)
+		}
+		endpoint = fmt.Sprintf("%s/repos/%s/%s/actions/runners", c.baseURL, owner, repo)
+	case provider.ScopeOrg:
+		endpoint = fmt.Sprintf("%s/orgs/%s/actions/runners", c.baseURL, owner)
+	case provider.ScopeGlobal:
+		endpoint = fmt.Sprintf("%s/enterprises/%s/actions/runners", c.baseURL, owner)
+	default:
+		return nil, fmt.Errorf("unsupported registration scope: %q", scope)
+	}
+
+	const perPage = 100
+	// maxListPages bounds pagination as a loop guard against API misbehaviour;
+	// 50 pages × 100 runners is far beyond any realistic supervisor-managed fleet.
+	const maxListPages = 50
+
+	var all []provider.RemoteRunnerStatus
+	for page := 1; page <= maxListPages; page++ {
+		listURL := fmt.Sprintf("%s?per_page=%d&page=%d", endpoint, perPage, page)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+authToken)
+		c.setCommonHeaders(req)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("listing registered runners: %w", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			return nil, fmt.Errorf("failed to list registered runners (status %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		}
+
+		var listResp struct {
+			TotalCount int `json:"total_count"`
+			Runners    []struct {
+				Name   string `json:"name"`
+				Busy   bool   `json:"busy"`
+				Status string `json:"status"`
+			} `json:"runners"`
+		}
+		err = json.NewDecoder(resp.Body).Decode(&listResp)
+		closeErr := resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("decoding runners list response: %w", err)
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("closing runners list response: %w", closeErr)
+		}
+
+		for _, r := range listResp.Runners {
+			all = append(all, provider.RemoteRunnerStatus{
+				Name:   r.Name,
+				Busy:   r.Busy,
+				Online: r.Status == "online",
+			})
+		}
+
+		// Stop at a short page; the API never pads trailing pages.
+		if len(listResp.Runners) < perPage {
+			break
+		}
+	}
+	return all, nil
 }
 
 // GetRenovateToken returns an installation access token (for Apps) or the PAT directly.
