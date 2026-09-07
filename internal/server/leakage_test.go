@@ -69,6 +69,8 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 	finePAT := "github_pat_11SECRET_FINE_GRAINED_TOKEN_abcdef1234567890"
 	giteaToken := "gitea_secret_token_11223344556677889900"
 	forgejoToken := "forgejo_secret_token_99887766554433221100"
+	rotatedClassicPAT := "ghp_RotatedClassicPAT_AfterUpdate_777"
+	rotatedRawPEMKey := generateRSAPEMForLeakageTest(t)
 
 	// 1. Setup Admin
 	setupRes, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
@@ -142,6 +144,30 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAuthProfile (Forgejo) failed: %v", err)
 	}
+	// UpdateAuthProfile: rotate the classic PAT token (blank-secret-keep and
+	// method-switch purge paths are covered in auth_profile_test.go).
+	rotateClassicRes, err := profileClient.UpdateAuthProfile(ctx, withAuth(sessionToken, &supervisorv1.UpdateAuthProfileRequest{
+		Id:         createClassicRes.Msg.Profile.Id,
+		Name:       "gh-pat-secret",
+		AuthMethod: "pat",
+		Token:      rotatedClassicPAT,
+	}))
+	if err != nil {
+		t.Fatalf("UpdateAuthProfile (rotate classic PAT) failed: %v", err)
+	}
+
+	// UpdateAuthProfile: method switch pat -> github_app with a fresh key;
+	// the response must carry only boolean secret indicators.
+	switchAppRes, err := profileClient.UpdateAuthProfile(ctx, withAuth(sessionToken, &supervisorv1.UpdateAuthProfileRequest{
+		Id:         createFineRes.Msg.Profile.Id,
+		Name:       "gh-fine-secret",
+		AuthMethod: "github_app",
+		AppId:      6666,
+		PrivateKey: []byte(rotatedRawPEMKey),
+	}))
+	if err != nil {
+		t.Fatalf("UpdateAuthProfile (switch to github_app) failed: %v", err)
+	}
 
 	// 5. ListAuthProfiles
 	listProfilesRes, err := profileClient.ListAuthProfiles(ctx, withAuth(sessionToken, &supervisorv1.ListAuthProfilesRequest{}))
@@ -212,6 +238,8 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 		createGiteaRes.Msg,
 		createForgejoRes.Msg,
 		listProfilesRes.Msg,
+		rotateClassicRes.Msg,
+		switchAppRes.Msg,
 		createPoolRes.Msg,
 		updatePoolRes.Msg,
 		listPoolsRes.Msg,
@@ -237,6 +265,8 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 		"Raw RSA PEM":              rawPEMKey,
 		"RSA PEM Header":           "-----BEGIN RSA PRIVATE KEY-----",
 		"Classic PAT":              classicPAT,
+		"Rotated Classic PAT":      rotatedClassicPAT,
+		"Rotated RSA PEM":          rotatedRawPEMKey,
 		"Fine-Grained PAT":         finePAT,
 		"Gitea Secret Token":       giteaToken,
 		"Forgejo Secret Token":     forgejoToken,
@@ -274,14 +304,14 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 	// 9. Positive verification on AuthProfile: HasPrivateKey and HasToken booleans
 	for _, prof := range listProfilesRes.Msg.Profiles {
 		switch prof.Name {
-		case "gh-app-secret":
+		case "gh-app-secret", "gh-fine-secret": // gh-fine-secret switched to github_app above
 			if !prof.HasPrivateKey {
-				t.Errorf("profile gh-app-secret want HasPrivateKey=true, got false")
+				t.Errorf("profile %s want HasPrivateKey=true, got false", prof.Name)
 			}
 			if prof.HasToken {
-				t.Errorf("profile gh-app-secret want HasToken=false, got true")
+				t.Errorf("profile %s want HasToken=false, got true", prof.Name)
 			}
-		case "gh-pat-secret", "gh-fine-secret", "gitea-secret", "forgejo-secret":
+		case "gh-pat-secret", "gitea-secret", "forgejo-secret":
 			if prof.HasPrivateKey {
 				t.Errorf("profile %s want HasPrivateKey=false, got true", prof.Name)
 			}
