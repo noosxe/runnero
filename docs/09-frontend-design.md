@@ -243,7 +243,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 +-----------------------------------------------------------------------------------------------+
 |  SYSTEM HEALTH & ALERTS                                                                       |
 |  [ OK ] Docker Engine: Connected (unix:///var/run/docker.sock) • 5 active containers          |
-|  [ !  ] Runner Image Update Available: ghcr.io/noosxe/runner-aio:v1.2.0 (Pool: pool-linux-ci) |
+|  [ !  ] Runner Image Update Available: ghcr.io/noosxe/runnero:v1.2.0 (Pool: pool-linux-ci) |
 +-----------------------------------------------------------------------------------------------+
 |  ACTIVE RUNNER POOLS                                                        [ View All Pools ] |
 |  +-----------------------------------------------------------------------------------------+  |
@@ -257,9 +257,9 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 |  +-----------------------------------------------------------------------------------------+  |
 |  | STATUS  | RUNNER NAME             | POOL             | DURATION | QUEUE TIME | COMPLETED    |  |
 |  +---------+-------------------------+------------------+----------+------------+--------------+  |
-|  | SUCCESS | ghrs-arm64-prod-a8f12c  | pool-arm64-prod  | 2m 45s   | 3.1s       | 2 mins ago   |  |
-|  | SUCCESS | ghrs-gitea-dind-99c01b  | pool-gitea-dind  | 4m 12s   | 5.4s       | 14 mins ago  |  |
-|  | FAILED  | ghrs-arm64-prod-33e14a  | pool-arm64-prod  | 0m 18s   | 2.8s       | 1 hour ago   |  |
+|  | SUCCESS | runnero-arm64-prod-a8f12c  | pool-arm64-prod  | 2m 45s   | 3.1s       | 2 mins ago   |  |
+|  | SUCCESS | runnero-gitea-dind-99c01b  | pool-gitea-dind  | 4m 12s   | 5.4s       | 14 mins ago  |  |
+|  | FAILED  | runnero-arm64-prod-33e14a  | pool-arm64-prod  | 0m 18s   | 2.8s       | 1 hour ago   |  |
 |  +-----------------------------------------------------------------------------------------+  |
 +-----------------------------------------------------------------------------------------------+
 ```
@@ -277,7 +277,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 +-----------------------------------------------------------------------------------------------+
 | +-------------------------------------------------------------------------------------------+ |
 | | pool-arm64-prod  [GitHub] [Repo]                             [ Edit ] [ Trigger ] [ ... ] | |
-| | Target: https://github.com/noosxe/gh-runner • Auth Profile: github-app-prod               | |
+| | Target: https://github.com/noosxe/runnero • Auth Profile: github-app-prod               | |
 | | Labels: self-hosted, linux, arm64, high-perf                                              | |
 | | Active: 2  |  Idle: 1 (Target: 1)  |  Max Concurrency: 10  |  Quotas: 4 CPU / 8 GB        | |
 | | Lifetime Limit: 7200s (2h)  |  Docker: Disabled (Rootless)                                 | |
@@ -301,7 +301,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 ```text
 +-----------------------------------------------------------------------------------------------+
 | < Back to Pools    pool-arm64-prod                                    [ Edit Pool ] [ Reload ]|
-| https://github.com/noosxe/gh-runner • Profile: github-app-prod                                |
+| https://github.com/noosxe/runnero • Profile: github-app-prod                                |
 +-----------------------------------------------------------------------------------------------+
 | Tabs: [ Runners & Containers (3) ]  [ Job History (89) ]  [ Configuration ]  [ Renovate Bot ] |
 +-----------------------------------------------------------------------------------------------+
@@ -309,9 +309,9 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 | +-------------------------------------------------------------------------------------------+ |
 | | CONTAINER ID    | RUNNER NAME            | STATUS | IP ADDRESS   | UPTIME   | ACTIONS     | |
 | +-----------------+------------------------+--------+--------------+----------+-------------+ |
-| | d8f102a4b8c9    | ghrs-arm64-prod-a8f12c | BUSY   | 172.18.0.4   | 8m 12s   | [Live Logs] | |
-| | 44c91ef23a01    | ghrs-arm64-prod-99b11e | BUSY   | 172.18.0.5   | 2m 44s   | [Live Logs] | |
-| | 12a87b640e32    | ghrs-arm64-prod-00c14f | IDLE   | 172.18.0.6   | 18m 02s  | [Live Logs] | |
+| | d8f102a4b8c9    | runnero-arm64-prod-a8f12c | BUSY   | 172.18.0.4   | 8m 12s   | [Live Logs] | |
+| | 44c91ef23a01    | runnero-arm64-prod-99b11e | BUSY   | 172.18.0.5   | 2m 44s   | [Live Logs] | |
+| | 12a87b640e32    | runnero-arm64-prod-00c14f | IDLE   | 172.18.0.6   | 18m 02s  | [Live Logs] | |
 | +-------------------------------------------------------------------------------------------+ |
 +-----------------------------------------------------------------------------------------------+
 ```
@@ -330,10 +330,10 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 | +-------------------------------------------------------------------------------------------+ |
 | | ID  | STATUS  | RUNNER NAME            | POOL            | QUEUE WAIT | DURATION | ACTIONS    | |
 | +-----+---------+------------------------+-----------------+------------+----------+------------+ |
-| | 104 | SUCCESS | ghrs-arm64-prod-a8f12c | pool-arm64-prod | 2.4s       | 3m 12s   | [View Logs]| |
-| | 103 | SUCCESS | ghrs-gitea-dind-88e21a | pool-gitea-dind | 4.1s       | 5m 01s   | [View Logs]| |
-| | 102 | TIMEOUT | ghrs-arm64-prod-77b01a | pool-arm64-prod | 1.8s       | 2h 00s   | [View Logs]| |
-| | 101 | FAILED  | ghrs-arm64-prod-44c99b | pool-arm64-prod | 3.0s       | 0m 22s   | [View Logs]| |
+| | 104 | SUCCESS | runnero-arm64-prod-a8f12c | pool-arm64-prod | 2.4s       | 3m 12s   | [View Logs]| |
+| | 103 | SUCCESS | runnero-gitea-dind-88e21a | pool-gitea-dind | 4.1s       | 5m 01s   | [View Logs]| |
+| | 102 | TIMEOUT | runnero-arm64-prod-77b01a | pool-arm64-prod | 1.8s       | 2h 00s   | [View Logs]| |
+| | 101 | FAILED  | runnero-arm64-prod-44c99b | pool-arm64-prod | 3.0s       | 0m 22s   | [View Logs]| |
 | +-------------------------------------------------------------------------------------------+ |
 | Showing 1 - 25 of 1,482 jobs                                 < Previous  [ 1 ] 2  3  Next >   |
 +-----------------------------------------------------------------------------------------------+
@@ -345,7 +345,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 
 ```text
 +-----------------------------------------------------------------------------------------------+
-| Terminal: ghrs-arm64-prod-a8f12c (Live Stream)                 [ Pause ] [ Auto-scroll: ON ]  |
+| Terminal: runnero-arm64-prod-a8f12c (Live Stream)                 [ Pause ] [ Auto-scroll: ON ]  |
 | Stream: stdout/stderr multiplexed • Connection: Active (sub-second follow)     [ Download Log]|
 +-----------------------------------------------------------------------------------------------+
 | 1 | 2026-09-04T00:50:01Z [stdout] √ Connected to GitHub Actions API                          |
@@ -466,7 +466,7 @@ The pool creation flow is structured as a **4-step guided wizard** with upstream
 - **Step 3: Runner Specifications & Quotas**
   - **Concurrency Quotas**: `min_idle_runners` (min 0, default 1) and `max_concurrency` (min 1, default 5) shared dynamically across all targets in the pool.
   - **Runner Labels**: Comma-separated or chip tags automatically pre-populated with host arch suggestions (e.g., `self-hosted,linux,amd64` or `self-hosted,linux,arm64`).
-  - **Runner Image**: Text input (default: `ghcr.io/noosxe/gh-runner:latest`).
+  - **Runner Image**: Text input (default: `ghcr.io/noosxe/runnero:latest`).
   - **Docker Engine Privileges (`allow_docker`)**: Toggle checkbox. Automatically checked and disabled (locked true) if provider is Gitea or Forgejo.
   - **Resource Quotas**: CPU Limit (e.g., `2.0`), Memory Limit (e.g., `4GB`).
   - **Max Lifetime**: Seconds (default: `7200` / 2 hours).

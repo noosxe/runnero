@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary & Problem Statement
 
-In the GitHub App ecosystem, generating an **App ID** and **Private Key** establishes the App's identity and allows the `gh-runner` supervisor daemon to sign and verify JSON Web Tokens (JWTs). However, under GitHub's security boundary:
+In the GitHub App ecosystem, generating an **App ID** and **Private Key** establishes the App's identity and allows the `runnero` supervisor daemon to sign and verify JSON Web Tokens (JWTs). However, under GitHub's security boundary:
 
 > **A GitHub App has zero access to any repositories or organizations until it is explicitly installed on a personal account or organization, with specific repository grants.**
 
@@ -25,7 +25,7 @@ This design establishes a seamless, guided **GitHub App Installation & Access Ma
 sequenceDiagram
     autonumber
     participant User as User (Browser)
-    participant UI as gh-runner Web UI
+    participant UI as runnero Web UI
     participant Server as Supervisor Daemon
     participant GitHub as GitHub REST API
 
@@ -40,7 +40,7 @@ sequenceDiagram
         Server-->>UI: targets: [], install_url: "https://github.com/apps/{slug}/installations/new"
         UI-->>User: Displays Guided "Install GitHub App" Banner with ↗ Link
         User->>GitHub: Clicks Link & Completes GitHub Installation / Repo Grants
-        User->>UI: Switches Tab Back to gh-runner (Window Focus Event)
+        User->>UI: Switches Tab Back to runnero (Window Focus Event)
         UI->>Server: Auto-Refetches DiscoverTargets
         Server->>GitHub: GET /installation/repositories
         GitHub-->>Server: Discovered Repositories
@@ -140,19 +140,19 @@ To avoid hitting GitHub's API on every single wizard keystroke or render:
      - Render an informative, guided callout:
        > **GitHub App Not Installed on Any Account**
        >
-       > Your GitHub App credentials are valid, but the App has not been installed on your GitHub account or organization yet. Install the App to select the repositories you want `gh-runner` to manage.
+       > Your GitHub App credentials are valid, but the App has not been installed on your GitHub account or organization yet. Install the App to select the repositories you want `runnero` to manage.
      - Action button: **`Install GitHub App on Your Account ↗`** (opens `install_url` in a new browser tab).
 2. **Active Targets / Manage Access State:**
    - When targets *are* found, add an action button in the discovery toolbar next to the target count:
      - **`Manage Access in GitHub ↗`**
-     - Clicking this opens the App's installation settings page on GitHub, allowing the user to add or remove repositories at any time without leaving `gh-runner` blind.
+     - Clicking this opens the App's installation settings page on GitHub, allowing the user to add or remove repositories at any time without leaving `runnero` blind.
 3. **Window Focus Auto-Refresh:**
    - Configure React Query's `useDiscoverTargets` hook with:
      ```ts
      refetchOnWindowFocus: true,
      staleTime: 5_000,
      ```
-   - When the user clicks "Install GitHub App ↗", completes the GitHub authorization flow in the new tab, and switches back to the `gh-runner` window, the wizard automatically re-discovers the granted repositories without requiring a manual page refresh!
+   - When the user clicks "Install GitHub App ↗", completes the GitHub authorization flow in the new tab, and switches back to the `runnero` window, the wizard automatically re-discovers the granted repositories without requiring a manual page refresh!
 
 ### 5.2. Auth Profiles Management (`/profiles`)
 

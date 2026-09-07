@@ -11,19 +11,19 @@ import (
 
 const (
 	// Standard metadata labels applied to all supervisor-managed containers (docs/03 §2).
-	LabelManaged   = "com.github-runner-supervisor.managed"
-	LabelPoolName  = "com.github-runner-supervisor.pool-name"
-	LabelID        = "com.github-runner-supervisor.id"
-	LabelSpawnedAt = "com.github-runner-supervisor.spawned-at"
-	LabelTaskType  = "com.github-runner-supervisor.task-type"
-	LabelTargetURL = "com.github-runner-supervisor.target-url"
+	LabelManaged   = "com.runnero.managed"
+	LabelPoolName  = "com.runnero.pool-name"
+	LabelID        = "com.runnero.id"
+	LabelSpawnedAt = "com.runnero.spawned-at"
+	LabelTaskType  = "com.runnero.task-type"
+	LabelTargetURL = "com.runnero.target-url"
 
 	// Task types
 	TaskTypeRunner = "runner"
 	TaskTypeJob    = "task"
 
 	// DefaultRunnerImage is the standard unified runner image.
-	DefaultRunnerImage = "ghcr.io/noosxe/runner-aio:latest"
+	DefaultRunnerImage = "ghcr.io/noosxe/runnero:latest"
 
 	// DockerMaxContainerNameLen is the maximum container name length enforced by Docker.
 	DockerMaxContainerNameLen = 64
@@ -32,15 +32,15 @@ const (
 var nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9]+`)
 
 // GenerateContainerName creates a container name according to OQ #23:
-// ghrs-<pool-slug>-<6-hex> with a total length <= 64 characters.
+// runnero-<pool-slug>-<6-hex> with a total length <= 64 characters.
 func GenerateContainerName(poolName string) string {
 	slug := SlugifyPoolName(poolName)
 	randomHex := randomHexSuffix(6)
-	return fmt.Sprintf("ghrs-%s-%s", slug, randomHex)
+	return fmt.Sprintf("runnero-%s-%s", slug, randomHex)
 }
 
 // SlugifyPoolName sanitizes and truncates a pool name to fit within the 64-char limit.
-// Prefix "ghrs-" is 5 chars, suffix "-xxxxxx" is 7 chars => max slug length is 52 chars.
+// Prefix "runnero-" is 8 chars, suffix "-xxxxxx" is 7 chars => max slug length is 49 chars.
 func SlugifyPoolName(poolName string) string {
 	lower := strings.ToLower(strings.TrimSpace(poolName))
 	cleaned := nonAlphaNumRegex.ReplaceAllString(lower, "-")
@@ -50,7 +50,7 @@ func SlugifyPoolName(poolName string) string {
 		trimmed = "pool"
 	}
 
-	maxSlugLen := DockerMaxContainerNameLen - len("ghrs-") - len("-123456")
+	maxSlugLen := DockerMaxContainerNameLen - len("runnero-") - len("-123456")
 	if len(trimmed) > maxSlugLen {
 		trimmed = strings.TrimRight(trimmed[:maxSlugLen], "-")
 	}

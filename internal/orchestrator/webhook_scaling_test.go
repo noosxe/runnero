@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/webhook"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/webhook"
 )
 
 func TestNormalizeRepositoryURL(t *testing.T) {
@@ -193,7 +193,7 @@ func TestPoolController_HandleWorkflowJob_Queued_Success(t *testing.T) {
 		MinIdleRunners: 1,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:    true,
 		CpuLimit:       sql.NullString{String: "2", Valid: true},
 		MemoryLimit:    sql.NullString{String: "4g", Valid: true},
@@ -274,7 +274,7 @@ func TestPoolController_HandleWorkflowJob_Queued_MaxConcurrencyReached(t *testin
 		MinIdleRunners: 2,
 		MaxConcurrency: 2, // max is 2
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -347,7 +347,7 @@ func TestPoolController_HandleWorkflowJob_Queued_GlobalQuotaSaturated(t *testing
 		MinIdleRunners: 2,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -446,7 +446,7 @@ func TestPoolController_HandleWorkflowJob_InProgressAndCompleted(t *testing.T) {
 		MinIdleRunners: 1,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}

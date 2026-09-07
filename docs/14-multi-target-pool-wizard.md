@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-This document specifies the architecture, data models, protocol extensions, and frontend user experience for **Multi-Target Runner Pools** and the **Multi-Step Pool Creation Wizard** in the `gh-runner` supervisor.
+This document specifies the architecture, data models, protocol extensions, and frontend user experience for **Multi-Target Runner Pools** and the **Multi-Step Pool Creation Wizard** in the `runnero` supervisor.
 
 Currently, runner pools are configured via a single cramped dialog requiring operators to manually copy-paste individual repository or organization URLs. Furthermore, pools are strictly 1:1 with a single repository or organization URL. This design replaces the modal with a 4-step interactive creation wizard that automatically discovers visible entities from the selected Git provider profile and enables a single runner pool to dynamically serve **multiple repositories** or **multiple organizations** concurrently under a shared resource and concurrency ceiling.
 

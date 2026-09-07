@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package supervisor.v1;
 
-option go_package = "github.com/noosxe/gh-runner/internal/pb/supervisor/v1;supervisorv1";
+option go_package = "github.com/noosxe/runnero/internal/pb/supervisor/v1;supervisorv1";
 
 // ----------------------------------------
 // Authentication Service

@@ -95,7 +95,7 @@ export function OnboardingPage() {
   const [customLabels, setCustomLabels] = useState<string | null>(null);
   const labels = customLabels ?? suggestedLabels;
 
-  const [runnerImage, setRunnerImage] = useState("ghcr.io/noosxe/gh-runner:latest");
+  const [runnerImage, setRunnerImage] = useState("ghcr.io/noosxe/runnero:latest");
   const [minIdleRunners, setMinIdleRunners] = useState(1);
   const [maxConcurrency, setMaxConcurrency] = useState(5);
   const [cpuLimit, setCpuLimit] = useState("2.0");
@@ -344,7 +344,7 @@ export function OnboardingPage() {
                     .split(",")
                     .map((l) => l.trim())
                     .filter(Boolean),
-            runnerImage: runnerImage.trim() || "ghcr.io/noosxe/gh-runner:latest",
+            runnerImage: runnerImage.trim() || "ghcr.io/noosxe/runnero:latest",
             allowDocker: effectiveAllowDocker,
             renovate: renovateEnabled
               ? {
@@ -725,7 +725,7 @@ export function OnboardingPage() {
                     Action Required: Install App in GitHub
                   </h3>
                   <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                    Your GitHub App credentials have been saved and encrypted. To allow gh-runner to
+                    Your GitHub App credentials have been saved and encrypted. To allow runnero to
                     access your repositories and register self-hosted runners, install the app on
                     your GitHub user account or organization.
                   </p>

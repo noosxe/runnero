@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
+	"github.com/noosxe/runnero/internal/db"
 )
 
 var (

@@ -1,5 +1,5 @@
 {
-  description = "Nix Development Shell for gh-runner";
+  description = "Nix Development Shell for runnero";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -13,7 +13,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          name = "gh-runner-dev-shell";
+          name = "runnero-dev-shell";
 
           packages = with pkgs; [
             # Go and Go Tools
@@ -55,7 +55,7 @@
 
           shellHook = ''
             echo "======================================================="
-            echo "   🛡️ gh-runner Nix Development Shell Loaded 🛡️"
+            echo "   🛡️ runnero Nix Development Shell Loaded 🛡️"
             echo "   Go:              $(go version | awk '{print $3}')"
             echo "   Node:            $(node --version)"
             echo "   pnpm:            v$(pnpm --version)"

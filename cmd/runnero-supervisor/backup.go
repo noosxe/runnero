@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/keys"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/keys"
 )
 
 // newBackupCommand creates the `supervisor backup` subcommand: an on-demand

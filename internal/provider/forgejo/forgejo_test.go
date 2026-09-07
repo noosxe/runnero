@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/provider/forgejo"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/provider/forgejo"
 )
 
 func setupMockForgejoServer(t *testing.T) *httptest.Server {

@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 func TestSecurityHeadersPresence(t *testing.T) {

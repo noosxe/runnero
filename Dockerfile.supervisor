@@ -43,7 +43,7 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
-    go build -ldflags "-s -w -X main.version=${VERSION}" -o /build/bin/supervisor ./cmd/supervisor
+    go build -ldflags "-s -w -X main.version=${VERSION}" -o /build/bin/runnero-supervisor ./cmd/runnero-supervisor
 
 # ------------------------------------------------------------------------------
 # Stage 3: Final Runtime
@@ -88,7 +88,8 @@ RUN apk add --no-cache ca-certificates curl tzdata xz tar \
     && apk del xz tar
 
 # Copy compiled supervisor binary
-COPY --from=backend-builder /build/bin/supervisor /usr/local/bin/supervisor
+COPY --from=backend-builder /build/bin/runnero-supervisor /usr/local/bin/runnero-supervisor
+RUN ln -s /usr/local/bin/runnero-supervisor /usr/local/bin/supervisor
 
 # Copy s6-overlay service definitions
 COPY deploy/supervisor/s6-rc.d/ /etc/s6-overlay/s6-rc.d/

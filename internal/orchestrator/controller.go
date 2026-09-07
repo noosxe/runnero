@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/logging"
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/logging"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 var (

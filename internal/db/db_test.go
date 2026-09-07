@@ -10,7 +10,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/noosxe/gh-runner/internal/logging"
+	"github.com/noosxe/runnero/internal/logging"
 )
 
 // TestFreshDBOpenAndPragmas verifies that a fresh database file is created

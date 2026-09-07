@@ -11,7 +11,7 @@ const mockJobs = [
   {
     id: 101n,
     poolId: 10n,
-    runnerName: "ghrs-arm64-prod-a8f12c",
+    runnerName: "runnero-arm64-prod-a8f12c",
     status: "success",
     queuedAt: "2026-09-04T00:00:00Z",
     startedAt: "2026-09-04T00:00:03Z",
@@ -23,7 +23,7 @@ const mockJobs = [
   {
     id: 102n,
     poolId: 20n,
-    runnerName: "ghrs-gitea-dind-99c01b",
+    runnerName: "runnero-gitea-dind-99c01b",
     status: "failure",
     queuedAt: "2026-09-04T00:05:00Z",
     startedAt: "2026-09-04T00:05:05Z",
@@ -79,8 +79,8 @@ describe("HistoryPage", () => {
     render(<HistoryPage />);
 
     expect(screen.getByText("Job Execution History")).toBeInTheDocument();
-    expect(screen.getByText("ghrs-arm64-prod-a8f12c")).toBeInTheDocument();
-    expect(screen.getByText("ghrs-gitea-dind-99c01b")).toBeInTheDocument();
+    expect(screen.getByText("runnero-arm64-prod-a8f12c")).toBeInTheDocument();
+    expect(screen.getByText("runnero-gitea-dind-99c01b")).toBeInTheDocument();
     expect(screen.getAllByText("arm64-prod-pool").length).toBeGreaterThan(0);
     expect(screen.getAllByText("gitea-ci-pool").length).toBeGreaterThan(0);
     expect(screen.getByText("2m 42s")).toBeInTheDocument();

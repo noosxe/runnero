@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/keys"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/keys"
 )
 
 func generateTestPEM(t *testing.T) string {
@@ -93,7 +93,7 @@ func TestExportCLI_LeakageScanAndFilePermissions(t *testing.T) {
 		MinIdleRunners:           1,
 		MaxConcurrency:           5,
 		Labels:                   `["linux","arm64"]`,
-		RunnerImage:              "ghcr.io/noosxe/runner-aio:latest",
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:              false,
 		MaxRunnerLifetimeSeconds: 7200,
 	})

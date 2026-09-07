@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"github.com/noosxe/gh-runner/internal/db"
+	"github.com/noosxe/runnero/internal/db"
 )
 
 // AuditLogDatabase abstracts the database method to insert audit log rows.

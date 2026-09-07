@@ -11,7 +11,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/webhook"
+	"github.com/noosxe/runnero/internal/webhook"
 )
 
 func computeSignature(secret, payload []byte) string {

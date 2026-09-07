@@ -311,7 +311,7 @@ export function PoolsPage() {
                   <span className="text-xs text-slate-400">
                     Image:{" "}
                     <span className="font-mono text-slate-600 dark:text-slate-300">
-                      {p.runnerImage ? p.runnerImage.split("/").pop() : "gh-runner:latest"}
+                      {p.runnerImage ? p.runnerImage.split("/").pop() : "runnero:latest"}
                     </span>
                   </span>
 

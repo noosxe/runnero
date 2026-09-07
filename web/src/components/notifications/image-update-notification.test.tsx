@@ -7,8 +7,8 @@ const mockUpdates: ImageUpdate[] = [
   {
     id: 10n,
     poolId: 1n,
-    currentImage: "ghcr.io/noosxe/runner-aio:v1.1.0",
-    latestDigest: "ghcr.io/noosxe/runner-aio:v1.2.0",
+    currentImage: "ghcr.io/noosxe/runnero:v1.1.0",
+    latestDigest: "ghcr.io/noosxe/runnero:v1.2.0",
     status: "available",
     checkedAt: "2026-09-04T00:00:00Z",
   } as ImageUpdate,
@@ -39,8 +39,8 @@ describe("ImageUpdateNotification", () => {
 
     expect(screen.getByText("Runner Image Update Available")).toBeInTheDocument();
     expect(screen.getByText("pool-linux-ci")).toBeInTheDocument();
-    expect(screen.getByText("ghcr.io/noosxe/runner-aio:v1.1.0")).toBeInTheDocument();
-    expect(screen.getByText("ghcr.io/noosxe/runner-aio:v1.2.0")).toBeInTheDocument();
+    expect(screen.getByText("ghcr.io/noosxe/runnero:v1.1.0")).toBeInTheDocument();
+    expect(screen.getByText("ghcr.io/noosxe/runnero:v1.2.0")).toBeInTheDocument();
 
     const pullBtn = screen.getByRole("button", { name: /pull update/i });
     await act(async () => {

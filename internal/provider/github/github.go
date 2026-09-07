@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/provider"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/provider"
 )
 
 const (
@@ -829,7 +829,7 @@ func (c *Client) queryInstallationEndpoint(ctx context.Context, jwt, url string)
 func (c *Client) setCommonHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", GitHubAPIVersion)
-	req.Header.Set("User-Agent", "gh-runner-supervisor")
+	req.Header.Set("User-Agent", "runnero-supervisor")
 }
 
 func parseTargetURL(rawURL string) (owner, repo string, err error) {

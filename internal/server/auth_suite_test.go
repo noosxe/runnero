@@ -11,11 +11,11 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/keys"
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/keys"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 type AuthEngineTestSuite struct {

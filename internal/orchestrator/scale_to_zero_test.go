@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/orchestrator"
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/webhook"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/webhook"
 )
 
 // TestPoolController_ScaleToZero_HoldsZeroContainersWhenIdle verifies that a webhook pool
@@ -29,7 +29,7 @@ func TestPoolController_ScaleToZero_HoldsZeroContainersWhenIdle(t *testing.T) {
 		MinIdleRunners: 0, // Scale-to-zero enabled
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -104,7 +104,7 @@ func TestPoolController_ScaleToZero_QueuedEventSpawnsOnDemandAndReconcilePreserv
 		MinIdleRunners: 0,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -220,7 +220,7 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 		MinIdleRunners: 0,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -376,7 +376,7 @@ func TestPoolController_ScaleToZero_StaleOrphanedRunnerDrainedAfterGracePeriod(t
 		MinIdleRunners: 0,
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
@@ -487,7 +487,7 @@ func TestPoolController_ScaleToZero_LiveTransitionFromStandbyDrainsToZero(t *tes
 		MinIdleRunners: 2, // Starts with 2 warm standby runners
 		MaxConcurrency: 5,
 		Labels:         `["self-hosted","linux"]`,
-		RunnerImage:    "ghcr.io/noosxe/gh-runner:latest",
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
 	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}

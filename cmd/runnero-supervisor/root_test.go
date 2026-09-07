@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/db"
+	"github.com/noosxe/runnero/internal/db"
 )
 
 // validKeyEnv returns t.Setenv for a strong placeholder encryption key so
@@ -228,7 +228,7 @@ pools:
     repository_url: "https://github.com/org/cli-repo"
     auth_profile: "cli_pat"
     labels: ["self-hosted"]
-    runner_image: "ghcr.io/noosxe/gh-runner:latest"
+    runner_image: "ghcr.io/noosxe/runnero:latest"
 `
 	importFile := filepath.Join(dataDir, "import.yml")
 	if err := os.WriteFile(importFile, []byte(yamlContent), 0o600); err != nil {
@@ -302,7 +302,7 @@ pools:
     repository_url: "https://github.com/org/firstboot"
     auth_profile: "fb_prof"
     labels: ["linux"]
-    runner_image: "ghcr.io/noosxe/gh-runner:latest"
+    runner_image: "ghcr.io/noosxe/runnero:latest"
 `
 	if err := os.WriteFile(configFile, []byte(yamlContent), 0o600); err != nil {
 		t.Fatalf("writing config.yml: %v", err)

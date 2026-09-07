@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/provider"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/provider"
 )
 
 var testKey = []byte("01234567890123456789012345678901")

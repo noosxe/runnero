@@ -1,4 +1,4 @@
-# Caddy reverse-proxy configuration for gh-runner supervisor
+# Caddy reverse-proxy configuration for runnero-supervisor
 # Terminates TLS with automatic Let's Encrypt / ZeroSSL ACME certificates.
 # ConnectRPC server streaming requires unbuffered proxying (`flush_interval -1`).
 
@@ -20,7 +20,7 @@
         Referrer-Policy "strict-origin-when-cross-origin"
     }
 
-    # Reverse proxy upstream to the gh-runner supervisor container
+    # Reverse proxy upstream to the runnero-supervisor container
     reverse_proxy supervisor:8090 {
         # CRITICAL: Disable response buffering for ConnectRPC server-streaming RPCs
         # (StreamRunnerLogs, WatchDashboard, WatchPools, WatchRunners).

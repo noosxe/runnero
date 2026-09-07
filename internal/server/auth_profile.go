@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/noosxe/gh-runner/internal/db"
-	supervisorv1 "github.com/noosxe/gh-runner/internal/pb/supervisor/v1"
-	"github.com/noosxe/gh-runner/internal/pb/supervisor/v1/supervisorv1connect"
-	"github.com/noosxe/gh-runner/internal/provider"
+	"github.com/noosxe/runnero/internal/db"
+	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
+	"github.com/noosxe/runnero/internal/provider"
 )
 
 // AuthProfileDatabase defines the database queries required by AuthProfileService.

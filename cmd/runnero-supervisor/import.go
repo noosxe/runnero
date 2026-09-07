@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/noosxe/gh-runner/internal/db"
-	"github.com/noosxe/gh-runner/internal/keys"
-	"github.com/noosxe/gh-runner/internal/server"
+	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/keys"
+	"github.com/noosxe/runnero/internal/server"
 )
 
 // newImportCommand creates the `supervisor import` subcommand: an explicit

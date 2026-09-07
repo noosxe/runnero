@@ -31,12 +31,12 @@ describe("LogTerminal", () => {
       <LogTerminal
         logs={mockLogs}
         mode="live"
-        runnerName="ghrs-arm64-prod-a8f12c"
+        runnerName="runnero-arm64-prod-a8f12c"
         isConnected={true}
       />,
     );
 
-    expect(screen.getByText("ghrs-arm64-prod-a8f12c")).toBeInTheDocument();
+    expect(screen.getByText("runnero-arm64-prod-a8f12c")).toBeInTheDocument();
     expect(screen.getByText("Live Stream")).toBeInTheDocument();
     expect(screen.getByText("Connected to GitHub Actions API")).toBeInTheDocument();
     expect(screen.getByText("Listening for Jobs...")).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("LogTerminal", () => {
       <LogTerminal
         logs={mockLogs}
         mode="live"
-        runnerName="ghrs-arm64-prod-a8f12c"
+        runnerName="runnero-arm64-prod-a8f12c"
         isConnected={true}
       />,
     );
@@ -67,7 +67,9 @@ describe("LogTerminal", () => {
   });
 
   it("filters logs by search query", () => {
-    render(<LogTerminal logs={mockLogs} mode="historical" runnerName="ghrs-arm64-prod-a8f12c" />);
+    render(
+      <LogTerminal logs={mockLogs} mode="historical" runnerName="runnero-arm64-prod-a8f12c" />,
+    );
 
     const searchInput = screen.getByPlaceholderText("Filter log output...");
     fireEvent.change(searchInput, { target: { value: "deprecated" } });
@@ -81,7 +83,7 @@ describe("LogTerminal", () => {
       <LogTerminal
         logs={mockLogs}
         mode="live"
-        runnerName="ghrs-arm64-prod-a8f12c"
+        runnerName="runnero-arm64-prod-a8f12c"
         isConnected={true}
       />,
     );
@@ -94,7 +96,7 @@ describe("LogTerminal", () => {
   });
 
   it("toggles auto-scroll", () => {
-    render(<LogTerminal logs={mockLogs} mode="live" runnerName="ghrs-arm64-prod-a8f12c" />);
+    render(<LogTerminal logs={mockLogs} mode="live" runnerName="runnero-arm64-prod-a8f12c" />);
 
     const autoScrollBtn = screen.getByRole("button", { name: /auto-scroll: on/i });
     fireEvent.click(autoScrollBtn);
@@ -113,7 +115,9 @@ describe("LogTerminal", () => {
     window.URL.revokeObjectURL = vi.fn();
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
-    render(<LogTerminal logs={mockLogs} mode="historical" runnerName="ghrs-arm64-prod-a8f12c" />);
+    render(
+      <LogTerminal logs={mockLogs} mode="historical" runnerName="runnero-arm64-prod-a8f12c" />,
+    );
 
     const copyBtn = screen.getByRole("button", { name: /copy/i });
     await act(async () => {
@@ -135,7 +139,7 @@ describe("LogTerminal", () => {
       <LogTerminal
         logs={mockLogs}
         mode="live"
-        runnerName="ghrs-arm64-prod-a8f12c"
+        runnerName="runnero-arm64-prod-a8f12c"
         onClear={clearMock}
       />,
     );

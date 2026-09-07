@@ -1,6 +1,6 @@
 # Backup & Disaster Recovery
 
-The AIO Supervisor persists its critical state (encrypted credentials, runner pool topologies, job history, and application settings) in an embedded SQLite database. This document defines the automated snapshot architecture, retention mechanisms, on-demand backup CLI, and the step-by-step disaster recovery procedure per [Open Question #21](file:///home/mechsoull/Projects/gh-runner/docs/open-questions.md#21-backup--disaster-recovery).
+The AIO Supervisor persists its critical state (encrypted credentials, runner pool topologies, job history, and application settings) in an embedded SQLite database. This document defines the automated snapshot architecture, retention mechanisms, on-demand backup CLI, and the step-by-step disaster recovery procedure per [Open Question #21](file:///home/mechsoull/Projects/runnero/docs/open-questions.md#21-backup--disaster-recovery).
 
 ---
 

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/provider"
-	"github.com/noosxe/gh-runner/internal/provider/forgejo"
-	"github.com/noosxe/gh-runner/internal/provider/gitea"
-	"github.com/noosxe/gh-runner/internal/provider/github"
+	"github.com/noosxe/runnero/internal/provider"
+	"github.com/noosxe/runnero/internal/provider/forgejo"
+	"github.com/noosxe/runnero/internal/provider/gitea"
+	"github.com/noosxe/runnero/internal/provider/github"
 )
 
 func TestTokenSegregation_AllProvidersClean(t *testing.T) {
@@ -25,11 +25,11 @@ func TestTokenSegregation_AllProvidersClean(t *testing.T) {
 		runnerSpec := provider.ContainerSpec{
 			Env: provider.BuildRunnerEnv("github", ephemeralRunnerToken, "https://github.com/my-org/my-repo", "runner-1", []string{"self-hosted", "linux"}, "_work"),
 			Labels: map[string]string{
-				"com.github-runner-supervisor.managed":   "true",
-				"com.github-runner-supervisor.pool-name": "gh-pool",
+				"com.runnero.managed":   "true",
+				"com.runnero.pool-name": "gh-pool",
 			},
 			Mounts: []string{"/var/run/docker.sock:/var/run/docker.sock"},
-			Image:  "ghcr.io/noosxe/runner-aio:latest",
+			Image:  "ghcr.io/noosxe/runnero:latest",
 		}
 
 		if err := scanner.Scan(runnerSpec, masterPrivateKey, masterAppID); err != nil {
@@ -53,9 +53,9 @@ func TestTokenSegregation_AllProvidersClean(t *testing.T) {
 		runnerSpec := provider.ContainerSpec{
 			Env: provider.BuildRunnerEnv("github", ephemeralRunnerToken, "https://github.com/my-org/my-repo", "runner-2", []string{"self-hosted"}, "_work"),
 			Labels: map[string]string{
-				"com.github-runner-supervisor.managed": "true",
+				"com.runnero.managed": "true",
 			},
-			Image: "ghcr.io/noosxe/runner-aio:latest",
+			Image: "ghcr.io/noosxe/runnero:latest",
 		}
 
 		if err := scanner.Scan(runnerSpec, masterPAT); err != nil {
@@ -71,10 +71,10 @@ func TestTokenSegregation_AllProvidersClean(t *testing.T) {
 		runnerSpec := provider.ContainerSpec{
 			Env: provider.BuildRunnerEnv("gitea", ephemeralRunnerToken, "https://gitea.example.com/my-org/repo", "runner-gitea", []string{"gitea"}, "_work"),
 			Labels: map[string]string{
-				"com.github-runner-supervisor.managed": "true",
+				"com.runnero.managed": "true",
 			},
 			Mounts: []string{"/var/run/docker.sock:/var/run/docker.sock"},
-			Image:  "ghcr.io/noosxe/runner-aio:latest",
+			Image:  "ghcr.io/noosxe/runnero:latest",
 		}
 
 		if err := scanner.Scan(runnerSpec, masterGiteaPAT); err != nil {
@@ -90,10 +90,10 @@ func TestTokenSegregation_AllProvidersClean(t *testing.T) {
 		runnerSpec := provider.ContainerSpec{
 			Env: provider.BuildRunnerEnv("forgejo", ephemeralRunnerToken, "https://forgejo.example.com/my-org/repo", "runner-forgejo", []string{"forgejo"}, "_work"),
 			Labels: map[string]string{
-				"com.github-runner-supervisor.managed": "true",
+				"com.runnero.managed": "true",
 			},
 			Mounts: []string{"/var/run/docker.sock:/var/run/docker.sock"},
-			Image:  "ghcr.io/noosxe/runner-aio:latest",
+			Image:  "ghcr.io/noosxe/runnero:latest",
 		}
 
 		if err := scanner.Scan(runnerSpec, masterForgejoPAT); err != nil {

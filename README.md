@@ -1,10 +1,10 @@
-# Custom Self-Hosted GitHub Actions Runner & Supervisor
+# Runnero — Multi-Provider Actions Runner & Supervisor
 
-[![Go CI](https://github.com/noosxe/gh-runner/actions/workflows/go.yml/badge.svg)](https://github.com/noosxe/gh-runner/actions/workflows/go.yml)
-[![Web CI](https://github.com/noosxe/gh-runner/actions/workflows/web.yml/badge.svg)](https://github.com/noosxe/gh-runner/actions/workflows/web.yml)
-[![Lint](https://github.com/noosxe/gh-runner/actions/workflows/lint.yml/badge.svg)](https://github.com/noosxe/gh-runner/actions/workflows/lint.yml)
-[![Runner Multi-Arch Build](https://github.com/noosxe/gh-runner/actions/workflows/build.yml/badge.svg)](https://github.com/noosxe/gh-runner/actions/workflows/build.yml)
-[![Supervisor Multi-Arch Build](https://github.com/noosxe/gh-runner/actions/workflows/supervisor-build.yml/badge.svg)](https://github.com/noosxe/gh-runner/actions/workflows/supervisor-build.yml)
+[![Go CI](https://github.com/noosxe/runnero/actions/workflows/go.yml/badge.svg)](https://github.com/noosxe/runnero/actions/workflows/go.yml)
+[![Web CI](https://github.com/noosxe/runnero/actions/workflows/web.yml/badge.svg)](https://github.com/noosxe/runnero/actions/workflows/web.yml)
+[![Lint](https://github.com/noosxe/runnero/actions/workflows/lint.yml/badge.svg)](https://github.com/noosxe/runnero/actions/workflows/lint.yml)
+[![Runner Multi-Arch Build](https://github.com/noosxe/runnero/actions/workflows/build.yml/badge.svg)](https://github.com/noosxe/runnero/actions/workflows/build.yml)
+[![Supervisor Multi-Arch Build](https://github.com/noosxe/runnero/actions/workflows/supervisor-build.yml/badge.svg)](https://github.com/noosxe/runnero/actions/workflows/supervisor-build.yml)
 
 A lightweight, secure, and self-contained self-hosted runner and orchestrator stack for **GitHub Actions**, **Gitea Actions**, and **Forgejo Actions**. Packaged as production-ready, multi-architecture Docker containers designed to run natively on **ARM64** (Apple Silicon, AWS Graviton, Raspberry Pi) and **AMD64** hosts without emulation overhead.
 
@@ -19,7 +19,7 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 - **Dependency Automation via Renovate:** Built-in scheduled Renovate task runner for autonomous dependency updates, configured via cron expressions with isolated ephemeral container execution.
 - **Single Master Key, Derived Secrets:** The single required `SUPERVISOR_DB_ENCRYPTION_KEY` expands via HKDF-SHA256 into two distinct, deterministic secrets — an AES-256 database encryption key for credentials at rest and a HMAC secret for JWT session tokens.
 - **Embedded SQLite & Auto-Migrations:** Pure-Go SQLite persistence via `modernc.org/sqlite` (strictly CGO-free) with automated Goose migrations on boot, rolling snapshot backups (`SUPERVISOR_BACKUP_INTERVAL_HOURS`), and strict corruption detection.
-- **Unified Multi-Provider Runner Image (`runner-aio`):** Multi-stage container image bundling GitHub Actions runner, Gitea `act_runner`, and Forgejo `forgejo-runner` with automatic provider detection, non-root user execution (`UID 1001`), and active signal traps for clean deregistration.
+- **Unified Multi-Provider Runner Image (`runnero`):** Multi-stage container image bundling GitHub Actions runner, Gitea `act_runner`, and Forgejo `forgejo-runner` with automatic provider detection, non-root user execution (`UID 1001`), and active signal traps for clean deregistration.
 - **Automated Health Probes:** Serves `GET /healthz` (liveness: process and SQLite accessible) and `GET /readyz` (readiness: database, audit loop, and Docker daemon reachability; reports `degraded` during Docker outages while remaining responsive).
 - **Reverse-Proxy TLS & Hardened Cookies:** Designed for TLS termination via external reverse proxies (Caddy, Traefik, Nginx) with unbuffered HTTP/2 streaming support and configurable `SUPERVISOR_SECURE_COOKIE` enforcing `Secure; HttpOnly; SameSite=Strict` attributes.
 - **Intelligent Gatekeeper CI/CD Filtering:** Unified path-based filtering architecture (`dorny/paths-filter@v3`) across all 5 GitHub Actions workflows (`go.yml`, `web.yml`, `lint.yml`, `build.yml`, `supervisor-build.yml`), diffing PR file changes in ~4s and skipping unimpacted heavy test, lint, and build matrices without dropping required branch status checks.
@@ -40,8 +40,8 @@ Deploy the complete supervisor daemon and web control interface using Docker Com
 Clone this repository (or download `docker-compose.yml` and `.env.example`):
 
 ```bash
-git clone https://github.com/noosxe/gh-runner.git
-cd gh-runner
+git clone https://github.com/noosxe/runnero.git
+cd runnero
 cp .env.example .env
 ```
 
@@ -135,8 +135,8 @@ Click **Create GitHub App**.
 2. Click **Install** next to the target organization or account.
 3. Choose **All repositories** or select specific repositories that will use the runner pools.
 
-##### Step 6: Add to `gh-runner`
-1. In the `gh-runner` Web UI, navigate to **Git Auth Profiles** → click **+ Add Git Auth Profile**.
+##### Step 6: Add to `runnero`
+1. In the `runnero` Web UI, navigate to **Git Auth Profiles** → click **+ Add Git Auth Profile**.
 2. Select **GitHub App**.
 3. Provide:
    - **Profile Name:** Descriptive label (e.g., `github-production`).
@@ -145,7 +145,7 @@ Click **Create GitHub App**.
 4. Click **Save Profile**.
 
 > [!TIP]
-> **Guided Installation & Scope Management:** If you haven't installed the app yet or need to grant access to additional repositories, `gh-runner` automatically detects this and displays a direct **Install GitHub App on Your Account ↗** button. In the Pool Creation Wizard, you can click **Manage Access in GitHub ↗** to adjust repository permissions at any time — returning to `gh-runner` automatically refreshes the available target repositories on window focus.
+> **Guided Installation & Scope Management:** If you haven't installed the app yet or need to grant access to additional repositories, `runnero` automatically detects this and displays a direct **Install GitHub App on Your Account ↗** button. In the Pool Creation Wizard, you can click **Manage Access in GitHub ↗** to adjust repository permissions at any time — returning to `runnero` automatically refreshes the available target repositories on window focus.
 
 ---
 
@@ -160,7 +160,7 @@ If you prefer using a Personal Access Token instead of a GitHub App:
 - **Classic PAT:**
   1. Navigate to **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)** → **Generate new token (classic)**.
   2. Select the `repo` scope (for repository-level runners) and `admin:org` scope (for organization-level runners).
-- **Add to `gh-runner`:** In **Git Auth Profiles**, select **GitHub PAT**, enter a profile name, and paste the token.
+- **Add to `runnero`:** In **Git Auth Profiles**, select **GitHub PAT**, enter a profile name, and paste the token.
 
 ---
 
@@ -172,7 +172,7 @@ Gitea Actions uses `act_runner`. The supervisor requests short-lived runner regi
 1. Log in to your Gitea instance.
 2. Click your user avatar in the top right → select **Settings** → navigate to the **Applications** tab.
 3. Under **Manage Access Tokens**:
-   - **Token Name:** Enter a descriptive identifier (e.g., `gh-runner-supervisor`).
+   - **Token Name:** Enter a descriptive identifier (e.g., `runnero-supervisor`).
    - **Select Scopes:**
      | Scope | Access Level | Purpose |
      | :--- | :---: | :--- |
@@ -192,8 +192,8 @@ To enable real-time, event-driven runner provisioning for Gitea Actions:
    - **Trigger On:** Select **Custom Events** → check **Actions** (or `Workflow Job`).
 3. Click **Add Webhook**.
 
-#### Step 3: Add to `gh-runner`
-1. In the `gh-runner` Web UI, navigate to **Git Auth Profiles** → click **+ Add Git Auth Profile**.
+#### Step 3: Add to `runnero`
+1. In the `runnero` Web UI, navigate to **Git Auth Profiles** → click **+ Add Git Auth Profile**.
 2. Select **Gitea PAT**.
 3. Enter a **Profile Name** (e.g., `gitea-main`) and paste the generated token into **Personal Access Token (PAT)**.
 4. Click **Save Profile**.
@@ -222,8 +222,8 @@ Forgejo Actions uses `forgejo-runner`. The supervisor communicates with Forgejo'
 > [!NOTE]
 > **Forgejo Event Handling:** Forgejo does not currently support `workflow_job` webhooks. The supervisor automatically detects Forgejo targets and falls back to **API Polling mode** (`ScalingPolling`), querying `/api/v1/repos/{owner}/{repo}/actions/tasks` on the periodic ~10s audit loop to detect queued jobs. No manual webhook configuration is needed on Forgejo.
 
-#### Step 3: Add to `gh-runner`
-1. In the `gh-runner` Web UI, navigate to **Git Auth Profiles** → click **+ Add Git Auth Profile**.
+#### Step 3: Add to `runnero`
+1. In the `runnero` Web UI, navigate to **Git Auth Profiles** → click **+ Add Git Auth Profile**.
 2. Select **Forgejo PAT**.
 3. Enter a **Profile Name** (e.g., `forgejo-corp`) and paste the generated token into **Personal Access Token (PAT)**.
 4. Click **Save Profile**.
@@ -253,7 +253,7 @@ docker compose logs -f runner
 
 ## ⚙️ Configuration & Environment Variables
 
-### Supervisor Daemon (`gh-runner-supervisor`)
+### Supervisor Daemon (`runnero-supervisor`)
 
 The supervisor daemon layers configuration in increasing precedence: **built-in defaults → configuration file (`--config`) → environment variables → CLI flags**.
 
@@ -270,7 +270,7 @@ The supervisor daemon layers configuration in increasing precedence: **built-in 
 | `SUPERVISOR_CONFIG` | String | No | — | Path to an optional YAML or TOML configuration file. |
 | `SUPERVISOR_SECURE_COOKIE` | Bool | No | `false` | Enables the `Secure` attribute on auth cookies. Set to `true` when behind HTTPS. |
 
-### Standalone Runner Container (`runner-aio`)
+### Standalone Runner Container (`runnero`)
 
 | Variable | Type | Required | Default | Description |
 | :--- | :---: | :---: | :--- | :--- |
@@ -317,7 +317,7 @@ Automated GitHub Actions workflows ensure continuous verification and multi-arch
 - **Go CI (`go.yml`):** Runs `go build`, `go vet`, unit tests, and the Go data race detector (`go test -race`) on native AMD64 (`ubuntu-latest`) and ARM64 (`ubuntu-24.04-arm`) runners on every PR and push to `main`.
 - **Web CI (`web.yml`):** Automated static analysis (`oxlint`), code formatting check (`oxfmt`), Vitest unit test suite execution, and production Vite compilation for frontend changes.
 - **Lint CI (`lint.yml`):** Runs `shellcheck` across all runner lifecycle scripts and `hadolint` across both `Dockerfile` and `Dockerfile.supervisor`.
-- **Runner Multi-Arch Release (`build.yml`):** Native AMD64 and ARM64 parallel matrix build creating and publishing multi-arch manifests for `ghcr.io/<owner>/runner-aio` upon git tag release (`v*`).
+- **Runner Multi-Arch Release (`build.yml`):** Native AMD64 and ARM64 parallel matrix build creating and publishing multi-arch manifests for `ghcr.io/<owner>/runnero` upon git tag release (`v*`).
 - **Supervisor Multi-Arch Release (`supervisor-build.yml`):** Native multi-stage AMD64 and ARM64 build compiling the supervisor daemon and embedded UI into `ghcr.io/<owner>/runnero-supervisor` upon git tag release (`v*`).
 
 For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-subsystem trigger mapping, consult **[docs/11-ci-cd-pipelines.md](docs/11-ci-cd-pipelines.md)**.

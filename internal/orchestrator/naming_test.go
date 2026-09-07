@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/noosxe/gh-runner/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/orchestrator"
 )
 
 func TestSlugifyPoolName(t *testing.T) {
@@ -39,9 +39,9 @@ func TestSlugifyPoolName(t *testing.T) {
 			expected: "pool",
 		},
 		{
-			name:     "very long name exceeding 52 characters",
-			input:    "this-is-an-extremely-long-runner-pool-name-that-definitely-exceeds-fifty-two-characters",
-			expected: "this-is-an-extremely-long-runner-pool-name-that-defi",
+			name:     "very long name exceeding 49 characters",
+			input:    "this-is-an-extremely-long-runner-pool-name-that-definitely-exceeds-forty-nine-characters",
+			expected: "this-is-an-extremely-long-runner-pool-name-that-d",
 		},
 	}
 
@@ -51,8 +51,8 @@ func TestSlugifyPoolName(t *testing.T) {
 			if got != tc.expected {
 				t.Errorf("expected %q, got %q", tc.expected, got)
 			}
-			if len(got) > 52 {
-				t.Errorf("slug length %d exceeds 52: %q", len(got), got)
+			if len(got) > 49 {
+				t.Errorf("slug length %d exceeds 49: %q", len(got), got)
 			}
 		})
 	}
@@ -67,8 +67,8 @@ func TestGenerateContainerName(t *testing.T) {
 
 	for _, pool := range poolNames {
 		name := orchestrator.GenerateContainerName(pool)
-		if !strings.HasPrefix(name, "ghrs-") {
-			t.Errorf("expected prefix ghrs-, got %q", name)
+		if !strings.HasPrefix(name, "runnero-") {
+			t.Errorf("expected prefix runnero-, got %q", name)
 		}
 		if len(name) > orchestrator.DockerMaxContainerNameLen {
 			t.Errorf("container name %q exceeds max %d chars (length=%d)", name, orchestrator.DockerMaxContainerNameLen, len(name))

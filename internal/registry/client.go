@@ -34,7 +34,7 @@ var acceptHeader = strings.Join([]string{
 // ParsedReference represents the parsed components of an OCI / Docker image reference.
 type ParsedReference struct {
 	Registry   string // e.g. "ghcr.io", "registry-1.docker.io", "localhost:5000"
-	Repository string // e.g. "noosxe/runner-aio", "library/ubuntu"
+	Repository string // e.g. "noosxe/runnero", "library/ubuntu"
 	Tag        string // e.g. "latest", "v1.0.0"
 	Insecure   bool   // true for localhost/127.0.0.1 or explicit http endpoints
 }

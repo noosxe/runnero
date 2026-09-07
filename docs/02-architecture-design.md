@@ -91,7 +91,7 @@ To support clean architecture and swappable components, the Go-based supervisor 
 └── src/                    # Runner-image shell scripts (entrypoint.sh, register.sh) — not part of the Go module
 ```
 
-> The Go module (`go.mod`, `github.com/noosxe/gh-runner`) lives at the **repository root** — packages import as `github.com/noosxe/gh-runner/internal/...`. The `src/` directory retains only the runner-image shell scripts.
+> The Go module (`go.mod`, `github.com/noosxe/runnero`) lives at the **repository root** — packages import as `github.com/noosxe/runnero/internal/...`. The `src/` directory retains only the runner-image shell scripts.
 
 ## 3. Abstractions
 
@@ -229,7 +229,7 @@ pools:
     min_idle_runners: 2
     max_concurrency: 5
     labels: ["frontend", "node-20"]
-    runner_image: "ghcr.io/noosxe/runner-aio:latest"
+    runner_image: "ghcr.io/noosxe/runnero:latest"
     allow_docker: false
     max_runner_lifetime_seconds: 7200
     cpu_limit: "2.0"
@@ -246,7 +246,7 @@ pools:
     min_idle_runners: 1
     max_concurrency: 3
     labels: ["backend"]
-    runner_image: "ghcr.io/noosxe/runner-aio:latest"
+    runner_image: "ghcr.io/noosxe/runnero:latest"
     allow_docker: true
     max_runner_lifetime_seconds: 7200
     cpu_limit: "4.0"
@@ -259,7 +259,7 @@ pools:
     min_idle_runners: 1
     max_concurrency: 3
     labels: ["backend", "forgejo"]
-    runner_image: "ghcr.io/noosxe/runner-aio:latest"
+    runner_image: "ghcr.io/noosxe/runnero:latest"
     allow_docker: true
     max_runner_lifetime_seconds: 7200
     cpu_limit: "2.0"

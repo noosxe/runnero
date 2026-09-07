@@ -419,7 +419,7 @@ export function PoolDetailPage() {
                   </button>
                 </div>
                 <div className="mt-1 font-mono font-semibold text-slate-900 dark:text-white break-all">
-                  {pool.runnerImage || "ghcr.io/noosxe/runner-aio:latest"}
+                  {pool.runnerImage || "ghcr.io/noosxe/runnero:latest"}
                 </div>
               </div>
 

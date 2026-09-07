@@ -22,13 +22,13 @@ The supervisor operates a continuous control loop to maintain its ephemeral runn
 To reconcile the running container state on host restarts or daemon crashes without losing pool references, the supervisor tags every container it provisions with metadata labels:
 
 ```ini
-com.github-runner-supervisor.managed=true
-com.github-runner-supervisor.pool-name=<pool-name>
-com.github-runner-supervisor.id=<unique-runner-id>
-com.github-runner-supervisor.spawned-at=<timestamp>
+com.runnero.managed=true
+com.runnero.pool-name=<pool-name>
+com.runnero.id=<unique-runner-id>
+com.runnero.spawned-at=<timestamp>
 ```
 
-Upon boot, the supervisor queries the host engine filtering for `com.github-runner-supervisor.managed=true` to dynamically rebuild its in-memory tracking state.
+Upon boot, the supervisor queries the host engine filtering for `com.runnero.managed=true` to dynamically rebuild its in-memory tracking state.
 
 ## 3. Real-time Container Audit Engine
 

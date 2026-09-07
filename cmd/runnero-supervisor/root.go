@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/noosxe/gh-runner/internal/config"
-	"github.com/noosxe/gh-runner/internal/logging"
+	"github.com/noosxe/runnero/internal/config"
+	"github.com/noosxe/runnero/internal/logging"
 )
 
 // version is overridden at build time via -ldflags "-X main.version=...".
@@ -31,9 +31,10 @@ var logger = logging.For("cli")
 // and persistent flags attached.
 func NewRootCommand() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "supervisor",
-		Short: "AIO Supervisor for ephemeral GitHub/Gitea/Forgejo runner containers",
-		Long: `supervisor manages dynamic pools of ephemeral GitHub, Gitea, and Forgejo
+		Use:     "runnero-supervisor",
+		Aliases: []string{"supervisor"},
+		Short:   "Runnero Supervisor for ephemeral GitHub/Gitea/Forgejo runner containers",
+		Long: `runnero-supervisor manages dynamic pools of ephemeral GitHub, Gitea, and Forgejo
 Actions runner containers and serves the embedded web control interface.
 
 Run it with no subcommand to start the daemon.`,

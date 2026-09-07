@@ -14,8 +14,8 @@ import (
 // a v2 label derives fresh secrets without disturbing v1-derived ones
 // during a migration.
 const (
-	LabelDBEncryption = "gh-runner/supervisor/db-encryption/aes-256/v1"
-	LabelJWTSigning   = "gh-runner/supervisor/jwt-signing/hmac-sha256/v1"
+	LabelDBEncryption = "runnero/supervisor/db-encryption/aes-256/v1"
+	LabelJWTSigning   = "runnero/supervisor/jwt-signing/hmac-sha256/v1"
 )
 
 // Sizes of the derived secrets and the floor on their shared master key.

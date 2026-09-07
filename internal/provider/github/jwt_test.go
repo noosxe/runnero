@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noosxe/gh-runner/internal/provider/github"
+	"github.com/noosxe/runnero/internal/provider/github"
 )
 
 func generateTestKeyPEMs(t *testing.T) (pkcs1PEM, pkcs8PEM string, pubKey *rsa.PublicKey) {

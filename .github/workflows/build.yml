@@ -1,4 +1,4 @@
-name: CI/CD Multi-Arch Build
+name: CI/CD Runner Multi-Arch Build
 
 on:
   push:
@@ -21,7 +21,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/runner-aio
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/runnero
 
 jobs:
   # Cheap gate job: detects whether any runner-image input changed.

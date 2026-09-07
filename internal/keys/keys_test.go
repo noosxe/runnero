@@ -19,8 +19,8 @@ const testMaster = "0123456789abcdef0123456789abcdef"
 // instead of silently invalidating every encrypted database row and
 // issued session token across a binary upgrade.
 const (
-	katDBEncryptionHex  = "241fca93707c07c41da699573f6ad9f58e845704bebeac7a09b83400ca65d86c"
-	katJWTSigningHex    = "b592cc9f24eac8839980dcebf9012cf29ce226469850a4056242a07bf02f547e"
+	katDBEncryptionHex  = "3684ac170cfa0c6909be5d6862939df14b4f149f43b86cd9de5e56b3b48a589a"
+	katJWTSigningHex    = "67803b0336e64fbb34facfa8038b2cc17d98fa54744ac6bbe4747aa1806fbac0"
 	katOtherMasterValue = "fedcba9876543210fedcba9876543210"
 )
 

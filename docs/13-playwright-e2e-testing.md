@@ -1,6 +1,6 @@
 # Playwright End-to-End (E2E) Testing Suite (M17)
 
-This document specifies the technical architecture, operational framework, and test specifications for an end-to-end (E2E) testing framework using **Playwright**. The test suite validates all human-usable flows in the `gh-runner` AIO Supervisor web interface within a fully hermetic, reproducible, containerized local test harness.
+This document specifies the technical architecture, operational framework, and test specifications for an end-to-end (E2E) testing framework using **Playwright**. The test suite validates all human-usable flows in the `runnero` AIO Supervisor web interface within a fully hermetic, reproducible, containerized local test harness.
 
 ---
 
@@ -42,7 +42,7 @@ graph TD
         end
 
         subgraph "Container: e2e-supervisor"
-            Sup["gh-runner-supervisor Binary<br/>(:8090)"]
+            Sup["runnero-supervisor Binary<br/>(:8090)"]
             DB[(In-Memory or Scratch SQLite<br/>/tmp/e2e-supervisor.db)]
             EmbeddedUI["Embedded React SPA<br/>(TanStack Router + Query)"]
             RPC["ConnectRPC Server<br/>(application/proto)"]

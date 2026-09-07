@@ -6,7 +6,7 @@ const mockPool = {
   id: 10n,
   name: "arm64-prod-pool",
   provider: "github",
-  repositoryUrl: "https://github.com/noosxe/gh-runner",
+  repositoryUrl: "https://github.com/noosxe/runnero",
   scope: "repo",
   minIdleRunners: 1,
   maxConcurrency: 5,
@@ -14,14 +14,14 @@ const mockPool = {
   cpuLimit: "4",
   memoryLimit: "8G",
   allowDocker: true,
-  runnerImage: "ghcr.io/noosxe/runner-aio:latest",
+  runnerImage: "ghcr.io/noosxe/runnero:latest",
   maxRunnerLifetimeSeconds: 7200,
 };
 
 const mockRunners = [
   {
     containerId: "cnt-alpha-1234567890",
-    name: "ghrs-arm64-alpha",
+    name: "runnero-arm64-alpha",
     poolName: "arm64-prod-pool",
     status: "busy",
     ipAddress: "172.18.0.4",
@@ -32,7 +32,7 @@ const mockRunners = [
   },
   {
     containerId: "cnt-beta-1234567890",
-    name: "ghrs-arm64-beta",
+    name: "runnero-arm64-beta",
     poolName: "arm64-prod-pool",
     status: "idle",
     ipAddress: "172.18.0.5",
@@ -158,7 +158,7 @@ describe("PoolDetailPage", () => {
     expect(screen.getByText("Live Orchestrator Stream")).toBeInTheDocument();
     expect(screen.getByText("Active Running Jobs")).toBeInTheDocument();
     expect(screen.getByText("cnt-alpha-12")).toBeInTheDocument();
-    expect(screen.getByText("ghrs-arm64-alpha")).toBeInTheDocument();
+    expect(screen.getByText("runnero-arm64-alpha")).toBeInTheDocument();
     expect(screen.getByText("busy")).toBeInTheDocument();
     expect(screen.getByText("idle")).toBeInTheDocument();
     expect(screen.getByText("2m 5s")).toBeInTheDocument();
@@ -224,7 +224,7 @@ describe("PoolDetailPage", () => {
     fireEvent.click(configTabBtn);
 
     expect(screen.getByText("Runner Container Image")).toBeInTheDocument();
-    expect(screen.getByText("ghcr.io/noosxe/runner-aio:latest")).toBeInTheDocument();
+    expect(screen.getByText("ghcr.io/noosxe/runnero:latest")).toBeInTheDocument();
 
     const checkBtn = screen.getByRole("button", { name: /check for updates/i });
     fireEvent.click(checkBtn);

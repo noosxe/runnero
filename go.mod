@@ -1,4 +1,4 @@
-module github.com/noosxe/gh-runner
+module github.com/noosxe/runnero
 
 go 1.26.0
 

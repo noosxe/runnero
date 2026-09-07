@@ -10,7 +10,7 @@ import (
 	"github.com/moby/moby/api/types/events"
 	"github.com/moby/moby/client"
 
-	"github.com/noosxe/gh-runner/internal/orchestrator"
+	"github.com/noosxe/runnero/internal/orchestrator"
 )
 
 type mockEventStreamProvider struct {

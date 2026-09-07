@@ -22,16 +22,16 @@ func TestParseImageRef(t *testing.T) {
 	}{
 		{
 			name:     "ghcr with tag",
-			input:    "ghcr.io/noosxe/runner-aio:latest",
+			input:    "ghcr.io/noosxe/runnero:latest",
 			wantReg:  "ghcr.io",
-			wantRepo: "noosxe/runner-aio",
+			wantRepo: "noosxe/runnero",
 			wantTag:  "latest",
 		},
 		{
 			name:     "ghcr with version tag",
-			input:    "ghcr.io/noosxe/runner-aio:v1.2.3",
+			input:    "ghcr.io/noosxe/runnero:v1.2.3",
 			wantReg:  "ghcr.io",
-			wantRepo: "noosxe/runner-aio",
+			wantRepo: "noosxe/runnero",
 			wantTag:  "v1.2.3",
 		},
 		{

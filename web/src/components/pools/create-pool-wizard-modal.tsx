@@ -63,7 +63,7 @@ export function CreatePoolWizardModal({
   const [maxConcurrency, setMaxConcurrency] = useState(5);
   const [customLabels, setCustomLabels] = useState<string | null>(null);
   const labels = customLabels ?? suggestedLabels;
-  const [runnerImage, setRunnerImage] = useState("ghcr.io/noosxe/gh-runner:latest");
+  const [runnerImage, setRunnerImage] = useState("ghcr.io/noosxe/runnero:latest");
   const [allowDocker, setAllowDocker] = useState(true);
   const [cpuLimit, setCpuLimit] = useState("2.0");
   const [memoryLimit, setMemoryLimit] = useState("4GB");
@@ -227,7 +227,7 @@ export function CreatePoolWizardModal({
                   .split(",")
                   .map((l) => l.trim())
                   .filter(Boolean),
-          runnerImage: runnerImage.trim() || "ghcr.io/noosxe/gh-runner:latest",
+          runnerImage: runnerImage.trim() || "ghcr.io/noosxe/runnero:latest",
           allowDocker: isDockerLocked ? true : allowDocker,
           renovate: renovateEnabled
             ? {
