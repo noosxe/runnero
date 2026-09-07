@@ -285,3 +285,181 @@ func (d *DB) CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, compl
 	}
 	return rows, nil
 }
+
+// WebhookJobMeta carries forge-provided job identity for webhook-enriched
+// job_history rows (docs/21 §5.5). Zero/empty fields leave stored values intact.
+type WebhookJobMeta struct {
+	RunID        int64
+	WorkflowName string
+	HeadBranch   string
+	HeadSHA      string
+}
+
+// RecordWebhookQueued upserts a queued webhook row keyed by the external job
+// id (docs/21 §5.5). Redeliveries only fill in missing metadata — the original
+// queued_at, status, and runner assignment are never rewritten.
+func (d *DB) RecordWebhookQueued(ctx context.Context, poolID, jobID int64, meta WebhookJobMeta, queuedAt time.Time) error {
+	if jobID == 0 {
+		return nil
+	}
+	if _, err := d.UpsertWebhookQueuedJob(ctx, UpsertWebhookQueuedJobParams{
+		PoolID:       poolID,
+		JobID:        sql.NullInt64{Int64: jobID, Valid: true},
+		RunID:        sql.NullInt64{Int64: meta.RunID, Valid: meta.RunID != 0},
+		WorkflowName: sql.NullString{String: meta.WorkflowName, Valid: meta.WorkflowName != ""},
+		HeadBranch:   sql.NullString{String: meta.HeadBranch, Valid: meta.HeadBranch != ""},
+		HeadSha:      sql.NullString{String: meta.HeadSHA, Valid: meta.HeadSHA != ""},
+		QueuedAt:     sql.NullTime{Time: queuedAt.UTC(), Valid: !queuedAt.IsZero()},
+	}); err != nil {
+		return fmt.Errorf("upserting webhook queued job: %w", err)
+	}
+	return nil
+}
+
+// RecordWebhookStarted attaches a webhook 'in_progress' event to the job's
+// open row, applying the merge rules of docs/21 §5.5: an open queued stub is
+// promoted in place; an open busy-sync transition row adopts the external
+// identity; when both exist the stub is absorbed into the transition row and
+// deleted (the one-open-row-per-runner invariant of docs/21 §5.7 is what
+// makes a plain insert unsafe); when neither exists a fresh row is created.
+func (d *DB) RecordWebhookStarted(ctx context.Context, poolID, jobID int64, runnerName string, startedAt, queuedAt time.Time, meta WebhookJobMeta) error {
+	if jobID == 0 || runnerName == "" {
+		return nil
+	}
+
+	tx, err := d.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning webhook start transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	q := d.WithTx(tx)
+
+	stub, stubErr := q.GetOpenWebhookJobByID(ctx, sql.NullInt64{Int64: jobID, Valid: true})
+	hasStub := stubErr == nil
+	if stubErr != nil && !errors.Is(stubErr, sql.ErrNoRows) {
+		return fmt.Errorf("checking open webhook job row: %w", stubErr)
+	}
+
+	_, transErr := q.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: runnerName})
+	hasTransition := transErr == nil
+	if transErr != nil && !errors.Is(transErr, sql.ErrNoRows) {
+		return fmt.Errorf("checking open transition row: %w", transErr)
+	}
+
+	// Prefer the queued_at already recorded on the stub (first delivery wins).
+	effQueued := queuedAt
+	if hasStub && stub.QueuedAt.Valid && !stub.QueuedAt.Time.IsZero() {
+		effQueued = stub.QueuedAt.Time
+	}
+
+	switch {
+	case hasStub && hasTransition:
+		// Absorb the stub into the runner-owned transition row. The stub is
+		// deleted FIRST — both rows would transiently carry the same external
+		// job id otherwise, tripping the unique index of docs/21 section 5.5.
+		if err := q.DeleteJobRowByID(ctx, stub.ID); err != nil {
+			return fmt.Errorf("deleting absorbed webhook stub: %w", err)
+		}
+		if _, err := q.AttachWebhookToTransition(ctx, webhookStartParams(poolID, runnerName, jobID, startedAt, effQueued, meta)); err != nil {
+			return fmt.Errorf("absorbing webhook stub into transition row: %w", err)
+		}
+	case hasStub:
+		if _, err := q.PromoteWebhookStubToRunning(ctx, PromoteWebhookStubToRunningParams{
+			RunnerName: runnerName,
+			StartedAt:  sql.NullTime{Time: startedAt.UTC(), Valid: !startedAt.IsZero()},
+			ID:         stub.ID,
+		}); err != nil {
+			return fmt.Errorf("promoting webhook stub: %w", err)
+		}
+	case hasTransition:
+		if _, err := q.AttachWebhookToTransition(ctx, webhookStartParams(poolID, runnerName, jobID, startedAt, effQueued, meta)); err != nil {
+			return fmt.Errorf("attaching webhook to transition row: %w", err)
+		}
+	default:
+		if err := q.InsertWebhookRunningJob(ctx, InsertWebhookRunningJobParams{
+			PoolID:       poolID,
+			RunnerName:   runnerName,
+			JobID:        sql.NullInt64{Int64: jobID, Valid: true},
+			RunID:        sql.NullInt64{Int64: meta.RunID, Valid: meta.RunID != 0},
+			WorkflowName: sql.NullString{String: meta.WorkflowName, Valid: meta.WorkflowName != ""},
+			HeadBranch:   sql.NullString{String: meta.HeadBranch, Valid: meta.HeadBranch != ""},
+			HeadSha:      sql.NullString{String: meta.HeadSHA, Valid: meta.HeadSHA != ""},
+			StartedAt:    sql.NullTime{Time: startedAt.UTC(), Valid: !startedAt.IsZero()},
+			QueuedAt:     sql.NullTime{Time: effQueued.UTC(), Valid: !effQueued.IsZero()},
+		}); err != nil {
+			return fmt.Errorf("inserting webhook running job: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
+// webhookStartParams builds the shared AttachWebhookToTransition parameters.
+func webhookStartParams(poolID int64, runnerName string, jobID int64, startedAt, queuedAt time.Time, meta WebhookJobMeta) AttachWebhookToTransitionParams {
+	return AttachWebhookToTransitionParams{
+		JobID:        sql.NullInt64{Int64: jobID, Valid: true},
+		QueuedAt:     sql.NullTime{Time: queuedAt.UTC(), Valid: !queuedAt.IsZero()},
+		StartedAt:    sql.NullTime{Time: startedAt.UTC(), Valid: !startedAt.IsZero()},
+		RunID:        sql.NullInt64{Int64: meta.RunID, Valid: meta.RunID != 0},
+		WorkflowName: sql.NullString{String: meta.WorkflowName, Valid: meta.WorkflowName != ""},
+		HeadBranch:   sql.NullString{String: meta.HeadBranch, Valid: meta.HeadBranch != ""},
+		HeadSha:      sql.NullString{String: meta.HeadSHA, Valid: meta.HeadSHA != ""},
+		PoolID:       poolID,
+		RunnerName:   runnerName,
+	}
+}
+
+// RecordWebhookCompleted closes the job's open row with the mapped conclusion
+// status (docs/21 §5.5). Lookup order: by external job id first, falling back
+// to the runner's open transition row (which is then enriched with the job
+// id). A duplicate transition row left behind by the poll path is removed so a
+// single job never double-counts. A no-op when nothing is open.
+func (d *DB) RecordWebhookCompleted(ctx context.Context, poolID, jobID int64, runnerName, status string, completedAt time.Time) error {
+	if jobID == 0 && runnerName == "" {
+		return nil
+	}
+
+	tx, err := d.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning webhook completion transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	q := d.WithTx(tx)
+
+	rows, err := q.CloseOpenWebhookJobByID(ctx, CloseOpenWebhookJobByIDParams{
+		CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
+		Status:      status,
+		RunnerName:  runnerName,
+		JobID:       sql.NullInt64{Int64: jobID, Valid: jobID != 0},
+	})
+	if err != nil {
+		return fmt.Errorf("closing webhook job row by id: %w", err)
+	}
+
+	if rows > 0 {
+		if runnerName != "" {
+			// Drop a poll-opened transition row for the same runner — it
+			// records the same job and would double-count once the busy-sync
+			// closes it as 'completed'.
+			if _, err := q.DeleteOpenTransitionRowsByRunner(ctx, DeleteOpenTransitionRowsByRunnerParams{
+				PoolID:     poolID,
+				RunnerName: runnerName,
+			}); err != nil {
+				return fmt.Errorf("deleting duplicate transition row: %w", err)
+			}
+		}
+	} else if runnerName != "" {
+		// No row carries the external id: close the runner's open transition
+		// row and enrich it with the job identity (docs/21 §5.5).
+		if _, err := q.CloseOpenRowByRunnerEnrichJobID(ctx, CloseOpenRowByRunnerEnrichJobIDParams{
+			CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
+			Status:      status,
+			JobID:       sql.NullInt64{Int64: jobID, Valid: jobID != 0},
+			PoolID:      poolID,
+			RunnerName:  runnerName,
+		}); err != nil {
+			return fmt.Errorf("closing transition row with job id: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}

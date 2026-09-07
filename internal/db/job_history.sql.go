@@ -11,6 +11,53 @@ import (
 	"time"
 )
 
+const attachWebhookToTransition = `-- name: AttachWebhookToTransition :execrows
+UPDATE job_history
+SET job_id = ?,
+    status = 'running',
+    queued_at = COALESCE(queued_at, ?),
+    started_at = COALESCE(started_at, ?),
+    run_id = COALESCE(?, run_id),
+    workflow_name = COALESCE(?, workflow_name),
+    head_branch = COALESCE(?, head_branch),
+    head_sha = COALESCE(?, head_sha)
+WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL
+`
+
+type AttachWebhookToTransitionParams struct {
+	JobID        sql.NullInt64  `json:"job_id"`
+	QueuedAt     sql.NullTime   `json:"queued_at"`
+	StartedAt    sql.NullTime   `json:"started_at"`
+	RunID        sql.NullInt64  `json:"run_id"`
+	WorkflowName sql.NullString `json:"workflow_name"`
+	HeadBranch   sql.NullString `json:"head_branch"`
+	HeadSha      sql.NullString `json:"head_sha"`
+	PoolID       int64          `json:"pool_id"`
+	RunnerName   string         `json:"runner_name"`
+}
+
+// Webhook 'in_progress' arriving after (or before) the busy-sync transition
+// row: attach the external identity and timestamps to the runner's open row
+// (docs/21 section 5.5 merge rule 3). queued_at is adopted from the forge event -
+// real data, never fabricated.
+func (q *Queries) AttachWebhookToTransition(ctx context.Context, arg AttachWebhookToTransitionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, attachWebhookToTransition,
+		arg.JobID,
+		arg.QueuedAt,
+		arg.StartedAt,
+		arg.RunID,
+		arg.WorkflowName,
+		arg.HeadBranch,
+		arg.HeadSha,
+		arg.PoolID,
+		arg.RunnerName,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const closeAllOpenJobsInterrupted = `-- name: CloseAllOpenJobsInterrupted :execrows
 UPDATE job_history
 SET completed_at = ?,
@@ -51,6 +98,69 @@ func (q *Queries) CloseOpenJobRow(ctx context.Context, arg CloseOpenJobRowParams
 		arg.LogRetentionPath,
 		arg.PoolID,
 		arg.RunnerName,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const closeOpenRowByRunnerEnrichJobID = `-- name: CloseOpenRowByRunnerEnrichJobID :execrows
+UPDATE job_history
+SET completed_at = ?,
+    status = ?,
+    job_id = ?
+WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL
+  AND (job_id IS NULL OR job_id = 0)
+`
+
+type CloseOpenRowByRunnerEnrichJobIDParams struct {
+	CompletedAt sql.NullTime  `json:"completed_at"`
+	Status      string        `json:"status"`
+	JobID       sql.NullInt64 `json:"job_id"`
+	PoolID      int64         `json:"pool_id"`
+	RunnerName  string        `json:"runner_name"`
+}
+
+// Webhook 'completed' fallback: no row carries the external id (poll-opened
+// transition row only) - close it and enrich it with the job id (docs/21 section 5.5).
+func (q *Queries) CloseOpenRowByRunnerEnrichJobID(ctx context.Context, arg CloseOpenRowByRunnerEnrichJobIDParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, closeOpenRowByRunnerEnrichJobID,
+		arg.CompletedAt,
+		arg.Status,
+		arg.JobID,
+		arg.PoolID,
+		arg.RunnerName,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const closeOpenWebhookJobByID = `-- name: CloseOpenWebhookJobByID :execrows
+UPDATE job_history
+SET completed_at = ?,
+    status = ?,
+    runner_name = CASE WHEN COALESCE(runner_name, '') = '' THEN ? ELSE runner_name END
+WHERE job_id = ? AND completed_at IS NULL
+`
+
+type CloseOpenWebhookJobByIDParams struct {
+	CompletedAt sql.NullTime  `json:"completed_at"`
+	Status      string        `json:"status"`
+	RunnerName  string        `json:"runner_name"`
+	JobID       sql.NullInt64 `json:"job_id"`
+}
+
+// Webhook 'completed' close keyed by the external job id; adopts the runner
+// name when the closed row predates assignment (docs/21 section 5.5).
+func (q *Queries) CloseOpenWebhookJobByID(ctx context.Context, arg CloseOpenWebhookJobByIDParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, closeOpenWebhookJobByID,
+		arg.CompletedAt,
+		arg.Status,
+		arg.RunnerName,
+		arg.JobID,
 	)
 	if err != nil {
 		return 0, err
@@ -191,6 +301,37 @@ WHERE completed_at < ?
 func (q *Queries) DeleteJobHistoryOlderThan(ctx context.Context, completedAt sql.NullTime) error {
 	_, err := q.db.ExecContext(ctx, deleteJobHistoryOlderThan, completedAt)
 	return err
+}
+
+const deleteJobRowByID = `-- name: DeleteJobRowByID :exec
+DELETE FROM job_history
+WHERE id = ?
+`
+
+func (q *Queries) DeleteJobRowByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteJobRowByID, id)
+	return err
+}
+
+const deleteOpenTransitionRowsByRunner = `-- name: DeleteOpenTransitionRowsByRunner :execrows
+DELETE FROM job_history
+WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL
+  AND (job_id IS NULL OR job_id = 0)
+`
+
+type DeleteOpenTransitionRowsByRunnerParams struct {
+	PoolID     int64  `json:"pool_id"`
+	RunnerName string `json:"runner_name"`
+}
+
+// Duplicate cleanup after closing by external job id: a poll-opened transition
+// row (empty job id) for the same runner would double-count the job.
+func (q *Queries) DeleteOpenTransitionRowsByRunner(ctx context.Context, arg DeleteOpenTransitionRowsByRunnerParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOpenTransitionRowsByRunner, arg.PoolID, arg.RunnerName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getHourlyJobStatsSince = `-- name: GetHourlyJobStatsSince :many
@@ -336,6 +477,71 @@ func (q *Queries) GetOpenJobRow(ctx context.Context, arg GetOpenJobRowParams) (i
 	return id, err
 }
 
+const getOpenWebhookJobByID = `-- name: GetOpenWebhookJobByID :one
+SELECT id, runner_name, queued_at FROM job_history
+WHERE job_id = ? AND completed_at IS NULL
+LIMIT 1
+`
+
+type GetOpenWebhookJobByIDRow struct {
+	ID         int64        `json:"id"`
+	RunnerName string       `json:"runner_name"`
+	QueuedAt   sql.NullTime `json:"queued_at"`
+}
+
+func (q *Queries) GetOpenWebhookJobByID(ctx context.Context, jobID sql.NullInt64) (GetOpenWebhookJobByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getOpenWebhookJobByID, jobID)
+	var i GetOpenWebhookJobByIDRow
+	err := row.Scan(&i.ID, &i.RunnerName, &i.QueuedAt)
+	return i, err
+}
+
+const insertWebhookRunningJob = `-- name: InsertWebhookRunningJob :exec
+INSERT INTO job_history (
+    pool_id,
+    runner_name,
+    job_id,
+    run_id,
+    workflow_name,
+    head_branch,
+    head_sha,
+    status,
+    started_at,
+    queued_at,
+    source
+) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, 'webhook'
+)
+`
+
+type InsertWebhookRunningJobParams struct {
+	PoolID       int64          `json:"pool_id"`
+	RunnerName   string         `json:"runner_name"`
+	JobID        sql.NullInt64  `json:"job_id"`
+	RunID        sql.NullInt64  `json:"run_id"`
+	WorkflowName sql.NullString `json:"workflow_name"`
+	HeadBranch   sql.NullString `json:"head_branch"`
+	HeadSha      sql.NullString `json:"head_sha"`
+	StartedAt    sql.NullTime   `json:"started_at"`
+	QueuedAt     sql.NullTime   `json:"queued_at"`
+}
+
+// Webhook 'in_progress' with no pre-existing row at all (docs/21 section 5.5 merge rule 4).
+func (q *Queries) InsertWebhookRunningJob(ctx context.Context, arg InsertWebhookRunningJobParams) error {
+	_, err := q.db.ExecContext(ctx, insertWebhookRunningJob,
+		arg.PoolID,
+		arg.RunnerName,
+		arg.JobID,
+		arg.RunID,
+		arg.WorkflowName,
+		arg.HeadBranch,
+		arg.HeadSha,
+		arg.StartedAt,
+		arg.QueuedAt,
+	)
+	return err
+}
+
 const listJobHistory = `-- name: ListJobHistory :many
 SELECT id, pool_id, runner_name, status, queued_at, started_at, completed_at, log_retention_path, job_id, run_id, workflow_name, head_branch, head_sha, source, created_at FROM job_history
 ORDER BY id DESC
@@ -477,6 +683,30 @@ func (q *Queries) OpenJobLifecycleRow(ctx context.Context, arg OpenJobLifecycleR
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const promoteWebhookStubToRunning = `-- name: PromoteWebhookStubToRunning :execrows
+UPDATE job_history
+SET runner_name = ?,
+    status = 'running',
+    started_at = COALESCE(started_at, ?)
+WHERE id = ? AND completed_at IS NULL
+`
+
+type PromoteWebhookStubToRunningParams struct {
+	RunnerName string       `json:"runner_name"`
+	StartedAt  sql.NullTime `json:"started_at"`
+	ID         int64        `json:"id"`
+}
+
+// Webhook 'in_progress' with a queued stub but no transition row: promote the
+// stub in place (docs/21 section 5.5 merge rule 2).
+func (q *Queries) PromoteWebhookStubToRunning(ctx context.Context, arg PromoteWebhookStubToRunningParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, promoteWebhookStubToRunning, arg.RunnerName, arg.StartedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const pruneJobHistoryOlderThan = `-- name: PruneJobHistoryOlderThan :many
@@ -623,4 +853,57 @@ func (q *Queries) UpdateJobHistoryStatus(ctx context.Context, arg UpdateJobHisto
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const upsertWebhookQueuedJob = `-- name: UpsertWebhookQueuedJob :one
+INSERT INTO job_history (
+    pool_id,
+    job_id,
+    run_id,
+    workflow_name,
+    head_branch,
+    head_sha,
+    status,
+    queued_at,
+    source,
+    runner_name
+) VALUES (
+    ?, ?, ?, ?, ?, ?, 'queued', ?, 'webhook', ''
+)
+ON CONFLICT(job_id) DO UPDATE SET
+    queued_at = COALESCE(job_history.queued_at, excluded.queued_at),
+    run_id = COALESCE(excluded.run_id, job_history.run_id),
+    workflow_name = COALESCE(excluded.workflow_name, job_history.workflow_name),
+    head_branch = COALESCE(excluded.head_branch, job_history.head_branch),
+    head_sha = COALESCE(excluded.head_sha, job_history.head_sha)
+WHERE job_history.completed_at IS NULL
+RETURNING id
+`
+
+type UpsertWebhookQueuedJobParams struct {
+	PoolID       int64          `json:"pool_id"`
+	JobID        sql.NullInt64  `json:"job_id"`
+	RunID        sql.NullInt64  `json:"run_id"`
+	WorkflowName sql.NullString `json:"workflow_name"`
+	HeadBranch   sql.NullString `json:"head_branch"`
+	HeadSha      sql.NullString `json:"head_sha"`
+	QueuedAt     sql.NullTime   `json:"queued_at"`
+}
+
+// Webhook 'queued' upsert keyed by the external job id (docs/21 section 5.5).
+// Conflicts only fill in missing metadata: status, runner assignment, and the
+// original queued_at are never rewritten by a (re)delivery.
+func (q *Queries) UpsertWebhookQueuedJob(ctx context.Context, arg UpsertWebhookQueuedJobParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, upsertWebhookQueuedJob,
+		arg.PoolID,
+		arg.JobID,
+		arg.RunID,
+		arg.WorkflowName,
+		arg.HeadBranch,
+		arg.HeadSha,
+		arg.QueuedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }

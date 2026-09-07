@@ -131,3 +131,108 @@ WHERE completed_at IS NULL
   AND started_at IS NOT NULL
   AND started_at < ?
   AND pool_id = ?;
+
+-- name: UpsertWebhookQueuedJob :one
+-- Webhook 'queued' upsert keyed by the external job id (docs/21 section 5.5).
+-- Conflicts only fill in missing metadata: status, runner assignment, and the
+-- original queued_at are never rewritten by a (re)delivery.
+INSERT INTO job_history (
+    pool_id,
+    job_id,
+    run_id,
+    workflow_name,
+    head_branch,
+    head_sha,
+    status,
+    queued_at,
+    source,
+    runner_name
+) VALUES (
+    ?, ?, ?, ?, ?, ?, 'queued', ?, 'webhook', ''
+)
+ON CONFLICT(job_id) DO UPDATE SET
+    queued_at = COALESCE(job_history.queued_at, excluded.queued_at),
+    run_id = COALESCE(excluded.run_id, job_history.run_id),
+    workflow_name = COALESCE(excluded.workflow_name, job_history.workflow_name),
+    head_branch = COALESCE(excluded.head_branch, job_history.head_branch),
+    head_sha = COALESCE(excluded.head_sha, job_history.head_sha)
+WHERE job_history.completed_at IS NULL
+RETURNING id;
+
+-- name: GetOpenWebhookJobByID :one
+SELECT id, runner_name, queued_at FROM job_history
+WHERE job_id = ? AND completed_at IS NULL
+LIMIT 1;
+
+-- name: PromoteWebhookStubToRunning :execrows
+-- Webhook 'in_progress' with a queued stub but no transition row: promote the
+-- stub in place (docs/21 section 5.5 merge rule 2).
+UPDATE job_history
+SET runner_name = ?,
+    status = 'running',
+    started_at = COALESCE(started_at, ?)
+WHERE id = ? AND completed_at IS NULL;
+
+-- name: AttachWebhookToTransition :execrows
+-- Webhook 'in_progress' arriving after (or before) the busy-sync transition
+-- row: attach the external identity and timestamps to the runner's open row
+-- (docs/21 section 5.5 merge rule 3). queued_at is adopted from the forge event -
+-- real data, never fabricated.
+UPDATE job_history
+SET job_id = ?,
+    status = 'running',
+    queued_at = COALESCE(queued_at, ?),
+    started_at = COALESCE(started_at, ?),
+    run_id = COALESCE(?, run_id),
+    workflow_name = COALESCE(?, workflow_name),
+    head_branch = COALESCE(?, head_branch),
+    head_sha = COALESCE(?, head_sha)
+WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL;
+
+-- name: InsertWebhookRunningJob :exec
+-- Webhook 'in_progress' with no pre-existing row at all (docs/21 section 5.5 merge rule 4).
+INSERT INTO job_history (
+    pool_id,
+    runner_name,
+    job_id,
+    run_id,
+    workflow_name,
+    head_branch,
+    head_sha,
+    status,
+    started_at,
+    queued_at,
+    source
+) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, 'webhook'
+);
+
+-- name: CloseOpenWebhookJobByID :execrows
+-- Webhook 'completed' close keyed by the external job id; adopts the runner
+-- name when the closed row predates assignment (docs/21 section 5.5).
+UPDATE job_history
+SET completed_at = ?,
+    status = ?,
+    runner_name = CASE WHEN COALESCE(runner_name, '') = '' THEN ? ELSE runner_name END
+WHERE job_id = ? AND completed_at IS NULL;
+
+-- name: DeleteOpenTransitionRowsByRunner :execrows
+-- Duplicate cleanup after closing by external job id: a poll-opened transition
+-- row (empty job id) for the same runner would double-count the job.
+DELETE FROM job_history
+WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL
+  AND (job_id IS NULL OR job_id = 0);
+
+-- name: CloseOpenRowByRunnerEnrichJobID :execrows
+-- Webhook 'completed' fallback: no row carries the external id (poll-opened
+-- transition row only) - close it and enrich it with the job id (docs/21 section 5.5).
+UPDATE job_history
+SET completed_at = ?,
+    status = ?,
+    job_id = ?
+WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL
+  AND (job_id IS NULL OR job_id = 0);
+
+-- name: DeleteJobRowByID :exec
+DELETE FROM job_history
+WHERE id = ?;
