@@ -228,7 +228,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 
 ### 4.3 Page 3: Main Dashboard (`/` or `/dashboard`)
 
-**Goal**: Real-time observability of runner utilization, health alerts, and quick actions.
+**Goal**: Real-time observability of runner utilization, health alerts, operational state, and quick actions.
 
 ```text
 +-----------------------------------------------------------------------------------------------+
@@ -236,21 +236,23 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 +-----------------------------------------------------------------------------------------------+
 |  KPI CARDS                                                                                    |
 |  +--------------------+ +--------------------+ +--------------------+ +--------------------+  |
-|  | ACTIVE RUNNERS     | | IDLE WARM POOL     | | 24H JOBS (TOTAL)   | | SUCCESS RATE       |  |
-|  |  3 / 20            | |  2                 | |  142 jobs          | |  97.8%             |  |
-|  |  Capacity: 15%     | |  Target: 2         | |  Avg Queue: 4.2s   | |  Avg Runtime: 3m12s|  |
+|  | ACTIVE RUNNERS     | | IDLE WARM POOL     | | 24H JOBS (TOTAL)   | | POOL HEALTH        |  |
+|  |  3 / 20            | |  1 / 2 (Target)    | |  142 jobs          | |  1 Degraded        |  |
+|  |  Capacity: 15%     | |  1 Launching...    | |  Avg Queue: 4.2s   | |  1 Healthy         |  |
 |  +--------------------+ +--------------------+ +--------------------+ +--------------------+  |
 +-----------------------------------------------------------------------------------------------+
-|  SYSTEM HEALTH & ALERTS                                                                       |
-|  [ OK ] Docker Engine: Connected (unix:///var/run/docker.sock) • 5 active containers          |
+|  SYSTEM HEALTH & OPERATIONAL ALERTS                                                           |
+|  [ OK ] Docker Engine: Connected (unix:///var/run/docker.sock) • 4 active containers          |
+|  [ !  ] Pool "pool-arm64-prod" Degraded: ERR_AUTH_FAILED (Auth profile decryption error)       |
+|         Action required: Re-enter private key credentials in Git Auth Profile "github-app-prod"|
 |  [ !  ] Runner Image Update Available: ghcr.io/noosxe/runnero:v1.2.0 (Pool: pool-linux-ci) |
 +-----------------------------------------------------------------------------------------------+
 |  ACTIVE RUNNER POOLS                                                        [ View All Pools ] |
 |  +-----------------------------------------------------------------------------------------+  |
-|  | POOL NAME          | PROVIDER  | RUNNERS (ACT/IDL) | CONCURRENCY | CPU / MEM    | ACTIONS   |  |
-|  +--------------------+-----------+-------------------+-------------+--------------+-----------+  |
-|  | pool-arm64-prod    | GitHub    | 2 active / 1 idle | 3 / 10      | 4.0 / 8GB    | [Logs][>] |  |
-|  | pool-gitea-dind    | Gitea     | 1 active / 1 idle | 2 / 5       | 2.0 / 4GB    | [Logs][>] |  |
+|  | POOL NAME          | PROVIDER  | HEALTH       | RUNNERS (ACT/IDL) | INTENT              | ACTIONS   |  |
+|  +--------------------+-----------+--------------+-------------------+---------------------+-----------+  |
+|  | pool-arm64-prod    | GitHub    | [Degraded !] | 0 active / 0 idle | Provisioning (fail) | [Diag][>] |  |
+|  | pool-gitea-dind    | Gitea     | [Healthy OK] | 1 active / 1 idle | Idle target met     | [Logs][>] |  |
 |  +-----------------------------------------------------------------------------------------+  |
 +-----------------------------------------------------------------------------------------------+
 |  RECENT JOB EXECUTIONS (24h)                                              [ View Full History]|
@@ -273,20 +275,26 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 | Runner Pools                                                        [ + Create New Pool ]     |
 | Manage ephemeral runner pools, scaling targets, and provider bindings.                        |
 +-----------------------------------------------------------------------------------------------+
-| Filters: [ Search by name... ]  Provider: [ All v ]  Scope: [ All v ]  Status: [ All v ]       |
+| Filters: [ Search by name... ]  Provider: [ All v ]  Scope: [ All v ]  Health: [ All v ]      |
 +-----------------------------------------------------------------------------------------------+
 | +-------------------------------------------------------------------------------------------+ |
-| | pool-arm64-prod  [GitHub] [Repo]                             [ Edit ] [ Trigger ] [ ... ] | |
+| | pool-arm64-prod  [GitHub] [Repo]  [DEGRADED !]                [ Edit ] [ Trigger ] [ ... ] | |
 | | Target: https://github.com/noosxe/runnero • Auth Profile: github-app-prod               | |
-| | Labels: self-hosted, linux, arm64, high-perf                                              | |
-| | Active: 2  |  Idle: 1 (Target: 1)  |  Max Concurrency: 10  |  Quotas: 4 CPU / 8 GB        | |
+| | Current Intent: Reconciling warm pool: launching 1 idle runner (target: 1, current: 0)     | |
+| | Last Reconciled: 4s ago • Reconciliation Loop: Active (every 10s)                          | |
+| | Active: 0  |  Idle: 0 (Target: 1)  |  Max Concurrency: 10  |  Quotas: 4 CPU / 8 GB        | |
 | | Lifetime Limit: 7200s (2h)  |  Docker: Disabled (Rootless)                                 | |
-| | [Progress Bar: ========================---------------------------- 30% Capacity]         | |
+| | [Progress Bar: ---------------------------------------------------- 0% Capacity]          | |
+| |                                                                                           | |
+| | ! RECONCILIATION ERROR (ERR_AUTH_FAILED):                                                 | |
+| |   Failed to generate registration token from GitHub: private key decryption error.         | |
+| |   [Fix Auth Profile]  [Retry Reconcile]  [View Full Diagnostics]                          | |
 | +-------------------------------------------------------------------------------------------+ |
 | +-------------------------------------------------------------------------------------------+ |
-| | pool-forgejo-main  [Forgejo] [Org]                           [ Edit ] [ Trigger ] [ ... ] | |
+| | pool-forgejo-main  [Forgejo] [Org]  [HEALTHY OK]              [ Edit ] [ Trigger ] [ ... ] | |
 | | Target: https://git.internal.net/devops • Auth Profile: forgejo-token                     | |
-| | Labels: self-hosted, linux, amd64, docker                                                 | |
+| | Current Intent: Warm pool satisfied (1/1 idle runners)                                     | |
+| | Last Reconciled: 2s ago • Polling: Active (every 10s)                                     | |
 | | Active: 0  |  Idle: 1 (Target: 1)  |  Max Concurrency: 4   |  Quotas: 2 CPU / 4 GB        | |
 | | Lifetime Limit: 3600s (1h)  |  Docker: Enabled (Mandatory for Forgejo)                    | |
 | | [Progress Bar: =======--------------------------------------------- 25% Capacity]         | |
@@ -300,18 +308,28 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 
 ```text
 +-----------------------------------------------------------------------------------------------+
-| < Back to Pools    pool-arm64-prod                                    [ Edit Pool ] [ Reload ]|
+| < Back to Pools    pool-arm64-prod  [DEGRADED !]                      [ Edit Pool ] [ Reload ]|
 | https://github.com/noosxe/runnero • Profile: github-app-prod                                |
 +-----------------------------------------------------------------------------------------------+
-| Tabs: [ Runners & Containers (3) ]  [ Job History (89) ]  [ Configuration ]  [ Renovate Bot ] |
+| OPERATIONAL STATE & RECONCILIATION DIAGNOSTICS                                                |
+| Status: DEGRADED • Last Reconciled: 4s ago • Next Loop: in 6s • Active: 0 • Idle: 0 / 1      |
+| Intent: Attempting to spin up 1 idle container to satisfy warm pool target (1)               |
+|                                                                                               |
+| ! DIAGNOSTIC ALERT: [ERR_AUTH_FAILED]                                                        |
+|   Occurred: 2026-09-07T14:32:10Z (4 seconds ago, persisting for 3 reconcile cycles)         |
+|   Details:  Failed to fetch registration token from GitHub: private key decryption failed     |
+|   Cause:    Master encryption key unable to decrypt GitHub App private key for profile        |
+|             "github-app-prod". Token endpoint returned 500 internal error.                    |
+|   Suggested Fix: Open Git Auth Profiles, edit "github-app-prod", and re-enter private key.    |
+|   [ Edit Auth Profile ]   [ Retry Reconcile Now ]   [ View Supervisor Log ]                   |
++-----------------------------------------------------------------------------------------------+
+| Tabs: [ Runners & Containers (0) ]  [ Diagnostics & Logs ]  [ Job History (89) ]  [ Config ]  |
 +-----------------------------------------------------------------------------------------------+
 | LIVE CONTAINER INSTANCES                                                                      |
 | +-------------------------------------------------------------------------------------------+ |
 | | CONTAINER ID    | RUNNER NAME            | STATUS | IP ADDRESS   | UPTIME   | ACTIONS     | |
 | +-----------------+------------------------+--------+--------------+----------+-------------+ |
-| | d8f102a4b8c9    | runnero-arm64-prod-a8f12c | BUSY   | 172.18.0.4   | 8m 12s   | [Live Logs] | |
-| | 44c91ef23a01    | runnero-arm64-prod-99b11e | BUSY   | 172.18.0.5   | 2m 44s   | [Live Logs] | |
-| | 12a87b640e32    | runnero-arm64-prod-00c14f | IDLE   | 172.18.0.6   | 18m 02s  | [Live Logs] | |
+| | (No containers active or idle. See Diagnostics banner above for provisioning failure)    | |
 | +-------------------------------------------------------------------------------------------+ |
 +-----------------------------------------------------------------------------------------------+
 ```
@@ -570,6 +588,10 @@ web/src/
 │   ├── terminal/
 │   │   ├── terminal-viewer.tsx     # Virtualized monospace log viewer
 │   │   └── terminal-controls.tsx   # Filter, auto-scroll, clear, download
+│   ├── pools/
+│   │   ├── pool-health-badge.tsx   # Status badge (Healthy, Provisioning, Degraded, Paused)
+│   │   ├── pool-status-banner.tsx  # Operational intent & last reconciled time banner
+│   │   └── pool-diagnostics-card.tsx # Detailed error diagnostic panel with remediation actions
 │   └── forms/
 │       ├── pool-form.tsx           # Reusable Create/Edit pool form
 │       └── auth-profile-form.tsx   # Credentials input with test button
@@ -605,3 +627,5 @@ web/src/
 2. **Provider Enforcement**: If Gitea or Forgejo is selected as the pool provider, the `allow_docker` checkbox is automatically checked and locked to `true` to ensure container workflows function.
 3. **Referential Integrity Protection**: Pools referencing an auth profile warn the user, and profile deletion is blocked with an informative dialog if pools still reference it.
 4. **Clean Stream Teardown**: Closing log viewer components triggers `AbortController.abort()`, releasing server streams and Docker follow readers immediately.
+5. **Real-Time Operational State & Diagnostics**: The UI surfaces pool orchestrator intent, health state (`HEALTHY`, `PROVISIONING`, `DEGRADED`, `PAUSED`), and structured error codes (`ERR_AUTH_FAILED`, `ERR_DOCKER_DAEMON`, etc.) immediately, eliminating silent runner pool provisioning failures.
+

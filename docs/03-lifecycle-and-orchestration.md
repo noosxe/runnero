@@ -128,3 +128,12 @@ Triggered by `Ctrl+C` or emergency stop. The supervisor drains immediately witho
 4. Exit.
 
 > **Note**: The per-pool `max_runner_lifetime_seconds` continues to apply independently during normal operation — a job exceeding its lifetime is force-killed regardless of shutdown state. The `shutdown_timeout_seconds` setting only governs the maximum wait during a graceful `SIGTERM` shutdown.
+
+## 8. Pool Operational Diagnostics & Intent Tracking
+
+To provide full observability into the background reconciliation engine, `orchestrator.PoolController` tracks operational intent, health state, and reconciliation failure diagnostics per pool:
+- **Operational Intent**: What the control loop is currently attempting (e.g. *"Maintaining 1 warm idle runner"*, *"Spawning warm standby runner..."*, *"Retrying credential validation..."*).
+- **Health State Machine**: `Healthy` (targets fulfilled), `Provisioning` (actively spawning/warming), `Degraded` (reconciliation/auth/engine error), `Paused`.
+- **Diagnostic Error Capturing**: Captures and categorizes error messages (e.g. credential decryption failure, Git provider 401, Docker engine out-of-memory) and pushes updates to the web UI in real-time.
+
+For the complete technical specification, state machine diagrams, and UI components, see **[docs/16-pool-operational-state-and-diagnostics.md](16-pool-operational-state-and-diagnostics.md)**.
