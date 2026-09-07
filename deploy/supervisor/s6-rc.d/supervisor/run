@@ -1,2 +1,2 @@
 #!/command/with-contenv sh
-exec /usr/local/bin/runnero-supervisor daemon
+exec s6-setuidgid supervisor /usr/local/bin/runnero-supervisor daemon

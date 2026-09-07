@@ -87,6 +87,14 @@ RUN apk add --no-cache ca-certificates curl tzdata xz tar \
     && rm -rf /tmp/s6 \
     && apk del xz tar
 
+# Create a non-root supervisor user (UID/GID 10000) per docs/05-security-and-isolation.md.
+# The docker group (GID 999) grants read-write access to the mounted Docker socket
+# without requiring root privileges, preventing a container-escape-to-host-root vector.
+RUN addgroup -g 999 docker \
+    && addgroup -g 10000 supervisor \
+    && adduser -u 10000 -G supervisor -D -h /home/supervisor supervisor \
+    && addgroup supervisor docker
+
 # Copy compiled supervisor binary
 COPY --from=backend-builder /build/bin/runnero-supervisor /usr/local/bin/runnero-supervisor
 RUN ln -s /usr/local/bin/runnero-supervisor /usr/local/bin/supervisor
@@ -96,7 +104,8 @@ COPY deploy/supervisor/s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 COPY deploy/supervisor/user-bundles.d/ /etc/s6-overlay/user-bundles.d/
 RUN chmod +x /etc/s6-overlay/s6-rc.d/supervisor/run /etc/s6-overlay/s6-rc.d/supervisor/finish
 
-# Persistent data directory
+# Persistent data directory — owned by supervisor so SQLite is writable without root
+RUN mkdir -p /data && chown 10000:10000 /data
 VOLUME ["/data"]
 
 # Default supervisor HTTP port
