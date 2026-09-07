@@ -331,6 +331,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **Runner Image Package Parity & Passwordless Sudo:** *[Design Phase]* Track GitHub's `ubuntu-24.04` hosted-runner apt package set (`actions/runner-images` `toolset-2404.json`) in the unified runner image for workflow compatibility, grant the `runner` user passwordless sudo (`NOPASSWD:ALL`, build-validated sudoers) so workflows can install packages ad hoc, and provide hosted-compatible `RUNNER_TOOL_CACHE` env — with multi-GB upstream toolchains deliberately excluded (`docs/18`).
 
 ---
 

@@ -60,3 +60,30 @@ The supervisor daemon listens exclusively on plain HTTP (`SUPERVISOR_PORT`, defa
 - **HTTP/2 Multiplexing**: Proxies terminate TLS and negotiate HTTP/2 (or HTTP/3), circumventing browser 6-connection limits per host for concurrent streaming RPCs.
 - **Reference Configurations**: Complete production setups with copy-paste Caddy and Traefik Compose manifests are documented in [docs/10-reverse-proxy-tls.md](10-reverse-proxy-tls.md).
 
+## 7. In-Container Elevation (Passwordless Sudo)
+
+For parity with GitHub-hosted runners, the runner image grants the `runner`
+user **passwordless sudo** (`/etc/sudoers.d/90-runner` with `NOPASSWD:ALL`, plus
+`sudo` group membership; validated by `visudo -c` at build time). This mirrors
+the hosted-runner contract that community workflows depend on (`sudo apt-get
+install …` in setup steps) and is scoped strictly to inside the ephemeral
+runner container:
+
+- **Trust boundary unchanged**: workflow code already executes as `runner`; the
+  decision to trust a repository with a runner pool is made by the supervisor
+  administrator. Sudo widens only the *in-container* blast radius.
+- **No escape path**: sudo cannot grant capabilities outside the container's
+  bounding set — `cap_drop` hardening (§4 guidance) remains fully effective, and
+  no new host mounts or socket access are introduced.
+- **Ephemerality limits persistence**: elevated modifications (packages,
+  `/actions-runner` contents, sudoers) live only for the container's single-job
+  lifetime; containers are pruned on completion and deregister on `SIGTERM`.
+- **Deliberate exclusions**: `openssh-server` and other listening daemons are
+  not preinstalled; workflows needing them install them per job via sudo.
+- **Deployment caveat**: do not set `security_opt: ["no-new-privileges:true"]`
+  on the runner service — setuid-based `sudo` requires privilege transitions
+  and would break workflow parity. The default `docker-compose.yml` is
+  compatible.
+
+Package-parity scope and the full tiering rationale are documented in
+[docs/18-runner-image-package-parity.md](18-runner-image-package-parity.md).
