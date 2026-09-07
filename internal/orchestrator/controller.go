@@ -59,8 +59,15 @@ type ProvisionRequest struct {
 }
 
 // JobHistoryRecorder records runner job execution statuses into the database (docs/03 §4, §7).
+// The lifecycle methods (docs/21 §5.2) maintain one open job_history row per busy runner:
+// opened when the busy-state sync observes idle→busy, closed on busy→idle, runner death,
+// timeout, or crash recovery. All implementations must fail open from the caller's perspective.
 type JobHistoryRecorder interface {
 	RecordJobTimeout(ctx context.Context, poolID int64, runnerName, logPath string, startedAt, completedAt time.Time) error
+	OpenTransitionJob(ctx context.Context, poolID int64, runnerName string, startedAt time.Time) error
+	CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status, logPath string, completedAt time.Time) error
+	CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error)
+	CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, completedAt time.Time) (int64, error)
 }
 
 // AppSettingsReader reads application-wide configuration from the database (docs/02 §4).
@@ -279,6 +286,17 @@ func (c *PoolController) Boot(ctx context.Context) error {
 		}
 	}
 
+	// Crash recovery (docs/21 §5.4): any job_history row still open from a
+	// previous supervisor lifetime is closed as 'interrupted' before the
+	// initial convergence pass re-opens rows for currently-busy runners.
+	if c.jobRecorder != nil {
+		if n, err := c.jobRecorder.CloseInterruptedOpenJobs(ctx, time.Now().UTC()); err != nil {
+			c.logger.Warn("boot job-row recovery failed", "err", err)
+		} else if n > 0 {
+			c.logger.Info("closed interrupted job rows from previous run", "count", n)
+		}
+	}
+
 	// 2. Verify container engine connectivity
 	if c.engine != nil {
 		if err := c.engine.Ping(ctx); err != nil {
@@ -336,7 +354,7 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 		} else {
 			// Reap any exited containers detected during audit cycle
 			for _, exited := range report.Exited {
-				c.reapContainer(ctx, exited.ID, exited.PoolName)
+				c.reapContainer(ctx, exited.ID, exited.PoolName, exited.ExitCode, true)
 			}
 		}
 	}
@@ -425,6 +443,17 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 		}
 
 		lifetimeLimit := time.Duration(p.MaxRunnerLifetimeSeconds) * time.Second
+
+		// docs/21 §5.4: belt-and-braces — open rows older than 2x the lifetime
+		// limit are crash leftovers; close them as 'interrupted'.
+		if c.jobRecorder != nil {
+			if n, err := c.jobRecorder.CloseStaleOpenJobs(ctx, p.ID, now.Add(-2*lifetimeLimit), now); err != nil {
+				c.logger.Warn("closing stale open job rows", "pool", p.Name, "err", err)
+			} else if n > 0 {
+				c.logger.Info("closed stale open job rows", "pool", p.Name, "count", n)
+			}
+		}
+
 		tracked := c.reconciler.TrackedPoolRunners(p.Name)
 		for _, r := range tracked {
 			if r.State != "running" || r.SpawnedAt.IsZero() {
@@ -517,7 +546,7 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 	}
 
 	// 1. Reap dead container
-	c.reapContainer(ctx, event.ContainerID, event.PoolName)
+	c.reapContainer(ctx, event.ContainerID, event.PoolName, event.ExitCode, true)
 
 	// 2. Replenish target pool immediately
 	if event.PoolName != "" {
@@ -535,7 +564,8 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 	return nil
 }
 
-func (c *PoolController) reapContainer(ctx context.Context, containerID, poolName string) {
+func (c *PoolController) reapContainer(ctx context.Context, containerID, poolName string, exitCode int, exitKnown bool) {
+	c.closeJobRowOnDeath(ctx, containerID, poolName, exitCode, exitKnown)
 	if c.dataDir != "" && c.engine != nil {
 		if _, err := c.engine.CaptureLogs(ctx, containerID, c.dataDir); err != nil {
 			c.logger.Warn("capturing exit logs before container removal", "id", containerID, "err", err)
@@ -552,6 +582,51 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID, poolNam
 
 	// Drain internal provisioning queue as global capacity freed up
 	c.drainQueue(ctx)
+}
+
+// closeJobRowOnDeath closes a runner's open job_history row when its container
+// is reaped (docs/21 §5.2): a clean exit (code 0) closes the row as 'completed',
+// anything else as 'interrupted' — the job outcome is unknowable without the
+// forge API. Best-effort; boot recovery (docs/21 §5.4) catches any leftovers.
+func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID, poolName string, exitCode int, exitKnown bool) {
+	if c.jobRecorder == nil || c.reconciler == nil || poolName == "" {
+		return
+	}
+	var runnerName string
+	for _, r := range c.reconciler.TrackedPoolRunners(poolName) {
+		if r.ID == containerID {
+			runnerName = r.Name
+			break
+		}
+	}
+	if runnerName == "" {
+		return
+	}
+	status := "interrupted"
+	if exitKnown && exitCode == 0 {
+		status = "completed"
+	}
+	poolID, err := c.poolIDByName(ctx, poolName)
+	if err != nil || poolID <= 0 {
+		return
+	}
+	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, "", time.Now().UTC()); err != nil {
+		c.logger.Warn("closing job row on runner death", "pool", poolName, "runner", runnerName, "err", err)
+	}
+}
+
+// poolIDByName resolves a pool's database ID by name; 0 when unknown.
+func (c *PoolController) poolIDByName(ctx context.Context, poolName string) (int64, error) {
+	pools, err := c.loadPools(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for _, p := range pools {
+		if p.Name == poolName {
+			return p.ID, nil
+		}
+	}
+	return 0, nil
 }
 
 // Start boots the controller and runs the continuous periodic reconciliation loop until ctx is canceled.
@@ -700,7 +775,7 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 			report, err := c.reconciler.Audit(ctx)
 			if err == nil {
 				for _, exited := range report.Exited {
-					c.reapContainer(ctx, exited.ID, exited.PoolName)
+					c.reapContainer(ctx, exited.ID, exited.PoolName, exited.ExitCode, true)
 				}
 			}
 
@@ -881,7 +956,10 @@ func (c *PoolController) fetchRemoteRunners(ctx context.Context, gitProv provide
 // authoritative source; workflow_job webhooks remain the sub-second fast
 // path. Best-effort by design: nil listings and per-runner guards are
 // skipped without blocking the reconcile (fail-open).
-func (c *PoolController) applyRemoteBusyState(p db.RunnerPool, remote []provider.RemoteRunnerStatus) {
+//
+// The same transitions drive job-history recording (docs/21 §5.2):
+// idle→busy opens a job row, busy→idle closes it.
+func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPool, remote []provider.RemoteRunnerStatus) {
 	if c.reconciler == nil || len(remote) == 0 {
 		return
 	}
@@ -910,7 +988,27 @@ func (c *PoolController) applyRemoteBusyState(p db.RunnerPool, remote []provider
 		}
 		if r.IsBusy != state.Busy {
 			c.reconciler.MarkRunnerBusy(r.Name, state.Busy)
+			c.recordJobTransition(ctx, p, r.Name, state.Busy)
 		}
+	}
+}
+
+// recordJobTransition records a job-history lifecycle transition for a runner
+// observed flipping busy state (docs/21 §5.2). Best-effort: recording failures
+// are logged and never block the reconcile cycle (docs/21 G3).
+func (c *PoolController) recordJobTransition(ctx context.Context, p db.RunnerPool, runnerName string, busy bool) {
+	if c.jobRecorder == nil {
+		return
+	}
+	now := time.Now().UTC()
+	var err error
+	if busy {
+		err = c.jobRecorder.OpenTransitionJob(ctx, p.ID, runnerName, now)
+	} else {
+		err = c.jobRecorder.CloseTransitionJob(ctx, p.ID, runnerName, "completed", "", now)
+	}
+	if err != nil {
+		c.logger.Warn("job lifecycle recording failed", "pool", p.Name, "runner", runnerName, "busy", busy, "err", err)
 	}
 }
 
@@ -1022,7 +1120,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	// or phantom idle, and ungraceful container deaths cannot leave orphaned
 	// registrations behind. Webhooks remain the sub-second fast path.
 	remote, target := c.fetchRemoteRunners(ctx, gitProv, p)
-	c.applyRemoteBusyState(p, remote)
+	c.applyRemoteBusyState(ctx, p, remote)
 	c.ghostSweep(ctx, gitProv, p, target, remote)
 
 	tracked := c.reconciler.TrackedPoolRunners(p.Name)

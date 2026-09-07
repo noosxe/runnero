@@ -528,6 +528,16 @@ type mockJobRecorder struct {
 		status     string
 		logPath    string
 	}
+	opens []struct {
+		poolID     int64
+		runnerName string
+	}
+	closes []struct {
+		poolID     int64
+		runnerName string
+		status     string
+	}
+	interrupted int64
 }
 
 func (m *mockJobRecorder) RecordJobTimeout(ctx context.Context, poolID int64, runnerName, logPath string, startedAt, completedAt time.Time) error {
@@ -1097,7 +1107,7 @@ func TestPoolController_ImageUpdateHandoff_Replenisher(t *testing.T) {
 	reconciler := orchestrator.NewReconciler(mockEngine)
 	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
 		DB:               repo,
-		ContainerEngine: mockEngine,
+		ContainerEngine:  mockEngine,
 		ProviderResolver: resolver,
 		Reconciler:       reconciler,
 		Interval:         100 * time.Millisecond,
@@ -1547,6 +1557,29 @@ func TestPoolController_WebhookProviderDoesNotPoll(t *testing.T) {
 	}
 }
 
+func (m *mockJobRecorder) OpenTransitionJob(ctx context.Context, poolID int64, runnerName string, startedAt time.Time) error {
+	m.opens = append(m.opens, struct {
+		poolID     int64
+		runnerName string
+	}{poolID, runnerName})
+	return nil
+}
 
+func (m *mockJobRecorder) CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status, logPath string, completedAt time.Time) error {
+	m.closes = append(m.closes, struct {
+		poolID     int64
+		runnerName string
+		status     string
+	}{poolID, runnerName, status})
+	return nil
+}
 
+func (m *mockJobRecorder) CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error) {
+	n := m.interrupted
+	m.interrupted = 0
+	return n, nil
+}
 
+func (m *mockJobRecorder) CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, completedAt time.Time) (int64, error) {
+	return 0, nil
+}
