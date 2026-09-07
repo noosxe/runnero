@@ -392,13 +392,13 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 | Credentials used by the supervisor to dynamically request ephemeral registration tokens.      |
 +-----------------------------------------------------------------------------------------------+
 | +-------------------------------------------------------------------------------------------+ |
-| | github-app-prod  [GitHub App]                                              [ Delete ]     | |
+| | github-app-prod  [GitHub App]                                   [ Edit ]  [ Delete ]     | |
 | | App ID: 1049281 • Installation ID: 58921049                                                | |
 | | Private Key: [ Configured (AES-256 encrypted) ] • Token: [ Not Applicable ]                | |
 | | Referencing Pools: 2 pools (pool-arm64-prod, pool-linux-staging)                          | |
 | +-------------------------------------------------------------------------------------------+ |
 | +-------------------------------------------------------------------------------------------+ |
-| | gitea-pat-token  [Gitea PAT]                                               [ Delete ]     | |
+| | gitea-pat-token  [Gitea PAT]                                    [ Edit ]  [ Delete ]     | |
 | | Instance: https://gitea.corp.internal                                                      | |
 | | Private Key: [ None ] • Token: [ Configured (AES-256 encrypted) ]                          | |
 | | Referencing Pools: 1 pool (pool-gitea-dind)                                                | |
