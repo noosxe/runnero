@@ -9,9 +9,10 @@
 # within each section. The installer (install-parity-packages.sh) skips packages
 # present in the base image and installs the rest in a single transaction.
 #
-# Deliberately dropped from upstream (7) — do NOT re-add:
-#   dbus, fonts-noto-color-emoji, haveged, pollinate, ssh, systemd-coredump,
-#   xvfb — see docs/18 §3.2 for rationale.
+# Deliberately dropped from upstream (6) — do NOT re-add:
+#   dbus, fonts-noto-color-emoji, haveged, pollinate, ssh, systemd-coredump
+#   — see docs/18 §3.2 for rationale. (xvfb was re-added by review decision;
+#   see docs/18 §7.)
 
 # --- apt.vital_packages (9) ---
 bzip2
@@ -24,7 +25,7 @@ tar
 unzip
 wget
 
-# --- apt.common_packages (31 upstream, 28 kept) ---
+# --- apt.common_packages (31 upstream, 29 kept) ---
 autoconf
 automake
 dnsutils
@@ -52,6 +53,7 @@ tree
 tzdata
 # Ubuntu package name for upstream 'upx' (UPX executable packer)
 upx-ucl
+xvfb
 xz-utils
 zsync
 
