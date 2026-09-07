@@ -2,8 +2,8 @@
 
 | | |
 | :--- | :--- |
-| **Status** | *[Design Phase]* — pending review |
-| **Milestone** | Runner State Busy Sync |
+| **Status** | Shipped — implemented on `feature/runner-state-busy-sync` (design approved via PR #176) |
+| **Milestone** | Runner State Busy Sync (RUN-111 → RUN-113) |
 | **Related** | `docs/03` §3 (Audit Engine), `docs/02` §3 (Abstractions) |
 | **Bug** | Runners executing jobs are shown as `idle` in the supervisor UI/API |
 
@@ -195,8 +195,33 @@ convergence bound.
 
 ## 7. Resolved Decisions (Design Review)
 
-_(to be recorded after review)_
+- **Design approved as proposed** (PR #176 merged without change requests):
+  authoritative provider-API poll converged every audit cycle, webhooks as
+  fast path, offline/absent-name guards, fail-open error semantics.
+- **Implementation order:** RUN-111 (provider surface + GitHub client) →
+  RUN-112 (audit-loop integration) → RUN-113 (docs, this change).
 
 ## 8. Implementation Notes (as-built)
 
-_(to be recorded after implementation)_
+- **GitHub is the only `RunnerLister` implementation for now.** Gitea and
+  Forgejo do not implement the optional interface yet — their runner-list
+  APIs' state semantics vary across versions; per the design they are simply
+  never asked, so behaviour for those providers is unchanged. Wiring them up
+  later is additive and does not touch the orchestrator.
+- **Sync placement:** the call sits at the top of
+  `reconcilePoolWithProvider`, immediately after the engine/reconciler nil
+  guard, and the tracked snapshot is taken *after* the sync so scaling
+  classification always reads post-convergence state.
+- **No per-cycle dedup needed:** `MarkRunnerBusy` is only called when the
+  tracked flag actually differs from the listing, so steady-state cycles
+  perform no writes.
+- **Rate-limit footprint:** one list call per pool per audit cycle (first
+  successful target short-circuits multi-target pools); pagination is
+  bounded at 50 pages × 100 runners.
+- **Tests:** 5 client tests (scope endpoints, auth header, pagination across
+  two pages, busy/online mapping, repo-scope validation, API errors) and 5
+  controller tests (pre-classification flip; the scale-to-zero mid-job-drain
+  regression in both directions; offline/absent guards; lister-error
+  fail-open; provider-without-lister untouched). `mockGitProvider` gained
+  `ListRunners` so every existing controller test exercises the sync path
+  with an empty listing (a no-op).
