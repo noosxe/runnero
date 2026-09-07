@@ -80,6 +80,9 @@ const (
 	// AuthProfileServiceCreateAuthProfileProcedure is the fully-qualified name of the
 	// AuthProfileService's CreateAuthProfile RPC.
 	AuthProfileServiceCreateAuthProfileProcedure = "/supervisor.v1.AuthProfileService/CreateAuthProfile"
+	// AuthProfileServiceUpdateAuthProfileProcedure is the fully-qualified name of the
+	// AuthProfileService's UpdateAuthProfile RPC.
+	AuthProfileServiceUpdateAuthProfileProcedure = "/supervisor.v1.AuthProfileService/UpdateAuthProfile"
 	// AuthProfileServiceDeleteAuthProfileProcedure is the fully-qualified name of the
 	// AuthProfileService's DeleteAuthProfile RPC.
 	AuthProfileServiceDeleteAuthProfileProcedure = "/supervisor.v1.AuthProfileService/DeleteAuthProfile"
@@ -556,6 +559,7 @@ func (UnimplementedPoolServiceHandler) DiscoverTargets(context.Context, *connect
 type AuthProfileServiceClient interface {
 	ListAuthProfiles(context.Context, *connect.Request[v1.ListAuthProfilesRequest]) (*connect.Response[v1.ListAuthProfilesResponse], error)
 	CreateAuthProfile(context.Context, *connect.Request[v1.CreateAuthProfileRequest]) (*connect.Response[v1.CreateAuthProfileResponse], error)
+	UpdateAuthProfile(context.Context, *connect.Request[v1.UpdateAuthProfileRequest]) (*connect.Response[v1.UpdateAuthProfileResponse], error)
 	DeleteAuthProfile(context.Context, *connect.Request[v1.DeleteAuthProfileRequest]) (*connect.Response[v1.DeleteAuthProfileResponse], error)
 }
 
@@ -582,6 +586,12 @@ func NewAuthProfileServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithSchema(authProfileServiceMethods.ByName("CreateAuthProfile")),
 			connect.WithClientOptions(opts...),
 		),
+		updateAuthProfile: connect.NewClient[v1.UpdateAuthProfileRequest, v1.UpdateAuthProfileResponse](
+			httpClient,
+			baseURL+AuthProfileServiceUpdateAuthProfileProcedure,
+			connect.WithSchema(authProfileServiceMethods.ByName("UpdateAuthProfile")),
+			connect.WithClientOptions(opts...),
+		),
 		deleteAuthProfile: connect.NewClient[v1.DeleteAuthProfileRequest, v1.DeleteAuthProfileResponse](
 			httpClient,
 			baseURL+AuthProfileServiceDeleteAuthProfileProcedure,
@@ -595,6 +605,7 @@ func NewAuthProfileServiceClient(httpClient connect.HTTPClient, baseURL string, 
 type authProfileServiceClient struct {
 	listAuthProfiles  *connect.Client[v1.ListAuthProfilesRequest, v1.ListAuthProfilesResponse]
 	createAuthProfile *connect.Client[v1.CreateAuthProfileRequest, v1.CreateAuthProfileResponse]
+	updateAuthProfile *connect.Client[v1.UpdateAuthProfileRequest, v1.UpdateAuthProfileResponse]
 	deleteAuthProfile *connect.Client[v1.DeleteAuthProfileRequest, v1.DeleteAuthProfileResponse]
 }
 
@@ -608,6 +619,11 @@ func (c *authProfileServiceClient) CreateAuthProfile(ctx context.Context, req *c
 	return c.createAuthProfile.CallUnary(ctx, req)
 }
 
+// UpdateAuthProfile calls supervisor.v1.AuthProfileService.UpdateAuthProfile.
+func (c *authProfileServiceClient) UpdateAuthProfile(ctx context.Context, req *connect.Request[v1.UpdateAuthProfileRequest]) (*connect.Response[v1.UpdateAuthProfileResponse], error) {
+	return c.updateAuthProfile.CallUnary(ctx, req)
+}
+
 // DeleteAuthProfile calls supervisor.v1.AuthProfileService.DeleteAuthProfile.
 func (c *authProfileServiceClient) DeleteAuthProfile(ctx context.Context, req *connect.Request[v1.DeleteAuthProfileRequest]) (*connect.Response[v1.DeleteAuthProfileResponse], error) {
 	return c.deleteAuthProfile.CallUnary(ctx, req)
@@ -617,6 +633,7 @@ func (c *authProfileServiceClient) DeleteAuthProfile(ctx context.Context, req *c
 type AuthProfileServiceHandler interface {
 	ListAuthProfiles(context.Context, *connect.Request[v1.ListAuthProfilesRequest]) (*connect.Response[v1.ListAuthProfilesResponse], error)
 	CreateAuthProfile(context.Context, *connect.Request[v1.CreateAuthProfileRequest]) (*connect.Response[v1.CreateAuthProfileResponse], error)
+	UpdateAuthProfile(context.Context, *connect.Request[v1.UpdateAuthProfileRequest]) (*connect.Response[v1.UpdateAuthProfileResponse], error)
 	DeleteAuthProfile(context.Context, *connect.Request[v1.DeleteAuthProfileRequest]) (*connect.Response[v1.DeleteAuthProfileResponse], error)
 }
 
@@ -639,6 +656,12 @@ func NewAuthProfileServiceHandler(svc AuthProfileServiceHandler, opts ...connect
 		connect.WithSchema(authProfileServiceMethods.ByName("CreateAuthProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	authProfileServiceUpdateAuthProfileHandler := connect.NewUnaryHandler(
+		AuthProfileServiceUpdateAuthProfileProcedure,
+		svc.UpdateAuthProfile,
+		connect.WithSchema(authProfileServiceMethods.ByName("UpdateAuthProfile")),
+		connect.WithHandlerOptions(opts...),
+	)
 	authProfileServiceDeleteAuthProfileHandler := connect.NewUnaryHandler(
 		AuthProfileServiceDeleteAuthProfileProcedure,
 		svc.DeleteAuthProfile,
@@ -651,6 +674,8 @@ func NewAuthProfileServiceHandler(svc AuthProfileServiceHandler, opts ...connect
 			authProfileServiceListAuthProfilesHandler.ServeHTTP(w, r)
 		case AuthProfileServiceCreateAuthProfileProcedure:
 			authProfileServiceCreateAuthProfileHandler.ServeHTTP(w, r)
+		case AuthProfileServiceUpdateAuthProfileProcedure:
+			authProfileServiceUpdateAuthProfileHandler.ServeHTTP(w, r)
 		case AuthProfileServiceDeleteAuthProfileProcedure:
 			authProfileServiceDeleteAuthProfileHandler.ServeHTTP(w, r)
 		default:
@@ -668,6 +693,10 @@ func (UnimplementedAuthProfileServiceHandler) ListAuthProfiles(context.Context, 
 
 func (UnimplementedAuthProfileServiceHandler) CreateAuthProfile(context.Context, *connect.Request[v1.CreateAuthProfileRequest]) (*connect.Response[v1.CreateAuthProfileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.AuthProfileService.CreateAuthProfile is not implemented"))
+}
+
+func (UnimplementedAuthProfileServiceHandler) UpdateAuthProfile(context.Context, *connect.Request[v1.UpdateAuthProfileRequest]) (*connect.Response[v1.UpdateAuthProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.AuthProfileService.UpdateAuthProfile is not implemented"))
 }
 
 func (UnimplementedAuthProfileServiceHandler) DeleteAuthProfile(context.Context, *connect.Request[v1.DeleteAuthProfileRequest]) (*connect.Response[v1.DeleteAuthProfileResponse], error) {
