@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -20,6 +21,7 @@ import (
 	_ "github.com/noosxe/runnero/internal/provider/forgejo"
 	_ "github.com/noosxe/runnero/internal/provider/gitea"
 	_ "github.com/noosxe/runnero/internal/provider/github"
+	"github.com/noosxe/runnero/internal/registry"
 	"github.com/noosxe/runnero/internal/renovate"
 	"github.com/noosxe/runnero/internal/server"
 )
@@ -117,22 +119,67 @@ func runDaemonContext(ctx context.Context) error {
 	}
 	defer cronScheduler.Stop()
 
-	health := server.NewHealth()
-	registerHealthChecks(health, database)
-	srv := server.New(server.Options{
-		Port:             cfg.Port,
-		Health:           health,
-		AuthDB:           database,
-		PoolDB:           database,
-		AuthProfileDB:    database,
-		OnboardingDB:     database,
-		AnalyticsDB:      database,
-		RenovateExecutor: renovateExecutor,
-		CronScheduler:    cronScheduler,
+	reconciler := orchestrator.NewReconciler(dockerClient)
+	eventListener := orchestrator.NewEventListener(dockerClient, nil)
+	poolCtrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               database,
+		JobRecorder:      database,
+		ContainerEngine:  dockerClient,
+		ProviderResolver: providerResolver,
+		Reconciler:       reconciler,
+		EventListener:    eventListener,
 		DataDir:          cfg.DataDir,
-		DBEncryptionKey:  derivedKeys.DBEncryptionKey,
-		JWTSigningSecret: derivedKeys.JWTSigningSecret,
-		IsSecureCookie:   cfg.SecureCookie,
+		TaskExitHandler:  renovateExecutor,
+	})
+
+	if err := poolCtrl.Boot(ctx); err != nil {
+		logger.Warn("initial pool controller boot failed", "err", err)
+	}
+
+	go func() {
+		for {
+			if err := poolCtrl.Start(ctx); err != nil {
+				if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+					return
+				}
+				logger.Warn("pool controller error, retrying in 5s", "err", err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(5 * time.Second):
+				}
+			} else {
+				return
+			}
+		}
+	}()
+
+	health := server.NewHealth()
+	registerHealthChecks(health, database, dockerClient, poolCtrl)
+
+	regClient := registry.NewClient()
+	srv := server.New(server.Options{
+		Port:                cfg.Port,
+		Health:              health,
+		AuthDB:              database,
+		PoolDB:              database,
+		PoolStats:           poolCtrl,
+		RunnerMgr:           poolCtrl,
+		AuthProfileDB:       database,
+		OnboardingDB:        database,
+		AnalyticsDB:         database,
+		ImageUpdateDB:       database,
+		ImagePuller:         dockerClient,
+		LocalImageInspector: dockerClient,
+		RegistryChecker:     regClient,
+		SystemStats:         poolCtrl,
+		LogStreamer:         dockerClient,
+		RenovateExecutor:    renovateExecutor,
+		CronScheduler:       cronScheduler,
+		DataDir:             cfg.DataDir,
+		DBEncryptionKey:     derivedKeys.DBEncryptionKey,
+		JWTSigningSecret:    derivedKeys.JWTSigningSecret,
+		IsSecureCookie:      cfg.SecureCookie,
 	})
 
 	// Start blocks, so serve from a goroutine and surface fatal errors
@@ -150,11 +197,14 @@ func runDaemonContext(ctx context.Context) error {
 	case <-ctx.Done():
 	}
 
-	logger.Info("shutdown signal received, draining http server")
+	logger.Info("shutdown signal received, draining http server and pool controller")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), daemonShutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("daemon: graceful shutdown: %w", err)
+		logger.Warn("http server graceful shutdown error", "err", err)
+	}
+	if err := poolCtrl.GracefulShutdown(shutdownCtx); err != nil {
+		logger.Warn("pool controller graceful shutdown error", "err", err)
 	}
 	logger.Info("supervisor daemon stopped")
 	return nil
@@ -173,15 +223,8 @@ func (c stubCheck) Check(_ context.Context) server.Status { return c.status }
 
 // registerHealthChecks wires the daemon's probe set (OQ #19):
 // the database backs both liveness and readiness via a real SQLite ping (RUN-12);
-// Docker and the auditor / control loop back readiness only, because the
-// supervisor stays ready to serve while a degraded Docker socket blocks only
-// pool reconciliation. Docker and auditor remain optimistic stubs until their
-// owners land:
-//
-//   - db: SQLite ping via internal/db (M2, RUN-12)
-//   - docker: Docker daemon ping, unreachable = degraded (M5, RUN-30/RUN-35)
-//   - auditor: audit + control-loop heartbeat (M5/M6, RUN-32/RUN-37)
-func registerHealthChecks(h *server.Health, database *db.DB) {
+// Docker and the auditor / control loop back readiness via reachability and heartbeat probes.
+func registerHealthChecks(h *server.Health, database *db.DB, dockerClient *docker.Client, poolCtrl *orchestrator.PoolController) {
 	dbCheck := server.NewCheck("db", func(ctx context.Context) server.Status {
 		if database == nil || database.Ping(ctx) != nil {
 			return server.StatusFail
@@ -190,8 +233,18 @@ func registerHealthChecks(h *server.Health, database *db.DB) {
 	})
 	h.RegisterLiveness(dbCheck)
 	h.RegisterReadiness(dbCheck)
-	h.RegisterReadiness(stubCheck{name: "docker", status: server.StatusOK})
-	h.RegisterReadiness(stubCheck{name: "auditor", status: server.StatusOK})
+
+	if dockerClient != nil {
+		h.RegisterReadiness(dockerClient.ReadinessCheck())
+	} else {
+		h.RegisterReadiness(stubCheck{name: "docker", status: server.StatusOK})
+	}
+
+	if poolCtrl != nil {
+		h.RegisterReadiness(poolCtrl.ReadinessCheck())
+	} else {
+		h.RegisterReadiness(stubCheck{name: "auditor", status: server.StatusOK})
+	}
 }
 
 // checkAndImportSeed handles the first-boot YAML seed import (docs/02 §4, OQ #2):

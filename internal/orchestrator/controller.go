@@ -526,8 +526,10 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID, poolNam
 
 // Start boots the controller and runs the continuous periodic reconciliation loop until ctx is canceled.
 func (c *PoolController) Start(ctx context.Context) error {
-	if err := c.Boot(ctx); err != nil {
-		return err
+	if c.State() != StateRunning {
+		if err := c.Boot(ctx); err != nil {
+			return err
+		}
 	}
 
 	if c.eventListener != nil {
