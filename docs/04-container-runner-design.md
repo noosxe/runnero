@@ -28,6 +28,21 @@ RUN set -ex; \
 # chmod +x /usr/local/bin/forgejo-runner
 ```
 
+
+### Workflow Compatibility: Package Parity & Passwordless Sudo
+
+Workflows written against GitHub-hosted `ubuntu-24.04` runners assume a large
+standard tool surface (build tooling, `python`, `openssh-client`, compression
+utilities, …) and **passwordless sudo** for the `runner` user. The image tracks
+GitHub's `actions/runner-images` `toolset-2404.json` apt package set for parity,
+with a small documented set of container-inappropriate exclusions (GUI/systemd
+daemons such as `dbus`, `xvfb`, `haveged`), and grants `runner` `NOPASSWD:ALL`
+sudo via a build-validated `/etc/sudoers.d` drop-in. Multi-gigabyte upstream
+toolchains (language toolcaches, SDKs, browsers, DB servers) are deliberately
+excluded — `actions/setup-*` steps install them on demand into
+`RUNNER_TOOL_CACHE=/opt/hostedtoolcache`. Full tiering, the package manifest,
+and the security analysis live in [docs/18](18-runner-image-package-parity.md).
+
 ## 2. Entrypoint Orchestration (`src/entrypoint.sh`)
 
 At container runtime, the entrypoint script acts as an internal orchestrator, determining its mode (GitHub, Gitea, or Forgejo) based on injected environment variables.
