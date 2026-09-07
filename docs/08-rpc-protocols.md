@@ -168,7 +168,7 @@ message DiscoverTargetsResponse {
 service AuthProfileService {
   rpc ListAuthProfiles (ListAuthProfilesRequest) returns (ListAuthProfilesResponse);
   rpc CreateAuthProfile (CreateAuthProfileRequest) returns (CreateAuthProfileResponse);
-  rpc UpdateAuthProfile (UpdateAuthProfileRequest) returns (UpdateAuthProfileResponse); // Design: docs/17
+  rpc UpdateAuthProfile (UpdateAuthProfileRequest) returns (UpdateAuthProfileResponse);
   rpc DeleteAuthProfile (DeleteAuthProfileRequest) returns (DeleteAuthProfileResponse);
 }
 

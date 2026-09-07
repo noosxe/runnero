@@ -392,16 +392,13 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 | Credentials used by the supervisor to dynamically request ephemeral registration tokens.      |
 +-----------------------------------------------------------------------------------------------+
 | +-------------------------------------------------------------------------------------------+ |
-| | github-app-prod  [GitHub App]                                   [ Edit ]  [ Delete ]     | |
-| | App ID: 1049281 • Installation ID: 58921049                                                | |
-| | Private Key: [ Configured (AES-256 encrypted) ] • Token: [ Not Applicable ]                | |
-| | Referencing Pools: 2 pools (pool-arm64-prod, pool-linux-staging)                          | |
+| | github-app-prod  [GitHub App]                          [ Edit Profile ]  [ Delete Profile ]  | |
+| | Encrypted AES-256 (Write-Only) • Private Key: Configured • Installed on 2 accounts        | |
+| |                                              [ Configure Access ]                         | |
 | +-------------------------------------------------------------------------------------------+ |
 | +-------------------------------------------------------------------------------------------+ |
-| | gitea-pat-token  [Gitea PAT]                                    [ Edit ]  [ Delete ]     | |
-| | Instance: https://gitea.corp.internal                                                      | |
-| | Private Key: [ None ] • Token: [ Configured (AES-256 encrypted) ]                          | |
-| | Referencing Pools: 1 pool (pool-gitea-dind)                                                | |
+| | gitea-pat-token  [Gitea PAT]                           [ Edit Profile ]  [ Delete Profile ]| |
+| | Encrypted AES-256 (Write-Only) • Token: Configured                                        | |
 | +-------------------------------------------------------------------------------------------+ |
 +-----------------------------------------------------------------------------------------------+
 ```
