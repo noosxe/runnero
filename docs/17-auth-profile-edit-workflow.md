@@ -277,3 +277,28 @@ export function useUpdateAuthProfile() {
 4. Web: `useUpdateAuthProfile` hook; `AuthProfileForm` refactor; Edit modal; tests.
 5. Docs: this document; `docs/08` proto snippet; `docs/09` §4.8 mockup; README
    Features/Roadmap swap at implementation time.
+
+## 10. Implementation Notes (M21 — as-built)
+
+Status: **implemented** on the `feature/auth-profile-edit` branch. Decisions refined
+during implementation, recorded here for accuracy:
+
+- **§5.2 validator:** the `CredentialCheck` sketch was unnecessary. The existing
+  `CredentialValidator` interface is reused unchanged; the handler adapts the
+  update request to the `CreateAuthProfileRequest` shape (which §4.1 mirrors
+  field-for-field), so provider implementations and the server wiring are untouched.
+- **§6.2 component naming:** the shared form shipped as `AuthProfileModal`
+  (`web/src/components/profiles/auth-profile-modal.tsx`) owning its form state and
+  both mutation hooks, with the page delegating create/edit to it — semantically
+  identical to the `AuthProfileForm` sketch.
+- **§6.1 cards:** profile cards gained `Private Key: Configured` /
+  `Token: Configured` badges (from the existing `has_private_key` / `has_token`
+  indicators) so operators can see which secret class is stored before opening
+  the edit modal.
+- **§4.2/§4.3 degenerate rows:** implemented exactly as specified — blank secret on
+  a row missing its method's stored secret returns `CodeFailedPrecondition`
+  (self-heal by supplying it); a method switch without the new secret returns
+  `CodeInvalidArgument`.
+- **Duplicate names:** mapped to `CodeAlreadyExists` via the new
+  `db.IsUniqueConstraintError` helper (modernc.org/sqlite extended code 2067 with
+  a message fallback), unit-pinned in `internal/db/errors_test.go`.
