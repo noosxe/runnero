@@ -183,6 +183,7 @@ type GitProvider interface {
 - **Scaling Mode**: Each provider declares its scaling strategy. GitHub and Gitea support `workflow_job` webhooks for event-driven scaling. Forgejo lacks webhook support for job events and uses API polling as a fallback.
 - **`PollQueuedJobs`**: Only called for providers with `ScalingPolling` mode. Queries the forge's API for jobs in a `queued` state, returning the count to the orchestrator.
 - **Target Discovery**: `DiscoverOrganizations` and `DiscoverRepositories` allow the supervisor backend to enumerate entities accessible by the configured authentication profile without exposing credentials to the web client.
+- **Runner State (planned, docs/19)**: An optional `RunnerLister` interface will let providers expose registered-runner state (`name`, `busy`, `online`) — e.g. GitHub's `GET .../actions/runners`. The orchestrator polls it every audit cycle as the authoritative busy-state source, with `workflow_job` webhooks remaining the sub-second fast path.
 
 ### 3.3 Multi-Target Runner Pools
 
