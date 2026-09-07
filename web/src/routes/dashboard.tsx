@@ -65,8 +65,12 @@ export function DashboardPage() {
   const totalJobs = stats?.totalJobs24h ?? 0;
   const successfulJobs = stats?.successfulJobs24h ?? 0;
   const failedJobs = stats?.failedJobs24h ?? 0;
-  const successRate = stats?.successRatePercent ?? (totalJobs === 0 ? 100 : 0);
-  const avgQueueSeconds = stats?.averageQueueTimeSeconds ?? 0;
+  // docs/21 §5.6: degrade truthfully — no fabricated 100%/0 when the
+  // denominator is empty. `null` renders as "—" in the KPI cards.
+  const knownOutcomeJobs = Number(stats?.knownOutcomeJobs ?? 0n);
+  const queueTimedJobs = Number(stats?.queueTimedJobs ?? 0n);
+  const successRate = knownOutcomeJobs > 0 ? (stats?.successRatePercent ?? 0) : null;
+  const avgQueueSeconds = queueTimedJobs > 0 ? (stats?.averageQueueTimeSeconds ?? 0) : null;
   const avgRuntimeSeconds = stats?.averageRuntimeSeconds ?? 0;
   const trend = stats?.queueLatencyTrend ?? [];
 
@@ -162,7 +166,9 @@ export function DashboardPage() {
             {statsLoading ? "..." : totalJobs}
           </div>
           <div className="mt-1 text-xs text-slate-400">
-            Avg queue wait: {avgQueueSeconds.toFixed(1)}s
+            {avgQueueSeconds === null
+              ? "Queue timing requires webhooks"
+              : `Avg queue wait: ${avgQueueSeconds.toFixed(1)}s`}
           </div>
         </div>
 
@@ -172,10 +178,12 @@ export function DashboardPage() {
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </div>
           <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-            {statsLoading ? "..." : `${successRate.toFixed(1)}%`}
+            {statsLoading ? "..." : successRate === null ? "—" : `${successRate.toFixed(1)}%`}
           </div>
           <div className="mt-1 text-xs text-slate-400">
-            {successfulJobs} passed / {failedJobs} failed
+            {knownOutcomeJobs === 0
+              ? "No concluded jobs in window"
+              : `${successfulJobs} passed / ${failedJobs} failed`}
           </div>
         </div>
 
@@ -196,7 +204,7 @@ export function DashboardPage() {
         <div className="lg:col-span-2">
           <QueueLatencyChart
             trend={trend}
-            averageQueueSeconds={avgQueueSeconds}
+            averageQueueSeconds={avgQueueSeconds ?? 0}
             timeframeHours={timeframeHours}
             onTimeframeChange={setTimeframeHours}
           />
