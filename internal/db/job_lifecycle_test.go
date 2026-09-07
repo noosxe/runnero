@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -301,4 +302,182 @@ func toTestInt(v any) int64 {
 	default:
 		return -1
 	}
+}
+
+func TestRecordWebhookQueuedUpsert(t *testing.T) {
+	database, poolID, cleanup := newJobLifecycleDB(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	queuedAt := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	meta := WebhookJobMeta{RunID: 900, WorkflowName: "ci", HeadBranch: "main", HeadSHA: "abc123"}
+	if err := database.RecordWebhookQueued(ctx, poolID, 501, meta, queuedAt); err != nil {
+		t.Fatalf("RecordWebhookQueued failed: %v", err)
+	}
+
+	stub, err := database.GetOpenWebhookJobByID(ctx, sql.NullInt64{Int64: 501, Valid: true})
+	if err != nil {
+		t.Fatalf("queued row not found: %v", err)
+	}
+	if stub.RunnerName != "" || !stub.QueuedAt.Valid || !stub.QueuedAt.Time.Equal(queuedAt) {
+		t.Fatalf("unexpected stub: runner=%q queued_at=%v", stub.RunnerName, stub.QueuedAt)
+	}
+
+	// Redelivery with the same metadata must not duplicate or rewrite.
+	if err := database.RecordWebhookQueued(ctx, poolID, 501, meta, queuedAt.Add(time.Minute)); err != nil {
+		t.Fatalf("RecordWebhookQueued redelivery failed: %v", err)
+	}
+	again, err := database.GetOpenWebhookJobByID(ctx, sql.NullInt64{Int64: 501, Valid: true})
+	if err != nil {
+		t.Fatalf("queued row vanished after redelivery: %v", err)
+	}
+	if again.ID != stub.ID || !again.QueuedAt.Time.Equal(queuedAt) {
+		t.Fatalf("redelivery mutated the row: id=%d queued_at=%v", again.ID, again.QueuedAt)
+	}
+}
+
+func TestRecordWebhookStartedMergeRules(t *testing.T) {
+	ctx := context.Background()
+	queuedAt := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	startedAt := queuedAt.Add(30 * time.Second)
+	meta := WebhookJobMeta{RunID: 901, WorkflowName: "ci", HeadBranch: "main", HeadSHA: "def456"}
+
+	t.Run("promote queued stub", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.RecordWebhookQueued(ctx, poolID, 600, meta, queuedAt); err != nil {
+			t.Fatalf("queued upsert failed: %v", err)
+		}
+		if err := database.RecordWebhookStarted(ctx, poolID, 600, "runnero-a-1", startedAt, queuedAt, meta); err != nil {
+			t.Fatalf("RecordWebhookStarted failed: %v", err)
+		}
+		row, err := database.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: "runnero-a-1"})
+		if err != nil {
+			t.Fatalf("expected promoted open row: %v", err)
+		}
+		got, _ := database.GetJobHistoryById(ctx, row)
+		if got.Status != "running" || !got.StartedAt.Time.Equal(startedAt) || !got.QueuedAt.Time.Equal(queuedAt) {
+			t.Fatalf("unexpected promoted row: %+v", got)
+		}
+	})
+
+	t.Run("attach to transition row", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.OpenTransitionJob(ctx, poolID, "runnero-b-1", startedAt); err != nil {
+			t.Fatalf("OpenTransitionJob failed: %v", err)
+		}
+		if err := database.RecordWebhookStarted(ctx, poolID, 601, "runnero-b-1", startedAt, queuedAt, meta); err != nil {
+			t.Fatalf("RecordWebhookStarted failed: %v", err)
+		}
+		row, _ := database.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: "runnero-b-1"})
+		got, _ := database.GetJobHistoryById(ctx, row)
+		if !got.JobID.Valid || got.JobID.Int64 != 601 {
+			t.Fatalf("transition row not enriched with job id: %+v", got)
+		}
+		if !got.QueuedAt.Valid || !got.QueuedAt.Time.Equal(queuedAt) {
+			t.Fatalf("transition row did not adopt forge queued_at: %+v", got.QueuedAt)
+		}
+	})
+
+	t.Run("absorb stub into transition row", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.RecordWebhookQueued(ctx, poolID, 602, meta, queuedAt); err != nil {
+			t.Fatalf("queued upsert failed: %v", err)
+		}
+		if err := database.OpenTransitionJob(ctx, poolID, "runnero-c-1", startedAt); err != nil {
+			t.Fatalf("OpenTransitionJob failed: %v", err)
+		}
+		if err := database.RecordWebhookStarted(ctx, poolID, 602, "runnero-c-1", startedAt, queuedAt, meta); err != nil {
+			t.Fatalf("RecordWebhookStarted failed: %v", err)
+		}
+		// Exactly one row remains for the job: the stub was deleted and its
+		// identity now lives on the runner's open transition row.
+		history, err := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+		if err != nil || len(history) != 1 {
+			t.Fatalf("expected exactly one row after absorb, got %d (err=%v)", len(history), err)
+		}
+		row, _ := database.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: "runnero-c-1"})
+		got, _ := database.GetJobHistoryById(ctx, row)
+		if !got.JobID.Valid || got.JobID.Int64 != 602 {
+			t.Fatalf("transition row missing absorbed job id: %+v", got)
+		}
+	})
+
+	t.Run("insert fresh running row", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.RecordWebhookStarted(ctx, poolID, 603, "runnero-d-1", startedAt, time.Time{}, meta); err != nil {
+			t.Fatalf("RecordWebhookStarted failed: %v", err)
+		}
+		row, err := database.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: "runnero-d-1"})
+		if err != nil {
+			t.Fatalf("expected fresh open row: %v", err)
+		}
+		got, _ := database.GetJobHistoryById(ctx, row)
+		if got.Status != "running" || got.Source != "webhook" || got.QueuedAt.Valid {
+			t.Fatalf("unexpected fresh row: %+v", got)
+		}
+	})
+}
+
+func TestRecordWebhookCompletedCloseRules(t *testing.T) {
+	ctx := context.Background()
+	queuedAt := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	startedAt := queuedAt.Add(30 * time.Second)
+	completedAt := startedAt.Add(2 * time.Minute)
+	meta := WebhookJobMeta{RunID: 902, WorkflowName: "ci", HeadBranch: "main", HeadSHA: "ghi789"}
+
+	t.Run("close by external id removes duplicate transition row", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		// Stub + poll-opened transition row for the same job (webhook races poll).
+		if err := database.RecordWebhookQueued(ctx, poolID, 700, meta, queuedAt); err != nil {
+			t.Fatalf("queued upsert failed: %v", err)
+		}
+		if err := database.OpenTransitionJob(ctx, poolID, "runnero-e-1", startedAt); err != nil {
+			t.Fatalf("OpenTransitionJob failed: %v", err)
+		}
+		if err := database.RecordWebhookStarted(ctx, poolID, 700, "runnero-e-1", startedAt, queuedAt, meta); err != nil {
+			t.Fatalf("RecordWebhookStarted failed: %v", err)
+		}
+		if err := database.RecordWebhookCompleted(ctx, poolID, 700, "runnero-e-1", "success", completedAt); err != nil {
+			t.Fatalf("RecordWebhookCompleted failed: %v", err)
+		}
+		if _, err := database.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: "runnero-e-1"}); !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("expected no open row after completion: %v", err)
+		}
+	})
+
+	t.Run("fallback closes transition row and enriches job id", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.OpenTransitionJob(ctx, poolID, "runnero-f-1", startedAt); err != nil {
+			t.Fatalf("OpenTransitionJob failed: %v", err)
+		}
+		if err := database.RecordWebhookCompleted(ctx, poolID, 701, "runnero-f-1", "failure", completedAt); err != nil {
+			t.Fatalf("RecordWebhookCompleted failed: %v", err)
+		}
+		history, err := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+		if err != nil || len(history) != 1 {
+			t.Fatalf("expected exactly one closed row, got %d (err=%v)", len(history), err)
+		}
+		got := history[0]
+		if got.Status != "failure" || !got.JobID.Valid || got.JobID.Int64 != 701 {
+			t.Fatalf("unexpected closed row: %+v", got)
+		}
+	})
+
+	t.Run("no-op when nothing open", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.RecordWebhookCompleted(ctx, poolID, 702, "runnero-g-1", "success", completedAt); err != nil {
+			t.Fatalf("RecordWebhookCompleted should be a no-op, got: %v", err)
+		}
+		history, _ := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+		if len(history) != 0 {
+			t.Fatalf("expected no rows, got %d", len(history))
+		}
+	})
 }
