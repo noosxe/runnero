@@ -55,7 +55,7 @@ kernel-ish tweaks inside their job sandbox, etc.
 
 | Tier | Content | Decision |
 | :--- | :--- | :--- |
-| **1 — apt parity** | The 74 `toolset-2404.json` apt packages, minus 7 container-inappropriate ones (§3.2), deduplicated against our existing set (~12 overlap) | **Implement** — net ~55 new packages |
+| **1 — apt parity** | The 74 `toolset-2404.json` apt packages, minus 6 container-inappropriate ones (§3.2), deduplicated against our existing set (~12 overlap) | **Implement** — net ~56 new packages |
 | **2 — passwordless sudo** | `sudo` package, `runner` in `sudo` group, `/etc/sudoers.d/90-runner` with `NOPASSWD:ALL`, validated by `visudo -c` at build time | **Implement** |
 | **3 — upstream toolchains & apps** | Node/Python/Go/Ruby/CodeQL toolcaches, .NET/Android SDKs, browsers, DB servers, cloud CLIs, Homebrew | **Out of scope** — workflows install per-job via `setup-*` actions (they cache into `RUNNER_TOOL_CACHE`, which we provide, §3.4) |
 | **4 — toolchain env & dirs** | `ImageOS=ubuntu24`, `RUNNER_TOOL_CACHE=/opt/hostedtoolcache` (runner-owned) so `actions/setup-*` behave identically | **Implement** (cheap, high compat value) |
@@ -64,7 +64,7 @@ kernel-ish tweaks inside their job sandbox, etc.
 
 New file **`src/runner-parity-packages.txt`** — one package per line, `#`
 comments allowed, grouped by upstream list with the rationale for every drop.
-Canonical contents (67 packages after drops; ~12 already present in the
+Canonical contents (68 packages after drops; ~12 already present in the
 Dockerfile and deduped by the installer):
 
 - **From `vital_packages` (9):** `bzip2 curl g++ gcc jq make tar unzip wget`
@@ -79,12 +79,11 @@ Dockerfile and deduped by the installer):
   (plus present: `coreutils findutils zip`)
 - **apt extras installed by upstream scripts:** `zstd`
 
-**Dropped (7) — container-inappropriate, each annotated in the manifest:**
+**Dropped (6) — container-inappropriate, each annotated in the manifest:**
 
 | Package | Why dropped |
 | :--- | :--- |
 | `dbus` | System message-bus daemon; no systemd/dbus session in the container |
-| `xvfb` | Virtual X server for GUI/browser tests; browsers are Tier-3, huge X11 dep tree |
 | `fonts-noto-color-emoji` | Browser-rendering font; no browsers shipped |
 | `haveged` | Entropy daemon; irrelevant in containers on modern kernels |
 | `pollinate` | First-boot TLS entropy seeding for cloud VMs; N/A in containers |
@@ -92,7 +91,8 @@ Dockerfile and deduped by the installer):
 | `systemd-coredump` | systemd coredump integration; PID 1 is our entrypoint |
 
 **Kept despite GUI-ish deps:** `tk` (Python `tkinter` parity; ~40 MB), 
-`sphinxsearch` (tiny; inert daemon binary).
+`sphinxsearch` (tiny; inert daemon binary), and `xvfb` (re-added by review
+decision — some GUI-style workflow suites need `xvfb-run`; §7).
 
 **Arch note:** all kept packages publish `arm64` builds in Ubuntu 24.04
 (`p7zip-rar`, `sphinxsearch`, `upx` verified). The installer fails the build if
@@ -202,6 +202,10 @@ README.md                         # Features entry at implementation; roadmap no
 2. **Curated Tier-3 subset** (kubectl/helm etc.): rejected for now — wait for
    demand; passwordless sudo + `setup-*` actions cover it.
 3. **`tk`:** kept — Python `tkinter` parity is worth the ~40 MB dep tree.
+4. **`xvfb`:** re-added after initial implementation — some GUI-style workflow
+   suites (canvas/screenshot tests via `xvfb-run`) need it on every runner, and
+   per-job `sudo apt-get install` was deemed friction for a common-enough case.
+   Manifest, drop-guard test, and README M22 updated accordingly (69 entries).
 
 ## 8. Implementation Notes (as-built)
 

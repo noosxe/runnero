@@ -28,11 +28,11 @@ fi
 # Extract package entries (comments and blanks stripped).
 mapfile -t ENTRIES < <(grep -vE '^[[:space:]]*(#|$)' "${MANIFEST}")
 
-echo "Test: manifest contains the full upstream-derived package set (68 entries)"
-if [ "${#ENTRIES[@]}" -eq 68 ]; then
+echo "Test: manifest contains the full upstream-derived package set (69 entries)"
+if [ "${#ENTRIES[@]}" -eq 69 ]; then
 	echo "PASSED"
 else
-	fail_test "expected 68 entries (67 toolset-2404 kept + zstd), got ${#ENTRIES[@]}"
+	fail_test "expected 69 entries (68 toolset-2404 kept + zstd), got ${#ENTRIES[@]}"
 fi
 
 echo "Test: every entry is a valid apt package name"
@@ -75,7 +75,7 @@ check_section_sorted
 echo "PASSED"
 
 echo "Test: dropped upstream packages are absent (docs/18 §3.2)"
-for dropped in dbus fonts-noto-color-emoji haveged pollinate ssh systemd-coredump xvfb; do
+for dropped in dbus fonts-noto-color-emoji haveged pollinate ssh systemd-coredump; do
 	if printf '%s\n' "${ENTRIES[@]}" | grep -qx "${dropped}"; then
 		fail_test "dropped package '${dropped}' present in manifest"
 	fi
@@ -83,7 +83,7 @@ done
 echo "PASSED"
 
 echo "Test: key parity packages are present"
-for required in gcc g++ pkg-config openssh-client python-is-python3 sudo zstd libicu-dev; do
+for required in gcc g++ pkg-config openssh-client python-is-python3 sudo zstd libicu-dev xvfb; do
 	found=0
 	for entry in "${ENTRIES[@]}"; do
 		if [ "${entry}" = "${required}" ]; then
