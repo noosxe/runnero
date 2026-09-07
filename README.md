@@ -334,6 +334,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **Job History Recording (Dashboard Metrics):** The dashboard's job KPIs and the History page read a table nothing writes to — job recordings were never implemented. Design for a webhookless-safe job lifecycle recorder (busy-state transitions as primary signal, webhooks as enrichment, conclusion resolution via the forge API). See [docs/21-job-history-recording.md](docs/21-job-history-recording.md). *[Design Phase]*
 
 ---
 
