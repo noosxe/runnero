@@ -202,3 +202,30 @@ README.md                         # Features entry at implementation; roadmap no
 2. **Curated Tier-3 subset** (kubectl/helm etc.): rejected for now — wait for
    demand; passwordless sudo + `setup-*` actions cover it.
 3. **`tk`:** kept — Python `tkinter` parity is worth the ~40 MB dep tree.
+
+## 8. Implementation Notes (as-built)
+
+Recorded for accuracy against the merged implementation on
+`feature/runner-image-package-parity`:
+
+- **Noble package-name mappings:** two upstream names have no installation
+  candidate on Ubuntu 24.04 and are mapped in the manifest — virtual `netcat` →
+  `netcat-openbsd` (the standard provider) and `upx` → `upx-ucl` (Debian/Ubuntu's
+  UPX package name). The full manifest was validated against a live
+  `ubuntu:24.04` apt index (amd64) in addition to the unit tests.
+- **Tier 2 layer does not re-install sudo:** the §3.3 sketch's
+  `apt-get install sudo` would force a redundant `apt-get update` (the parity
+  layer already cleans lists). The parity manifest provides `sudo`; the Tier 2
+  layer is therefore only `usermod -aG sudo runner`, the sudoers drop-in,
+  `chmod 0440`, and `visudo -cf`.
+- **Numeric `USER` and group visibility:** the image keeps `USER 1001:1001`
+  (deterministic, override-friendly). Because the USER is numeric, Docker does
+  not resolve supplementary groups at container start, so `id` reports only
+  `groups=1001(runner)` even though `runner` is a member of `sudo` in
+  `/etc/group`. Elevation is unaffected — the sudoers rule grants `runner`
+  directly (verified: `sudo -n id` → `uid=0`).
+- **`ImageVersion` plumbing:** `Dockerfile` declares
+  `ARG IMAGE_VERSION=24.04.0` and `ENV ImageVersion=${IMAGE_VERSION}`;
+  `make build-image-runner` supplies the GH-style stamp via
+  `--build-arg IMAGE_VERSION=24.04.$$(date +%Y%m)` (Make expands the date at
+  build time).
