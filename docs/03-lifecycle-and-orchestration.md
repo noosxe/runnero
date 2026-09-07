@@ -41,7 +41,7 @@ messages, errs := cli.Events(ctx, types.EventsOptions{})
 
 Upon receiving a `"die"` or `"destroy"` event for a container matching the supervisor labels, the supervisor immediately triggers the provisioning of a replacement runner, keeping pool latency low.
 
-**Runner busy-state sync (planned, docs/19):** the audit cycle additionally polls the forge's registered-runner API (optional `RunnerLister` provider interface) and reconciles `IsBusy` for tracked runners, making busy/idle state converge every cycle. `workflow_job` webhooks remain the sub-second fast path; the poll heals missed or lost webhook events and prevents scale-down from draining runners that are actually mid-job.
+**Runner busy-state sync (docs/19):** every audit cycle reconciles `IsBusy` for tracked runners against the forge's registered-runner API (optional `RunnerLister` provider interface; GitHub implemented), so busy/idle state converges each cycle. `workflow_job` webhooks remain the sub-second fast path; the poll heals missed or lost webhook events and prevents scale-down from draining runners that are actually mid-job. Offline runners and names absent from the listing keep their last-known state; listing failures fail open.
 
 ## 3b. Dual-Mode Scaling Engine
 
