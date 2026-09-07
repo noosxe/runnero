@@ -292,6 +292,7 @@ func TestQueriesRoundTrip(t *testing.T) {
 			StartedAt:        sql.NullTime{Time: now.Add(-9 * time.Minute), Valid: true},
 			CompletedAt:      sql.NullTime{Time: now, Valid: true},
 			LogRetentionPath: sql.NullString{String: "/logs/runner-1.log", Valid: true},
+			Source:           "webhook",
 		})
 		if err != nil {
 			t.Fatalf("CreateJobHistory failed: %v", err)

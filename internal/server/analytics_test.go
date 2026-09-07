@@ -114,6 +114,7 @@ func TestAnalyticsJobHistoryAndStats(t *testing.T) {
 		QueuedAt:    sql.NullTime{Time: q1, Valid: true},
 		StartedAt:   sql.NullTime{Time: s1, Valid: true},
 		CompletedAt: sql.NullTime{Time: c1, Valid: true},
+		Source:      "webhook",
 	})
 	if err != nil {
 		t.Fatalf("CreateJobHistory: %v", err)
@@ -126,6 +127,7 @@ func TestAnalyticsJobHistoryAndStats(t *testing.T) {
 		QueuedAt:    sql.NullTime{Time: q1, Valid: true},
 		StartedAt:   sql.NullTime{Time: s1, Valid: true},
 		CompletedAt: sql.NullTime{Time: c1, Valid: true},
+		Source:      "webhook",
 	})
 	if err != nil {
 		t.Fatalf("CreateJobHistory: %v", err)
@@ -139,6 +141,7 @@ func TestAnalyticsJobHistoryAndStats(t *testing.T) {
 		QueuedAt:    sql.NullTime{Time: q1, Valid: true},
 		StartedAt:   sql.NullTime{Time: s1, Valid: true},
 		CompletedAt: sql.NullTime{Time: c1, Valid: true},
+		Source:      "webhook",
 	})
 	if err != nil {
 		t.Fatalf("CreateJobHistory: %v", err)
@@ -347,6 +350,7 @@ func TestAnalyticsServiceWatchDashboard(t *testing.T) {
 		QueuedAt:   sql.NullTime{Time: now.Add(-10 * time.Minute), Valid: true},
 		StartedAt:  sql.NullTime{Time: now.Add(-9 * time.Minute), Valid: true},
 		CompletedAt: sql.NullTime{Time: now.Add(-5 * time.Minute), Valid: true},
+		Source:      "webhook",
 	})
 	if err != nil {
 		t.Fatalf("CreateJobHistory failed: %v", err)

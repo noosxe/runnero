@@ -74,6 +74,7 @@ func TestRetentionPruningAndFileDeletion(t *testing.T) {
 		StartedAt:        sql.NullTime{Time: completedOld.Add(-5 * time.Minute), Valid: true},
 		CompletedAt:      sql.NullTime{Time: completedOld, Valid: true},
 		LogRetentionPath: sql.NullString{String: oldLogFile, Valid: true},
+		Source:           "webhook",
 	})
 	if err != nil {
 		t.Fatalf("CreateJobHistory (old): %v", err)
@@ -94,6 +95,7 @@ func TestRetentionPruningAndFileDeletion(t *testing.T) {
 		StartedAt:        sql.NullTime{Time: completedRecent.Add(-5 * time.Minute), Valid: true},
 		CompletedAt:      sql.NullTime{Time: completedRecent, Valid: true},
 		LogRetentionPath: sql.NullString{String: recentLogFile, Valid: true},
+		Source:           "webhook",
 	})
 	if err != nil {
 		t.Fatalf("CreateJobHistory (recent): %v", err)

@@ -3287,8 +3287,12 @@ type GetSystemStatsResponse struct {
 	QueueLatencyTrend       []*LatencyBucket       `protobuf:"bytes,9,rep,name=queue_latency_trend,json=queueLatencyTrend,proto3" json:"queue_latency_trend,omitempty"`
 	HostArch                string                 `protobuf:"bytes,10,opt,name=host_arch,json=hostArch,proto3" json:"host_arch,omitempty"`
 	HostOs                  string                 `protobuf:"bytes,11,opt,name=host_os,json=hostOs,proto3" json:"host_os,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Jobs whose outcome is known (success/failure/cancelled/timeout) — the success-rate denominator (docs/21 §5.6).
+	KnownOutcomeJobs int64 `protobuf:"varint,12,opt,name=known_outcome_jobs,json=knownOutcomeJobs,proto3" json:"known_outcome_jobs,omitempty"`
+	// Jobs with an observed queue-entry timestamp — the average-queue-wait denominator; zero without webhook enrichment (docs/21 §5.6).
+	QueueTimedJobs int64 `protobuf:"varint,13,opt,name=queue_timed_jobs,json=queueTimedJobs,proto3" json:"queue_timed_jobs,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetSystemStatsResponse) Reset() {
@@ -3396,6 +3400,20 @@ func (x *GetSystemStatsResponse) GetHostOs() string {
 		return x.HostOs
 	}
 	return ""
+}
+
+func (x *GetSystemStatsResponse) GetKnownOutcomeJobs() int64 {
+	if x != nil {
+		return x.KnownOutcomeJobs
+	}
+	return 0
+}
+
+func (x *GetSystemStatsResponse) GetQueueTimedJobs() int64 {
+	if x != nil {
+		return x.QueueTimedJobs
+	}
+	return 0
 }
 
 type WatchDashboardRequest struct {
@@ -4773,7 +4791,7 @@ const file_api_proto_rawDesc = "" +
 	"\vfailed_jobs\x18\x06 \x01(\x05R\n" +
 	"failedJobs\"@\n" +
 	"\x15GetSystemStatsRequest\x12'\n" +
-	"\x0ftimeframe_hours\x18\x01 \x01(\x05R\x0etimeframeHours\"\xa1\x04\n" +
+	"\x0ftimeframe_hours\x18\x01 \x01(\x05R\x0etimeframeHours\"\xf9\x04\n" +
 	"\x16GetSystemStatsResponse\x120\n" +
 	"\x14total_active_runners\x18\x01 \x01(\x05R\x12totalActiveRunners\x12,\n" +
 	"\x12total_idle_runners\x18\x02 \x01(\x05R\x10totalIdleRunners\x12;\n" +
@@ -4786,7 +4804,9 @@ const file_api_proto_rawDesc = "" +
 	"\x13queue_latency_trend\x18\t \x03(\v2\x1c.supervisor.v1.LatencyBucketR\x11queueLatencyTrend\x12\x1b\n" +
 	"\thost_arch\x18\n" +
 	" \x01(\tR\bhostArch\x12\x17\n" +
-	"\ahost_os\x18\v \x01(\tR\x06hostOs\"8\n" +
+	"\ahost_os\x18\v \x01(\tR\x06hostOs\x12,\n" +
+	"\x12known_outcome_jobs\x18\f \x01(\x03R\x10knownOutcomeJobs\x12(\n" +
+	"\x10queue_timed_jobs\x18\r \x01(\x03R\x0equeueTimedJobs\"8\n" +
 	"\x15WatchDashboardRequest\x12\x1f\n" +
 	"\vinterval_ms\x18\x01 \x01(\x05R\n" +
 	"intervalMs\"\xbb\x01\n" +

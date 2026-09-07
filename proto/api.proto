@@ -419,6 +419,10 @@ message GetSystemStatsResponse {
   repeated LatencyBucket queue_latency_trend = 9;
   string host_arch = 10;
   string host_os = 11;
+  // Jobs whose outcome is known (success/failure/cancelled/timeout) — the success-rate denominator (docs/21 §5.6).
+  int64 known_outcome_jobs = 12;
+  // Jobs with an observed queue-entry timestamp — the average-queue-wait denominator; zero without webhook enrichment (docs/21 §5.6).
+  int64 queue_timed_jobs = 13;
 }
 
 message WatchDashboardRequest {
