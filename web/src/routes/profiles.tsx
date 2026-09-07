@@ -1,97 +1,28 @@
-import { useState, type FormEvent } from "react";
-import {
-  useAuthProfiles,
-  useCreateAuthProfile,
-  useDeleteAuthProfile,
-} from "../lib/api/query-hooks";
+import { useState } from "react";
+import { useAuthProfiles, useDeleteAuthProfile } from "../lib/api/query-hooks";
+import type { AuthProfile } from "../gen/api_pb";
+import { AuthProfileModal } from "../components/profiles/auth-profile-modal";
 import {
   KeyRound,
   ShieldCheck,
   Plus,
   Trash2,
-  X,
+  Pencil,
   AlertCircle,
   ExternalLink,
   CheckCircle2,
 } from "lucide-react";
 
+interface ProfileModalState {
+  mode: "create" | "edit";
+  profile?: AuthProfile;
+}
+
 export function ProfilesPage() {
   const { data: profiles, isLoading } = useAuthProfiles();
-  const createProfileMutation = useCreateAuthProfile();
   const deleteProfileMutation = useDeleteAuthProfile();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Form State
-  const [profileName, setProfileName] = useState("");
-  const [authMethod, setAuthMethod] = useState<
-    "github_app" | "github_pat" | "gitea_pat" | "forgejo_pat"
-  >("github_pat");
-  const [appId, setAppId] = useState("");
-  const [privateKeyPem, setPrivateKeyPem] = useState("");
-  const [token, setToken] = useState("");
-
-  const resetForm = () => {
-    setProfileName("");
-    setAuthMethod("github_pat");
-    setAppId("");
-    setPrivateKeyPem("");
-    setToken("");
-    setError(null);
-  };
-
-  const handleOpenModal = () => {
-    resetForm();
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    resetForm();
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!profileName.trim()) {
-      setError("Profile name is required");
-      return;
-    }
-
-    try {
-      if (authMethod === "github_app") {
-        if (!appId.trim() || !privateKeyPem.trim()) {
-          setError("GitHub App ID and Private Key PEM are required");
-          return;
-        }
-        const encoder = new TextEncoder();
-        await createProfileMutation.mutateAsync({
-          name: profileName.trim(),
-          authMethod: "github_app",
-          appId: BigInt(appId.trim()),
-          privateKey: encoder.encode(privateKeyPem.trim()),
-          token: "",
-        });
-      } else {
-        if (!token.trim()) {
-          setError("Personal Access Token (PAT) is required");
-          return;
-        }
-        await createProfileMutation.mutateAsync({
-          name: profileName.trim(),
-          authMethod,
-          appId: 0n,
-          privateKey: new Uint8Array(),
-          token: token.trim(),
-        });
-      }
-      handleCloseModal();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create authentication profile");
-    }
-  };
+  const [modal, setModal] = useState<ProfileModalState | null>(null);
 
   const handleDelete = async (id: bigint, name: string) => {
     if (confirm(`Are you sure you want to delete authentication profile "${name}"?`)) {
@@ -118,7 +49,7 @@ export function ProfilesPage() {
 
         <button
           type="button"
-          onClick={handleOpenModal}
+          onClick={() => setModal({ mode: "create" })}
           className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
         >
           <Plus className="h-4 w-4" />
@@ -141,7 +72,7 @@ export function ProfilesPage() {
           <div className="mt-4">
             <button
               type="button"
-              onClick={handleOpenModal}
+              onClick={() => setModal({ mode: "create" })}
               className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-500"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -168,6 +99,12 @@ export function ProfilesPage() {
                     <ShieldCheck className="h-4 w-4 text-emerald-500" />
                     <span>Encrypted AES-256 (Write-Only)</span>
                   </div>
+
+                  {(prof.hasPrivateKey || prof.hasToken) && (
+                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      {prof.hasPrivateKey ? "Private Key: Configured" : "Token: Configured"}
+                    </span>
+                  )}
 
                   {prof.authMethod === "github_app" &&
                     (prof.installationsCount > 0 ? (
@@ -208,174 +145,38 @@ export function ProfilesPage() {
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleDelete(prof.id, prof.name)}
-                  disabled={deleteProfileMutation.isPending}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Delete Profile</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setModal({ mode: "edit", profile: prof })}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span>Edit Profile</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(prof.id, prof.name)}
+                    disabled={deleteProfileMutation.isPending}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Profile</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add Profile Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900 text-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Add Git Auth Profile
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {error && (
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Provider Method
-                </label>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[
-                    { id: "github_pat", label: "GitHub PAT" },
-                    { id: "github_app", label: "GitHub App" },
-                    { id: "gitea_pat", label: "Gitea PAT" },
-                    { id: "forgejo_pat", label: "Forgejo PAT" },
-                  ].map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setAuthMethod(m.id as any)}
-                      className={`rounded-xl border p-2 text-center font-medium transition-all ${
-                        authMethod === m.id
-                          ? "border-blue-500 bg-blue-50/50 text-blue-700 font-semibold dark:border-blue-500 dark:bg-blue-950/30 dark:text-blue-300"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="modal-profile-name"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Profile Name
-                </label>
-                <input
-                  id="modal-profile-name"
-                  type="text"
-                  placeholder="e.g. github-production"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                />
-              </div>
-
-              {authMethod === "github_app" ? (
-                <>
-                  <div>
-                    <label
-                      htmlFor="modal-app-id"
-                      className="font-semibold text-slate-700 dark:text-slate-300"
-                    >
-                      GitHub App ID
-                    </label>
-                    <input
-                      id="modal-app-id"
-                      type="number"
-                      placeholder="e.g. 123456"
-                      value={appId}
-                      onChange={(e) => setAppId(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="modal-private-key"
-                      className="font-semibold text-slate-700 dark:text-slate-300"
-                    >
-                      Private Key (.pem)
-                    </label>
-                    <textarea
-                      id="modal-private-key"
-                      rows={4}
-                      placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
-                      value={privateKeyPem}
-                      onChange={(e) => setPrivateKeyPem(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-[11px] text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      required
-                    />
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label
-                    htmlFor="modal-token"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Personal Access Token (PAT)
-                  </label>
-                  <input
-                    id="modal-token"
-                    type="password"
-                    placeholder="ghp_... or gitea_pat_..."
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    Encrypted at rest using AES-256 in supervisor database.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createProfileMutation.isPending}
-                  className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-blue-500 disabled:opacity-50"
-                >
-                  {createProfileMutation.isPending ? "Saving..." : "Save Profile"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Shared Create/Edit Auth Profile Modal (docs/17 §6.2) */}
+      {modal && (
+        <AuthProfileModal
+          mode={modal.mode}
+          profile={modal.profile}
+          onClose={() => setModal(null)}
+        />
       )}
     </div>
   );

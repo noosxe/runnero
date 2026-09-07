@@ -299,6 +299,21 @@ export function useCreateAuthProfile() {
   });
 }
 
+// Rotates secrets / renames an existing auth profile (docs/17). Blank secret
+// fields are intentionally transmitted as empty: the server treats them as
+// "keep the existing encrypted secret" (write-only model, no read-back).
+export function useUpdateAuthProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: Parameters<typeof authProfileClient.updateAuthProfile>[0]) => {
+      return await authProfileClient.updateAuthProfile(req);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.authProfiles });
+    },
+  });
+}
+
 export function useDeleteAuthProfile() {
   const queryClient = useQueryClient();
   return useMutation({
