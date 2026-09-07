@@ -195,10 +195,10 @@ README.md                         # Features entry at implementation; roadmap no
    breaks the dominant community-workflow pattern (`sudo apt-get install`) and
    diverges from the hosted contract this milestone is about.
 
-## 7. Open Questions
+## 7. Resolved Decisions (Design Review)
 
-1. `ImageVersion` format — mirror GitHub's `<year><month>.<patch>` scheme or a
-   simple build-arg stamp? (Proposal: `24.04.$(date +%Y%m)` build-arg default.)
-2. Should Tier 3 grow a curated subset (e.g. `docker compose`-adjacent `kubectl`
-   + `helm`)? (Proposal: no — wait for demand; sudo + setup actions cover it.)
-3. Drop `tk` too if size matters more than expected? (Default: keep.)
+1. **`ImageVersion` format:** confirmed — GitHub-hosted style `24.04.<yyyymm>`
+   (build-arg default `24.04.$(date +%Y%m)` at image build time).
+2. **Curated Tier-3 subset** (kubectl/helm etc.): rejected for now — wait for
+   demand; passwordless sudo + `setup-*` actions cover it.
+3. **`tk`:** kept — Python `tkinter` parity is worth the ~40 MB dep tree.
