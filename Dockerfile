@@ -78,7 +78,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     tar \
-    sudo \
     ca-certificates \
     git \
     git-lfs \
@@ -109,8 +108,6 @@ RUN mkdir -p /etc/apt/keyrings \
 # Establish a dedicated non-root user and group with UID 1001 and GID 1001 (Least Privilege)
 RUN groupadd -g 1001 runner \
     && useradd -m -u 1001 -g 1001 -s /bin/bash runner \
-    && usermod -aG sudo runner \
-    && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && mkdir -p /home/runner/.cache /home/runner/.config \
     && chown -R 1001:1001 /home/runner
 
