@@ -129,3 +129,12 @@ Wiring the API into the death paths directly would close the window faster but d
 - **Config surface:** `ControllerOptions.GhostSweepOfflineCycles` (default
   3) and `GhostSweepMaxDeregistrations` (default 50); non-positive values
   fall back to defaults. No DB schema change.
+- **Correction (post-merge defect found during verification):** the
+  `RunnerDeregistrar` interface existed but the GitHub client never
+  implemented it — every API-side deregistration path, including the
+  pre-existing managed-drain deregistration and the M24 sweep, silently
+  no-opped for GitHub. `Client.DeregisterRunner` now resolves the runner id
+  via the scope's runners listing and DELETEs it; a name absent from the
+  listing and a 404 on delete are both treated as success so the sweep
+  converges idempotently. Enterprise-scope target URLs follow the existing
+  supervisor convention (bare slug, e.g. `https://github.com/my-ent`).
