@@ -38,6 +38,7 @@ let mockProfiles = [
 let mockIsLoading = false;
 const mockCreateMutateAsync = vi.fn();
 const mockDeleteMutateAsync = vi.fn();
+const mockUpdateMutateAsync = vi.fn();
 
 vi.mock("../lib/api/query-hooks", () => ({
   useAuthProfiles: () => ({
@@ -50,6 +51,10 @@ vi.mock("../lib/api/query-hooks", () => ({
   }),
   useDeleteAuthProfile: () => ({
     mutateAsync: mockDeleteMutateAsync,
+    isPending: false,
+  }),
+  useUpdateAuthProfile: () => ({
+    mutateAsync: mockUpdateMutateAsync,
     isPending: false,
   }),
 }));
@@ -68,6 +73,16 @@ describe("ProfilesPage", () => {
       },
     });
     mockDeleteMutateAsync.mockResolvedValue({});
+    mockUpdateMutateAsync.mockResolvedValue({
+      profile: {
+        id: 3n,
+        name: "personal-pat",
+        authMethod: "github_pat",
+        appId: 0n,
+        hasPrivateKey: false,
+        hasToken: true,
+      },
+    });
   });
 
   it("renders profiles with installation status badges and action links", () => {
@@ -137,6 +152,83 @@ describe("ProfilesPage", () => {
           authMethod: "github_pat",
           token: "ghp_secrettoken123",
         }),
+      );
+    });
+  });
+
+  it("opens edit modal prefilled with secret fields empty and keep-secret helper", () => {
+    render(<ProfilesPage />);
+
+    const editButtons = screen.getAllByRole("button", { name: /Edit Profile/i });
+    // Edit the PAT profile (3rd card)
+    fireEvent.click(editButtons[2]);
+
+    expect(screen.getByRole("heading", { name: /Edit Git Auth Profile/i })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("personal-pat")).toBeInTheDocument();
+    const tokenInput = screen.getByPlaceholderText(/ghp_\.\.\. or gitea_pat_\.\.\./i);
+    expect(tokenInput).toHaveValue("");
+    expect(tokenInput).not.toBeRequired();
+    expect(screen.getByText(/Leave blank to keep the existing key\/token/i)).toBeInTheDocument();
+  });
+
+  it("submits an edit with blank secrets as keep-existing and closes the modal", async () => {
+    render(<ProfilesPage />);
+
+    const editButtons = screen.getAllByRole("button", { name: /Edit Profile/i });
+    fireEvent.click(editButtons[2]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Profile/i }));
+
+    await waitFor(() => {
+      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 3n,
+          name: "personal-pat",
+          authMethod: "github_pat",
+          appId: 0n,
+          token: "",
+        }),
+      );
+    });
+    expect(mockCreateMutateAsync).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("heading", { name: /Edit Git Auth Profile/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("requires a secret when changing the auth method in edit mode", () => {
+    render(<ProfilesPage />);
+
+    const editButtons = screen.getAllByRole("button", { name: /Edit Profile/i });
+    fireEvent.click(editButtons[2]);
+
+    // Switch the method to GitHub App: secret inputs clear and become required.
+    fireEvent.click(screen.getByRole("button", { name: /GitHub App/i }));
+    expect(screen.getByText(/Required when changing the auth method/i)).toBeInTheDocument();
+    const appIdInput = screen.getByPlaceholderText(/e\.g\. 123456/i);
+    expect(appIdInput).toBeRequired();
+    const keyInput = screen.getByPlaceholderText(/BEGIN RSA PRIVATE KEY/i);
+    expect(keyInput).toBeRequired();
+    expect(keyInput).toHaveValue("");
+  });
+
+  it("shows a server error banner when an update fails", async () => {
+    mockUpdateMutateAsync.mockRejectedValueOnce(
+      new Error('auth profile name "pat-renamed" already exists'),
+    );
+
+    render(<ProfilesPage />);
+
+    const editButtons = screen.getAllByRole("button", { name: /Edit Profile/i });
+    fireEvent.click(editButtons[2]);
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. github-production/i), {
+      target: { value: "pat-renamed" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save Profile/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        'auth profile name "pat-renamed" already exists',
       );
     });
   });
