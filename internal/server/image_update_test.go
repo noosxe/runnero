@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,11 +17,14 @@ import (
 )
 
 type mockImageUpdateDB struct {
+	mu    sync.Mutex
 	pools map[int64]db.RunnerPool
 	logs  []db.AuditLog
 }
 
 func (m *mockImageUpdateDB) ListRunnerPools(_ context.Context) ([]db.RunnerPool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var res []db.RunnerPool
 	for _, p := range m.pools {
 		res = append(res, p)
@@ -29,6 +33,8 @@ func (m *mockImageUpdateDB) ListRunnerPools(_ context.Context) ([]db.RunnerPool,
 }
 
 func (m *mockImageUpdateDB) GetRunnerPoolById(_ context.Context, id int64) (db.RunnerPool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	p, ok := m.pools[id]
 	if !ok {
 		return db.RunnerPool{}, fmt.Errorf("not found")
@@ -37,6 +43,8 @@ func (m *mockImageUpdateDB) GetRunnerPoolById(_ context.Context, id int64) (db.R
 }
 
 func (m *mockImageUpdateDB) CreateAuditLog(_ context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	l := db.AuditLog{
 		ID:        int64(len(m.logs) + 1),
 		Action:    arg.Action,
@@ -47,16 +55,28 @@ func (m *mockImageUpdateDB) CreateAuditLog(_ context.Context, arg db.CreateAudit
 }
 
 type mockImagePuller struct {
+	mu           sync.Mutex
 	pulledImages []string
 	pullFn       func(ctx context.Context, image string) error
 }
 
 func (m *mockImagePuller) PullImage(ctx context.Context, image string) error {
+	m.mu.Lock()
 	m.pulledImages = append(m.pulledImages, image)
-	if m.pullFn != nil {
-		return m.pullFn(ctx, image)
+	fn := m.pullFn
+	m.mu.Unlock()
+	if fn != nil {
+		return fn(ctx, image)
 	}
 	return nil
+}
+
+func (m *mockImagePuller) Pulled() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cp := make([]string, len(m.pulledImages))
+	copy(cp, m.pulledImages)
+	return cp
 }
 
 func TestImageUpdateServiceLifecycle(t *testing.T) {
@@ -72,7 +92,7 @@ func TestImageUpdateServiceLifecycle(t *testing.T) {
 	}
 	mockPuller := &mockImagePuller{}
 
-	svc := NewImageUpdateService(mockDB, mockPuller)
+	svc := NewImageUpdateService(mockDB, mockPuller, WithSyncPull(true))
 
 	mux := http.NewServeMux()
 	path, handler := supervisorv1connect.NewImageUpdateServiceHandler(svc, BinaryConnectHandlerOptions()...)
@@ -120,8 +140,9 @@ func TestImageUpdateServiceLifecycle(t *testing.T) {
 	if !pullRes.Msg.Success {
 		t.Errorf("PullImage response success = false")
 	}
-	if len(mockPuller.pulledImages) != 1 || mockPuller.pulledImages[0] != "ghcr.io/noosxe/runnero:v1.1.0" {
-		t.Errorf("expected pulled image %s, got %v", "ghcr.io/noosxe/runnero:v1.1.0", mockPuller.pulledImages)
+	pulled := mockPuller.Pulled()
+	if len(pulled) != 1 || pulled[0] != "ghcr.io/noosxe/runnero:v1.1.0" {
+		t.Errorf("expected pulled image %s, got %v", "ghcr.io/noosxe/runnero:v1.1.0", pulled)
 	}
 
 	// 4. Dismiss Image Update
@@ -138,21 +159,33 @@ func TestImageUpdateServiceLifecycle(t *testing.T) {
 }
 
 type mockLocalInspector struct {
+	mu      sync.RWMutex
 	digests map[string]string
 }
 
 func (m *mockLocalInspector) GetLocalImageDigest(_ context.Context, image string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if d, ok := m.digests[image]; ok {
 		return d, nil
 	}
 	return "", fmt.Errorf("local image not found")
 }
 
+func (m *mockLocalInspector) SetDigest(image, digest string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.digests[image] = digest
+}
+
 type mockRegistryChecker struct {
+	mu      sync.RWMutex
 	digests map[string]string
 }
 
 func (m *mockRegistryChecker) GetRemoteImageDigest(_ context.Context, imageRef string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if d, ok := m.digests[imageRef]; ok {
 		return d, nil
 	}
@@ -160,6 +193,8 @@ func (m *mockRegistryChecker) GetRemoteImageDigest(_ context.Context, imageRef s
 }
 
 func (m *mockRegistryChecker) BumpTag(imageRef, newDigest string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.digests[imageRef] = newDigest
 }
 
@@ -193,6 +228,7 @@ func TestCheckImageUpdate_DetectsBumpedTag(t *testing.T) {
 	svc := NewImageUpdateService(mockDB, mockPuller,
 		WithLocalInspector(inspector),
 		WithRegistryChecker(registry),
+		WithSyncPull(true),
 	)
 
 	mux := http.NewServeMux()
@@ -271,7 +307,7 @@ func TestCheckImageUpdate_DetectsBumpedTag(t *testing.T) {
 		t.Fatalf("expected PullImage success")
 	}
 
-	inspector.digests[testImage] = bumpedDigest
+	inspector.SetDigest(testImage, bumpedDigest)
 
 	res3, err := client.CheckImageUpdate(ctx, connect.NewRequest(&supervisorv1.CheckImageUpdateRequest{
 		PoolId: 10,
