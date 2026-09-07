@@ -12,8 +12,19 @@ import (
 
 type Querier interface {
 	AddPoolTarget(ctx context.Context, arg AddPoolTargetParams) (PoolTarget, error)
+	// Webhook 'in_progress' arriving after (or before) the busy-sync transition
+	// row: attach the external identity and timestamps to the runner's open row
+	// (docs/21 section 5.5 merge rule 3). queued_at is adopted from the forge event -
+	// real data, never fabricated.
+	AttachWebhookToTransition(ctx context.Context, arg AttachWebhookToTransitionParams) (int64, error)
 	CloseAllOpenJobsInterrupted(ctx context.Context, completedAt sql.NullTime) (int64, error)
 	CloseOpenJobRow(ctx context.Context, arg CloseOpenJobRowParams) (int64, error)
+	// Webhook 'completed' fallback: no row carries the external id (poll-opened
+	// transition row only) - close it and enrich it with the job id (docs/21 section 5.5).
+	CloseOpenRowByRunnerEnrichJobID(ctx context.Context, arg CloseOpenRowByRunnerEnrichJobIDParams) (int64, error)
+	// Webhook 'completed' close keyed by the external job id; adopts the runner
+	// name when the closed row predates assignment (docs/21 section 5.5).
+	CloseOpenWebhookJobByID(ctx context.Context, arg CloseOpenWebhookJobByIDParams) (int64, error)
 	CloseStaleOpenJobsSince(ctx context.Context, arg CloseStaleOpenJobsSinceParams) (int64, error)
 	CompleteRenovateRun(ctx context.Context, arg CompleteRenovateRunParams) (RenovateRun, error)
 	CompleteRenovateRunByContainerID(ctx context.Context, arg CompleteRenovateRunByContainerIDParams) (RenovateRun, error)
@@ -38,6 +49,10 @@ type Querier interface {
 	DeleteAuthProfile(ctx context.Context, id int64) error
 	DeleteExpiredSessions(ctx context.Context, expiresAt time.Time) error
 	DeleteJobHistoryOlderThan(ctx context.Context, completedAt sql.NullTime) error
+	DeleteJobRowByID(ctx context.Context, id int64) error
+	// Duplicate cleanup after closing by external job id: a poll-opened transition
+	// row (empty job id) for the same runner would double-count the job.
+	DeleteOpenTransitionRowsByRunner(ctx context.Context, arg DeleteOpenTransitionRowsByRunnerParams) (int64, error)
 	DeletePoolTarget(ctx context.Context, arg DeletePoolTargetParams) error
 	DeletePoolTargetsByPoolId(ctx context.Context, poolID int64) error
 	DeleteRenovateConfigByPoolId(ctx context.Context, poolID int64) error
@@ -56,6 +71,7 @@ type Querier interface {
 	GetJobStatsSince(ctx context.Context, createdAt time.Time) (GetJobStatsSinceRow, error)
 	GetLatestRenovateRunByPoolId(ctx context.Context, poolID int64) (RenovateRun, error)
 	GetOpenJobRow(ctx context.Context, arg GetOpenJobRowParams) (int64, error)
+	GetOpenWebhookJobByID(ctx context.Context, jobID sql.NullInt64) (GetOpenWebhookJobByIDRow, error)
 	GetPoolByTargetUrl(ctx context.Context, targetUrl string) (RunnerPool, error)
 	GetRenovateConfigByPoolId(ctx context.Context, poolID int64) (RenovateConfig, error)
 	GetRenovateRun(ctx context.Context, id int64) (RenovateRun, error)
@@ -63,6 +79,8 @@ type Querier interface {
 	GetRunnerPoolById(ctx context.Context, id int64) (RunnerPool, error)
 	GetRunnerPoolByName(ctx context.Context, name string) (RunnerPool, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (Session, error)
+	// Webhook 'in_progress' with no pre-existing row at all (docs/21 section 5.5 merge rule 4).
+	InsertWebhookRunningJob(ctx context.Context, arg InsertWebhookRunningJobParams) error
 	ListAdminUsers(ctx context.Context) ([]AdminUser, error)
 	ListAllPoolTargets(ctx context.Context) ([]PoolTarget, error)
 	ListAppSettings(ctx context.Context) ([]AppSetting, error)
@@ -79,6 +97,9 @@ type Querier interface {
 	ListRunnerPools(ctx context.Context) ([]RunnerPool, error)
 	ListSessionsByUserId(ctx context.Context, userID int64) ([]Session, error)
 	OpenJobLifecycleRow(ctx context.Context, arg OpenJobLifecycleRowParams) (JobHistory, error)
+	// Webhook 'in_progress' with a queued stub but no transition row: promote the
+	// stub in place (docs/21 section 5.5 merge rule 2).
+	PromoteWebhookStubToRunning(ctx context.Context, arg PromoteWebhookStubToRunningParams) (int64, error)
 	PruneJobHistoryOlderThan(ctx context.Context, arg PruneJobHistoryOlderThanParams) ([]PruneJobHistoryOlderThanRow, error)
 	SearchJobHistory(ctx context.Context, arg SearchJobHistoryParams) ([]JobHistory, error)
 	SetAppSetting(ctx context.Context, arg SetAppSettingParams) (AppSetting, error)
@@ -88,6 +109,10 @@ type Querier interface {
 	UpdateRenovateConfig(ctx context.Context, arg UpdateRenovateConfigParams) (RenovateConfig, error)
 	UpdateRenovateRunContainerID(ctx context.Context, arg UpdateRenovateRunContainerIDParams) error
 	UpdateRunnerPool(ctx context.Context, arg UpdateRunnerPoolParams) (RunnerPool, error)
+	// Webhook 'queued' upsert keyed by the external job id (docs/21 section 5.5).
+	// Conflicts only fill in missing metadata: status, runner assignment, and the
+	// original queued_at are never rewritten by a (re)delivery.
+	UpsertWebhookQueuedJob(ctx context.Context, arg UpsertWebhookQueuedJobParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

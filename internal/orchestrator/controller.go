@@ -68,6 +68,13 @@ type JobHistoryRecorder interface {
 	CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status, logPath string, completedAt time.Time) error
 	CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error)
 	CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, completedAt time.Time) (int64, error)
+
+	// Webhook enrichment (docs/21 §5.5): upsert/merge/close rows keyed by the
+	// forge's external job id. Best-effort like the transition methods —
+	// failures must never fail the webhook handling itself.
+	RecordWebhookQueued(ctx context.Context, poolID, jobID int64, meta db.WebhookJobMeta, queuedAt time.Time) error
+	RecordWebhookStarted(ctx context.Context, poolID, jobID int64, runnerName string, startedAt, queuedAt time.Time, meta db.WebhookJobMeta) error
+	RecordWebhookCompleted(ctx context.Context, poolID, jobID int64, runnerName, status string, completedAt time.Time) error
 }
 
 // AppSettingsReader reads application-wide configuration from the database (docs/02 §4).

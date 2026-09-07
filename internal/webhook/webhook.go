@@ -72,13 +72,19 @@ type WorkflowJobEvent struct {
 
 // WorkflowJobPayload represents the workflow_job object within the webhook payload.
 type WorkflowJobPayload struct {
-	ID            int64    `json:"id"`
-	RunID         int64    `json:"run_id"`
-	WorkflowName  string   `json:"workflow_name"`
-	HeadBranch    string   `json:"head_branch"`
-	HeadSHA       string   `json:"head_sha"`
-	Status        string   `json:"status"` // "queued", "in_progress", "completed"
-	Conclusion    string   `json:"conclusion,omitempty"`
+	ID           int64  `json:"id"`
+	RunID        int64  `json:"run_id"`
+	WorkflowName string `json:"workflow_name"`
+	HeadBranch   string `json:"head_branch"`
+	HeadSHA      string `json:"head_sha"`
+	Status       string `json:"status"` // "queued", "in_progress", "completed"
+	Conclusion   string `json:"conclusion,omitempty"`
+	// Forge-provided RFC3339 timestamps used for job-history enrichment
+	// (docs/21 §5.5). Parsed leniently by the orchestrator; empty or invalid
+	// values leave the corresponding columns untouched.
+	CreatedAt     string   `json:"created_at,omitempty"`
+	StartedAt     string   `json:"started_at,omitempty"`
+	CompletedAt   string   `json:"completed_at,omitempty"`
 	Labels        []string `json:"labels"`
 	RunnerID      int64    `json:"runner_id,omitempty"`
 	RunnerName    string   `json:"runner_name,omitempty"`

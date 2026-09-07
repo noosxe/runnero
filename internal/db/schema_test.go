@@ -27,8 +27,8 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Version failed: %v", err)
 	}
-	if ver != 4 {
-		t.Fatalf("database version = %d, want 4", ver)
+	if ver != 5 {
+		t.Fatalf("database version = %d, want 5", ver)
 	}
 
 	// Verify all 10 tables and their columns field-for-field per docs/07.
@@ -150,10 +150,10 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Initial state: version 3
+	// Initial state: version 5
 	ver, err := database.Version(ctx, nil)
-	if err != nil || ver != 4 {
-		t.Fatalf("Version after boot = %d (err: %v), want 4", ver, err)
+	if err != nil || ver != 5 {
+		t.Fatalf("Version after boot = %d (err: %v), want 5", ver, err)
 	}
 
 	// Rollback all migrations down to version 0
@@ -182,14 +182,14 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 		}
 	}
 
-	// Migrate up again: should succeed and restore version 3
+	// Migrate up again: should succeed and restore version 5
 	if err := database.Migrate(ctx, nil); err != nil {
 		t.Fatalf("Migrate up after rollback failed: %v", err)
 	}
 
 	verUp, err := database.Version(ctx, nil)
-	if err != nil || verUp != 4 {
-		t.Fatalf("Version after Migrate up = %d (err: %v), want 4", verUp, err)
+	if err != nil || verUp != 5 {
+		t.Fatalf("Version after Migrate up = %d (err: %v), want 5", verUp, err)
 	}
 
 	// Verify app_settings seeded again

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/noosxe/runnero/internal/db"
 	"github.com/noosxe/runnero/internal/webhook"
@@ -256,6 +257,10 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 			)
 			return nil
 		}
+		// Webhook enrichment (docs/21 §5.5): upsert the queued row keyed by the
+		// external job id before any capacity gating — the job is queued
+		// regardless of whether this deployment can spawn a runner for it.
+		c.recordWebhookQueued(ctx, targetPool, event)
 
 		// Fast capacity check before acquiring single-writer provisioning lock
 		tracked := c.reconciler.TrackedPoolRunners(targetPool.Name)
@@ -339,15 +344,121 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		if event.WorkflowJob.RunnerName != "" && c.reconciler != nil {
 			c.reconciler.MarkRunnerBusy(event.WorkflowJob.RunnerName, true)
 		}
+		// Webhook enrichment (docs/21 §5.5): attach the external job identity
+		// and timestamps to the job's open row, applying the merge rules so
+		// queued stubs, poll-opened transition rows, and this event never
+		// produce duplicate records.
+		if p := c.resolveEventPool(ctx, providerName, event); p != nil {
+			c.recordWebhookEvent(ctx, "in_progress", p, event)
+		}
 		return nil
 
 	case "completed":
 		if event.WorkflowJob.RunnerName != "" && c.reconciler != nil {
 			c.reconciler.MarkRunnerBusy(event.WorkflowJob.RunnerName, false)
 		}
+		// Webhook enrichment (docs/21 §5.5): close the job's open row with the
+		// forge-provided conclusion and completed_at.
+		if p := c.resolveEventPool(ctx, providerName, event); p != nil {
+			c.recordWebhookEvent(ctx, "completed", p, event)
+		}
 		return nil
 
 	default:
 		return nil
+	}
+}
+
+// resolveEventPool finds the pool a webhook event belongs to using the same
+// repository/scope/label matching as the queued spawn path. Returns nil when
+// no pool matches — recording is scoped to configured pools only.
+func (c *PoolController) resolveEventPool(ctx context.Context, providerName string, event *webhook.WorkflowJobEvent) *db.RunnerPool {
+	pools, err := c.loadPools(ctx)
+	if err != nil {
+		c.logger.Warn("loading pools for webhook job recording failed", "err", err)
+		return nil
+	}
+
+	poolTargetsMap := make(map[int64][]string, len(pools))
+	for _, p := range pools {
+		poolTargetsMap[p.ID] = c.loadPoolTargets(ctx, p)
+	}
+
+	p, _ := MatchPoolForEventWithTargets(pools, poolTargetsMap, providerName, event)
+	return p
+}
+
+// webhookJobMeta extracts the forge-provided job identity for enrichment.
+func webhookJobMeta(event *webhook.WorkflowJobEvent) db.WebhookJobMeta {
+	return db.WebhookJobMeta{
+		RunID:        event.WorkflowJob.RunID,
+		WorkflowName: event.WorkflowJob.WorkflowName,
+		HeadBranch:   event.WorkflowJob.HeadBranch,
+		HeadSHA:      event.WorkflowJob.HeadSHA,
+	}
+}
+
+// parseWebhookTime parses a forge-provided RFC3339 timestamp leniently:
+// empty or invalid values yield the zero time, which the recorder maps to a
+// NULL column (truthful degradation, docs/21 §5.6).
+func parseWebhookTime(value string) time.Time {
+	if value == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}
+	}
+	return t.UTC()
+}
+
+// webhookConclusionStatus maps a forge conclusion to the job_history status
+// vocabulary (docs/21 §5.5): the three real outcomes keep their names,
+// everything else (including empty) closes as 'completed'.
+func webhookConclusionStatus(conclusion string) string {
+	switch conclusion {
+	case "success", "failure", "cancelled":
+		return conclusion
+	default:
+		return "completed"
+	}
+}
+
+// recordWebhookEvent dispatches a webhook event to the job-history recorder
+// (docs/21 §5.5). Best-effort: recording failures are logged and never fail
+// recordWebhookQueued upserts the queued webhook row for a matched pool
+// (docs/21 §5.5). Best-effort: failures are logged and never block spawning.
+func (c *PoolController) recordWebhookQueued(ctx context.Context, p *db.RunnerPool, event *webhook.WorkflowJobEvent) {
+	if c.jobRecorder == nil || event.WorkflowJob.ID == 0 {
+		return
+	}
+	if err := c.jobRecorder.RecordWebhookQueued(ctx, p.ID, event.WorkflowJob.ID, webhookJobMeta(event), parseWebhookTime(event.WorkflowJob.CreatedAt)); err != nil {
+		c.logger.Warn("webhook job recording failed",
+			"pool", p.Name, "action", "queued", "job_id", event.WorkflowJob.ID, "err", err)
+	}
+}
+
+// recordWebhookEvent dispatches a webhook event to the job-history recorder
+func (c *PoolController) recordWebhookEvent(ctx context.Context, action string, p *db.RunnerPool, event *webhook.WorkflowJobEvent) {
+	if c.jobRecorder == nil || event.WorkflowJob.ID == 0 {
+		return
+	}
+
+	var err error
+	switch action {
+	case "in_progress":
+		err = c.jobRecorder.RecordWebhookStarted(
+			ctx, p.ID, event.WorkflowJob.ID, event.WorkflowJob.RunnerName,
+			parseWebhookTime(event.WorkflowJob.StartedAt), parseWebhookTime(event.WorkflowJob.CreatedAt),
+			webhookJobMeta(event))
+	case "completed":
+		err = c.jobRecorder.RecordWebhookCompleted(
+			ctx, p.ID, event.WorkflowJob.ID, event.WorkflowJob.RunnerName,
+			webhookConclusionStatus(event.WorkflowJob.Conclusion),
+			parseWebhookTime(event.WorkflowJob.CompletedAt))
+	}
+	if err != nil {
+		c.logger.Warn("webhook job recording failed",
+			"pool", p.Name, "action", action, "job_id", event.WorkflowJob.ID, "err", err)
 	}
 }

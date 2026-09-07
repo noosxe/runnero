@@ -538,6 +538,36 @@ type mockJobRecorder struct {
 		status     string
 	}
 	interrupted int64
+
+	webhookQueued    []webhookQueuedCall
+	webhookStarted   []webhookStartedCall
+	webhookCompleted []webhookCompletedCall
+
+	failWebhook error
+}
+
+type webhookQueuedCall struct {
+	poolID   int64
+	jobID    int64
+	meta     db.WebhookJobMeta
+	queuedAt time.Time
+}
+
+type webhookStartedCall struct {
+	poolID     int64
+	jobID      int64
+	runnerName string
+	startedAt  time.Time
+	queuedAt   time.Time
+	meta       db.WebhookJobMeta
+}
+
+type webhookCompletedCall struct {
+	poolID      int64
+	jobID       int64
+	runnerName  string
+	status      string
+	completedAt time.Time
 }
 
 func (m *mockJobRecorder) RecordJobTimeout(ctx context.Context, poolID int64, runnerName, logPath string, startedAt, completedAt time.Time) error {
@@ -1582,4 +1612,28 @@ func (m *mockJobRecorder) CloseInterruptedOpenJobs(ctx context.Context, complete
 
 func (m *mockJobRecorder) CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, completedAt time.Time) (int64, error) {
 	return 0, nil
+}
+
+func (m *mockJobRecorder) RecordWebhookQueued(ctx context.Context, poolID, jobID int64, meta db.WebhookJobMeta, queuedAt time.Time) error {
+	if m.failWebhook != nil {
+		return m.failWebhook
+	}
+	m.webhookQueued = append(m.webhookQueued, webhookQueuedCall{poolID: poolID, jobID: jobID, meta: meta, queuedAt: queuedAt})
+	return nil
+}
+
+func (m *mockJobRecorder) RecordWebhookStarted(ctx context.Context, poolID, jobID int64, runnerName string, startedAt, queuedAt time.Time, meta db.WebhookJobMeta) error {
+	if m.failWebhook != nil {
+		return m.failWebhook
+	}
+	m.webhookStarted = append(m.webhookStarted, webhookStartedCall{poolID: poolID, jobID: jobID, runnerName: runnerName, startedAt: startedAt, queuedAt: queuedAt, meta: meta})
+	return nil
+}
+
+func (m *mockJobRecorder) RecordWebhookCompleted(ctx context.Context, poolID, jobID int64, runnerName, status string, completedAt time.Time) error {
+	if m.failWebhook != nil {
+		return m.failWebhook
+	}
+	m.webhookCompleted = append(m.webhookCompleted, webhookCompletedCall{poolID: poolID, jobID: jobID, runnerName: runnerName, status: status, completedAt: completedAt})
+	return nil
 }
