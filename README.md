@@ -288,8 +288,8 @@ The supervisor daemon layers configuration in increasing precedence: **built-in 
 ### Supervisor Docker Socket Access (Accepted Risk Callout)
 
 > [!CAUTION]
-> **Elevated Docker Socket Privileges:**
-> The `supervisor` container executes as `root` inside the container and mounts the host Docker socket (`/var/run/docker.sock`) read-write. This elevated access is **strictly required by design** so that the supervisor daemon can communicate with the Docker Engine SDK to dynamically create, inspect, attach logs to, and destroy ephemeral runner containers on the host.
+> **Docker Socket Privileges:**
+> The `supervisor` container mounts the host Docker socket (`/var/run/docker.sock`) read-write. The supervisor daemon itself runs as a **non-root user** (`supervisor`, UID 10000) with Docker group membership (GID 999) for socket access. This is required so the daemon can communicate with the Docker Engine SDK to dynamically create, inspect, attach logs to, and destroy ephemeral runner containers on the host. While the non-root execution eliminates the container-escape-to-host-root vector, the Docker socket mount still grants significant host-level control.
 
 **Operational Hardening Recommendations:**
 - **Host Isolation:** Deploy the supervisor on a dedicated virtual machine or host instance isolated from shared production application workloads.
