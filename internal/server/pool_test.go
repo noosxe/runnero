@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/noosxe/runnero/internal/db"
@@ -21,12 +22,14 @@ type mockStatsProvider struct {
 	reloadsCount int
 	activeCounts map[string]int32
 	idleCounts   map[string]int32
+	diagnostics  map[string]server.PoolDiagnostics
 }
 
 func newMockStatsProvider() *mockStatsProvider {
 	return &mockStatsProvider{
 		activeCounts: make(map[string]int32),
 		idleCounts:   make(map[string]int32),
+		diagnostics:  make(map[string]server.PoolDiagnostics),
 	}
 }
 
@@ -34,6 +37,18 @@ func (m *mockStatsProvider) PoolStats(poolName string) (active int32, idle int32
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.activeCounts[poolName], m.idleCounts[poolName]
+}
+
+func (m *mockStatsProvider) PoolDiagnostics(poolName string) server.PoolDiagnostics {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if diag, ok := m.diagnostics[poolName]; ok {
+		return diag
+	}
+	return server.PoolDiagnostics{
+		HealthStatus:  "healthy",
+		CurrentIntent: "Mock healthy",
+	}
 }
 
 func (m *mockStatsProvider) Reload(ctx context.Context) error {
@@ -789,3 +804,131 @@ func TestPoolServiceDiscoverTargets(t *testing.T) {
 		t.Fatalf("expected 1 discovered org (acme-org), got %+v", orgRes.Msg.Targets)
 	}
 }
+
+func TestPoolServiceOperationalDiagnostics(t *testing.T) {
+	ctx := context.Background()
+	database, jwtSecret := setupTestDB(t)
+
+	authProf, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
+		Name:           "diag-auth",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "token", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthProfile failed: %v", err)
+	}
+
+	// Create test pool
+	p, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
+		Name:           "diag-pool",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/org/diag",
+		Scope:          "repo",
+		MinIdleRunners: 2,
+		MaxConcurrency: 5,
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+		AuthProfileID:  authProf.ID,
+	})
+	if err != nil {
+		t.Fatalf("failed to create pool: %v", err)
+	}
+
+	stats := newMockStatsProvider()
+	now := time.Now().UTC().Truncate(time.Second)
+	stats.diagnostics["diag-pool"] = server.PoolDiagnostics{
+		HealthStatus:       "degraded",
+		CurrentIntent:      "Reconciling warm pool",
+		LastError:          "Decryption failure on master key",
+		LastErrorCode:      "AUTH_DECRYPTION_FAILED",
+		LastErrorTimestamp: now,
+		LastReconciledAt:   now,
+	}
+
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		PoolStats:        stats,
+		JWTSigningSecret: jwtSecret,
+	})
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	_, err = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	rawCookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
+
+	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
+
+	// 1. ListPools returns diagnostics
+	listReq := connect.NewRequest(&supervisorv1.ListPoolsRequest{})
+	listReq.Header().Set("Cookie", "session_token="+rawCookie)
+	listRes, err := client.ListPools(ctx, listReq)
+	if err != nil {
+		t.Fatalf("ListPools failed: %v", err)
+	}
+	if len(listRes.Msg.Pools) != 1 {
+		t.Fatalf("expected 1 pool, got %d", len(listRes.Msg.Pools))
+	}
+	poolProto := listRes.Msg.Pools[0]
+	if poolProto.HealthStatus != supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_DEGRADED {
+		t.Errorf("expected health status DEGRADED, got %v", poolProto.HealthStatus)
+	}
+	if poolProto.CurrentIntent != "Reconciling warm pool" {
+		t.Errorf("expected current_intent 'Reconciling warm pool', got %q", poolProto.CurrentIntent)
+	}
+	if poolProto.LastErrorCode != "AUTH_DECRYPTION_FAILED" {
+		t.Errorf("expected last_error_code 'AUTH_DECRYPTION_FAILED', got %q", poolProto.LastErrorCode)
+	}
+	if poolProto.LastError != "Decryption failure on master key" {
+		t.Errorf("expected last_error 'Decryption failure on master key', got %q", poolProto.LastError)
+	}
+	if poolProto.LastErrorTimestamp == "" || poolProto.LastReconciledAt == "" {
+		t.Errorf("expected timestamps to be populated, got error_time=%q, recon_time=%q", poolProto.LastErrorTimestamp, poolProto.LastReconciledAt)
+	}
+
+	// 2. WatchRunners streams diagnostics
+	watchCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	watchReq := connect.NewRequest(&supervisorv1.WatchRunnersRequest{
+		PoolId:     p.ID,
+		IntervalMs: 500,
+	})
+	watchReq.Header().Set("Cookie", "session_token="+rawCookie)
+
+	stream, err := client.WatchRunners(watchCtx, watchReq)
+	if err != nil {
+		t.Fatalf("WatchRunners failed: %v", err)
+	}
+	if stream.Receive() {
+		msg := stream.Msg()
+		if msg.HealthStatus != supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_DEGRADED {
+			t.Errorf("expected stream health status DEGRADED, got %v", msg.HealthStatus)
+		}
+		if msg.LastErrorCode != "AUTH_DECRYPTION_FAILED" {
+			t.Errorf("expected stream last_error_code 'AUTH_DECRYPTION_FAILED', got %q", msg.LastErrorCode)
+		}
+		if msg.CurrentIntent != "Reconciling warm pool" {
+			t.Errorf("expected stream current_intent 'Reconciling warm pool', got %q", msg.CurrentIntent)
+		}
+	} else {
+		t.Fatalf("expected stream message, got none (err: %v)", stream.Err())
+	}
+}
+

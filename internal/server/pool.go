@@ -36,10 +36,21 @@ type PoolDatabase interface {
 	GetDecryptedAuthProfileById(ctx context.Context, id int64) (*db.DecryptedAuthProfile, error)
 }
 
-// PoolStatsProvider provides live active/idle runner counts and runtime reload capabilities.
+// PoolDiagnostics encapsulates operational health, intent, and error diagnostics for a runner pool.
+type PoolDiagnostics struct {
+	HealthStatus       string
+	CurrentIntent      string
+	LastError          string
+	LastErrorCode      string
+	LastErrorTimestamp time.Time
+	LastReconciledAt   time.Time
+}
+
+// PoolStatsProvider provides live active/idle runner counts, diagnostic state, and runtime reload capabilities.
 // *orchestrator.PoolController satisfies this interface.
 type PoolStatsProvider interface {
 	PoolStats(poolName string) (active int32, idle int32)
+	PoolDiagnostics(poolName string) PoolDiagnostics
 	Reload(ctx context.Context) error
 }
 
@@ -140,8 +151,23 @@ func (s *PoolService) toProto(ctx context.Context, p db.RunnerPool) *supervisorv
 	return proto
 }
 
+func mapHealthStatusToProto(s string) supervisorv1.PoolHealthStatus {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "healthy":
+		return supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_HEALTHY
+	case "provisioning":
+		return supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_PROVISIONING
+	case "degraded":
+		return supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_DEGRADED
+	case "paused":
+		return supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_PAUSED
+	default:
+		return supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_HEALTHY
+	}
+}
+
 // ConvertDBPoolToProto converts a db.RunnerPool row into a supervisorv1.Pool protobuf message,
-// attaching runtime active/idle runner counts from the provided stats provider if available.
+// attaching runtime active/idle runner counts and operational diagnostics from the provided stats provider if available.
 func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv1.Pool {
 	protoPool := &supervisorv1.Pool{
 		Id:                       p.ID,
@@ -168,6 +194,18 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 		active, idle := stats.PoolStats(p.Name)
 		protoPool.ActiveRunners = active
 		protoPool.IdleRunners = idle
+
+		diag := stats.PoolDiagnostics(p.Name)
+		protoPool.HealthStatus = mapHealthStatusToProto(diag.HealthStatus)
+		protoPool.CurrentIntent = diag.CurrentIntent
+		protoPool.LastError = diag.LastError
+		protoPool.LastErrorCode = diag.LastErrorCode
+		if !diag.LastErrorTimestamp.IsZero() {
+			protoPool.LastErrorTimestamp = diag.LastErrorTimestamp.Format(time.RFC3339)
+		}
+		if !diag.LastReconciledAt.IsZero() {
+			protoPool.LastReconciledAt = diag.LastReconciledAt.Format(time.RFC3339)
+		}
 	}
 
 	return protoPool
@@ -613,8 +651,35 @@ func (s *PoolService) WatchRunners(ctx context.Context, req *connect.Request[sup
 
 	sendSnapshot := func() error {
 		runners := s.getRunnerInstances(p)
+		var active, idle int32
+		health := supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_HEALTHY
+		var intent, lastErr, lastErrCode, lastErrTime, lastReconciled string
+
+		if s.statsProvider != nil {
+			active, idle = s.statsProvider.PoolStats(p.Name)
+			diag := s.statsProvider.PoolDiagnostics(p.Name)
+			health = mapHealthStatusToProto(diag.HealthStatus)
+			intent = diag.CurrentIntent
+			lastErr = diag.LastError
+			lastErrCode = diag.LastErrorCode
+			if !diag.LastErrorTimestamp.IsZero() {
+				lastErrTime = diag.LastErrorTimestamp.Format(time.RFC3339)
+			}
+			if !diag.LastReconciledAt.IsZero() {
+				lastReconciled = diag.LastReconciledAt.Format(time.RFC3339)
+			}
+		}
+
 		return stream.Send(&supervisorv1.WatchRunnersResponse{
-			Runners: runners,
+			Runners:            runners,
+			ActiveRunners:      active,
+			IdleRunners:        idle,
+			HealthStatus:       health,
+			CurrentIntent:      intent,
+			LastError:          lastErr,
+			LastErrorCode:      lastErrCode,
+			LastErrorTimestamp: lastErrTime,
+			LastReconciledAt:   lastReconciled,
 		})
 	}
 

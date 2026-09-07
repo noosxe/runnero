@@ -1,4 +1,6 @@
 import { useState, useMemo, type FormEvent } from "react";
+import { create } from "@bufbuild/protobuf";
+import { PoolSchema } from "../../gen/api_pb";
 import { useCreatePool, useDiscoverTargets } from "../../lib/api/query-hooks";
 import { getSuggestedRunnerLabels } from "../../lib/utils/labels";
 import {
@@ -212,9 +214,7 @@ export function CreatePoolWizardModal({
 
     try {
       await createPoolMutation.mutateAsync({
-        pool: {
-          $typeName: "supervisor.v1.Pool",
-          id: 0n,
+        pool: create(PoolSchema, {
           name: poolName.trim(),
           provider: deducedProvider,
           repositoryUrl: selectedTargetUrls[0] || "",
@@ -231,23 +231,18 @@ export function CreatePoolWizardModal({
           allowDocker: isDockerLocked ? true : allowDocker,
           renovate: renovateEnabled
             ? {
-                $typeName: "supervisor.v1.RenovateConfig",
                 enabled: true,
                 cronSchedule: renovateCron.trim() || "0 2 * * *",
                 image: renovateImage.trim() || "renovate/renovate:latest",
               }
             : undefined,
-          activeRunners: 0,
-          idleRunners: 0,
           authProfileId: selectedAuthProfile?.id ?? 0n,
           scope,
           cpuLimit: cpuLimit.trim() || "2.0",
           memoryLimit: memoryLimit.trim() || "4GB",
           maxRunnerLifetimeSeconds: 7200,
-          imageUpdateAvailable: false,
-          latestImage: "",
           targetUrls: selectedTargetUrls,
-        },
+        }),
       });
       onClose();
     } catch (err: unknown) {

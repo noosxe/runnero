@@ -28,6 +28,7 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 - **Playwright End-to-End (E2E) Testing Suite (M17):** Hermetic, containerized Playwright test harness testing all human-usable web supervisor flows (authentication, onboarding wizard, pools management, streaming logs, Renovate, and maintenance) with local mock Git provider and Docker engine servers. Manual/local trigger only via `make test-e2e`.
 - **Multi-Target Runner Pools & Upstream Discovery Wizard (M18):** 4-step guided creation wizard with automatic repository and organization target discovery across GitHub (App & PAT), Gitea, and Forgejo profiles. Enables a single runner pool to dynamically serve multiple repositories or organizations under unified concurrency quotas and round-robin warm standby provisioning, with strict scope homogeneity enforcement.
 - **GitHub App Installation & Access Scope Management Flow (M19):** Seamless deep-linking to GitHub App installation and configuration pages (`/installations/new`), guided setup prompts in the pool creation wizard and auth profiles, live repository and organization scope adjustments via "Manage Access in GitHub", installation status badges ("Installed on N accounts" vs "Not Installed"), and automatic discovery refetching on window focus when returning to the supervisor dashboard.
+- **Runner Pool Operational State & Real-Time Diagnostics (M20):** First-class operational state machine (`Healthy`, `Provisioning`, `Degraded`, `Paused`) with live orchestrator intent, classified diagnostic error codes (`AUTH_DECRYPTION_FAILED`, `PROVIDER_AUTH_FAILED`, `TARGET_NOT_FOUND`, `REGISTRATION_TOKEN_FAILED`, `DOCKER_ENGINE_ERROR`, `IMAGE_PULL_FAILED`, `GLOBAL_QUOTA_SATURATED`), secret sanitization, and real-time streaming updates to the Web UI (`WatchRunners`). Features prominent status banners, contextual remediation prompts, and dashboard warnings for degraded pools.
 - **Comprehensive Automated Test Suites:** Extensive test coverage across Go unit, race detection (`go test -race`), and testify test suites (`mockery`-backed Docker and GitProvider clients), runner script test harnesses, and 20+ frontend Vitest test suites.
 
 ---
@@ -326,7 +327,6 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 
 ## 🗺️ Roadmap & Future Enhancements
 
-- **Runner Pool Operational State & Diagnostics:** *[Design Phase]* Surface real-time orchestrator intent, health state machine (Healthy/Provisioning/Degraded/Paused), and actionable reconciliation error diagnostics directly in the Web UI to eliminate silent pool failures.
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
