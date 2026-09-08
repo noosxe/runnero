@@ -344,11 +344,11 @@ func TestAnalyticsServiceWatchDashboard(t *testing.T) {
 	// Seed Job History
 	now := time.Now().UTC()
 	_, err = database.CreateJobHistory(ctx, db.CreateJobHistoryParams{
-		PoolID:     pool.ID,
-		RunnerName: "runner-watch-1",
-		Status:     "success",
-		QueuedAt:   sql.NullTime{Time: now.Add(-10 * time.Minute), Valid: true},
-		StartedAt:  sql.NullTime{Time: now.Add(-9 * time.Minute), Valid: true},
+		PoolID:      pool.ID,
+		RunnerName:  "runner-watch-1",
+		Status:      "success",
+		QueuedAt:    sql.NullTime{Time: now.Add(-10 * time.Minute), Valid: true},
+		StartedAt:   sql.NullTime{Time: now.Add(-9 * time.Minute), Valid: true},
 		CompletedAt: sql.NullTime{Time: now.Add(-5 * time.Minute), Valid: true},
 		Source:      "webhook",
 	})
