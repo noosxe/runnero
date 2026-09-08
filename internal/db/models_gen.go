@@ -107,6 +107,8 @@ type RunnerPool struct {
 	MemoryLimit              sql.NullString `json:"memory_limit"`
 	CreatedAt                time.Time      `json:"created_at"`
 	UpdatedAt                time.Time      `json:"updated_at"`
+	PollFallback             bool           `json:"poll_fallback"`
+	PollIntervalSeconds      int64          `json:"poll_interval_seconds"`
 }
 
 type Session struct {
