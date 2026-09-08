@@ -76,6 +76,9 @@ type PoolDiagnosticState struct {
     LastErrorCode      string           `json:"last_error_code,omitempty"`
     LastErrorTimestamp time.Time        `json:"last_error_timestamp,omitempty"`
     LastReconciledAt   time.Time        `json:"last_reconciled_at"`
+    LastPollAt          time.Time        `json:"last_poll_at,omitempty"`
+    LastPollQueuedCount int              `json:"last_poll_queued_count,omitempty"`
+    LastPollError       string           `json:"last_poll_error,omitempty"`
 }
 ```
 
@@ -118,6 +121,15 @@ message Pool {
   string last_error_code = 24;
   string last_error_timestamp = 25;
   string last_reconciled_at = 26;
+
+  // Demand polling fallback (docs/24 §5.9)
+  bool poll_fallback = 27;
+  int32 poll_interval_seconds = 28;  // 0 means server default (30s)
+
+  // Demand-poll diagnostics (read-only, populated by server, docs/24 §5.9)
+  string last_poll_at = 29;
+  int32 last_poll_queued_count = 30;
+  string last_poll_error = 31;
 }
 
 message WatchRunnersResponse {

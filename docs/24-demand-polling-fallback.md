@@ -2,8 +2,9 @@
 
 | | |
 | :--- | :--- |
-| Status | Design Phase |
-| Touches | `internal/orchestrator` (scaling gate, throttling), `internal/provider` (`PollQueuedJobs` interface + GitHub impl), `internal/db` (migration 006, sqlc), `internal/server` (pool RPCs), `web` (wizard & edit), docs/03 §3b, docs/14, docs/16, docs/22 |
+| Status | Accepted & implemented — design merged in PR #200, implemented by RUN-145 |
+| Linear | [RUN-145](https://linear.app/runnero/issue/RUN-145) (implementation) · [RUN-144](https://linear.app/runnero/issue/RUN-144) (Forgejo label filtering follow-up) |
+| Touches | `internal/orchestrator` (scaling gate, throttling), `internal/provider` (`PollQueuedJobs` interface + GitHub impl), `internal/db` (migration 006, sqlc), `internal/server` (pool RPCs), `web` (wizard & edit), docs/03 §3b, docs/16, docs/22 |
 
 ## 1. Problem
 
