@@ -40,12 +40,15 @@ type PoolDatabase interface {
 
 // PoolDiagnostics encapsulates operational health, intent, and error diagnostics for a runner pool.
 type PoolDiagnostics struct {
-	HealthStatus       string
-	CurrentIntent      string
-	LastError          string
-	LastErrorCode      string
-	LastErrorTimestamp time.Time
-	LastReconciledAt   time.Time
+	HealthStatus        string
+	CurrentIntent       string
+	LastError           string
+	LastErrorCode       string
+	LastErrorTimestamp  time.Time
+	LastReconciledAt    time.Time
+	LastPollAt          time.Time
+	LastPollQueuedCount int
+	LastPollError       string
 }
 
 // PoolStatsProvider provides live active/idle runner counts, diagnostic state, and runtime reload capabilities.
@@ -134,6 +137,31 @@ func NewPoolService(database PoolDatabase, statsProvider PoolStatsProvider, runn
 		opt(s)
 	}
 	return s
+}
+
+// defaultPollIntervalSeconds is the demand-poll cadence applied when a client
+// omits poll_interval_seconds (proto zero) on create (docs/24 §5.4/§5.8;
+// matches the migration DEFAULT).
+const defaultPollIntervalSeconds = 30
+
+// defaultPollInterval maps a zero (omitted) interval to the default cadence.
+func defaultPollInterval(seconds int32) int64 {
+	if seconds <= 0 {
+		return defaultPollIntervalSeconds
+	}
+	return int64(seconds)
+}
+
+// defaultPollIntervalOr maps a zero (omitted) interval to the pool's stored
+// cadence, falling back to the default when the stored value is unset.
+func defaultPollIntervalOr(seconds int32, stored int64) int64 {
+	if seconds > 0 {
+		return int64(seconds)
+	}
+	if stored > 0 {
+		return stored
+	}
+	return defaultPollIntervalSeconds
 }
 
 func parseLabels(raw string) []string {
@@ -246,6 +274,8 @@ func poolConfigChanges(existing db.RunnerPool, existingTargets []string, updated
 	add("min_idle_runners", existing.MinIdleRunners, updated.MinIdleRunners, existing.MinIdleRunners != updated.MinIdleRunners)
 	add("max_concurrency", existing.MaxConcurrency, updated.MaxConcurrency, existing.MaxConcurrency != updated.MaxConcurrency)
 	add("max_runner_lifetime_seconds", existing.MaxRunnerLifetimeSeconds, updated.MaxRunnerLifetimeSeconds, existing.MaxRunnerLifetimeSeconds != updated.MaxRunnerLifetimeSeconds)
+	add("poll_fallback", existing.PollFallback, updated.PollFallback, existing.PollFallback != updated.PollFallback)
+	add("poll_interval_seconds", existing.PollIntervalSeconds, updated.PollIntervalSeconds, existing.PollIntervalSeconds != updated.PollIntervalSeconds)
 	add("cpu_limit", existing.CpuLimit.String, updated.CpuLimit.String, existing.CpuLimit != updated.CpuLimit)
 	add("memory_limit", existing.MemoryLimit.String, updated.MemoryLimit.String, existing.MemoryLimit != updated.MemoryLimit)
 	if req.Renovate != nil && renovateBeforeErr == nil {
@@ -317,6 +347,8 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 		CpuLimit:                 p.CpuLimit.String,
 		MemoryLimit:              p.MemoryLimit.String,
 		MaxRunnerLifetimeSeconds: int32(p.MaxRunnerLifetimeSeconds),
+		PollFallback:             p.PollFallback,
+		PollIntervalSeconds:      int32(p.PollIntervalSeconds),
 	}
 
 	if p.RepositoryUrl != "" {
@@ -339,6 +371,11 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 		if !diag.LastReconciledAt.IsZero() {
 			protoPool.LastReconciledAt = diag.LastReconciledAt.Format(time.RFC3339)
 		}
+		if !diag.LastPollAt.IsZero() {
+			protoPool.LastPollAt = diag.LastPollAt.Format(time.RFC3339)
+		}
+		protoPool.LastPollQueuedCount = int32(diag.LastPollQueuedCount)
+		protoPool.LastPollError = diag.LastPollError
 	}
 
 	return protoPool
@@ -419,6 +456,15 @@ func validatePoolInput(p *supervisorv1.Pool) error {
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("max_runner_lifetime_seconds must be non-negative"))
 	}
 
+	// Demand polling validation (docs/24 §5.7): Gitea has no repo-scoped
+	// queued-jobs API (docs/24 §4); Forgejo polls natively regardless of the flag.
+	if p.PollFallback && provider == "gitea" {
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("poll_fallback is not supported for gitea pools (no repo-scoped queued-jobs API)"))
+	}
+	if p.PollIntervalSeconds != 0 && (p.PollIntervalSeconds < 15 || p.PollIntervalSeconds > 3600) {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("poll_interval_seconds must be between 15 and 3600"))
+	}
+
 	if p.Renovate != nil && p.Renovate.Enabled && strings.TrimSpace(p.Renovate.CronSchedule) != "" {
 		if _, err := cron.ParseSchedule(strings.TrimSpace(p.Renovate.CronSchedule)); err != nil {
 			return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid renovate cron schedule: %w", err))
@@ -473,6 +519,8 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 		MaxRunnerLifetimeSeconds: int64(pool.MaxRunnerLifetimeSeconds),
 		CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
 		MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
+		PollFallback:             pool.PollFallback,
+		PollIntervalSeconds:      defaultPollInterval(pool.PollIntervalSeconds),
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "FOREIGN KEY") {
@@ -579,6 +627,10 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		MaxRunnerLifetimeSeconds: int64(pool.MaxRunnerLifetimeSeconds),
 		CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
 		MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
+		PollFallback:             pool.PollFallback,
+		// The interval is a DB-level knob with no UI field (docs/24 §5.4): a client
+		// that omits it (proto zero) preserves the stored cadence.
+		PollIntervalSeconds: defaultPollIntervalOr(pool.PollIntervalSeconds, existing.PollIntervalSeconds),
 	}
 
 	newTargets := normalizeTargetSet(pool)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -1230,4 +1231,130 @@ func targetIDsEqual(a, b []int64) bool {
 		}
 	}
 	return true
+}
+
+// TestPoolServiceDemandPollingValidation covers the docs/24 §5.7 validation
+// matrix and the interval default/preserve semantics on create/update.
+func TestPoolServiceDemandPollingValidation(t *testing.T) {
+	ctx := context.Background()
+	database, jwtSecret := setupTestDB(t)
+	stats := newMockStatsProvider()
+
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		PoolStats:        stats,
+		JWTSigningSecret: jwtSecret,
+	})
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	})); err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	cookie := loginRes.Header().Get("Set-Cookie")
+	rawCookie := strings.Split(strings.Split(cookie, ";")[0], "=")[1]
+
+	authProfile, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
+		Name:           "poll-validation-profile",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "encrypted-token", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthProfile failed: %v", err)
+	}
+
+	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
+	newReq := func(pool *supervisorv1.Pool) *connect.Request[supervisorv1.CreatePoolRequest] {
+		req := connect.NewRequest(&supervisorv1.CreatePoolRequest{Pool: pool})
+		req.Header().Set("Cookie", "session_token="+rawCookie)
+		return req
+	}
+
+	// Gitea + poll_fallback is rejected: no repo-scoped queued-jobs API.
+	giteaReq := newReq(&supervisorv1.Pool{
+		Name:          "gitea-poll",
+		Provider:      "gitea",
+		RepositoryUrl: "https://gitea.local/owner/repo",
+		AuthProfileId: authProfile.ID,
+		AllowDocker:   true,
+		PollFallback:  true,
+	})
+	if _, err := client.CreatePool(ctx, giteaReq); err == nil {
+		t.Fatal("expected gitea poll_fallback to be rejected")
+	}
+
+	// Interval outside the 15–3600 clamp is rejected.
+	for _, bad := range []int32{5, 4000} {
+		req := newReq(&supervisorv1.Pool{
+			Name:                fmt.Sprintf("github-bad-interval-%d", bad),
+			Provider:            "github",
+			RepositoryUrl:       "https://github.com/acme/repo",
+			AuthProfileId:       authProfile.ID,
+			PollFallback:        true,
+			PollIntervalSeconds: bad,
+		})
+		if _, err := client.CreatePool(ctx, req); err == nil {
+			t.Fatalf("expected interval %d to be rejected", bad)
+		}
+	}
+
+	// A valid GitHub fallback pool stores the flag and interval.
+	okReq := newReq(&supervisorv1.Pool{
+		Name:                "github-poll-ok",
+		Provider:            "github",
+		RepositoryUrl:       "https://github.com/acme/repo",
+		AuthProfileId:       authProfile.ID,
+		PollFallback:        true,
+		PollIntervalSeconds: 60,
+	})
+	okRes, err := client.CreatePool(ctx, okReq)
+	if err != nil {
+		t.Fatalf("CreatePool with poll_fallback failed: %v", err)
+	}
+	if !okRes.Msg.Pool.PollFallback || okRes.Msg.Pool.PollIntervalSeconds != 60 {
+		t.Fatalf("expected poll_fallback=true interval=60, got %v/%d",
+			okRes.Msg.Pool.PollFallback, okRes.Msg.Pool.PollIntervalSeconds)
+	}
+
+	// Omitting the interval on create applies the 30s default (docs/24 §5.4).
+	defaultReq := newReq(&supervisorv1.Pool{
+		Name:          "github-poll-default",
+		Provider:      "github",
+		RepositoryUrl: "https://github.com/acme/repo",
+		AuthProfileId: authProfile.ID,
+	})
+	defaultRes, err := client.CreatePool(ctx, defaultReq)
+	if err != nil {
+		t.Fatalf("CreatePool default failed: %v", err)
+	}
+	if defaultRes.Msg.Pool.PollIntervalSeconds != 30 {
+		t.Fatalf("expected default interval 30, got %d", defaultRes.Msg.Pool.PollIntervalSeconds)
+	}
+
+	// Omitting the interval on update preserves the stored cadence (docs/24 §5.9).
+	updateReq := connect.NewRequest(&supervisorv1.UpdatePoolRequest{Pool: okRes.Msg.Pool})
+	updateReq.Msg.Pool.PollIntervalSeconds = 0 // client omits the DB-level knob
+	updateReq.Header().Set("Cookie", "session_token="+rawCookie)
+	updateRes, err := client.UpdatePool(ctx, updateReq)
+	if err != nil {
+		t.Fatalf("UpdatePool failed: %v", err)
+	}
+	if updateRes.Msg.Pool.PollIntervalSeconds != 60 {
+		t.Fatalf("expected stored interval 60 preserved on omit, got %d", updateRes.Msg.Pool.PollIntervalSeconds)
+	}
 }
