@@ -149,7 +149,7 @@ describe("ProfilesPage", () => {
       expect(mockCreateMutateAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "test-pat-profile",
-          authMethod: "github_pat",
+          authMethod: "pat", // UI id github_pat maps to the wire value (auth-methods.ts)
           token: "ghp_secrettoken123",
         }),
       );
@@ -184,7 +184,7 @@ describe("ProfilesPage", () => {
         expect.objectContaining({
           id: 3n,
           name: "personal-pat",
-          authMethod: "github_pat",
+          authMethod: "pat", // UI id github_pat maps to the wire value (auth-methods.ts)
           appId: 0n,
           token: "",
         }),
