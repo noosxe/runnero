@@ -339,6 +339,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **Graceful Pool Drain:** Per-delete choice on pool removal: idle runners are cleaned up immediately while busy runners are left to finish their current job (ephemeral exit) before final teardown — with a lifetime kill-switch backstop, restart-safe semantics, and a delete-confirmation dialog surfacing idle vs busy runner counts. *[Design Phase]*
 
 ---
 
