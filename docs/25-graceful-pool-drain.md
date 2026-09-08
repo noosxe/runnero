@@ -41,7 +41,7 @@ The issue also asks for a confirm-in-UI flow surfacing N busy jobs. Investigatio
 
 ### 4.1 API: one optional flag on DeletePool
 
-`DeletePoolRequest` gains `bool drain_graceful = 2` (field 1 stays `id`). Default `false` preserves today's hard-terminate behavior for every existing client. The audit log records the chosen mode in `pool.delete` metadata.
+`DeletePoolRequest` gains `bool drain_graceful = 2` (field 1 stays `id`). Default `false` preserves today's hard-terminate behavior for every existing client (resolved §8.1). The audit log records the chosen mode in `pool.delete` metadata.
 
 ### 4.2 Controller: drain mode awareness
 
@@ -64,7 +64,7 @@ For deleted pools, neither busy-state input works (§2). The design deliberately
 `checkHungRunners` gains a second loop over the draining set: for each still-running drained runner, force-terminate when `now − busyAnchor ≥ backstop`, using the docs/23 anchor rules (busy anchor from `BusySince`, spawn-clock fallback for adopted runners). Backstop per pool:
 
 - `max_runner_lifetime_seconds` if the deleted pool had one set (the same guarantee the pool had in life),
-- otherwise a fixed conservative cap — proposal: **6 hours** — so a pool deleted without a lifetime switch can never leak containers indefinitely (open question §8.3).
+- otherwise the fixed conservative cap **`DefaultDrainBackstop = 6h`** (resolved §8.3), so a pool deleted without a lifetime switch can never leak containers indefinitely.
 
 Ungraceful deaths (OOM, `docker kill`, host reboot) need no new handling: the container disappears, the audit `Disappeared` path untracks it, and the ghost sweep removes the stale registration (docs/20) — existing machinery, unchanged.
 
@@ -84,8 +84,8 @@ The supervisor cannot deregister a deleted pool's runners (`deregisterRunner` ne
 - **Entry point**: a destructive "Delete Pool" action on the pool detail page (danger zone), wired to the existing `useDeletePool`.
 - **Confirm dialog** (replaces nothing — first delete UI) shows, from already-fetched pool runner data (existing runner list / pool state queries, no new RPC):
   - runner summary: **N idle · M busy**;
-  - a radio choice: **"Drain gracefully"** — idle runners removed now, M busy runners finish their jobs (preselected when `M > 0`) — vs **"Terminate everything now"** (preselected when `M = 0`);
-  - the lifetime-backstop promise in the drain description ("hung jobs are force-terminated after X"), so draining is bounded in UI language.
+  - a radio choice: **"Drain gracefully"** — idle runners removed now, M busy runners finish their jobs (preselected when `M > 0`) — vs **"Terminate everything now"** (preselected when `M = 0`); preselection rule resolved §8.2, both options always selectable;
+  - the lifetime-backstop promise in the drain description ("hung jobs are force-terminated after X" — pool lifetime or 6 h, §4.4/§8.3), so draining is bounded in UI language.
 - The dialog wording must make the asymmetry clear: idle runners go immediately in both modes; only busy runners differ.
 
 ## 5. Protocol changes
@@ -113,12 +113,14 @@ Unit matrix (mock engine/reconciler, deterministic clock):
 
 No E2E changes planned; the E2E delete flows (if any) keep passing with the default flag.
 
-## 8. Open questions
+## 8. Resolved decisions
 
-1. **API default** — keep hard-terminate as the wire default (recommended; backward compatible) or flip the default to graceful and make hard opt-in?
-2. **Dialog preselection** — recommended: graceful preselected when busy runners exist, terminate otherwise. Alternative: always preselect terminate (consistent with "delete is destructive").
-3. **Fixed backstop length** for pools without `max_runner_lifetime_seconds` — proposal 6h. Alternatives: 24h, or refuse graceful drain for lifetime-less pools (forces the user to pick terminate).
-4. **Delete affordance scope** — pool detail page only (recommended) or also a row action on the pools list?
+Confirmed by the product owner during the RUN-127 design review (PR #203):
+
+1. **API default stays hard-terminate.** `drain_graceful = false` on the wire preserves today's behavior for every existing client; graceful drain is opt-in per delete call.
+2. **Dialog preselection follows the busy count.** With `M > 0` busy runners, "Drain gracefully" is preselected; with `M = 0`, "Terminate everything now" is. Both options remain explicitly selectable either way.
+3. **Backstop for lifetime-less pools: 6 hours** (`DefaultDrainBackstop = 6 * time.Hour`). Pools that set `max_runner_lifetime_seconds` keep their own lifetime as the backstop; the fixed cap exists only so a pool deleted without a lifetime switch can never leak containers indefinitely.
+4. **Delete affordance: pool detail page only.** No row action on the pools list in v1.
 
 ## 9. Implementation checklist
 
