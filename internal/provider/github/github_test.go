@@ -539,4 +539,3 @@ func TestGitHubDiscoveryPagination(t *testing.T) {
 		t.Fatalf("expected 112 pat orgs, got %d", len(patOrgs))
 	}
 }
-

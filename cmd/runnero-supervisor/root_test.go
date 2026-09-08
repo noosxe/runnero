@@ -433,5 +433,3 @@ func TestBackupCommand(t *testing.T) {
 	}
 	_ = backupDB.Close()
 }
-
-

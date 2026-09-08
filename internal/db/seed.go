@@ -30,10 +30,10 @@ const (
 
 // SeedConfig represents the top-level YAML configuration schema per docs/02 §4.
 type SeedConfig struct {
-	Version      string                         `yaml:"version"`
-	Global       GlobalConfig                   `yaml:"global,omitempty"`
-	AuthProfiles map[string]SeedAuthProfile     `yaml:"auth_profiles,omitempty"`
-	Pools        []SeedPool                     `yaml:"pools,omitempty"`
+	Version      string                     `yaml:"version"`
+	Global       GlobalConfig               `yaml:"global,omitempty"`
+	AuthProfiles map[string]SeedAuthProfile `yaml:"auth_profiles,omitempty"`
+	Pools        []SeedPool                 `yaml:"pools,omitempty"`
 }
 
 type GlobalConfig struct {
@@ -46,14 +46,14 @@ type GlobalConfig struct {
 }
 
 type SeedAuthProfile struct {
-	AuthMethod        string `yaml:"auth_method"`
-	AppID             int64  `yaml:"app_id,omitempty"`
-	PrivateKeyPath    string `yaml:"private_key_path,omitempty"`
-	PrivateKey        string `yaml:"private_key,omitempty"`
-	GiteaTokenEnvVar  string `yaml:"gitea_token_env_var,omitempty"`
+	AuthMethod         string `yaml:"auth_method"`
+	AppID              int64  `yaml:"app_id,omitempty"`
+	PrivateKeyPath     string `yaml:"private_key_path,omitempty"`
+	PrivateKey         string `yaml:"private_key,omitempty"`
+	GiteaTokenEnvVar   string `yaml:"gitea_token_env_var,omitempty"`
 	ForgejoTokenEnvVar string `yaml:"forgejo_token_env_var,omitempty"`
-	TokenEnvVar       string `yaml:"token_env_var,omitempty"`
-	Token             string `yaml:"token,omitempty"`
+	TokenEnvVar        string `yaml:"token_env_var,omitempty"`
+	Token              string `yaml:"token,omitempty"`
 }
 
 type SeedPool struct {

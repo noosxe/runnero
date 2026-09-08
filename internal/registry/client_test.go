@@ -12,13 +12,13 @@ import (
 
 func TestParseImageRef(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		wantReg    string
-		wantRepo   string
-		wantTag    string
-		wantInsec  bool
-		wantErr    bool
+		name      string
+		input     string
+		wantReg   string
+		wantRepo  string
+		wantTag   string
+		wantInsec bool
+		wantErr   bool
 	}{
 		{
 			name:     "ghcr with tag",

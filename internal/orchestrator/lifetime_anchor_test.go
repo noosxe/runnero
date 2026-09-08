@@ -204,4 +204,3 @@ func trackedBy(t *testing.T, r *orchestrator.Reconciler, poolID int64, id string
 	t.Fatalf("runner %q not tracked in pool %d", id, poolID)
 	return orchestrator.RunnerStatus{}
 }
-
