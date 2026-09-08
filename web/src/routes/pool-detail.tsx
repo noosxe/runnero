@@ -19,6 +19,7 @@ import { LogTerminal } from "../components/terminal/log-terminal";
 import { PoolHealthBadge } from "../components/pools/pool-health-badge";
 import { PoolStatusBanner } from "../components/pools/pool-status-banner";
 import { PoolDiagnosticsCard } from "../components/pools/pool-diagnostics-card";
+import { PoolPollStatus } from "../components/pools/pool-poll-status";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
 import {
@@ -164,6 +165,7 @@ export function PoolDetailPage() {
       {/* Operational Status & Diagnostics */}
       <PoolStatusBanner pool={pool} />
       <PoolDiagnosticsCard pool={pool} />
+      <PoolPollStatus pool={pool} />
 
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
