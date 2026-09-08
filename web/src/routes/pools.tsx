@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { usePools, useAuthProfiles, useSession } from "../lib/api/query-hooks";
 import { useWatchPools } from "../lib/api/streaming-hooks";
-import { CreatePoolWizardModal } from "../components/pools/create-pool-wizard-modal";
+import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { Link } from "@tanstack/react-router";
 import {
   Server,
@@ -14,9 +14,10 @@ import {
   Info,
   Plus,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { PoolHealthBadge } from "../components/pools/pool-health-badge";
-import { PoolHealthStatus } from "../gen/api_pb";
+import { PoolHealthStatus, type Pool } from "../gen/api_pb";
 
 export function PoolsPage() {
   const { data: pools, isLoading } = usePools();
@@ -32,6 +33,9 @@ export function PoolsPage() {
 
   // Create Pool Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Edit Pool Modal State (docs/22 §7.1)
+  const [editingPool, setEditingPool] = useState<Pool | null>(null);
 
   const filteredPools = useMemo(() => {
     if (!pools) return [];
@@ -390,14 +394,25 @@ export function PoolsPage() {
                     </span>
                   </span>
 
-                  <Link
-                    to="/pools/$poolId"
-                    params={{ poolId: p.id.toString() }}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                  >
-                    <span>View Pool Details</span>
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      aria-label={`Edit pool ${p.name}`}
+                      onClick={() => setEditingPool(p)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <Link
+                      to="/pools/$poolId"
+                      params={{ poolId: p.id.toString() }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                    >
+                      <span>View Pool Details</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             );
@@ -406,13 +421,27 @@ export function PoolsPage() {
       )}
 
       {/* Create Pool Wizard Modal */}
-      <CreatePoolWizardModal
+      <PoolWizardModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         authProfiles={authProfiles}
         hostOs={session?.hostOs}
         hostArch={session?.hostArch}
       />
+
+      {/* Edit Pool Modal (docs/22 §7.1) — conditionally mounted so edit-mode
+          prefill state initializes from the selected pool on every open */}
+      {editingPool !== null && (
+        <PoolWizardModal
+          isOpen
+          mode="edit"
+          pool={editingPool}
+          onClose={() => setEditingPool(null)}
+          authProfiles={authProfiles}
+          hostOs={session?.hostOs}
+          hostArch={session?.hostArch}
+        />
+      )}
     </div>
   );
 }

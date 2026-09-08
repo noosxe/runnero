@@ -462,9 +462,9 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 
 ## 5. Dialogs & Modal Specifications
 
-### 5.1 `CreatePoolWizardModal` / `EditPoolModal`
+### 5.1 `PoolWizardModal` (shared create/edit)
 
-The pool creation flow is structured as a **4-step guided wizard** with upstream target auto-discovery (docs/14 §4), eliminating copy-pasting URLs and enabling multi-target pool assignments:
+The pool create and edit flows share a single **4-step guided wizard** (`web/src/components/pools/pool-wizard-modal.tsx`, `mode: "create" | "edit"`; docs/22 §7.2). Edit mode prefills every step from the pool being edited. with upstream target auto-discovery (docs/14 §4), eliminating copy-pasting URLs and enabling multi-target pool assignments:
 
 - **Step 1: Pool Identity & Authentication**
   - **Pool Name**: Slug format (`^[a-z0-9-]+$`, max 40 characters) with real-time uniqueness validation.
@@ -486,8 +486,16 @@ The pool creation flow is structured as a **4-step guided wizard** with upstream
   - **Resource Quotas**: CPU Limit (e.g., `2.0`), Memory Limit (e.g., `4GB`).
   - **Max Lifetime**: Seconds (default: `7200` / 2 hours).
   - **Renovate Bot (Optional)**: Enable toggle, cron schedule (`0 2 * * *`), and container image (`renovate/renovate:latest`).
-- **Step 4: Review & Confirmation**
-  - Summary card displaying pool name, provider, scope, list of selected target URLs, runner image, quotas, and labels before final submission to `PoolService.CreatePool`.
+- **Step 4: Review & Confirmation** *(create)* / **Review & Save** *(edit)*
+  - Create: summary card displaying pool name, provider, scope, list of selected target URLs, runner image, quotas, and labels before final submission to `PoolService.CreatePool`.
+  - Edit: **changed-fields diff** (old → strikethrough → new, restricted to fields that actually changed) plus impact banners computed from the field classes in docs/22 §5.2 — spawn-identity changes show the idle-runner recycle count, renames show the busy-runner guard warning. Submits the full Pool message (including `id`) to `PoolService.UpdatePool`; server rejections (e.g. `already_exists`, `failed_precondition`) render as banner text.
+
+**Edit-mode deltas (docs/22 §7):**
+- Entry points: **Edit** action on each pool card (`/pools`) and **Edit Configuration** in the pool detail Config tab.
+- The auth profile selector is **locked to the pool's provider family** — provider is immutable after creation (docs/22 §5.3).
+- Step 2 shows selected targets as removable chips so prefilled targets absent from discovery can still be deselected.
+- `max_runner_lifetime_seconds` is preserved from the stored pool (not wizard-editable) instead of being reset to the create default.
+- The Renovate tab on the pool detail page remains the shortcut for renovate-only edits (full-pool round-trip through `UpdatePool`).
 
 
 ### 5.2 `CreateAuthProfileModal`
@@ -538,7 +546,7 @@ sequenceDiagram
     Note over Server,Engine: Clean stream teardown, zero goroutine leak
 ```
 
-### 6.2 Pool Mutation & Hot-Reload Workflow
+### 6.2 Pool Mutation & Hot-Reload Workflow (create/edit)
 ```mermaid
 sequenceDiagram
     autonumber
@@ -557,6 +565,8 @@ sequenceDiagram
     Server-->>UI: UpdatePoolResponse
     UI->>User: Show Success Toast & Update Active Count
 ```
+
+**Edit semantics (docs/22 §5.5):** before the DB write, the server validates the payload, rejects provider changes (`CodeInvalidArgument`), guards renames on zero busy runners via `PoolStats` (`CodeFailedPrecondition`), and — when a spawn-identity field changed or the pool is renamed — asks the controller to `RecycleIdleRunners` so respawns pick up the new configuration. Busy runners are never touched. Duplicate names surface as `CodeAlreadyExists`; `pool_targets` rows are rewritten only when the normalized target set changed; the audit entry records before/after values restricted to changed fields.
 
 ---
 

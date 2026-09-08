@@ -1,7 +1,7 @@
 import { useState, useMemo, type FormEvent } from "react";
 import { create } from "@bufbuild/protobuf";
-import { PoolSchema } from "../../gen/api_pb";
-import { useCreatePool, useDiscoverTargets } from "../../lib/api/query-hooks";
+import { PoolSchema, type Pool } from "../../gen/api_pb";
+import { useCreatePool, useUpdatePool, useDiscoverTargets } from "../../lib/api/query-hooks";
 import { getSuggestedRunnerLabels } from "../../lib/utils/labels";
 import {
   Server,
@@ -21,11 +21,16 @@ import {
   FolderGit2,
   Layers,
   Bot,
+  Pencil,
 } from "lucide-react";
 
-export interface CreatePoolWizardModalProps {
+export interface PoolWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Create (default) or edit mode; edit prefills every step from `pool` (docs/22 §7.2). */
+  mode?: "create" | "edit";
+  /** The pool being edited; required in edit mode, ignored in create mode. */
+  pool?: Pool;
   authProfiles?: Array<{
     id: bigint;
     name: string;
@@ -35,62 +40,101 @@ export interface CreatePoolWizardModalProps {
   hostArch?: string;
 }
 
-export function CreatePoolWizardModal({
+export function PoolWizardModal({
   isOpen,
   onClose,
+  mode = "create",
+  pool,
   authProfiles,
   hostOs,
   hostArch,
-}: CreatePoolWizardModalProps) {
+}: PoolWizardModalProps) {
+  const isEdit = mode === "edit";
   const createPoolMutation = useCreatePool();
+  const updatePoolMutation = useUpdatePool();
   const suggestedLabels = getSuggestedRunnerLabels(hostOs, hostArch);
 
   // Step indicator: 1: Identity, 2: Targets, 3: Specs, 4: Review
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [error, setError] = useState<string | null>(null);
 
-  // Step 1: Identity & Credentials
-  const [poolName, setPoolName] = useState("");
+  // Step 1: Identity & Credentials (edit mode prefills from the pool, docs/22 §7.2)
+  const [poolName, setPoolName] = useState(pool?.name ?? "");
   const [authProfileId, setAuthProfileId] = useState<string>(
-    authProfiles && authProfiles.length > 0 ? authProfiles[0].id.toString() : "",
+    pool
+      ? pool.authProfileId.toString()
+      : authProfiles && authProfiles.length > 0
+        ? authProfiles[0].id.toString()
+        : "",
   );
 
   // Step 2: Scope & Discovery Targets
-  const [scope, setScope] = useState<"repo" | "org">("repo");
+  const [scope, setScope] = useState<"repo" | "org">(pool?.scope === "org" ? "org" : "repo");
   const [targetSearch, setTargetSearch] = useState("");
-  const [selectedTargetUrls, setSelectedTargetUrls] = useState<string[]>([]);
+  const [selectedTargetUrls, setSelectedTargetUrls] = useState<string[]>(() => {
+    if (!pool) return [];
+    if (pool.targetUrls.length > 0) return pool.targetUrls;
+    return pool.repositoryUrl ? [pool.repositoryUrl] : [];
+  });
 
   // Step 3: Specs & Quotas
-  const [minIdleRunners, setMinIdleRunners] = useState(1);
-  const [maxConcurrency, setMaxConcurrency] = useState(5);
-  const [customLabels, setCustomLabels] = useState<string | null>(null);
+  const [minIdleRunners, setMinIdleRunners] = useState(pool?.minIdleRunners ?? 1);
+  const [maxConcurrency, setMaxConcurrency] = useState(pool?.maxConcurrency ?? 5);
+  const [customLabels, setCustomLabels] = useState<string | null>(
+    pool ? pool.labels.join(",") : null,
+  );
   const labels = customLabels ?? suggestedLabels;
-  const [runnerImage, setRunnerImage] = useState("ghcr.io/noosxe/runnero:latest");
-  const [allowDocker, setAllowDocker] = useState(true);
-  const [cpuLimit, setCpuLimit] = useState("2.0");
-  const [memoryLimit, setMemoryLimit] = useState("4GB");
+  const [runnerImage, setRunnerImage] = useState(
+    pool?.runnerImage || "ghcr.io/noosxe/runnero:latest",
+  );
+  const [allowDocker, setAllowDocker] = useState(pool?.allowDocker ?? true);
+  const [cpuLimit, setCpuLimit] = useState(pool?.cpuLimit || "2.0");
+  const [memoryLimit, setMemoryLimit] = useState(pool?.memoryLimit || "4GB");
+  // Lifetime is not wizard-editable; edit mode preserves the stored value
+  // instead of silently resetting it to the create-mode default (docs/22 §7.2).
+  const [maxRunnerLifetimeSeconds] = useState(pool?.maxRunnerLifetimeSeconds ?? 7200);
 
   // Renovate Config
-  const [renovateEnabled, setRenovateEnabled] = useState(false);
-  const [renovateCron, setRenovateCron] = useState("0 2 * * *");
-  const [renovateImage, setRenovateImage] = useState("renovate/renovate:latest");
+  const [renovateEnabled, setRenovateEnabled] = useState(pool?.renovate?.enabled ?? false);
+  const [renovateCron, setRenovateCron] = useState(pool?.renovate?.cronSchedule || "0 2 * * *");
+  const [renovateImage, setRenovateImage] = useState(
+    pool?.renovate?.image || "renovate/renovate:latest",
+  );
 
-  // Auth Profile and Provider Resolution
+  // Auth Profile and Provider Resolution.
+  // Provider is immutable after creation (docs/22 §5.3): in edit mode the
+  // profile selector is locked to profiles of the pool's provider family so
+  // the constraint is visible instead of error-driven.
+  const providerFamilyOf = (authMethod: string) =>
+    authMethod.startsWith("gitea")
+      ? "gitea"
+      : authMethod.startsWith("forgejo")
+        ? "forgejo"
+        : "github";
+
+  const selectableAuthProfiles = useMemo(() => {
+    if (!authProfiles) return undefined;
+    if (!isEdit || !pool) return authProfiles;
+    return authProfiles.filter((p) => providerFamilyOf(p.authMethod) === pool.provider);
+  }, [authProfiles, isEdit, pool]);
+
   const selectedAuthProfile = useMemo(() => {
-    if (!authProfiles || authProfiles.length === 0) return null;
+    if (!selectableAuthProfiles || selectableAuthProfiles.length === 0) return null;
     if (authProfileId) {
-      return authProfiles.find((p) => p.id.toString() === authProfileId) ?? authProfiles[0];
+      return (
+        selectableAuthProfiles.find((p) => p.id.toString() === authProfileId) ??
+        selectableAuthProfiles[0]
+      );
     }
-    return authProfiles[0];
-  }, [authProfiles, authProfileId]);
+    return selectableAuthProfiles[0];
+  }, [selectableAuthProfiles, authProfileId]);
 
   const deducedProvider = useMemo(() => {
+    if (isEdit && pool) return pool.provider;
     const m = selectedAuthProfile?.authMethod;
     if (!m) return "github";
-    if (m.startsWith("gitea")) return "gitea";
-    if (m.startsWith("forgejo")) return "forgejo";
-    return "github";
-  }, [selectedAuthProfile]);
+    return providerFamilyOf(m);
+  }, [isEdit, pool, selectedAuthProfile]);
 
   const isDockerLocked = deducedProvider === "gitea" || deducedProvider === "forgejo";
 
@@ -100,6 +144,74 @@ export function CreatePoolWizardModal({
     if (!trimmed) return false;
     return /^[a-z0-9-]+$/.test(trimmed);
   }, [poolName]);
+
+  // Edit-mode change detection (docs/22 §5.2, §7.2): drives the review-step
+  // changed-fields diff and the runner-impact banners.
+  const effectiveRenovateImage = renovateImage.trim() || "renovate/renovate:latest";
+  const effectiveRenovateCron = renovateCron.trim() || "0 2 * * *";
+  const normalizeSet = (values: string[]) =>
+    Array.from(new Set(values.map((v) => v.trim()).filter(Boolean))).sort();
+
+  const changes = useMemo(() => {
+    if (!isEdit || !pool) return [];
+    const diffs: Array<{ field: string; before: string; after: string; identity: boolean }> = [];
+    const add = (field: string, before: string, after: string, identity = false) => {
+      if (before !== after) diffs.push({ field, before, after, identity });
+    };
+    const profileName = selectedAuthProfile?.name ?? pool.authProfileId.toString();
+    const beforeProfileName = authProfiles?.find((p) => p.id === pool.authProfileId)?.name;
+    add("Name", pool.name, poolName.trim());
+    add("Auth Profile", beforeProfileName ?? pool.authProfileId.toString(), profileName, true);
+    add("Scope", pool.scope || "repo", scope, true);
+    add(
+      "Targets",
+      normalizeSet(pool.targetUrls.length ? pool.targetUrls : [pool.repositoryUrl]).join(", "),
+      normalizeSet(selectedTargetUrls).join(", "),
+      true,
+    );
+    add(
+      "Labels",
+      normalizeSet(pool.labels).join(", "),
+      normalizeSet(labels.split(",")).join(", "),
+      true,
+    );
+    add("Runner Image", pool.runnerImage, runnerImage.trim(), true);
+    add("Docker Access", String(pool.allowDocker), String(isDockerLocked || allowDocker), true);
+    add("CPU Limit", pool.cpuLimit, cpuLimit.trim(), true);
+    add("Memory Limit", pool.memoryLimit, memoryLimit.trim(), true);
+    add("Min Idle Runners", String(pool.minIdleRunners), String(minIdleRunners));
+    add("Max Concurrency", String(pool.maxConcurrency), String(maxConcurrency));
+    add(
+      "Renovate",
+      pool.renovate?.enabled
+        ? `enabled (${pool.renovate?.cronSchedule || "0 2 * * *"})`
+        : "disabled",
+      renovateEnabled ? `enabled (${effectiveRenovateCron})` : "disabled",
+    );
+    return diffs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isEdit,
+    pool,
+    poolName,
+    selectedAuthProfile,
+    authProfiles,
+    scope,
+    selectedTargetUrls,
+    labels,
+    runnerImage,
+    isDockerLocked,
+    allowDocker,
+    cpuLimit,
+    memoryLimit,
+    minIdleRunners,
+    maxConcurrency,
+    renovateEnabled,
+    renovateCron,
+  ]);
+
+  const identityChanged = changes.some((c) => c.identity);
+  const renamed = isEdit && !!pool && poolName.trim() !== pool.name;
 
   // Target discovery query hook
   const activeProfileBigInt = useMemo(() => {
@@ -197,12 +309,18 @@ export function CreatePoolWizardModal({
     setCurrentStep(4);
   };
 
-  const handleCreatePool = async (e: FormEvent) => {
+  const handleSubmitPool = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (selectedTargetUrls.length === 0) {
       setError("At least one target URL is required");
+      return;
+    }
+
+    const editingPool = isEdit ? pool : undefined;
+    if (isEdit && !editingPool) {
+      setError("No pool to update");
       return;
     }
 
@@ -212,41 +330,52 @@ export function CreatePoolWizardModal({
       .map((l) => l.trim())
       .filter(Boolean);
 
+    const poolPayload = create(PoolSchema, {
+      ...(editingPool ? { id: editingPool.id } : {}),
+      name: poolName.trim(),
+      provider: deducedProvider,
+      repositoryUrl: selectedTargetUrls[0] || "",
+      minIdleRunners,
+      maxConcurrency,
+      labels:
+        parsedLabels.length > 0
+          ? parsedLabels
+          : suggestedLabels
+              .split(",")
+              .map((l) => l.trim())
+              .filter(Boolean),
+      runnerImage: runnerImage.trim() || "ghcr.io/noosxe/runnero:latest",
+      allowDocker: isDockerLocked ? true : allowDocker,
+      renovate: renovateEnabled
+        ? {
+            enabled: true,
+            cronSchedule: effectiveRenovateCron,
+            image: effectiveRenovateImage,
+          }
+        : undefined,
+      authProfileId: selectedAuthProfile?.id ?? 0n,
+      scope,
+      cpuLimit: cpuLimit.trim() || "2.0",
+      memoryLimit: memoryLimit.trim() || "4GB",
+      maxRunnerLifetimeSeconds,
+      targetUrls: selectedTargetUrls,
+    });
+
     try {
-      await createPoolMutation.mutateAsync({
-        pool: create(PoolSchema, {
-          name: poolName.trim(),
-          provider: deducedProvider,
-          repositoryUrl: selectedTargetUrls[0] || "",
-          minIdleRunners,
-          maxConcurrency,
-          labels:
-            parsedLabels.length > 0
-              ? parsedLabels
-              : suggestedLabels
-                  .split(",")
-                  .map((l) => l.trim())
-                  .filter(Boolean),
-          runnerImage: runnerImage.trim() || "ghcr.io/noosxe/runnero:latest",
-          allowDocker: isDockerLocked ? true : allowDocker,
-          renovate: renovateEnabled
-            ? {
-                enabled: true,
-                cronSchedule: renovateCron.trim() || "0 2 * * *",
-                image: renovateImage.trim() || "renovate/renovate:latest",
-              }
-            : undefined,
-          authProfileId: selectedAuthProfile?.id ?? 0n,
-          scope,
-          cpuLimit: cpuLimit.trim() || "2.0",
-          memoryLimit: memoryLimit.trim() || "4GB",
-          maxRunnerLifetimeSeconds: 7200,
-          targetUrls: selectedTargetUrls,
-        }),
-      });
+      if (editingPool) {
+        await updatePoolMutation.mutateAsync({ pool: poolPayload });
+      } else {
+        await createPoolMutation.mutateAsync({ pool: poolPayload });
+      }
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create runner pool");
+      setError(
+        err instanceof Error
+          ? err.message
+          : isEdit
+            ? "Failed to update runner pool"
+            : "Failed to create runner pool",
+      );
     }
   };
 
@@ -260,7 +389,7 @@ export function CreatePoolWizardModal({
           <div className="flex items-center gap-2">
             <Server className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Create Runner Pool Wizard
+              {isEdit ? "Edit Runner Pool" : "Create Runner Pool Wizard"}
             </h3>
           </div>
           <button
@@ -278,7 +407,7 @@ export function CreatePoolWizardModal({
             { step: 1, label: "Identity & Auth" },
             { step: 2, label: "Scope & Discovery" },
             { step: 3, label: "Runner Specs" },
-            { step: 4, label: "Review & Create" },
+            { step: 4, label: isEdit ? "Review & Save" : "Review & Create" },
           ].map((s) => {
             const isActive = currentStep === s.step;
             const isCompleted = currentStep > s.step;
@@ -363,12 +492,18 @@ export function CreatePoolWizardModal({
                 }}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               >
-                {authProfiles?.map((prof) => (
+                {selectableAuthProfiles?.map((prof) => (
                   <option key={prof.id.toString()} value={prof.id.toString()}>
                     {prof.name} ({prof.authMethod})
                   </option>
                 ))}
               </select>
+              {isEdit && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Profile family is locked to the pool's {deducedProvider} provider; recreate the
+                  pool to change provider (docs/22 §5.3).
+                </p>
+              )}
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-[11px] text-slate-500">Deduced Provider:</span>
                 <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 capitalize">
@@ -401,6 +536,31 @@ export function CreatePoolWizardModal({
         {/* Step 2: Scope & Target Discovery */}
         {currentStep === 2 && (
           <div className="mt-5 space-y-4">
+            {isEdit && selectedTargetUrls.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+                <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+                  Selected Targets ({selectedTargetUrls.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedTargetUrls.map((url) => (
+                    <span
+                      key={url}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-0.5 pl-2 pr-1 text-[11px] font-mono text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                      <span className="max-w-48 truncate">{url}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove target ${url}`}
+                        onClick={() => handleToggleTarget(url)}
+                        className="rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800 dark:hover:text-rose-400"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-center">
               <div>
                 <label
@@ -865,7 +1025,56 @@ export function CreatePoolWizardModal({
 
         {/* Step 4: Review & Confirmation */}
         {currentStep === 4 && (
-          <form onSubmit={handleCreatePool} className="mt-5 space-y-4">
+          <form onSubmit={handleSubmitPool} className="mt-5 space-y-4">
+            {isEdit && changes.length > 0 && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/30 space-y-2">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                  Changed Fields ({changes.length})
+                </span>
+                <div className="max-h-44 overflow-y-auto space-y-1">
+                  {changes.map((c) => (
+                    <div
+                      key={c.field}
+                      className="flex flex-wrap items-baseline gap-x-2 rounded-lg bg-white px-2.5 py-1.5 text-[11px] dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
+                    >
+                      <span className="font-semibold text-slate-700 dark:text-slate-300 min-w-28">
+                        {c.field}:
+                      </span>
+                      <span className="font-mono text-rose-600 dark:text-rose-400 break-all line-through">
+                        {c.before || "—"}
+                      </span>
+                      <ChevronRight className="h-3 w-3 shrink-0 self-center text-slate-400" />
+                      <span className="font-mono text-emerald-700 dark:text-emerald-400 break-all">
+                        {c.after || "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {isEdit && changes.length === 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/40">
+                No changes yet — modify any field to see the diff before saving.
+              </div>
+            )}
+            {isEdit && identityChanged && !renamed && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  {pool?.idleRunners ?? 0} idle runner{pool?.idleRunners === 1 ? "" : "s"} will be
+                  recycled to apply the new configuration; running jobs are not affected.
+                </span>
+              </div>
+            )}
+            {isEdit && renamed && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  Renaming recycles the pool's idle runners and requires zero busy runners at save
+                  time; a busy runner rejects the rename.
+                </span>
+              </div>
+            )}
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/40 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
                 <div>
@@ -954,10 +1163,22 @@ export function CreatePoolWizardModal({
               </button>
               <button
                 type="submit"
-                disabled={createPoolMutation.isPending}
+                disabled={createPoolMutation.isPending || updatePoolMutation.isPending}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2 font-semibold text-white shadow-xs hover:bg-blue-500 disabled:opacity-50"
               >
-                {createPoolMutation.isPending ? (
+                {isEdit ? (
+                  updatePoolMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Pencil className="h-4 w-4" />
+                      <span>Save Changes</span>
+                    </>
+                  )
+                ) : createPoolMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Creating Runner Pool...</span>

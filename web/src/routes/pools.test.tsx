@@ -63,6 +63,10 @@ vi.mock("../lib/api/query-hooks", () => ({
     mutateAsync: vi.fn().mockResolvedValue({ pool: { id: 999n } }),
     isPending: false,
   }),
+  useUpdatePool: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ pool: { id: 999n } }),
+    isPending: false,
+  }),
   useDiscoverTargets: () => ({
     data: [
       {

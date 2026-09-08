@@ -4,6 +4,8 @@ import {
   usePools,
   useRunners,
   useTerminateRunner,
+  useAuthProfiles,
+  useSession,
   useRenovateStatus,
   useRenovateHistory,
   useTriggerRenovateRun,
@@ -17,6 +19,7 @@ import { LogTerminal } from "../components/terminal/log-terminal";
 import { PoolHealthBadge } from "../components/pools/pool-health-badge";
 import { PoolStatusBanner } from "../components/pools/pool-status-banner";
 import { PoolDiagnosticsCard } from "../components/pools/pool-diagnostics-card";
+import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
 import {
   ArrowLeft,
@@ -30,6 +33,7 @@ import {
   Trash2,
   X,
   AlertTriangle,
+  Pencil,
   Bot,
   Play,
   CheckCircle2,
@@ -57,11 +61,14 @@ export function PoolDetailPage() {
 
   const { data: pools } = usePools();
   const pool = pools?.find((p) => p.id === poolIdBigInt);
+  const { data: authProfiles } = useAuthProfiles();
+  const { data: session } = useSession();
 
   const { data: runners, isLoading: runnersLoading } = useRunners(poolIdBigInt);
   const { isConnected: isStreamActive } = useWatchRunners(poolIdBigInt);
 
   const [activeTab, setActiveTab] = useState<"runners" | "config" | "renovate">("runners");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);
   const [runnerToTerminate, setRunnerToTerminate] = useState<RunnerInstance | null>(null);
 
@@ -401,9 +408,20 @@ export function PoolDetailPage() {
       {/* Tab Content: Configuration */}
       {activeTab === "config" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-6">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">
-            Pool Parameters & Resource Limits
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Pool Parameters & Resource Limits
+            </h2>
+            <button
+              type="button"
+              aria-label="Edit pool configuration"
+              onClick={() => setIsEditModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              <span>Edit Configuration</span>
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
             <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
@@ -557,6 +575,20 @@ export function PoolDetailPage() {
 
       {/* Tab Content: Renovate Bot */}
       {activeTab === "renovate" && <PoolRenovateTab pool={pool} />}
+
+      {/* Edit Pool Modal (docs/22 §7.1) — conditionally mounted so edit-mode
+          prefill state initializes fresh from the pool on every open */}
+      {isEditModalOpen && (
+        <PoolWizardModal
+          isOpen
+          mode="edit"
+          pool={pool}
+          onClose={() => setIsEditModalOpen(false)}
+          authProfiles={authProfiles}
+          hostOs={session?.hostOs}
+          hostArch={session?.hostArch}
+        />
+      )}
 
       {/* Confirmation Modal: Terminate Runner */}
       {runnerToTerminate && (
