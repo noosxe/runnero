@@ -275,11 +275,11 @@ func (m *mockProviderResolver) ResolveProvider(ctx context.Context, authProfileI
 }
 
 type mockTaskSpawner struct {
-	mu           sync.Mutex
-	spawned      []orchestrator.RunnerConfig
-	nextID       int
-	spawnErr     error
-	spawnedIDs   []string
+	mu         sync.Mutex
+	spawned    []orchestrator.RunnerConfig
+	nextID     int
+	spawnErr   error
+	spawnedIDs []string
 }
 
 func (m *mockTaskSpawner) SpawnTask(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
