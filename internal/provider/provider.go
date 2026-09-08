@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -51,6 +52,23 @@ type DiscoveredTarget struct {
 	AvatarURL   string `json:"avatar_url"`
 }
 
+// PollTarget describes one polling query for queued jobs (docs/24 §5.3):
+// the target repository URL, the pool's registration scope, and the pool's
+// label contract (JSON array as stored) used to filter countable jobs.
+type PollTarget struct {
+	URL    string
+	Scope  RegistrationScope
+	Labels string
+}
+
+// ErrPollingUnsupported is returned by providers with no repo-scoped queued-jobs
+// API at all (Gitea per docs/24 §4); demand polling cannot be performed.
+var ErrPollingUnsupported = errors.New("provider does not support demand polling")
+
+// ErrPollingScopeUnsupported is returned by providers that poll repo targets only
+// (GitHub per docs/24 §4) when asked for an org- or global-scoped target.
+var ErrPollingScopeUnsupported = errors.New("provider does not support demand polling for this target scope")
+
 // GitProvider is the unified interface decoupling the supervisor from VCS APIs (docs/02 §3.2).
 type GitProvider interface {
 	// GetRegistrationToken retrieves a short-lived runner registration token for the target URL and scope.
@@ -62,8 +80,10 @@ type GitProvider interface {
 	// ScalingMode returns whether the provider scales via webhooks or polling.
 	ScalingMode() ScalingMode
 
-	// PollQueuedJobs queries the forge's API for queued jobs (used when ScalingMode() == ScalingPolling).
-	PollQueuedJobs(ctx context.Context, targetURL string) (int, error)
+	// PollQueuedJobs queries the forge's API for queued jobs matching the target and
+	// label contract (docs/24 §5.2). Used when the pool polls demand: natively
+	// polling providers (Forgejo) or pools with poll_fallback enabled.
+	PollQueuedJobs(ctx context.Context, target PollTarget) (int, error)
 
 	// DiscoverOrganizations discovers accessible organizations from the provider.
 	DiscoverOrganizations(ctx context.Context) ([]DiscoveredTarget, error)

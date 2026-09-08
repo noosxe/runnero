@@ -129,11 +129,6 @@ func (c *Client) ScalingMode() provider.ScalingMode {
 	return provider.ScalingWebhook
 }
 
-// PollQueuedJobs is a no-op for GitHub since scaling is webhook-driven.
-func (c *Client) PollQueuedJobs(ctx context.Context, targetURL string) (int, error) {
-	return 0, nil
-}
-
 // ValidateCredentials verifies the credentials against the GitHub API.
 func (c *Client) ValidateCredentials(ctx context.Context) error {
 	var req *http.Request

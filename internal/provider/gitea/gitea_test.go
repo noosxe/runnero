@@ -3,6 +3,7 @@ package gitea_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -100,7 +101,7 @@ func TestGiteaClient(t *testing.T) {
 	if client.ScalingMode() != provider.ScalingWebhook {
 		t.Errorf("expected ScalingWebhook, got %v", client.ScalingMode())
 	}
-	if q, err := client.PollQueuedJobs(ctx, server.URL+"/my-org/my-repo"); err != nil || q != 0 {
+	if q, err := client.PollQueuedJobs(ctx, provider.PollTarget{URL: server.URL + "/my-org/my-repo", Scope: provider.ScopeRepo}); !errors.Is(err, provider.ErrPollingUnsupported) || q != 0 {
 		t.Errorf("expected 0 queued jobs, got %d, err: %v", q, err)
 	}
 

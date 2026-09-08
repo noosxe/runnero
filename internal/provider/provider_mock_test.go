@@ -47,12 +47,12 @@ func TestMockGitProvider_ExpectationsAndAssertions(t *testing.T) {
 	t.Run("ScalingMode and PollQueuedJobs", func(t *testing.T) {
 		mockP := provider.NewMockGitProvider()
 		mockP.On("ScalingMode").Return(provider.ScalingPolling).Once()
-		mockP.On("PollQueuedJobs", mock.Anything, "https://forgejo.org/repo").Return(3, nil).Once()
+		mockP.On("PollQueuedJobs", mock.Anything, provider.PollTarget{URL: "https://forgejo.org/repo"}).Return(3, nil).Once()
 
 		mode := mockP.ScalingMode()
 		assert.Equal(t, provider.ScalingPolling, mode)
 
-		jobs, err := mockP.PollQueuedJobs(ctx, "https://forgejo.org/repo")
+		jobs, err := mockP.PollQueuedJobs(ctx, provider.PollTarget{URL: "https://forgejo.org/repo"})
 		require.NoError(t, err)
 		assert.Equal(t, 3, jobs)
 

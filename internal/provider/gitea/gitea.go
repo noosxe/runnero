@@ -76,9 +76,11 @@ func (c *Client) ScalingMode() provider.ScalingMode {
 	return provider.ScalingWebhook
 }
 
-// PollQueuedJobs is a no-op for Gitea since scaling is webhook-driven.
-func (c *Client) PollQueuedJobs(ctx context.Context, targetURL string) (int, error) {
-	return 0, nil
+// PollQueuedJobs returns ErrPollingUnsupported for Gitea: the v1 API exposes only
+// user-scoped Actions listings (/user/actions/jobs, /user/actions/runs) and no
+// repo-scoped queued-jobs query (docs/24 §4), so demand polling cannot be performed.
+func (c *Client) PollQueuedJobs(ctx context.Context, target provider.PollTarget) (int, error) {
+	return 0, provider.ErrPollingUnsupported
 }
 
 // ValidateCredentials checks that the PAT is valid against the Gitea instance.
