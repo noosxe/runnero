@@ -373,12 +373,11 @@ func (s *Scheduler) loop(ctx context.Context) {
 
 		var waitCh <-chan time.Time
 		if hasJobs && !nextFire.IsZero() {
-			now := s.clock.Now().UTC()
-			if nextFire.After(now) {
-				waitCh = s.clock.After(nextFire.Sub(now))
-			} else {
-				waitCh = s.clock.After(0)
-			}
+			// Arm by absolute deadline: sampling Now() and arming a relative
+			// timer would let a concurrent clock jump (e.g. a test Advance)
+			// shift the deadline into the future, silently missing the fire.
+			// Until with a deadline at or before now fires immediately.
+			waitCh = s.clock.Until(nextFire)
 		}
 
 		select {

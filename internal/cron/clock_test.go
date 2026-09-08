@@ -101,3 +101,22 @@ func TestVirtualClock_AdvanceAndSet(t *testing.T) {
 		t.Fatal("chSet should have fired after Set")
 	}
 }
+
+func TestVirtualClock_WaitForWaiter(t *testing.T) {
+	initial := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	vc := NewVirtualClock(initial)
+
+	// No timer pending yet: a concurrent After must release the blocked waiter.
+	go func() {
+		vc.After(1 * time.Hour)
+	}()
+
+	vc.WaitForWaiter()
+
+	if vc.WaitersCount() != 1 {
+		t.Fatalf("expected 1 waiter, got %d", vc.WaitersCount())
+	}
+
+	// With a timer already pending, WaitForWaiter returns immediately.
+	vc.WaitForWaiter()
+}
