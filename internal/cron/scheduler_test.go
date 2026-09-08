@@ -12,6 +12,27 @@ import (
 	"github.com/noosxe/runnero/internal/db"
 )
 
+// waitForJobIdle blocks until the scheduler no longer considers the job running.
+// A completed task's running flag is cleared by a deferred statement in the
+// task goroutine, which may execute after the task has already signaled the
+// test — advancing the clock in that window would hit the overlap-skip path
+// and lose the next fire. The condition is guaranteed to become true, so the
+// poll has no deadline: it cannot flake, a broken scheduler surfaces as a
+// test hang instead.
+func waitForJobIdle(t *testing.T, s *Scheduler, poolID int64) {
+	t.Helper()
+	for {
+		info, err := s.GetJob(poolID)
+		if err != nil {
+			t.Fatalf("GetJob failed: %v", err)
+		}
+		if !info.IsRunning {
+			return
+		}
+		time.Sleep(50 * time.Microsecond)
+	}
+}
+
 func TestScheduler_VirtualClock_FiresOnSchedule(t *testing.T) {
 	// Virtual clock starting at 2026-09-04 00:00:00 UTC
 	initial := time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)
@@ -54,59 +75,54 @@ func TestScheduler_VirtualClock_FiresOnSchedule(t *testing.T) {
 	}
 	defer s.Stop()
 
-	// Wait until the scheduler is waiting on the clock timer
-	for i := 0; i < 50; i++ {
-		if vc.WaitersCount() > 0 {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	if vc.WaitersCount() == 0 {
-		t.Fatal("scheduler did not register timer on virtual clock")
-	}
+	// Deterministically wait until the scheduler loop has armed its timer on the
+	// virtual clock: no wall-clock deadline is involved.
+	vc.WaitForWaiter()
 
-	// Advance 1 hour: should NOT fire (now 01:00 UTC)
+	// Advance 1 hour: now 01:00 UTC. The job cannot fire yet — the scheduler
+	// dispatches only when a virtual timer fires, and no timer deadline is due
+	// before 02:00 UTC — so the zero-fire assertion is deterministic without
+	// any settling sleep.
 	vc.Advance(1 * time.Hour)
-	time.Sleep(10 * time.Millisecond)
 	if fireCount.Load() != 0 {
 		t.Fatalf("expected 0 fires, got %d", fireCount.Load())
 	}
 
-	// Advance another 1 hour: now 02:00 UTC -> should fire!
+	// Advance another 1 hour: now 02:00 UTC -> must fire. The fire is guaranteed
+	// by virtual-clock semantics — the armed absolute-deadline timer fires on
+	// Advance, and Until's at-or-before-now fast path covers a loop that has
+	// not re-armed yet — so a blocking receive needs no wall-clock timeout.
 	vc.Advance(1 * time.Hour)
 
-	select {
-	case fireTime := <-firedTimes:
-		if !fireTime.Equal(expectedNext1) {
-			t.Fatalf("expected fire time %v, got %v", expectedNext1, fireTime)
-		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("expected task to fire at 02:00 UTC, timed out")
+	fireTime := <-firedTimes
+	if !fireTime.Equal(expectedNext1) {
+		t.Fatalf("expected fire time %v, got %v", expectedNext1, fireTime)
 	}
 
-	// Verify next run was updated to 2026-09-05 02:00:00 UTC
+	// fireDueJobs records the next run before dispatching the task, and the
+	// task signals via firedTimes only after running, so the updated next run
+	// is already visible here — no polling loop needed.
 	expectedNext2 := time.Date(2026, 9, 5, 2, 0, 0, 0, time.UTC)
-	for i := 0; i < 50; i++ {
-		next, _ = s.NextRun(1)
-		if next.Equal(expectedNext2) {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
+
+	// The task has signaled, but the scheduler clears its running flag in a
+	// deferred statement that may not have executed yet; advancing before it
+	// does would make the scheduler treat the next fire as overlapping and
+	// skip it. Wait deterministically for the job to go idle.
+	waitForJobIdle(t, s, 1)
+	next, err = s.NextRun(1)
+	if err != nil {
+		t.Fatalf("NextRun failed: %v", err)
 	}
 	if !next.Equal(expectedNext2) {
 		t.Fatalf("expected next run %v, got %v", expectedNext2, next)
 	}
 
-	// Advance another 24 hours -> second fire!
+	// Advance another 24 hours -> second fire at 2026-09-05 02:00 UTC.
 	vc.Advance(24 * time.Hour)
 
-	select {
-	case fireTime := <-firedTimes:
-		if !fireTime.Equal(expectedNext2) {
-			t.Fatalf("expected second fire time %v, got %v", expectedNext2, fireTime)
-		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("expected second task fire at 2026-09-05 02:00 UTC, timed out")
+	fireTime = <-firedTimes
+	if !fireTime.Equal(expectedNext2) {
+		t.Fatalf("expected second fire time %v, got %v", expectedNext2, fireTime)
 	}
 
 	if fireCount.Load() != 2 {
@@ -521,22 +537,22 @@ func TestScheduler_SyncFromDB(t *testing.T) {
 	mockReader := &mockRenovateConfigReader{
 		configs: []db.RenovateConfig{
 			{
-				PoolID:        1,
-				Enabled:       true,
-				CronSchedule:  sqlNullString("0 2 * * *"),
-				Image:         "renovate/renovate:37",
+				PoolID:       1,
+				Enabled:      true,
+				CronSchedule: sqlNullString("0 2 * * *"),
+				Image:        "renovate/renovate:37",
 			},
 			{
-				PoolID:        2,
-				Enabled:       false, // disabled, should not register
-				CronSchedule:  sqlNullString("0 3 * * *"),
-				Image:         "renovate/renovate:latest",
+				PoolID:       2,
+				Enabled:      false, // disabled, should not register
+				CronSchedule: sqlNullString("0 3 * * *"),
+				Image:        "renovate/renovate:latest",
 			},
 			{
-				PoolID:        3,
-				Enabled:       true,
-				CronSchedule:  sqlNullString("*/15 * * * *"),
-				Image:         "renovate/renovate:latest",
+				PoolID:       3,
+				Enabled:      true,
+				CronSchedule: sqlNullString("*/15 * * * *"),
+				Image:        "renovate/renovate:latest",
 			},
 		},
 	}
@@ -567,16 +583,16 @@ func TestScheduler_SyncFromDB(t *testing.T) {
 	// Update configs: remove pool 1, enable pool 2 with new schedule
 	mockReader.configs = []db.RenovateConfig{
 		{
-			PoolID:        2,
-			Enabled:       true,
-			CronSchedule:  sqlNullString("0 4 * * *"),
-			Image:         "renovate/renovate:latest",
+			PoolID:       2,
+			Enabled:      true,
+			CronSchedule: sqlNullString("0 4 * * *"),
+			Image:        "renovate/renovate:latest",
 		},
 		{
-			PoolID:        3,
-			Enabled:       true,
-			CronSchedule:  sqlNullString("*/30 * * * *"), // updated schedule
-			Image:         "renovate/renovate:latest",
+			PoolID:       3,
+			Enabled:      true,
+			CronSchedule: sqlNullString("*/30 * * * *"), // updated schedule
+			Image:        "renovate/renovate:latest",
 		},
 	}
 
@@ -605,4 +621,3 @@ func sqlNullString(s string) sql.NullString {
 		Valid:  s != "",
 	}
 }
-
