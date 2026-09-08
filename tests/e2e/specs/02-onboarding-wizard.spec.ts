@@ -6,23 +6,38 @@ test.describe('Flow 02: Onboarding Wizard & Configuration', () => {
     await page.goto('/login');
     if (page.url().includes('/login')) {
       await page.getByLabel('Username').fill('admin');
-      await page.getByLabel('Password').fill('AdminPassword123!');
+      await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
       await page.getByRole('button', { name: /Sign In/i }).click();
+      // Wait for the session to establish before any navigation cancels the
+      // in-flight login POST.
+      await page.waitForURL((url) => !url.pathname.includes('/login'));
     }
   });
 
   test('walks through git provider, safeguards, initial pool and completes onboarding', async ({ page }) => {
     await page.goto('/onboarding');
 
-    // If on Step 2 (Connect Git Provider)
-    if (await page.getByText(/Step 2 of 5: Connect Git Provider/i).isVisible()) {
-      // Connect Git Provider using Personal Access Token
-      const tokenInput = page.getByLabel('Personal Access Token (PAT)');
-      await tokenInput.fill('ghp_mock_token_abcdef1234567890');
-
-      const nextBtn = page.getByRole('button', { name: /Next: Safeguards/i });
-      await nextBtn.click();
+    // Step 1: authenticate the existing admin (created in flow 01) when asked;
+    // successful login auto-advances to Step 2. With the session already
+    // active the wizard starts directly at the first incomplete step (Step 2
+    // when no auth profile exists yet), so only advance when the button shows.
+    const loginToContinue = page.getByRole('button', { name: /Log In to Continue Setup/i });
+    if (await loginToContinue.isVisible()) {
+      await page.getByLabel('Admin Username').fill('admin');
+      await page.getByRole('textbox', { name: 'Admin Password' }).fill('AdminPassword123!');
+      await loginToContinue.click();
+    } else {
+      const nextFromConfigured = page.getByRole('button', { name: /Next: Git Provider/i });
+      if (await nextFromConfigured.isVisible()) {
+        await nextFromConfigured.click();
+      }
     }
+
+    // Connect Git Provider using Personal Access Token (default method)
+    await expect(page.getByText(/Step 2 of 5: Connect Git Provider/i)).toBeVisible();
+    const tokenInput = page.getByLabel('Personal Access Token (PAT)');
+    await tokenInput.fill('ghp_mock_token_abcdef1234567890');
+    await page.getByRole('button', { name: /Next: Safeguards/i }).click();
 
     // Step 3: Safeguards
     await expect(page.getByText(/Step 3 of 5: Global Scaling Safeguards/i)).toBeVisible();
@@ -41,6 +56,6 @@ test.describe('Flow 02: Onboarding Wizard & Configuration', () => {
 
     // After launch, should navigate to dashboard
     await page.waitForURL('/');
-    await expect(page.getByText('Runner Dashboard')).toBeVisible();
+    await expect(page.getByText(/Dashboard Overview|Runner Dashboard/)).toBeVisible();
   });
 });

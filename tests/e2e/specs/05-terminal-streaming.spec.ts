@@ -5,8 +5,11 @@ test.describe('Flow 05: Runner Pool Detail & Streaming Terminal', () => {
     await page.goto('/login');
     if (page.url().includes('/login')) {
       await page.getByLabel('Username').fill('admin');
-      await page.getByLabel('Password').fill('AdminPassword123!');
+      await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
       await page.getByRole('button', { name: /Sign In/i }).click();
+      // Wait for the session to establish before any navigation cancels the
+      // in-flight login POST.
+      await page.waitForURL((url) => !url.pathname.includes('/login'));
     }
   });
 

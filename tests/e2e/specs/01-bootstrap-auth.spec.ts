@@ -31,9 +31,10 @@ test.describe('Flow 01: System Bootstrap & Authentication', () => {
     const page = await context.newPage();
 
     await page.goto('/settings');
-    // Expect redirect to login with redirect param
-    await page.waitForURL(/\/login\?redirect=%2Fsettings/);
-    await expect(page.getByText(/Sign in to (Supervisor|Runnero)/i)).toBeVisible();
+    // Onboarding is not completed yet (flow 02 finishes it), so the auth gate
+    // routes unauthenticated users to /onboarding instead of /settings.
+    await page.waitForURL(/\/onboarding/);
+    await expect(page.getByText('System Onboarding')).toBeVisible();
 
     await context.close();
   });
@@ -42,7 +43,7 @@ test.describe('Flow 01: System Bootstrap & Authentication', () => {
     await page.goto('/login');
 
     await page.getByLabel('Username').fill('admin');
-    await page.getByLabel('Password').fill('AdminPassword123!');
+    await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
     await page.getByRole('button', { name: /Sign In/i }).click();
 
     // After login, should land on dashboard or onboarding if setup not marked complete
