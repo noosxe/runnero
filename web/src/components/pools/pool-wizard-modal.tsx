@@ -89,6 +89,9 @@ export function PoolWizardModal({
     pool?.runnerImage || "ghcr.io/noosxe/runnero:latest",
   );
   const [allowDocker, setAllowDocker] = useState(pool?.allowDocker ?? true);
+  // Demand polling fallback (docs/24 §5.9): GitHub pools only; Forgejo polls
+  // natively and Gitea has no repo-scoped queued-jobs API.
+  const [pollFallback, setPollFallback] = useState(pool?.pollFallback ?? false);
   const [cpuLimit, setCpuLimit] = useState(pool?.cpuLimit || "2.0");
   const [memoryLimit, setMemoryLimit] = useState(pool?.memoryLimit || "4GB");
   // Lifetime is not wizard-editable; edit mode preserves the stored value
@@ -178,6 +181,13 @@ export function PoolWizardModal({
     );
     add("Runner Image", pool.runnerImage, runnerImage.trim(), true);
     add("Docker Access", String(pool.allowDocker), String(isDockerLocked || allowDocker), true);
+    if (deducedProvider === "github") {
+      add(
+        "Poll Fallback",
+        pool.pollFallback ? "Enabled" : "Disabled",
+        pollFallback ? "Enabled" : "Disabled",
+      );
+    }
     add("CPU Limit", pool.cpuLimit, cpuLimit.trim(), true);
     add("Memory Limit", pool.memoryLimit, memoryLimit.trim(), true);
     add("Min Idle Runners", String(pool.minIdleRunners), String(minIdleRunners));
@@ -202,6 +212,8 @@ export function PoolWizardModal({
     labels,
     runnerImage,
     isDockerLocked,
+    deducedProvider,
+    pollFallback,
     allowDocker,
     cpuLimit,
     memoryLimit,
@@ -347,6 +359,9 @@ export function PoolWizardModal({
               .filter(Boolean),
       runnerImage: runnerImage.trim() || "ghcr.io/noosxe/runnero:latest",
       allowDocker: isDockerLocked ? true : allowDocker,
+      // The interval is a DB-level knob in v1 (docs/24 §5.4); omitted here so the
+      // server applies/preserves the stored cadence.
+      pollFallback: deducedProvider === "github" ? pollFallback : false,
       renovate: renovateEnabled
         ? {
             enabled: true,
@@ -956,6 +971,30 @@ export function PoolWizardModal({
                   daemon).
                 </p>
               )}
+            </div>
+
+            {/* Demand Polling Fallback (docs/24 §5.9) */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={
+                    deducedProvider === "github" ? pollFallback : deducedProvider === "forgejo"
+                  }
+                  disabled={deducedProvider !== "github"}
+                  onChange={(e) => setPollFallback(e.target.checked)}
+                  className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Scale without webhooks (poll for queued jobs)</span>
+              </label>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                {deducedProvider === "gitea" &&
+                  "Not available for Gitea pools: Gitea has no repo-scoped queued-jobs API."}
+                {deducedProvider === "forgejo" &&
+                  "Always on for Forgejo pools: Forgejo has no workflow_job webhooks, so the supervisor polls for waiting tasks."}
+                {deducedProvider === "github" &&
+                  "Polls connected repositories for queued jobs so runners scale on hosts without inbound webhooks. Webhooks remain the fast path when available."}
+              </p>
             </div>
 
             {/* Renovate Bot Section */}
