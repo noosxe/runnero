@@ -677,6 +677,7 @@ function RunnerLogViewerModal({
             isConnecting={isConnecting}
             onClear={clearLogs}
             title={runner.name}
+            headerRightInset
           />
         </div>
       </div>

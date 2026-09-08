@@ -24,6 +24,8 @@ export interface LogTerminalProps {
   onClear?: () => void;
   title?: string;
   containerId?: string;
+  /** Reserve room at the top-right for an overlaid dialog close button. */
+  headerRightInset?: boolean;
 }
 
 export function LogTerminal({
@@ -36,6 +38,7 @@ export function LogTerminal({
   onClear,
   title,
   containerId,
+  headerRightInset = false,
 }: LogTerminalProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -187,7 +190,7 @@ export function LogTerminal({
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5">
+        <div className={`flex items-center gap-1.5 ${headerRightInset ? "mr-9" : ""}`}>
           {mode === "live" && (
             <button
               type="button"
