@@ -8,12 +8,12 @@ import (
 
 // MockProvider provides a mock implementation of GitProvider for testing.
 type MockProvider struct {
-	RegistrationTokenFn   func(ctx context.Context, scope RegistrationScope, targetURL string) (string, error)
-	ValidateCredentialsFn func(ctx context.Context) error
-	ScalingModeFn         func() ScalingMode
-	PollQueuedJobsFn      func(ctx context.Context, targetURL string) (int, error)
-	DeregisterRunnerFn    func(ctx context.Context, scope RegistrationScope, targetURL, runnerName string) error
-	GetRenovateTokenFn    func(ctx context.Context, targetURL string) (string, error)
+	RegistrationTokenFn     func(ctx context.Context, scope RegistrationScope, targetURL string) (string, error)
+	ValidateCredentialsFn   func(ctx context.Context) error
+	ScalingModeFn           func() ScalingMode
+	PollQueuedJobsFn        func(ctx context.Context, targetURL string) (int, error)
+	DeregisterRunnerFn      func(ctx context.Context, scope RegistrationScope, targetURL, runnerName string) error
+	GetRenovateTokenFn      func(ctx context.Context, targetURL string) (string, error)
 	DiscoverOrganizationsFn func(ctx context.Context) ([]DiscoveredTarget, error)
 	DiscoverRepositoriesFn  func(ctx context.Context) ([]DiscoveredTarget, error)
 	GetAppMetadataFn        func(ctx context.Context) (string, []AppInstallation, error)

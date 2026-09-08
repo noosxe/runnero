@@ -257,18 +257,18 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 
 	// 3. Negative assertions: ZERO secrets must leak into the export string
 	forbiddenSecrets := map[string]string{
-		"RSA PEM Full":            rawRSAPEM,
-		"RSA PEM Header":          "-----BEGIN RSA PRIVATE KEY-----",
-		"RSA PEM Footer":          "-----END RSA PRIVATE KEY-----",
-		"RSA PEM Body Chunk":      pemBodyChunk,
-		"Classic PAT":             classicPAT,
-		"Fine-Grained PAT":        fineGrainedPAT,
-		"Gitea Token":             giteaSecretToken,
-		"Forgejo Token":           forgejoSecretToken,
-		"Admin Password Hash":     adminPasswordHash,
-		"Session Token Hash":      sessionTokenHash,
-		"Encrypted Ciphertext":    encRSA.String,
-		"Raw Master Key (hex)":    string(encKey),
+		"RSA PEM Full":         rawRSAPEM,
+		"RSA PEM Header":       "-----BEGIN RSA PRIVATE KEY-----",
+		"RSA PEM Footer":       "-----END RSA PRIVATE KEY-----",
+		"RSA PEM Body Chunk":   pemBodyChunk,
+		"Classic PAT":          classicPAT,
+		"Fine-Grained PAT":     fineGrainedPAT,
+		"Gitea Token":          giteaSecretToken,
+		"Forgejo Token":        forgejoSecretToken,
+		"Admin Password Hash":  adminPasswordHash,
+		"Session Token Hash":   sessionTokenHash,
+		"Encrypted Ciphertext": encRSA.String,
+		"Raw Master Key (hex)": string(encKey),
 	}
 
 	for label, secret := range forbiddenSecrets {

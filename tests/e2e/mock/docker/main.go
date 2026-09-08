@@ -12,13 +12,13 @@ import (
 )
 
 type containerState struct {
-	ID        string            `json:"Id"`
-	Names     []string          `json:"Names"`
-	Image     string            `json:"Image"`
-	State     string            `json:"State"`
-	Status    string            `json:"Status"`
-	Created   int64             `json:"Created"`
-	Labels    map[string]string `json:"Labels"`
+	ID      string            `json:"Id"`
+	Names   []string          `json:"Names"`
+	Image   string            `json:"Image"`
+	State   string            `json:"State"`
+	Status  string            `json:"Status"`
+	Created int64             `json:"Created"`
+	Labels  map[string]string `json:"Labels"`
 }
 
 var (
