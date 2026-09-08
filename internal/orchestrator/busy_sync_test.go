@@ -275,7 +275,7 @@ func (p *plainGitProvider) ValidateCredentials(ctx context.Context) error { retu
 
 func (p *plainGitProvider) ScalingMode() provider.ScalingMode { return provider.ScalingWebhook }
 
-func (p *plainGitProvider) PollQueuedJobs(ctx context.Context, targetURL string) (int, error) {
+func (p *plainGitProvider) PollQueuedJobs(ctx context.Context, target provider.PollTarget) (int, error) {
 	return 0, nil
 }
 

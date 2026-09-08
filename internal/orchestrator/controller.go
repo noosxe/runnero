@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -176,6 +177,11 @@ type PoolController struct {
 	ghostMu                 sync.Mutex
 	ghostCounters           map[int64]map[string]int // pool id -> runner name -> consecutive offline-untracked cycles (docs/20 §4.1)
 
+	pollMu      sync.Mutex
+	lastPollAt  map[int64]time.Time // pool id -> last completed demand poll (docs/24 §5.4)
+	pollBackoff map[int64]int       // pool id -> consecutive poll failures; each adds one interval (cap 5×)
+	jitterFn    func() float64      // returns [0,1); injectable for deterministic tests
+
 	poolIDsMu     sync.RWMutex
 	poolIDsByName map[string]int64 // spawn-time name -> pool id; resolves legacy events/containers (RUN-126)
 
@@ -251,6 +257,9 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		ghostMaxDeregistrations: ghostMax,
 		enrichConclusions:       opts.EnrichConclusions,
 		ghostCounters:           make(map[int64]map[string]int),
+		lastPollAt:              make(map[int64]time.Time),
+		pollBackoff:             make(map[int64]int),
+		jitterFn:                func() float64 { return rand.Float64() },
 		poolIDsByName:           make(map[string]int64),
 		logger:                  logging.For("controller"),
 		diagnostics:             make(map[int64]PoolDiagnosticState),
@@ -1305,17 +1314,41 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	effectiveTarget := p.MinIdleRunners
 
 	// Polling-based scaling for providers without webhook support (e.g. Forgejo per docs/03 §3b, RUN-70):
-	// Every audit cycle calls PollQueuedJobs() across all targets; if queued_jobs > idle_runners, provision up to max_concurrency.
-	if gitProv != nil && gitProv.ScalingMode() == provider.ScalingPolling {
+	// Demand polling (docs/24 §5.1): natively polling providers (Forgejo) always
+	// poll; webhook providers poll only when the pool opts in via poll_fallback.
+	pollsDemand := gitProv != nil && (p.PollFallback || gitProv.ScalingMode() == provider.ScalingPolling)
+	if pollsDemand && c.pollDue(p) {
 		totalQueued := 0
+		note := ""
+		pollFailures := 0
 		for _, target := range targets {
-			queuedJobs, err := gitProv.PollQueuedJobs(ctx, target)
-			if err != nil {
-				c.logger.Warn("polling queued jobs for target failed", "pool", p.Name, "target", target, "err", err)
-			} else {
-				totalQueued += queuedJobs
+			pollTarget := provider.PollTarget{
+				URL:    target,
+				Scope:  provider.RegistrationScope(p.Scope),
+				Labels: p.Labels,
 			}
+			queuedJobs, err := gitProv.PollQueuedJobs(ctx, pollTarget)
+			switch {
+			case errors.Is(err, provider.ErrPollingScopeUnsupported):
+				// Org/global targets keep webhook-only demand (docs/24 §5.2):
+				// skip with a diagnostic note, never an error-level failure.
+				note = fmt.Sprintf("poll skipped: no org-level queued-jobs API for %s", target)
+				c.logger.Info("demand polling skipped unsupported target scope",
+					"pool", p.Name, "target", target, "scope", p.Scope)
+				continue
+			case errors.Is(err, provider.ErrPollingUnsupported):
+				note = fmt.Sprintf("poll unsupported: %v", err)
+				c.logger.Warn("demand polling unsupported for provider", "pool", p.Name, "err", err)
+				continue
+			case err != nil:
+				pollFailures++
+				c.logger.Warn("polling queued jobs for target failed", "pool", p.Name, "target", target, "err", err)
+				continue
+			}
+			totalQueued += queuedJobs
 		}
+		c.recordPollOutcome(p.Name, p.ID, totalQueued, pollFailures, len(targets), note)
+
 		idleCount := int64(len(idleRunners))
 		if int64(totalQueued) > idleCount {
 			deficit := int64(totalQueued) - idleCount
@@ -1421,7 +1454,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 		"max_concurrency", p.MaxConcurrency,
 	)
 
-	onDemand := (p.MinIdleRunners == 0 || (gitProv != nil && gitProv.ScalingMode() == provider.ScalingPolling))
+	onDemand := (p.MinIdleRunners == 0 || pollsDemand)
 	for i := int64(0); i < needed; i++ {
 		// Check per-pool max_concurrency
 		if p.MaxConcurrency > 0 && (activeCount+int64(c.QueueLengthForPool(p.ID))) >= p.MaxConcurrency {
@@ -1593,12 +1626,15 @@ func (c *PoolController) PoolDiagnostics(poolID int64) server.PoolDiagnostics {
 		}
 	}
 	return server.PoolDiagnostics{
-		HealthStatus:       string(diag.HealthStatus),
-		CurrentIntent:      diag.CurrentIntent,
-		LastError:          diag.LastError,
-		LastErrorCode:      diag.LastErrorCode,
-		LastErrorTimestamp: diag.LastErrorTimestamp,
-		LastReconciledAt:   diag.LastReconciledAt,
+		HealthStatus:        string(diag.HealthStatus),
+		CurrentIntent:       diag.CurrentIntent,
+		LastError:           diag.LastError,
+		LastErrorCode:       diag.LastErrorCode,
+		LastErrorTimestamp:  diag.LastErrorTimestamp,
+		LastReconciledAt:    diag.LastReconciledAt,
+		LastPollAt:          diag.LastPollAt,
+		LastPollQueuedCount: diag.LastPollQueuedCount,
+		LastPollError:       diag.LastPollError,
 	}
 }
 
