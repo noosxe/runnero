@@ -385,7 +385,20 @@ func ParseMemoryLimit(mem string) (int64, error) {
 	return int64(val * float64(multiplier)), nil
 }
 
+// isRemovalRace reports whether err is a benign "already gone or removal in
+// flight" condition returned by the Docker daemon when several reap paths
+// (die/destroy events, audit cycle, hung-runner sweep) race on the same
+// container and this call loses (RUN-121):
+//   - NotFound (404): the container was already removed by the winner.
+//   - Conflict (409): "removal of container X is already in progress" from
+//     ContainerRemove, or "can not get logs from container which is dead or
+//     marked for removal" from ContainerLogs.
+func isRemovalRace(err error) bool {
+	return cerrdefs.IsNotFound(err) || cerrdefs.IsConflict(err)
+}
+
 // TerminateRunner gracefully stops and removes a runner container.
+// Concurrent-removal races are benign and return nil (RUN-121).
 func (c *Client) TerminateRunner(ctx context.Context, containerID string) error {
 	c.mu.RLock()
 	docker := c.docker
@@ -400,17 +413,18 @@ func (c *Client) TerminateRunner(ctx context.Context, containerID string) error 
 		Timeout: &timeoutSec,
 	}
 
-	// Graceful stop with fallback
+	// Graceful stop with fallback; NotFound/Conflict mean another reap path
+	// already removed the container or its removal is in flight.
 	if _, err := docker.ContainerStop(ctx, containerID, stopOpts); err != nil {
-		if !cerrdefs.IsNotFound(err) {
+		if !isRemovalRace(err) {
 			_, _ = docker.ContainerRemove(ctx, containerID, client.ContainerRemoveOptions{Force: true})
 			return fmt.Errorf("stopping container %s: %w", containerID, err)
 		}
 	}
 
-	// Remove container
+	// Remove container; same benign races as the stop above.
 	if _, err := docker.ContainerRemove(ctx, containerID, client.ContainerRemoveOptions{Force: true}); err != nil {
-		if !cerrdefs.IsNotFound(err) {
+		if !isRemovalRace(err) {
 			return fmt.Errorf("removing container %s: %w", containerID, err)
 		}
 	}
@@ -668,6 +682,12 @@ func (c *Client) CaptureLogs(ctx context.Context, containerID, dataDir string) (
 
 	logStream, err := docker.ContainerLogs(ctx, containerID, opts)
 	if err != nil {
+		// Lost a race against another reap path: the container is gone, dead,
+		// or already being removed, so its logs are no longer fetchable and
+		// were captured by the winner (RUN-121).
+		if isRemovalRace(err) {
+			return "", fmt.Errorf("%w: fetching logs for %s: %w", orchestrator.ErrLogsUnavailable, containerID, err)
+		}
 		return "", fmt.Errorf("fetching container logs for %s: %w", containerID, err)
 	}
 	defer func() { _ = logStream.Close() }()

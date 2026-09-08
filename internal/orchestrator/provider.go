@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 )
@@ -58,6 +59,13 @@ type RunnerStatus struct {
 	ForgeID   int64  `json:"forge_id,omitempty"`
 	TargetURL string `json:"target_url,omitempty"`
 }
+
+// ErrLogsUnavailable is returned by CaptureLogs when the container's logs can
+// no longer be fetched: the container is already removed, dead, or its removal
+// is in progress. Multiple reap paths (die/destroy events, audit cycle, hung-
+// runner sweep) race on the same container; the losing path observes this
+// error and must treat it as benign rather than warning (RUN-121).
+var ErrLogsUnavailable = errors.New("container logs unavailable: already removed or removal in progress")
 
 // ContainerProvider abstracts container lifecycle operations from the underlying container engine.
 // See docs/02-architecture-design.md §3.1.

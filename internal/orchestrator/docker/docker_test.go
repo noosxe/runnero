@@ -3,6 +3,7 @@ package docker_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/netip"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"iter"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/events"
 	dockerimage "github.com/moby/moby/api/types/image"
@@ -536,6 +538,127 @@ func TestDockerClient_TerminateRunner(t *testing.T) {
 	}
 	if stoppedID != "cnt-to-terminate" || removedID != "cnt-to-terminate" || !forceRemoved {
 		t.Errorf("terminate failed: stopped=%q removed=%q force=%v", stoppedID, removedID, forceRemoved)
+	}
+}
+
+// RUN-121: several reap paths (die/destroy events, audit cycle) race on one
+// container; the daemon answers the losing calls with 409 Conflict
+// ("removal ... already in progress") or 404 NotFound once removed. These
+// races are benign and must not surface as errors.
+func TestDockerClient_TerminateRunner_RemovalRaceBenign(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		stopErr   error
+		removeErr error
+	}{
+		{
+			name:      "remove conflicts with in-flight removal",
+			stopErr:   nil,
+			removeErr: fmt.Errorf("removal of container cnt-race is already in progress: %w", cerrdefs.ErrConflict),
+		},
+		{
+			name:      "stop conflicts with in-flight removal",
+			stopErr:   fmt.Errorf("removal of container cnt-race is already in progress: %w", cerrdefs.ErrConflict),
+			removeErr: fmt.Errorf("removal of container cnt-race is already in progress: %w", cerrdefs.ErrConflict),
+		},
+		{
+			name:      "container already removed",
+			stopErr:   fmt.Errorf("no such container: %w", cerrdefs.ErrNotFound),
+			removeErr: fmt.Errorf("no such container: %w", cerrdefs.ErrNotFound),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockAPI := &mockDockerAPI{
+				containerStopFn: func(ctx context.Context, containerID string, options client.ContainerStopOptions) (client.ContainerStopResult, error) {
+					return client.ContainerStopResult{}, tt.stopErr
+				},
+				containerRemoveFn: func(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
+					return client.ContainerRemoveResult{}, tt.removeErr
+				},
+			}
+
+			cli, err := docker.NewClient(ctx, docker.WithAPIClient(mockAPI))
+			if err != nil {
+				t.Fatalf("NewClient failed: %v", err)
+			}
+
+			if err := cli.TerminateRunner(ctx, "cnt-race"); err != nil {
+				t.Fatalf("TerminateRunner must treat removal races as benign, got: %v", err)
+			}
+		})
+	}
+}
+
+// RUN-121: real daemon failures must still surface as errors — only
+// NotFound/Conflict races are swallowed.
+func TestDockerClient_TerminateRunner_RealFailureStillErrors(t *testing.T) {
+	ctx := context.Background()
+
+	mockAPI := &mockDockerAPI{
+		containerStopFn: func(ctx context.Context, containerID string, options client.ContainerStopOptions) (client.ContainerStopResult, error) {
+			return client.ContainerStopResult{}, nil
+		},
+		containerRemoveFn: func(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
+			return client.ContainerRemoveResult{}, errors.New("daemon exploded")
+		},
+	}
+
+	cli, err := docker.NewClient(ctx, docker.WithAPIClient(mockAPI))
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+
+	if err := cli.TerminateRunner(ctx, "cnt-fail"); err == nil {
+		t.Fatal("expected error for non-race daemon failure")
+	}
+}
+
+// RUN-121: when a concurrent reap path already captured the logs and started
+// removal, ContainerLogs answers 409 ("dead or marked for removal") or 404;
+// CaptureLogs must report that as the benign ErrLogsUnavailable sentinel.
+func TestDockerClient_CaptureLogs_RemovalRaceBenign(t *testing.T) {
+	ctx := context.Background()
+	tempDir := t.TempDir()
+
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "dead or marked for removal",
+			err:  fmt.Errorf("can not get logs from container which is dead or marked for removal: %w", cerrdefs.ErrConflict),
+		},
+		{
+			name: "already removed",
+			err:  fmt.Errorf("no such container: %w", cerrdefs.ErrNotFound),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockAPI := &mockDockerAPI{
+				containerLogsFn: func(ctx context.Context, containerID string, options client.ContainerLogsOptions) (client.ContainerLogsResult, error) {
+					return nil, tt.err
+				},
+			}
+
+			cli, err := docker.NewClient(ctx, docker.WithAPIClient(mockAPI))
+			if err != nil {
+				t.Fatalf("NewClient failed: %v", err)
+			}
+
+			path, err := cli.CaptureLogs(ctx, "cnt-race", tempDir)
+			if !errors.Is(err, orchestrator.ErrLogsUnavailable) {
+				t.Fatalf("expected ErrLogsUnavailable, got: %v", err)
+			}
+			if path != "" {
+				t.Errorf("expected empty path, got %q", path)
+			}
+		})
 	}
 }
 
