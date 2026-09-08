@@ -11,7 +11,7 @@ type MockProvider struct {
 	RegistrationTokenFn     func(ctx context.Context, scope RegistrationScope, targetURL string) (string, error)
 	ValidateCredentialsFn   func(ctx context.Context) error
 	ScalingModeFn           func() ScalingMode
-	PollQueuedJobsFn        func(ctx context.Context, targetURL string) (int, error)
+	PollQueuedJobsFn        func(ctx context.Context, target PollTarget) (int, error)
 	DeregisterRunnerFn      func(ctx context.Context, scope RegistrationScope, targetURL, runnerName string) error
 	GetRenovateTokenFn      func(ctx context.Context, targetURL string) (string, error)
 	DiscoverOrganizationsFn func(ctx context.Context) ([]DiscoveredTarget, error)
@@ -68,9 +68,9 @@ func (m *MockProvider) ScalingMode() ScalingMode {
 }
 
 // PollQueuedJobs delegates to PollQueuedJobsFn if set, otherwise returns 0.
-func (m *MockProvider) PollQueuedJobs(ctx context.Context, targetURL string) (int, error) {
+func (m *MockProvider) PollQueuedJobs(ctx context.Context, target PollTarget) (int, error) {
 	if m.PollQueuedJobsFn != nil {
-		return m.PollQueuedJobsFn(ctx, targetURL)
+		return m.PollQueuedJobsFn(ctx, target)
 	}
 	return 0, nil
 }
@@ -121,8 +121,8 @@ func (m *MockGitProvider) ScalingMode() ScalingMode {
 	return args.Get(0).(ScalingMode)
 }
 
-func (m *MockGitProvider) PollQueuedJobs(ctx context.Context, targetURL string) (int, error) {
-	args := m.Called(ctx, targetURL)
+func (m *MockGitProvider) PollQueuedJobs(ctx context.Context, target PollTarget) (int, error) {
+	args := m.Called(ctx, target)
 	return args.Int(0), args.Error(1)
 }
 

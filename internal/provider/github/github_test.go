@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -138,8 +139,9 @@ func TestGitHubAppProvider(t *testing.T) {
 	if client.ScalingMode() != provider.ScalingWebhook {
 		t.Errorf("expected scaling mode webhook, got %v", client.ScalingMode())
 	}
-	if queued, err := client.PollQueuedJobs(ctx, "https://github.com/my-org/my-repo"); err != nil || queued != 0 {
-		t.Errorf("expected 0 queued jobs, got %d, err: %v", queued, err)
+	// Demand polling is exercised in polling_test.go; here assert the scope guard.
+	if _, err := client.PollQueuedJobs(ctx, provider.PollTarget{URL: "https://github.com/my-org", Scope: provider.ScopeOrg}); !errors.Is(err, provider.ErrPollingScopeUnsupported) {
+		t.Errorf("expected ErrPollingScopeUnsupported for org scope, got %v", err)
 	}
 
 	// 3. Repo-scoped registration token

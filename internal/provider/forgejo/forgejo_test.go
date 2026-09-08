@@ -115,7 +115,7 @@ func TestForgejoClient(t *testing.T) {
 
 	// 3. PollQueuedJobs for Repo (returns 2 waiting tasks)
 	repoURL := server.URL + "/my-org/my-repo"
-	count, err := client.PollQueuedJobs(ctx, repoURL)
+	count, err := client.PollQueuedJobs(ctx, provider.PollTarget{URL: repoURL, Scope: provider.ScopeRepo})
 	if err != nil {
 		t.Fatalf("PollQueuedJobs repo failed: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestForgejoClient(t *testing.T) {
 
 	// 4. PollQueuedJobs for Org (returns total_count 5)
 	orgURL := server.URL + "/my-org"
-	orgCount, err := client.PollQueuedJobs(ctx, orgURL)
+	orgCount, err := client.PollQueuedJobs(ctx, provider.PollTarget{URL: orgURL, Scope: provider.ScopeOrg})
 	if err != nil {
 		t.Fatalf("PollQueuedJobs org failed: %v", err)
 	}

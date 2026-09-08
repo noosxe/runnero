@@ -156,8 +156,10 @@ func (c *Client) GetRegistrationToken(ctx context.Context, scope provider.Regist
 }
 
 // PollQueuedJobs queries Forgejo's API for queued Actions tasks (used for polling-based scaling).
-func (c *Client) PollQueuedJobs(ctx context.Context, targetURL string) (int, error) {
-	instanceURL, owner, repo, err := parseForgejoTargetURL(targetURL)
+// The pool's label contract is accepted but not applied yet — all waiting tasks are
+// counted regardless of labels (docs/24 §5.3); label-aware filtering is RUN-144.
+func (c *Client) PollQueuedJobs(ctx context.Context, target provider.PollTarget) (int, error) {
+	instanceURL, owner, repo, err := parseForgejoTargetURL(target.URL)
 	if err != nil {
 		return 0, err
 	}

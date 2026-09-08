@@ -42,7 +42,7 @@ func TestMockProvider(t *testing.T) {
 	if defaultMock.ScalingMode() != provider.ScalingWebhook {
 		t.Fatalf("expected default scaling mode webhook, got %v", defaultMock.ScalingMode())
 	}
-	jobs, err := defaultMock.PollQueuedJobs(ctx, "https://github.com/org/repo")
+	jobs, err := defaultMock.PollQueuedJobs(ctx, provider.PollTarget{URL: "https://github.com/org/repo"})
 	if err != nil || jobs != 0 {
 		t.Fatalf("expected 0 queued jobs, got %d, err: %v", jobs, err)
 	}
@@ -61,7 +61,7 @@ func TestMockProvider(t *testing.T) {
 		ScalingModeFn: func() provider.ScalingMode {
 			return provider.ScalingPolling
 		},
-		PollQueuedJobsFn: func(ctx context.Context, targetURL string) (int, error) {
+		PollQueuedJobsFn: func(ctx context.Context, target provider.PollTarget) (int, error) {
 			return 42, nil
 		},
 	}
@@ -78,7 +78,7 @@ func TestMockProvider(t *testing.T) {
 	if customMock.ScalingMode() != provider.ScalingPolling {
 		t.Errorf("expected polling scaling mode, got %v", customMock.ScalingMode())
 	}
-	if jobs, err := customMock.PollQueuedJobs(ctx, "url"); err != nil || jobs != 42 {
+	if jobs, err := customMock.PollQueuedJobs(ctx, provider.PollTarget{URL: "url"}); err != nil || jobs != 42 {
 		t.Errorf("expected 42 jobs, got %d, err: %v", jobs, err)
 	}
 }
