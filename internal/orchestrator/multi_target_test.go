@@ -27,7 +27,7 @@ func (m *mockMultiTargetDB) ListPoolTargetsByPoolId(ctx context.Context, poolID 
 
 func TestMatchPoolForEventWithTargets(t *testing.T) {
 	pool := db.RunnerPool{
-		ID:            10,
+		ID:            147,
 		Name:          "multi-repo-pool",
 		Provider:      "github",
 		RepositoryUrl: "https://github.com/acme/repo-alpha",
@@ -36,7 +36,7 @@ func TestMatchPoolForEventWithTargets(t *testing.T) {
 	}
 
 	poolTargets := map[int64][]string{
-		10: {
+		147: {
 			"https://github.com/acme/repo-alpha",
 			"https://github.com/acme/repo-beta",
 			"https://github.com/acme/repo-gamma",
@@ -65,7 +65,7 @@ func TestMatchPoolForEventWithTargets(t *testing.T) {
 	if matchedPool == nil {
 		t.Fatalf("expected pool to match repo-beta, got nil")
 	}
-	if matchedPool.ID != 10 {
+	if matchedPool.ID != 147 {
 		t.Errorf("expected pool ID 10, got %d", matchedPool.ID)
 	}
 	if matchedURL != "https://github.com/acme/repo-beta" {
@@ -102,7 +102,7 @@ func TestPoolController_MultiTargetStandbyDistribution(t *testing.T) {
 	mockDB := &mockMultiTargetDB{
 		pools: []db.RunnerPool{
 			{
-				ID:             1,
+				ID:             148,
 				Name:           "shared-pool",
 				Provider:       "github",
 				RepositoryUrl:  "https://github.com/acme/repo-1",
@@ -114,10 +114,10 @@ func TestPoolController_MultiTargetStandbyDistribution(t *testing.T) {
 			},
 		},
 		targets: map[int64][]db.PoolTarget{
-			1: {
-				{PoolID: 1, TargetUrl: "https://github.com/acme/repo-1"},
-				{PoolID: 1, TargetUrl: "https://github.com/acme/repo-2"},
-				{PoolID: 1, TargetUrl: "https://github.com/acme/repo-3"},
+			148: {
+				{PoolID: 148, TargetUrl: "https://github.com/acme/repo-1"},
+				{PoolID: 148, TargetUrl: "https://github.com/acme/repo-2"},
+				{PoolID: 148, TargetUrl: "https://github.com/acme/repo-3"},
 			},
 		},
 	}
@@ -176,7 +176,7 @@ func TestPoolController_MultiTargetForgejoPolling(t *testing.T) {
 	mockDB := &mockMultiTargetDB{
 		pools: []db.RunnerPool{
 			{
-				ID:             2,
+				ID:             149,
 				Name:           "forgejo-multi",
 				Provider:       "forgejo",
 				RepositoryUrl:  "https://forgejo.example.com/org/repo-a",
@@ -188,9 +188,9 @@ func TestPoolController_MultiTargetForgejoPolling(t *testing.T) {
 			},
 		},
 		targets: map[int64][]db.PoolTarget{
-			2: {
-				{PoolID: 2, TargetUrl: "https://forgejo.example.com/org/repo-a"},
-				{PoolID: 2, TargetUrl: "https://forgejo.example.com/org/repo-b"},
+			149: {
+				{PoolID: 149, TargetUrl: "https://forgejo.example.com/org/repo-a"},
+				{PoolID: 149, TargetUrl: "https://forgejo.example.com/org/repo-b"},
 			},
 		},
 	}

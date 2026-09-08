@@ -21,22 +21,45 @@ type AuditReport struct {
 	Disappeared  []string       `json:"disappeared"`
 }
 
+// PoolNameResolver resolves a runner pool's database id from its name. It is
+// used to adopt containers spawned before the pool-id label existed (RUN-126):
+// their only pool association is the spawn-time name label.
+type PoolNameResolver func(name string) (int64, bool)
+
 // Reconciler maintains in-memory runner pool tracking state, reconciling it with
 // host container engine state on supervisor boot and across periodic audit cycles (docs/03 §2, §3).
+//
+// Tracking is keyed by pool database id, which survives renames (docs/22 §5.4,
+// RUN-126); the id-keyed zero bucket holds containers whose pool could not be
+// resolved (unmanaged leftovers, pools renamed or deleted between spawn and audit).
 type Reconciler struct {
 	provider ContainerProvider
 
+	// resolvePoolID promotes legacy containers (no pool-id label) by their
+	// spawn-time pool name. May be nil, in which case such containers land in
+	// the unresolved (zero-id) bucket.
+	resolvePoolID PoolNameResolver
+
 	mu sync.RWMutex
-	// tracked maps poolName -> map[containerID]RunnerStatus
-	tracked map[string]map[string]RunnerStatus
+	// tracked maps poolID -> map[containerID]RunnerStatus
+	tracked map[int64]map[string]RunnerStatus
 }
 
 // NewReconciler creates a new runner state reconciler.
 func NewReconciler(provider ContainerProvider) *Reconciler {
 	return &Reconciler{
 		provider: provider,
-		tracked:  make(map[string]map[string]RunnerStatus),
+		tracked:  make(map[int64]map[string]RunnerStatus),
 	}
+}
+
+// SetPoolNameResolver installs the legacy-adoption name resolver (RUN-126).
+// It must be called before the first audit; controllers typically wire it to a
+// database lookup closed over their pool repository.
+func (r *Reconciler) SetPoolNameResolver(resolver PoolNameResolver) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.resolvePoolID = resolver
 }
 
 // RebuildState performs boot-time reconciliation. When the supervisor starts or restarts
@@ -67,10 +90,19 @@ func (r *Reconciler) Audit(ctx context.Context) (AuditReport, error) {
 	for _, s := range liveStatuses {
 		liveMap[s.ID] = s
 
-		poolMap, exists := r.tracked[s.PoolName]
+		if s.PoolID == 0 && s.PoolName != "" {
+			// Container spawned before the pool-id label existed (RUN-126):
+			// promote it by its spawn-time name so boot adoption of in-flight
+			// runners survives the upgrade (docs/03 §2).
+			if poolID, ok := r.resolvePoolID(s.PoolName); ok {
+				s.PoolID = poolID
+			}
+		}
+
+		poolMap, exists := r.tracked[s.PoolID]
 		if !exists {
 			poolMap = make(map[string]RunnerStatus)
-			r.tracked[s.PoolName] = poolMap
+			r.tracked[s.PoolID] = poolMap
 		}
 
 		if existing, alreadyTracked := poolMap[s.ID]; alreadyTracked {
@@ -99,7 +131,7 @@ func (r *Reconciler) Audit(ctx context.Context) (AuditReport, error) {
 	}
 
 	// Detect containers previously tracked that have disappeared from the host engine
-	for poolName, poolMap := range r.tracked {
+	for poolID, poolMap := range r.tracked {
 		for id := range poolMap {
 			if _, stillPresent := liveMap[id]; !stillPresent {
 				report.Disappeared = append(report.Disappeared, id)
@@ -107,7 +139,7 @@ func (r *Reconciler) Audit(ctx context.Context) (AuditReport, error) {
 			}
 		}
 		if len(poolMap) == 0 {
-			delete(r.tracked, poolName)
+			delete(r.tracked, poolID)
 		}
 	}
 
@@ -121,11 +153,11 @@ func (r *Reconciler) Audit(ctx context.Context) (AuditReport, error) {
 }
 
 // TrackedPoolRunners returns a snapshot of all currently tracked runners for a pool.
-func (r *Reconciler) TrackedPoolRunners(poolName string) []RunnerStatus {
+func (r *Reconciler) TrackedPoolRunners(poolID int64) []RunnerStatus {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	poolMap, exists := r.tracked[poolName]
+	poolMap, exists := r.tracked[poolID]
 	if !exists {
 		return nil
 	}
@@ -142,23 +174,23 @@ func (r *Reconciler) TrackRunner(status RunnerStatus) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	poolMap, exists := r.tracked[status.PoolName]
+	poolMap, exists := r.tracked[status.PoolID]
 	if !exists {
 		poolMap = make(map[string]RunnerStatus)
-		r.tracked[status.PoolName] = poolMap
+		r.tracked[status.PoolID] = poolMap
 	}
 	poolMap[status.ID] = status
 }
 
 // UntrackRunner removes a terminated runner from tracking.
-func (r *Reconciler) UntrackRunner(poolName, containerID string) {
+func (r *Reconciler) UntrackRunner(poolID int64, containerID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if poolMap, exists := r.tracked[poolName]; exists {
+	if poolMap, exists := r.tracked[poolID]; exists {
 		delete(poolMap, containerID)
 		if len(poolMap) == 0 {
-			delete(r.tracked, poolName)
+			delete(r.tracked, poolID)
 		}
 	}
 }

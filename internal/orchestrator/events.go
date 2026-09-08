@@ -11,11 +11,15 @@ import (
 
 // ContainerEvent represents a container termination or destruction event.
 type ContainerEvent struct {
-	ContainerID string    `json:"container_id"`
-	PoolName    string    `json:"pool_name"`
-	Action      string    `json:"action"` // "die", "destroy", "stop"
-	ExitCode    int       `json:"exit_code"`
-	Timestamp   time.Time `json:"timestamp"`
+	ContainerID string `json:"container_id"`
+	PoolName    string `json:"pool_name"`
+	// PoolID is the owning pool's database id from the container's pool-id
+	// label (RUN-126); zero for containers spawned before the label existed,
+	// in which case PoolName resolves the pool as a legacy fallback.
+	PoolID    int64     `json:"pool_id,omitempty"`
+	Action    string    `json:"action"` // "die", "destroy", "stop"
+	ExitCode  int       `json:"exit_code"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // EventStreamProvider abstracts Docker event streaming for the orchestrator.
@@ -146,6 +150,13 @@ func (l *EventListener) Listen(ctx context.Context, onReap func(ContainerEvent))
 
 				poolName := msg.Actor.Attributes[LabelPoolName]
 
+				var poolID int64
+				if rawPoolID := msg.Actor.Attributes[LabelPoolID]; rawPoolID != "" {
+					if id, err := strconv.ParseInt(rawPoolID, 10, 64); err == nil {
+						poolID = id
+					}
+				}
+
 				exitCode := 0
 				if exitCodeStr, ok := msg.Actor.Attributes["exitCode"]; ok {
 					if ec, err := strconv.Atoi(exitCodeStr); err == nil {
@@ -156,6 +167,7 @@ func (l *EventListener) Listen(ctx context.Context, onReap func(ContainerEvent))
 				event := ContainerEvent{
 					ContainerID: containerID,
 					PoolName:    poolName,
+					PoolID:      poolID,
 					Action:      action,
 					ExitCode:    exitCode,
 					Timestamp:   time.Unix(msg.Time, msg.TimeNano),

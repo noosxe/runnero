@@ -18,7 +18,7 @@ func newWebhookRecHarness(t *testing.T, rec *mockJobRecorder) (*orchestrator.Poo
 	t.Helper()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             160,
 		Name:           "enrich-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/test-repo",
@@ -62,6 +62,7 @@ func newWebhookRecHarness(t *testing.T, rec *mockJobRecorder) (*orchestrator.Poo
 // trackRunner registers a tracked runner directly with the reconciler.
 func trackRunner(reconciler *orchestrator.Reconciler, name string, busy bool) {
 	reconciler.TrackRunner(orchestrator.RunnerStatus{
+		PoolID:    160,
 		ID:        "c-" + name,
 		Name:      name,
 		PoolName:  "enrich-pool",
@@ -72,7 +73,7 @@ func trackRunner(reconciler *orchestrator.Reconciler, name string, busy bool) {
 }
 
 func trackedBusy(reconciler *orchestrator.Reconciler, name string) bool {
-	for _, r := range reconciler.TrackedPoolRunners("enrich-pool") {
+	for _, r := range reconciler.TrackedPoolRunners(160) {
 		if r.Name == name {
 			return r.IsBusy
 		}
@@ -116,7 +117,7 @@ func TestWebhookEnrichment_QueuedEventUpsertsRow(t *testing.T) {
 		t.Fatalf("expected 1 queued upsert, got %d", len(rec.webhookQueued))
 	}
 	call := rec.webhookQueued[0]
-	if call.poolID != 1 || call.jobID != 501 {
+	if call.poolID != 160 || call.jobID != 501 {
 		t.Fatalf("unexpected call: pool=%d job=%d", call.poolID, call.jobID)
 	}
 	wantQueued := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)

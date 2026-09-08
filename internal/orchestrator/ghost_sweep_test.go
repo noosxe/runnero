@@ -78,7 +78,7 @@ func TestGhostSweep_TrackedBusyAndForeignNeverSwept(t *testing.T) {
 
 	// Locally tracked runner mid-job (busy) whose registration shows offline
 	// and idle at the forge — only the tracked exemption may protect it.
-	h.injectRunner(pool.Name, ghostName(pool.Name, "tracked0"), true)
+	h.injectRunner(pool, ghostName(pool.Name, "tracked0"), true)
 
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{Name: ghostName(pool.Name, "tracked0"), Busy: false, Online: false}, // tracked → exempt
@@ -164,7 +164,7 @@ func TestGhostSweep_SingleListingSharedPerCycle(t *testing.T) {
 	}
 	h.mockProv.listCalls = 0 // isolate per-cycle behaviour from Boot's initial convergence pass
 
-	h.injectRunner(pool.Name, ghostName(pool.Name, "share0"), true) // busy sync has work too; busy survives drain
+	h.injectRunner(pool, ghostName(pool.Name, "share0"), true) // busy sync has work too; busy survives drain
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{Name: ghostName(pool.Name, "share0"), Busy: true, Online: true},
 		{Name: ghostName(pool.Name, "ghost9"), Busy: false, Online: false},

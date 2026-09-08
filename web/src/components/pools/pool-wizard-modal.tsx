@@ -14,6 +14,7 @@ import {
   Square,
   ExternalLink,
   AlertCircle,
+  Info,
   Loader2,
   Lock,
   Globe,
@@ -1067,11 +1068,11 @@ export function PoolWizardModal({
               </div>
             )}
             {isEdit && renamed && (
-              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
-                <AlertCircle className="h-4 w-4 shrink-0" />
+              <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/80 p-3 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-400">
+                <Info className="h-4 w-4 shrink-0" />
                 <span>
-                  Renaming recycles the pool's idle runners and requires zero busy runners at save
-                  time; a busy runner rejects the rename.
+                  Renaming only changes how the pool is displayed — runners are unaffected and keep
+                  their original pool label until they recycle naturally.
                 </span>
               </div>
             )}

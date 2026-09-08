@@ -21,30 +21,30 @@ import (
 type mockStatsProvider struct {
 	mu           sync.Mutex
 	reloadsCount int
-	activeCounts map[string]int32
-	idleCounts   map[string]int32
-	diagnostics  map[string]server.PoolDiagnostics
-	recycled     []string
+	activeCounts map[int64]int32
+	idleCounts   map[int64]int32
+	diagnostics  map[int64]server.PoolDiagnostics
+	recycled     []int64
 }
 
 func newMockStatsProvider() *mockStatsProvider {
 	return &mockStatsProvider{
-		activeCounts: make(map[string]int32),
-		idleCounts:   make(map[string]int32),
-		diagnostics:  make(map[string]server.PoolDiagnostics),
+		activeCounts: make(map[int64]int32),
+		idleCounts:   make(map[int64]int32),
+		diagnostics:  make(map[int64]server.PoolDiagnostics),
 	}
 }
 
-func (m *mockStatsProvider) PoolStats(poolName string) (active int32, idle int32) {
+func (m *mockStatsProvider) PoolStats(poolID int64) (active int32, idle int32) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.activeCounts[poolName], m.idleCounts[poolName]
+	return m.activeCounts[poolID], m.idleCounts[poolID]
 }
 
-func (m *mockStatsProvider) PoolDiagnostics(poolName string) server.PoolDiagnostics {
+func (m *mockStatsProvider) PoolDiagnostics(poolID int64) server.PoolDiagnostics {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if diag, ok := m.diagnostics[poolName]; ok {
+	if diag, ok := m.diagnostics[poolID]; ok {
 		return diag
 	}
 	return server.PoolDiagnostics{
@@ -62,20 +62,20 @@ func (m *mockStatsProvider) Reload(ctx context.Context) error {
 
 // RecycleIdleRunners records recycle requests so tests can assert the
 // spawn-identity/rename recycling behavior of UpdatePool (docs/22 §5.2).
-func (m *mockStatsProvider) RecycleIdleRunners(ctx context.Context, poolName string) error {
+func (m *mockStatsProvider) RecycleIdleRunners(ctx context.Context, poolID int64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.recycled = append(m.recycled, poolName)
+	m.recycled = append(m.recycled, poolID)
 	return nil
 }
 
 // recycledCount reports how often RecycleIdleRunners was called for poolName.
-func (m *mockStatsProvider) recycledCount(poolName string) int {
+func (m *mockStatsProvider) recycledCount(poolID int64) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	n := 0
 	for _, p := range m.recycled {
-		if p == poolName {
+		if p == poolID {
 			n++
 		}
 	}
@@ -86,8 +86,6 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 	ctx := context.Background()
 	database, jwtSecret := setupTestDB(t)
 	stats := newMockStatsProvider()
-	stats.activeCounts["github-arm64"] = 3
-	stats.idleCounts["github-arm64"] = 2
 
 	srv := server.New(server.Options{
 		Port:             8080,
@@ -122,9 +120,9 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 
 	// Create test auth profile for foreign key requirement
 	authProfile, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
-		Name:                "test-auth-profile",
-		AuthMethod:          "pat",
-		TokenEncrypted:      sql.NullString{String: "encrypted-token", Valid: true},
+		Name:           "test-auth-profile",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "encrypted-token", Valid: true},
 	})
 	if err != nil {
 		t.Fatalf("CreateAuthProfile failed: %v", err)
@@ -225,11 +223,22 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 	if createdPool.Id <= 0 || createdPool.Name != "github-arm64" {
 		t.Fatalf("unexpected created pool: %+v", createdPool)
 	}
+	stats.activeCounts[createdPool.Id] = 3
+	stats.idleCounts[createdPool.Id] = 2
 	if len(createdPool.Labels) != 3 || createdPool.Labels[2] != "arm64" {
 		t.Errorf("expected 3 labels, got: %+v", createdPool.Labels)
 	}
-	if createdPool.ActiveRunners != 3 || createdPool.IdleRunners != 2 {
-		t.Errorf("stats not populated properly: active=%d, idle=%d", createdPool.ActiveRunners, createdPool.IdleRunners)
+	listReq0 := connect.NewRequest(&supervisorv1.ListPoolsRequest{})
+	listReq0.Header().Set("Cookie", "session_token="+rawCookie)
+	listRes0, err := client.ListPools(ctx, listReq0)
+	if err != nil {
+		t.Fatalf("ListPools failed: %v", err)
+	}
+	if len(listRes0.Msg.Pools) != 1 {
+		t.Fatalf("expected 1 pool in list, got %d", len(listRes0.Msg.Pools))
+	}
+	if p0 := listRes0.Msg.Pools[0]; p0.ActiveRunners != 3 || p0.IdleRunners != 2 {
+		t.Errorf("stats not populated properly: active=%d, idle=%d", p0.ActiveRunners, p0.IdleRunners)
 	}
 
 	// Verify reload was triggered and audit log was recorded
@@ -330,8 +339,6 @@ func TestPoolServiceWatchPools(t *testing.T) {
 
 	database, jwtSecret := setupTestDB(t)
 	stats := newMockStatsProvider()
-	stats.activeCounts["watch-pool"] = 4
-	stats.idleCounts["watch-pool"] = 1
 
 	srv := server.New(server.Options{
 		Port:             8080,
@@ -386,9 +393,12 @@ func TestPoolServiceWatchPools(t *testing.T) {
 		},
 	})
 	createReq.Header().Set("Cookie", "session_token="+rawCookie)
-	if _, err := client.CreatePool(ctx, createReq); err != nil {
+	createRes, err := client.CreatePool(ctx, createReq)
+	if err != nil {
 		t.Fatalf("CreatePool failed: %v", err)
 	}
+	stats.activeCounts[createRes.Msg.Pool.Id] = 4
+	stats.idleCounts[createRes.Msg.Pool.Id] = 1
 
 	// Watch Pools stream
 	watchReq := connect.NewRequest(&supervisorv1.WatchPoolsRequest{
@@ -430,34 +440,34 @@ func TestPoolServiceWatchPools(t *testing.T) {
 
 type mockRunnerManager struct {
 	mu         sync.Mutex
-	runners    map[string][]server.RunnerInstanceInfo
+	runners    map[int64][]server.RunnerInstanceInfo
 	terminated []string
 }
 
 func newMockRunnerManager() *mockRunnerManager {
 	return &mockRunnerManager{
-		runners: make(map[string][]server.RunnerInstanceInfo),
+		runners: make(map[int64][]server.RunnerInstanceInfo),
 	}
 }
 
-func (m *mockRunnerManager) PoolRunners(poolName string) []server.RunnerInstanceInfo {
+func (m *mockRunnerManager) PoolRunners(poolID int64) []server.RunnerInstanceInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.runners[poolName]
+	return m.runners[poolID]
 }
 
-func (m *mockRunnerManager) TerminateRunner(ctx context.Context, poolName, containerID string) error {
+func (m *mockRunnerManager) TerminateRunner(ctx context.Context, poolID int64, containerID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.terminated = append(m.terminated, containerID)
-	list := m.runners[poolName]
+	list := m.runners[poolID]
 	filtered := make([]server.RunnerInstanceInfo, 0, len(list))
 	for _, r := range list {
 		if r.ID != containerID {
 			filtered = append(filtered, r)
 		}
 	}
-	m.runners[poolName] = filtered
+	m.runners[poolID] = filtered
 	return nil
 }
 
@@ -466,7 +476,7 @@ func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 	database, jwtSecret := setupTestDB(t)
 	runnerMgr := newMockRunnerManager()
 
-	runnerMgr.runners["runner-mgmt-pool"] = []server.RunnerInstanceInfo{
+	runnerMgr.runners[1] = []server.RunnerInstanceInfo{
 		{
 			ID:        "cnt-alpha",
 			Name:      "runnero-runner-alpha",
@@ -588,7 +598,7 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 
 	database, jwtSecret := setupTestDB(t)
 	runnerMgr := newMockRunnerManager()
-	runnerMgr.runners["stream-pool"] = []server.RunnerInstanceInfo{
+	streamRunners := []server.RunnerInstanceInfo{
 		{
 			ID:        "stream-cnt-1",
 			Name:      "runnero-stream-1",
@@ -650,6 +660,7 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateRunnerPool failed: %v", err)
 	}
+	runnerMgr.runners[pool.ID] = streamRunners
 
 	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
 	watchReq := connect.NewRequest(&supervisorv1.WatchRunnersRequest{
@@ -859,7 +870,7 @@ func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 
 	stats := newMockStatsProvider()
 	now := time.Now().UTC().Truncate(time.Second)
-	stats.diagnostics["diag-pool"] = server.PoolDiagnostics{
+	stats.diagnostics[p.ID] = server.PoolDiagnostics{
 		HealthStatus:       "degraded",
 		CurrentIntent:      "Reconciling warm pool",
 		LastError:          "Decryption failure on master key",
@@ -1076,7 +1087,7 @@ func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 	if _, err := updatePool(t, client, rawCookie, control); err != nil {
 		t.Fatalf("control-plane update failed: %v", err)
 	}
-	if got := stats.recycledCount("edit-pool"); got != 0 {
+	if got := stats.recycledCount(poolID); got != 0 {
 		t.Errorf("control-plane-only edit must not recycle idle runners, got %d recycles", got)
 	}
 	if got := poolTargetIDs(t, database, poolID); !targetIDsEqual(targetIDsBefore, got) {
@@ -1089,7 +1100,7 @@ func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 	if _, err := updatePool(t, client, rawCookie, identity); err != nil {
 		t.Fatalf("spawn-identity update failed: %v", err)
 	}
-	if got := stats.recycledCount("edit-pool"); got != 1 {
+	if got := stats.recycledCount(poolID); got != 1 {
 		t.Errorf("spawn-identity edit must recycle idle runners once, got %d recycles", got)
 	}
 
@@ -1138,40 +1149,30 @@ func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 		t.Errorf("rejected update must not modify the pool row: before=%+v after=%+v", rowBefore, rowAfter)
 	}
 
-	// 7. Rename with busy runners is rejected before recycle or write.
+	// 7. Rename is metadata-only: it succeeds even with busy runners and never
+	// recycles — tracking is keyed by pool id, so live runners are unaffected
+	// (RUN-126, docs/22 §5.4).
 	stats.mu.Lock()
-	stats.activeCounts["edit-pool"] = 2
+	stats.activeCounts[poolID] = 2
 	stats.mu.Unlock()
 	rename := editPoolPayload(poolID, profile.ID, "edit-pool-renamed")
-	if _, err := updatePool(t, client, rawCookie, rename); err == nil {
-		t.Fatal("rename with busy runners must be rejected")
-	} else if connect.CodeOf(err) != connect.CodeFailedPrecondition {
-		t.Errorf("rename busy: want CodeFailedPrecondition, got %v (%v)", connect.CodeOf(err), err)
+	rename.Labels = identity.Labels // pure rename: spawn identity untouched
+	renamedPool, err := updatePool(t, client, rawCookie, rename)
+	if err != nil {
+		t.Fatalf("rename with busy runners must succeed: %v", err)
 	}
-	if got := stats.recycledCount("edit-pool"); got != 1 {
-		t.Errorf("rejected rename must not recycle, got %d recycles", got)
+	if renamedPool.Name != "edit-pool-renamed" {
+		t.Errorf("rename response name=%q, want edit-pool-renamed", renamedPool.Name)
+	}
+	if got := stats.recycledCount(poolID); got != 1 {
+		t.Errorf("rename must not recycle runners (still only the identity edit), got %d recycles", got)
 	}
 	rowAfter, err = database.GetRunnerPoolById(ctx, poolID)
 	if err != nil {
 		t.Fatalf("GetRunnerPoolById failed: %v", err)
 	}
-	if rowAfter.Name != "edit-pool" {
-		t.Errorf("rejected rename must not modify the pool row, name=%q", rowAfter.Name)
-	}
-
-	// 8. Rename with zero busy runners succeeds, recycles, and rewrites the row.
-	stats.mu.Lock()
-	stats.activeCounts["edit-pool"] = 0
-	stats.mu.Unlock()
-	renamedPool, err := updatePool(t, client, rawCookie, rename)
-	if err != nil {
-		t.Fatalf("rename failed: %v", err)
-	}
-	if renamedPool.Name != "edit-pool-renamed" {
-		t.Errorf("rename response name=%q, want edit-pool-renamed", renamedPool.Name)
-	}
-	if got := stats.recycledCount("edit-pool"); got != 2 {
-		t.Errorf("rename must recycle idle runners under the old name, got %d recycles", got)
+	if rowAfter.Name != "edit-pool-renamed" {
+		t.Errorf("rename must rewrite the pool row, name=%q", rowAfter.Name)
 	}
 	if _, err := database.GetRunnerPoolByName(ctx, "edit-pool"); err == nil {
 		t.Error("old pool name must no longer resolve")
@@ -1184,8 +1185,8 @@ func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 	}
 	var details struct {
 		Changes map[string]struct {
-			Before any    `json:"before"`
-			After  any    `json:"after"`
+			Before any `json:"before"`
+			After  any `json:"after"`
 		} `json:"changes"`
 	}
 	for _, log := range auditLogs {
@@ -1230,4 +1231,3 @@ func targetIDsEqual(a, b []int64) bool {
 	}
 	return true
 }
-

@@ -95,7 +95,7 @@ func TestConclusionEnrichment_EnrichesOnIdleTransition(t *testing.T) {
 	ctx := context.Background()
 	pool := busySyncPool("enrich", 0, 5)
 	h := newEnrichHarness(t, pool, true)
-	h.injectRunner(pool.Name, "runnero-enrich-1", false)
+	h.injectRunner(pool, "runnero-enrich-1", false)
 
 	// Job picked up: the forge reports the runner busy, carrying its id.
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
@@ -145,7 +145,7 @@ func TestConclusionEnrichment_FailOpenOnError(t *testing.T) {
 	ctx := context.Background()
 	pool := busySyncPool("enrich-fail", 0, 5)
 	h := newEnrichHarness(t, pool, true)
-	h.injectRunner(pool.Name, "runnero-enrich-2", false)
+	h.injectRunner(pool, "runnero-enrich-2", false)
 
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{ID: 7002, Name: "runnero-enrich-2", Busy: true, Online: true},
@@ -175,7 +175,7 @@ func TestConclusionEnrichment_DisabledByToggle(t *testing.T) {
 	ctx := context.Background()
 	pool := busySyncPool("enrich-off", 0, 5)
 	h := newEnrichHarness(t, pool, false)
-	h.injectRunner(pool.Name, "runnero-enrich-3", false)
+	h.injectRunner(pool, "runnero-enrich-3", false)
 
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{ID: 7003, Name: "runnero-enrich-3", Busy: true, Online: true},
@@ -204,7 +204,7 @@ func TestConclusionEnrichment_NoForgeIDSkipsCall(t *testing.T) {
 	ctx := context.Background()
 	pool := busySyncPool("enrich-noid", 0, 5)
 	h := newEnrichHarness(t, pool, true)
-	h.injectRunner(pool.Name, "runnero-enrich-4", false)
+	h.injectRunner(pool, "runnero-enrich-4", false)
 
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{Name: "runnero-enrich-4", Busy: true, Online: true},
@@ -234,7 +234,7 @@ func TestConclusionEnrichment_UnconcludedJobSkipped(t *testing.T) {
 	ctx := context.Background()
 	pool := busySyncPool("enrich-running", 0, 5)
 	h := newEnrichHarness(t, pool, true)
-	h.injectRunner(pool.Name, "runnero-enrich-5", false)
+	h.injectRunner(pool, "runnero-enrich-5", false)
 
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{ID: 7005, Name: "runnero-enrich-5", Busy: true, Online: true},

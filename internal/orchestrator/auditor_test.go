@@ -13,7 +13,7 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 
 	// 1. Simulate host engine already having containers running from a prior supervisor run
 	liveHostContainers := []orchestrator.RunnerStatus{
-		{
+		{PoolID: 100,
 			ID:        "c-running-1",
 			Name:      "runnero-pool-a-111111",
 			PoolName:  "pool-a",
@@ -21,7 +21,7 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 			IPAddress: "172.20.0.2",
 			SpawnedAt: time.Now().Add(-5 * time.Minute),
 		},
-		{
+		{PoolID: 100,
 			ID:        "c-running-2",
 			Name:      "runnero-pool-a-222222",
 			PoolName:  "pool-a",
@@ -29,7 +29,7 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 			IPAddress: "172.20.0.3",
 			SpawnedAt: time.Now().Add(-2 * time.Minute),
 		},
-		{
+		{PoolID: 101,
 			ID:        "c-exited-3",
 			Name:      "runnero-pool-b-333333",
 			PoolName:  "pool-b",
@@ -65,12 +65,12 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 		t.Errorf("expected total tracked 3, got %d", report.TotalTracked)
 	}
 
-	poolARunners := reconciler.TrackedPoolRunners("pool-a")
+	poolARunners := reconciler.TrackedPoolRunners(100)
 	if len(poolARunners) != 2 {
 		t.Errorf("expected 2 runners for pool-a, got %d", len(poolARunners))
 	}
 
-	poolBRunners := reconciler.TrackedPoolRunners("pool-b")
+	poolBRunners := reconciler.TrackedPoolRunners(101)
 	if len(poolBRunners) != 1 {
 		t.Errorf("expected 1 runner for pool-b, got %d", len(poolBRunners))
 	}
@@ -93,8 +93,8 @@ func TestReconciler_BootReconciliationAndAdoption(t *testing.T) {
 	if len(thirdReport.Disappeared) != 1 || thirdReport.Disappeared[0] != "c-running-1" {
 		t.Errorf("expected c-running-1 disappeared, got %+v", thirdReport.Disappeared)
 	}
-	if len(reconciler.TrackedPoolRunners("pool-a")) != 1 {
-		t.Errorf("expected 1 runner remaining in pool-a, got %d", len(reconciler.TrackedPoolRunners("pool-a")))
+	if len(reconciler.TrackedPoolRunners(100)) != 1 {
+		t.Errorf("expected 1 runner remaining in pool-a, got %d", len(reconciler.TrackedPoolRunners(100)))
 	}
 }
 
@@ -103,6 +103,7 @@ func TestReconciler_TrackAndUntrack(t *testing.T) {
 	reconciler := orchestrator.NewReconciler(mockProvider)
 
 	status := orchestrator.RunnerStatus{
+		PoolID:   102,
 		ID:       "c-100",
 		Name:     "runnero-pool-x-100",
 		PoolName: "pool-x",
@@ -110,14 +111,52 @@ func TestReconciler_TrackAndUntrack(t *testing.T) {
 	}
 
 	reconciler.TrackRunner(status)
-	runners := reconciler.TrackedPoolRunners("pool-x")
+	runners := reconciler.TrackedPoolRunners(102)
 	if len(runners) != 1 || runners[0].ID != "c-100" {
 		t.Fatalf("unexpected tracked runners: %+v", runners)
 	}
 
-	reconciler.UntrackRunner("pool-x", "c-100")
-	if len(reconciler.TrackedPoolRunners("pool-x")) != 0 {
+	reconciler.UntrackRunner(102, "c-100")
+	if len(reconciler.TrackedPoolRunners(102)) != 0 {
 		t.Fatalf("expected pool-x to be empty after untrack")
+	}
+}
+
+// TestReconciler_LegacyNameOnlyContainersAdoptedByResolver verifies that
+// containers spawned before the pool-id label existed (RUN-126) — whose only
+// pool association is the spawn-time name label — are promoted to their
+// pool's database id at audit time, preserving boot adoption of in-flight
+// runners across the upgrade (docs/03 §2). Unresolvable names land in the
+// zero bucket and are left to orphan handling.
+func TestReconciler_LegacyNameOnlyContainersAdoptedByResolver(t *testing.T) {
+	ctx := context.Background()
+	mockProvider := orchestrator.NewMockContainerProvider()
+	mockProvider.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		return []orchestrator.RunnerStatus{
+			{ID: "c-legacy", Name: "runnero-ci-main-111", PoolName: "ci-main", State: "running"}, // no PoolID label
+			{ID: "c-unknown", Name: "runnero-gone-222", PoolName: "deleted-pool", State: "running"},
+		}, nil
+	}
+
+	reconciler := orchestrator.NewReconciler(mockProvider)
+	reconciler.SetPoolNameResolver(func(name string) (int64, bool) {
+		if name == "ci-main" {
+			return 7, true
+		}
+		return 0, false
+	})
+
+	if _, err := reconciler.RebuildState(ctx); err != nil {
+		t.Fatalf("RebuildState failed: %v", err)
+	}
+
+	promoted := reconciler.TrackedPoolRunners(7)
+	if len(promoted) != 1 || promoted[0].ID != "c-legacy" || promoted[0].PoolID != 7 {
+		t.Fatalf("legacy container must be adopted under its pool id: %+v", promoted)
+	}
+	unresolved := reconciler.TrackedPoolRunners(0)
+	if len(unresolved) != 1 || unresolved[0].ID != "c-unknown" {
+		t.Fatalf("unresolvable container must land in the zero bucket: %+v", unresolved)
 	}
 }
 

@@ -127,7 +127,7 @@ func TestPoolController_BootAndMinIdleProvisioning(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             118,
 		Name:           "ci-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
@@ -209,7 +209,7 @@ func TestPoolController_BootAndMinIdleProvisioning(t *testing.T) {
 		t.Errorf("expected StatusOK after boot, got %v", status)
 	}
 
-	tracked := reconciler.TrackedPoolRunners("ci-pool")
+	tracked := reconciler.TrackedPoolRunners(118)
 	if len(tracked) != 3 {
 		t.Fatalf("expected 3 tracked runners in reconciler, got %d", len(tracked))
 	}
@@ -218,9 +218,9 @@ func TestPoolController_BootAndMinIdleProvisioning(t *testing.T) {
 	// Simulate 1 runner exiting (finished job)
 	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 		return []orchestrator.RunnerStatus{
-			{ID: tracked[0].ID, PoolName: "ci-pool", State: "running"},
-			{ID: tracked[1].ID, PoolName: "ci-pool", State: "running"},
-			{ID: tracked[2].ID, PoolName: "ci-pool", State: "exited"}, // Exited!
+			{PoolID: 118, ID: tracked[0].ID, PoolName: "ci-pool", State: "running"},
+			{PoolID: 118, ID: tracked[1].ID, PoolName: "ci-pool", State: "running"},
+			{PoolID: 118, ID: tracked[2].ID, PoolName: "ci-pool", State: "exited"}, // Exited!
 		}, nil
 	}
 
@@ -242,7 +242,7 @@ func TestPoolController_BootAndMinIdleProvisioning(t *testing.T) {
 	// Simulate another exit while paused
 	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 		return []orchestrator.RunnerStatus{
-			{ID: tracked[0].ID, PoolName: "ci-pool", State: "running"},
+			{PoolID: 118, ID: tracked[0].ID, PoolName: "ci-pool", State: "running"},
 		}, nil
 	}
 
@@ -295,7 +295,7 @@ func TestPoolController_HandleContainerEvent_ReapAndReplenish(t *testing.T) {
 	tempDir := t.TempDir()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             119,
 		Name:           "event-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/event-repo",
@@ -382,7 +382,7 @@ func TestPoolController_HandleContainerEvent_ReapAndReplenish(t *testing.T) {
 		t.Errorf("expected fresh token requested per spawn (3 total), got %d", tokensFetched)
 	}
 
-	tracked := reconciler.TrackedPoolRunners("event-pool")
+	tracked := reconciler.TrackedPoolRunners(119)
 	if len(tracked) != 2 {
 		t.Fatalf("expected 2 active runners in pool, got %d", len(tracked))
 	}
@@ -392,7 +392,7 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 	ctx := context.Background()
 
 	poolA := db.RunnerPool{
-		ID:             1,
+		ID:             100,
 		Name:           "pool-a",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo-a",
@@ -403,7 +403,7 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 	poolB := db.RunnerPool{
-		ID:             2,
+		ID:             101,
 		Name:           "pool-b",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo-b",
@@ -453,7 +453,7 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 	if ctrl.QueueLength() != 1 {
 		t.Fatalf("expected 1 request queued for pool-b due to saturation, got %d", ctrl.QueueLength())
 	}
-	if ctrl.QueueLengthForPool("pool-b") != 1 {
+	if ctrl.QueueLengthForPool(101) != 1 {
 		t.Errorf("expected queued request to be for pool-b")
 	}
 
@@ -481,8 +481,8 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 	}
 
 	// Queue for pool-b should now be drained
-	if ctrl.QueueLengthForPool("pool-b") != 0 {
-		t.Errorf("expected pool-b queue to be drained after capacity freed, got length %d", ctrl.QueueLengthForPool("pool-b"))
+	if ctrl.QueueLengthForPool(101) != 0 {
+		t.Errorf("expected pool-b queue to be drained after capacity freed, got length %d", ctrl.QueueLengthForPool(101))
 	}
 
 	// Total active runners must still never exceed GlobalMaxRunners (3)
@@ -496,8 +496,8 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 	}
 
 	// Pool A's replenishment request is now queued because capacity is at 3/3
-	if ctrl.QueueLengthForPool("pool-a") != 1 {
-		t.Errorf("expected pool-a replenishment to be queued, got %d", ctrl.QueueLengthForPool("pool-a"))
+	if ctrl.QueueLengthForPool(100) != 1 {
+		t.Errorf("expected pool-a replenishment to be queued, got %d", ctrl.QueueLengthForPool(100))
 	}
 
 	// 3. Now terminate a container in pool-b to free capacity for pool-a's queued request
@@ -514,8 +514,8 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 	}
 
 	// Now pool-a's queued request should have drained and spawned!
-	if ctrl.QueueLengthForPool("pool-a") != 0 {
-		t.Errorf("expected pool-a queue to be drained, got %d", ctrl.QueueLengthForPool("pool-a"))
+	if ctrl.QueueLengthForPool(100) != 0 {
+		t.Errorf("expected pool-a queue to be drained, got %d", ctrl.QueueLengthForPool(100))
 	}
 	if ctrl.TotalActiveRunners() != 3 {
 		t.Fatalf("expected total active runners to remain at global limit 3, got %d", ctrl.TotalActiveRunners())
@@ -592,7 +592,7 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 	tempDir := t.TempDir()
 
 	pool := db.RunnerPool{
-		ID:                       42,
+		ID:                       120,
 		Name:                     "timeout-pool",
 		Provider:                 "github",
 		RepositoryUrl:            "https://github.com/owner/timeout-repo",
@@ -642,6 +642,7 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 	// IsBusy=true: it was mid-job, so its kill records a timeout row
 	// (docs/21 §5.2 - idle-standby lifetime kills record nothing).
 	hungRunner := orchestrator.RunnerStatus{
+		PoolID:    120,
 		ID:        "hung-container-1",
 		Name:      "hung-runner-1",
 		PoolName:  "timeout-pool",
@@ -651,6 +652,7 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 	}
 	// Add a healthy fresh container spawned 1 second ago
 	freshRunner := orchestrator.RunnerStatus{
+		PoolID:    120,
 		ID:        "fresh-container-2",
 		Name:      "fresh-runner-2",
 		PoolName:  "timeout-pool",
@@ -661,7 +663,7 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 	reconciler.TrackRunner(hungRunner)
 	reconciler.TrackRunner(freshRunner)
 
-	if len(reconciler.TrackedPoolRunners("timeout-pool")) != 2 {
+	if len(reconciler.TrackedPoolRunners(120)) != 2 {
 		t.Fatalf("expected 2 runners tracked initially")
 	}
 
@@ -685,12 +687,12 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 		t.Fatalf("expected 1 job_history record, got %d", len(jobRecorder.records))
 	}
 	record := jobRecorder.records[0]
-	if record.poolID != 42 || record.runnerName != "hung-runner-1" || record.status != "timeout" {
+	if record.poolID != 120 || record.runnerName != "hung-runner-1" || record.status != "timeout" {
 		t.Errorf("unexpected timeout record: %+v", record)
 	}
 
 	// 4. Fresh runner is NOT terminated and remains tracked
-	tracked := reconciler.TrackedPoolRunners("timeout-pool")
+	tracked := reconciler.TrackedPoolRunners(120)
 	if len(tracked) != 1 || tracked[0].ID != "fresh-container-2" {
 		t.Errorf("fresh container should still be running, tracked: %+v", tracked)
 	}
@@ -700,7 +702,7 @@ func TestPoolController_GracefulShutdown_SIGTERM(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:            100,
+		ID:            117,
 		Name:          "shutdown-pool",
 		Provider:      "github",
 		RepositoryUrl: "https://github.com/owner/shutdown-repo",
@@ -734,6 +736,7 @@ func TestPoolController_GracefulShutdown_SIGTERM(t *testing.T) {
 
 	// Setup: 1 idle runner and 1 busy runner
 	idleRunner := orchestrator.RunnerStatus{
+		PoolID:    117,
 		ID:        "idle-runner-1",
 		Name:      "idle-1",
 		PoolName:  "shutdown-pool",
@@ -742,6 +745,7 @@ func TestPoolController_GracefulShutdown_SIGTERM(t *testing.T) {
 		SpawnedAt: time.Now().UTC(),
 	}
 	busyRunner := orchestrator.RunnerStatus{
+		PoolID:    117,
 		ID:        "busy-runner-2",
 		Name:      "busy-2",
 		PoolName:  "shutdown-pool",
@@ -762,7 +766,7 @@ func TestPoolController_GracefulShutdown_SIGTERM(t *testing.T) {
 		}
 		// Subsequent audit: runner has exited (job finished)
 		return []orchestrator.RunnerStatus{
-			{ID: "busy-runner-2", Name: "busy-2", PoolName: "shutdown-pool", State: "exited"},
+			{PoolID: 117, ID: "busy-runner-2", Name: "busy-2", PoolName: "shutdown-pool", State: "exited"},
 		}, nil
 	}
 
@@ -809,7 +813,7 @@ func TestPoolController_GracefulShutdown_TimeoutExceeded(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:            101,
+		ID:            121,
 		Name:          "timeout-shutdown-pool",
 		Provider:      "github",
 		RepositoryUrl: "https://github.com/owner/timeout-repo",
@@ -842,6 +846,7 @@ func TestPoolController_GracefulShutdown_TimeoutExceeded(t *testing.T) {
 	})
 
 	busyRunner := orchestrator.RunnerStatus{
+		PoolID:    121,
 		ID:        "busy-runner-stuck",
 		Name:      "busy-stuck",
 		PoolName:  "timeout-shutdown-pool",
@@ -881,7 +886,7 @@ func TestPoolController_ImmediateShutdown_SIGINT(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:            102,
+		ID:            122,
 		Name:          "immediate-pool",
 		Provider:      "github",
 		RepositoryUrl: "https://github.com/owner/immediate-repo",
@@ -911,8 +916,10 @@ func TestPoolController_ImmediateShutdown_SIGINT(t *testing.T) {
 		Reconciler:       reconciler,
 	})
 
-	r1 := orchestrator.RunnerStatus{ID: "runner-idle", Name: "r-idle", PoolName: "immediate-pool", State: "running", IsBusy: false}
-	r2 := orchestrator.RunnerStatus{ID: "runner-busy", Name: "r-busy", PoolName: "immediate-pool", State: "running", IsBusy: true}
+	r1 := orchestrator.RunnerStatus{
+		PoolID: 122, ID: "runner-idle", Name: "r-idle", PoolName: "immediate-pool", State: "running", IsBusy: false}
+	r2 := orchestrator.RunnerStatus{
+		PoolID: 122, ID: "runner-busy", Name: "r-busy", PoolName: "immediate-pool", State: "running", IsBusy: true}
 	reconciler.TrackRunner(r1)
 	reconciler.TrackRunner(r2)
 
@@ -939,7 +946,7 @@ func TestPoolController_PerPoolSettingsRuntimeReload(t *testing.T) {
 	ctx := context.Background()
 
 	poolA := db.RunnerPool{
-		ID:             1,
+		ID:             100,
 		Name:           "pool-a",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo-a",
@@ -977,7 +984,7 @@ func TestPoolController_PerPoolSettingsRuntimeReload(t *testing.T) {
 			if reconciler == nil {
 				return nil, nil
 			}
-			return reconciler.TrackedPoolRunners("pool-a"), nil
+			return reconciler.TrackedPoolRunners(100), nil
 		},
 	}
 
@@ -1105,7 +1112,7 @@ func TestPoolController_ImageUpdateHandoff_Replenisher(t *testing.T) {
 	newImage := "ghcr.io/noosxe/runnero:v2.0.0"
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             124,
 		Name:           "handoff-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
@@ -1165,6 +1172,7 @@ func TestPoolController_ImageUpdateHandoff_Replenisher(t *testing.T) {
 
 	// 2. Runner 1 picks up a job (in-flight)
 	reconciler.TrackRunner(orchestrator.RunnerStatus{
+		PoolID:    124,
 		ID:        runner1CID,
 		PoolName:  "handoff-pool",
 		State:     "running",
@@ -1230,7 +1238,7 @@ func TestPoolController_ForgejoPollingScaling_AuditLoopPicksUpQueuedJob(t *testi
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             125,
 		Name:           "forgejo-ci",
 		Provider:       "forgejo",
 		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
@@ -1262,7 +1270,7 @@ func TestPoolController_ForgejoPollingScaling_AuditLoopPicksUpQueuedJob(t *testi
 			if reconciler1 == nil {
 				return nil, nil
 			}
-			return reconciler1.TrackedPoolRunners("forgejo-ci"), nil
+			return reconciler1.TrackedPoolRunners(125), nil
 		},
 		PingFn: func(ctx context.Context) error {
 			return nil
@@ -1311,7 +1319,7 @@ func TestPoolController_ForgejoPollingScaling_MaxConcurrencyRespected(t *testing
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             126,
 		Name:           "forgejo-capped",
 		Provider:       "forgejo",
 		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
@@ -1343,7 +1351,7 @@ func TestPoolController_ForgejoPollingScaling_MaxConcurrencyRespected(t *testing
 			if reconciler2 == nil {
 				return nil, nil
 			}
-			return reconciler2.TrackedPoolRunners("forgejo-capped"), nil
+			return reconciler2.TrackedPoolRunners(126), nil
 		},
 		PingFn: func(ctx context.Context) error {
 			return nil
@@ -1385,7 +1393,7 @@ func TestPoolController_ForgejoPollingScaling_GlobalQuotaSaturation(t *testing.T
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             127,
 		Name:           "forgejo-quota",
 		Provider:       "forgejo",
 		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
@@ -1417,7 +1425,7 @@ func TestPoolController_ForgejoPollingScaling_GlobalQuotaSaturation(t *testing.T
 			if reconciler3 == nil {
 				return nil, nil
 			}
-			return reconciler3.TrackedPoolRunners("forgejo-quota"), nil
+			return reconciler3.TrackedPoolRunners(127), nil
 		},
 		PingFn: func(ctx context.Context) error {
 			return nil
@@ -1454,9 +1462,9 @@ func TestPoolController_ForgejoPollingScaling_GlobalQuotaSaturation(t *testing.T
 	if ctrl.TotalActiveRunners() != 2 {
 		t.Fatalf("expected 2 active runners (globalMaxRunners), got %d", ctrl.TotalActiveRunners())
 	}
-	if ctrl.QueueLengthForPool("forgejo-quota") < 1 {
+	if ctrl.QueueLengthForPool(127) < 1 {
 		t.Fatalf("expected queued requests in internal queue due to global quota saturation, got %d",
-			ctrl.QueueLengthForPool("forgejo-quota"))
+			ctrl.QueueLengthForPool(127))
 	}
 }
 
@@ -1464,7 +1472,7 @@ func TestPoolController_ForgejoPollingScaling_ErrorHandledGracefully(t *testing.
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             128,
 		Name:           "forgejo-err",
 		Provider:       "forgejo",
 		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
@@ -1496,7 +1504,7 @@ func TestPoolController_ForgejoPollingScaling_ErrorHandledGracefully(t *testing.
 			if reconciler4 == nil {
 				return nil, nil
 			}
-			return reconciler4.TrackedPoolRunners("forgejo-err"), nil
+			return reconciler4.TrackedPoolRunners(128), nil
 		},
 		PingFn: func(ctx context.Context) error {
 			return nil
@@ -1531,7 +1539,7 @@ func TestPoolController_WebhookProviderDoesNotPoll(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             129,
 		Name:           "github-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
@@ -1561,7 +1569,7 @@ func TestPoolController_WebhookProviderDoesNotPoll(t *testing.T) {
 			if reconciler5 == nil {
 				return nil, nil
 			}
-			return reconciler5.TrackedPoolRunners("github-pool"), nil
+			return reconciler5.TrackedPoolRunners(129), nil
 		},
 		PingFn: func(ctx context.Context) error {
 			return nil
@@ -1653,7 +1661,7 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             118,
 		Name:           "ci-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
@@ -1691,10 +1699,10 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	// Three running runners satisfy min_idle=3, so boot must not spawn.
 	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 		return []orchestrator.RunnerStatus{
-			{ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
-			{ID: "r-idle-1", Name: "runnero-ci-pool-idle1", PoolName: "ci-pool", State: "running"},
-			{ID: "r-idle-2", Name: "runnero-ci-pool-idle2", PoolName: "ci-pool", State: "running"},
-			{ID: "r-exited", Name: "runnero-ci-pool-exited", PoolName: "ci-pool", State: "exited"},
+			{PoolID: 118, ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
+			{PoolID: 118, ID: "r-idle-1", Name: "runnero-ci-pool-idle1", PoolName: "ci-pool", State: "running"},
+			{PoolID: 118, ID: "r-idle-2", Name: "runnero-ci-pool-idle2", PoolName: "ci-pool", State: "running"},
+			{PoolID: 118, ID: "r-exited", Name: "runnero-ci-pool-exited", PoolName: "ci-pool", State: "exited"},
 		}, nil
 	}
 
@@ -1706,7 +1714,7 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	}
 
 	// Recycle: idle runners deregistered, terminated, and untracked.
-	if err := ctrl.RecycleIdleRunners(ctx, "ci-pool"); err != nil {
+	if err := ctrl.RecycleIdleRunners(ctx, 118); err != nil {
 		t.Fatalf("RecycleIdleRunners failed: %v", err)
 	}
 
@@ -1723,7 +1731,7 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 		t.Error("exited runner must not be terminated by recycle (left for audit reaping)")
 	}
 
-	if active, idle := ctrl.PoolStats("ci-pool"); active != 1 || idle != 0 {
+	if active, idle := ctrl.PoolStats(118); active != 1 || idle != 0 {
 		t.Errorf("after recycle PoolStats = (active=%d, idle=%d), want (1, 0)", active, idle)
 	}
 	for _, name := range []string{"runnero-ci-pool-idle1", "runnero-ci-pool-idle2"} {
@@ -1734,7 +1742,7 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 
 	// Unknown pool: no error, no side effects.
 	terminationsBefore := len(mockEngine.TerminatedIDs)
-	if err := ctrl.RecycleIdleRunners(ctx, "ghost-pool"); err != nil {
+	if err := ctrl.RecycleIdleRunners(ctx, 999); err != nil {
 		t.Fatalf("RecycleIdleRunners(unknown pool) failed: %v", err)
 	}
 	if len(mockEngine.TerminatedIDs) != terminationsBefore {
@@ -1745,7 +1753,7 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	// the exited runner is dropped by audit, and two idle runners respawn.
 	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 		return []orchestrator.RunnerStatus{
-			{ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
+			{PoolID: 118, ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
 		}, nil
 	}
 	if err := ctrl.Reconcile(ctx); err != nil {
@@ -1754,7 +1762,7 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	if spawnCount != 2 {
 		t.Errorf("reconcile must respawn to the warm-pool target (3 active target, 1 busy surviving), got %d spawns", spawnCount)
 	}
-	if active, idle := ctrl.PoolStats("ci-pool"); active != 1 || idle != 2 {
+	if active, idle := ctrl.PoolStats(118); active != 1 || idle != 2 {
 		t.Errorf("after reconcile PoolStats = (busy=%d, idle=%d), want (1, 2)", active, idle)
 	}
 	if terminatedIDSet(mockEngine)["r-busy"] {
@@ -1769,4 +1777,106 @@ func terminatedIDSet(engine *orchestrator.MockContainerProvider) map[string]bool
 		set[id] = true
 	}
 	return set
+}
+
+// TestPoolController_RenameDoesNotDisturbRunners pins the RUN-126 invariant:
+// reconciling a pool that was renamed between cycles must neither drain nor
+// respawn its runners — tracking keys on the pool id, and a rename is a
+// metadata-only change (docs/22 §5.4). Before RUN-126 the renamed pool looked
+// like a delete followed by a create, force-terminating every runner including
+// busy ones.
+func TestPoolController_RenameDoesNotDisturbRunners(t *testing.T) {
+	ctx := context.Background()
+
+	pool := db.RunnerPool{
+		ID:             121,
+		Name:           "ci-race",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/owner/repo",
+		Scope:          "repo",
+		AuthProfileID:  10,
+		MinIdleRunners: 1,
+		MaxConcurrency: 5,
+		Labels:         `["self-hosted"]`,
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+		AllowDocker:    true,
+	}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{}
+	resolver := &mockGitProviderResolver{providers: map[int64]provider.GitProvider{10: gitProv}}
+
+	spawnCount := 0
+	mockEngine := &orchestrator.MockContainerProvider{
+		SpawnRunnerFn: func(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
+			spawnCount++
+			if config.PoolID != 121 {
+				t.Errorf("spawn must carry the pool id, got %d", config.PoolID)
+			}
+			return fmt.Sprintf("spawned-runner-%d", spawnCount), nil
+		},
+	}
+
+	reconciler := orchestrator.NewReconciler(mockEngine)
+	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               repo,
+		ContainerEngine:  mockEngine,
+		ProviderResolver: resolver,
+		Reconciler:       reconciler,
+	})
+
+	// A busy runner mid-job, tracked and live.
+	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		return []orchestrator.RunnerStatus{
+			{PoolID: 121, ID: "r-busy", Name: "runnero-ci-race-busy", PoolName: "ci-race", State: "running", IsBusy: true},
+		}, nil
+	}
+
+	if err := ctrl.Boot(ctx); err != nil {
+		t.Fatalf("Boot failed: %v", err)
+	}
+	if spawnCount != 0 {
+		t.Fatalf("warm pool satisfied by the busy runner; want 0 spawns, got %d", spawnCount)
+	}
+
+	// The pool is renamed out from under the controller; same id, same config.
+	renamed := pool
+	renamed.Name = "ci-race-renamed"
+	repo.pools = []db.RunnerPool{renamed}
+
+	if err := ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile after rename failed: %v", err)
+	}
+
+	if terminated := terminatedIDSet(mockEngine); terminated["r-busy"] {
+		t.Fatal("renaming a pool must never terminate its runners (busy runner was drained)")
+	}
+	if spawnCount != 0 {
+		t.Errorf("rename must not respawn runners, got %d spawns", spawnCount)
+	}
+	if active, idle := ctrl.PoolStats(121); active != 1 || idle != 0 {
+		t.Errorf("tracking must survive the rename, PoolStats=(%d, %d), want (1, 0)", active, idle)
+	}
+	if runners := reconciler.TrackedPoolRunners(121); len(runners) != 1 || runners[0].ID != "r-busy" {
+		t.Errorf("runner must remain tracked under the pool id: %+v", runners)
+	}
+
+	// The next spawn after the rename carries the new name (readability only).
+	var lastSpawnConfig *orchestrator.RunnerConfig
+	mockEngine.SpawnRunnerFn = func(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
+		cfg := config
+		lastSpawnConfig = &cfg
+		return "respawned-runner", nil
+	}
+	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		return nil, nil
+	}
+	if err := ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile after rename+drain failed: %v", err)
+	}
+	if lastSpawnConfig == nil {
+		t.Fatal("expected the pool to respawn its warm runner once untracked")
+	}
+	if lastSpawnConfig.PoolName != "ci-race-renamed" || lastSpawnConfig.PoolID != 121 {
+		t.Errorf("respawn must carry new name and stable id, got name=%q id=%d", lastSpawnConfig.PoolName, lastSpawnConfig.PoolID)
+	}
 }

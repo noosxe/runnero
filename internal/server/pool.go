@@ -51,8 +51,8 @@ type PoolDiagnostics struct {
 // PoolStatsProvider provides live active/idle runner counts, diagnostic state, and runtime reload capabilities.
 // *orchestrator.PoolController satisfies this interface.
 type PoolStatsProvider interface {
-	PoolStats(poolName string) (active int32, idle int32)
-	PoolDiagnostics(poolName string) PoolDiagnostics
+	PoolStats(poolID int64) (active int32, idle int32)
+	PoolDiagnostics(poolID int64) PoolDiagnostics
 	Reload(ctx context.Context) error
 }
 
@@ -62,9 +62,9 @@ type PoolStatsProvider interface {
 // absent controllers (unit fakes, web-only operation) degrade to a no-op.
 type IdleRecycler interface {
 	// RecycleIdleRunners deregisters and terminates all non-busy tracked runners
-	// of poolName so the next reconcile respawns them with the pool's current
+	// of poolID so the next reconcile respawns them with the pool's current
 	// configuration. Busy runners are never touched.
-	RecycleIdleRunners(ctx context.Context, poolName string) error
+	RecycleIdleRunners(ctx context.Context, poolID int64) error
 }
 
 // RunnerInstanceInfo represents an active runner container's runtime state.
@@ -81,8 +81,8 @@ type RunnerInstanceInfo struct {
 // RunnerManager provides live runner container inspection and manual kill operations.
 // *orchestrator.PoolController satisfies this interface.
 type RunnerManager interface {
-	PoolRunners(poolName string) []RunnerInstanceInfo
-	TerminateRunner(ctx context.Context, poolName, containerID string) error
+	PoolRunners(poolID int64) []RunnerInstanceInfo
+	TerminateRunner(ctx context.Context, poolID int64, containerID string) error
 }
 
 // TargetDiscovererFunc queries available repositories or organizations using a decrypted profile.
@@ -324,11 +324,11 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 	}
 
 	if stats != nil {
-		active, idle := stats.PoolStats(p.Name)
+		active, idle := stats.PoolStats(p.ID)
 		protoPool.ActiveRunners = active
 		protoPool.IdleRunners = idle
 
-		diag := stats.PoolDiagnostics(p.Name)
+		diag := stats.PoolDiagnostics(p.ID)
 		protoPool.HealthStatus = mapHealthStatusToProto(diag.HealthStatus)
 		protoPool.CurrentIntent = diag.CurrentIntent
 		protoPool.LastError = diag.LastError
@@ -588,24 +588,15 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 	}
 	existingTargets := normalizeStoredTargets(storedTargets)
 
-	renamed := params.Name != existing.Name
 	identityChanged := spawnIdentityChanged(existing, existingTargets, params, newTargets)
 
-	// Renaming requires zero busy runners: the controller tracks runners by pool
-	// name, so the old name must hand back a clean slate before the DB write
-	// (docs/22 §5.4).
-	if renamed && s.statsProvider != nil {
-		if active, _ := s.statsProvider.PoolStats(existing.Name); active > 0 {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf(
-				"cannot rename pool %q to %q: %d busy runner(s); wait for jobs to finish or terminate runners before renaming",
-				existing.Name, params.Name, active))
-		}
-	}
-
-	// Spawn-identity edits and renames recycle idle runners so respawns pick up
-	// the new configuration; busy runners are never touched (docs/22 §5.2).
-	if renamed || identityChanged {
-		s.recycleIdleRunners(ctx, existing.Name)
+	// Renames are metadata-only: the controller tracks runners by pool id, so a
+	// rename neither orphans nor recycles live runners — spawned containers keep
+	// their spawn-time pool-name label until they recycle naturally (RUN-126,
+	// docs/22 §5.4). Spawn-identity edits recycle idle runners so respawns pick
+	// up the new configuration; busy runners are never touched (docs/22 §5.2).
+	if identityChanged {
+		s.recycleIdleRunners(ctx, existing.ID)
 	}
 
 	updated, err := s.db.UpdateRunnerPool(ctx, params)
@@ -685,13 +676,13 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 // idle runners so respawns pick up the updated configuration. Best-effort:
 // failures are logged and the update proceeds — recycled runners respawn on
 // the next reconcile tick either way (docs/22 §5.5).
-func (s *PoolService) recycleIdleRunners(ctx context.Context, poolName string) {
+func (s *PoolService) recycleIdleRunners(ctx context.Context, poolID int64) {
 	recycler, ok := s.statsProvider.(IdleRecycler)
 	if !ok || recycler == nil {
 		return
 	}
-	if err := recycler.RecycleIdleRunners(ctx, poolName); err != nil {
-		s.logger.Warn("failed recycling idle runners after pool update", "pool", poolName, "err", err)
+	if err := recycler.RecycleIdleRunners(ctx, poolID); err != nil {
+		s.logger.Warn("failed recycling idle runners after pool update", "pool_id", poolID, "err", err)
 	}
 }
 
@@ -800,7 +791,7 @@ func (s *PoolService) TerminateRunner(ctx context.Context, req *connect.Request[
 	}
 
 	if s.runnerMgr != nil {
-		if err := s.runnerMgr.TerminateRunner(ctx, p.Name, containerID); err != nil {
+		if err := s.runnerMgr.TerminateRunner(ctx, p.ID, containerID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("terminating runner %q: %w", containerID, err))
 		}
 	}
@@ -847,8 +838,8 @@ func (s *PoolService) WatchRunners(ctx context.Context, req *connect.Request[sup
 		var intent, lastErr, lastErrCode, lastErrTime, lastReconciled string
 
 		if s.statsProvider != nil {
-			active, idle = s.statsProvider.PoolStats(p.Name)
-			diag := s.statsProvider.PoolDiagnostics(p.Name)
+			active, idle = s.statsProvider.PoolStats(p.ID)
+			diag := s.statsProvider.PoolDiagnostics(p.ID)
 			health = mapHealthStatusToProto(diag.HealthStatus)
 			intent = diag.CurrentIntent
 			lastErr = diag.LastError
@@ -894,7 +885,7 @@ func (s *PoolService) getRunnerInstances(p db.RunnerPool) []*supervisorv1.Runner
 	if s.runnerMgr == nil {
 		return []*supervisorv1.RunnerInstance{}
 	}
-	rawRunners := s.runnerMgr.PoolRunners(p.Name)
+	rawRunners := s.runnerMgr.PoolRunners(p.ID)
 	res := make([]*supervisorv1.RunnerInstance, 0, len(rawRunners))
 	for _, r := range rawRunners {
 		status := "idle"
@@ -910,10 +901,12 @@ func (s *PoolService) getRunnerInstances(p db.RunnerPool) []*supervisorv1.Runner
 				uptime = 0
 			}
 		}
+		// PoolName comes from the pool row, not the container's spawn-time
+		// label, so it stays correct across renames (RUN-126).
 		res = append(res, &supervisorv1.RunnerInstance{
 			ContainerId:   r.ID,
 			Name:          r.Name,
-			PoolName:      r.PoolName,
+			PoolName:      p.Name,
 			Status:        status,
 			IpAddress:     r.IPAddress,
 			UptimeSeconds: uptime,

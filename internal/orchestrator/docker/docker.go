@@ -237,6 +237,9 @@ func (c *Client) spawn(ctx context.Context, config orchestrator.RunnerConfig, ta
 		orchestrator.LabelSpawnedAt: time.Now().UTC().Format(time.RFC3339),
 		orchestrator.LabelTaskType:  taskType,
 	}
+	if config.PoolID > 0 {
+		labels[orchestrator.LabelPoolID] = strconv.FormatInt(config.PoolID, 10)
+	}
 	if config.RepoURL != "" {
 		labels[orchestrator.LabelTargetURL] = config.RepoURL
 	}
@@ -445,6 +448,13 @@ func (c *Client) AuditRunners(ctx context.Context) ([]orchestrator.RunnerStatus,
 
 		poolName := cnt.Labels[orchestrator.LabelPoolName]
 
+		var poolID int64
+		if rawPoolID := cnt.Labels[orchestrator.LabelPoolID]; rawPoolID != "" {
+			if id, err := strconv.ParseInt(rawPoolID, 10, 64); err == nil {
+				poolID = id
+			}
+		}
+
 		var spawnedAt time.Time
 		if rawSpawned := cnt.Labels[orchestrator.LabelSpawnedAt]; rawSpawned != "" {
 			if t, err := time.Parse(time.RFC3339, rawSpawned); err == nil {
@@ -469,6 +479,7 @@ func (c *Client) AuditRunners(ctx context.Context) ([]orchestrator.RunnerStatus,
 			ID:        cnt.ID,
 			Name:      name,
 			PoolName:  poolName,
+			PoolID:    poolID,
 			State:     string(cnt.State),
 			IPAddress: ipAddress,
 			SpawnedAt: spawnedAt,

@@ -263,7 +263,7 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		c.recordWebhookQueued(ctx, targetPool, event)
 
 		// Fast capacity check before acquiring single-writer provisioning lock
-		tracked := c.reconciler.TrackedPoolRunners(targetPool.Name)
+		tracked := c.reconciler.TrackedPoolRunners(targetPool.ID)
 		activeCount := int64(0)
 		for _, r := range tracked {
 			if r.State == "running" {
@@ -290,7 +290,7 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 				"global_max", c.globalMaxRunners,
 				"job_id", event.WorkflowJob.ID,
 			)
-			c.enqueueRequest(targetPool.Name, matchedTargetURL)
+			c.enqueueRequest(*targetPool, matchedTargetURL)
 			return nil
 		}
 
@@ -298,7 +298,7 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		defer c.provisionMu.Unlock()
 
 		// Re-check capacity under lock to prevent race conditions
-		tracked = c.reconciler.TrackedPoolRunners(targetPool.Name)
+		tracked = c.reconciler.TrackedPoolRunners(targetPool.ID)
 		activeCount = 0
 		for _, r := range tracked {
 			if r.State == "running" {
@@ -319,7 +319,7 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 				"global_active", c.TotalActiveRunners(),
 				"global_max", c.globalMaxRunners,
 			)
-			c.enqueueRequest(targetPool.Name, matchedTargetURL)
+			c.enqueueRequest(*targetPool, matchedTargetURL)
 			return nil
 		}
 

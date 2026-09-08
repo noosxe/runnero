@@ -80,13 +80,14 @@ func newBusySyncHarness(t *testing.T, pool db.RunnerPool) *busySyncHarness {
 }
 
 // injectRunner registers a runner as both engine-live and reconciler-tracked.
-func (h *busySyncHarness) injectRunner(poolName, name string, busy bool) {
+func (h *busySyncHarness) injectRunner(pool db.RunnerPool, name string, busy bool) {
 	h.liveMu.Lock()
 	defer h.liveMu.Unlock()
 	status := orchestrator.RunnerStatus{
 		ID:        "container-" + name,
 		Name:      name,
-		PoolName:  poolName,
+		PoolName:  pool.Name,
+		PoolID:    pool.ID,
 		State:     "running",
 		IsBusy:    busy,
 		SpawnedAt: time.Now().UTC(),
@@ -95,9 +96,9 @@ func (h *busySyncHarness) injectRunner(poolName, name string, busy bool) {
 	h.reconciler.TrackRunner(status)
 }
 
-func (h *busySyncHarness) trackedByName(poolName string) map[string]orchestrator.RunnerStatus {
+func (h *busySyncHarness) trackedByName(pool db.RunnerPool) map[string]orchestrator.RunnerStatus {
 	byName := make(map[string]orchestrator.RunnerStatus)
-	for _, r := range h.reconciler.TrackedPoolRunners(poolName) {
+	for _, r := range h.reconciler.TrackedPoolRunners(pool.ID) {
 		byName[r.Name] = r
 	}
 	return byName
@@ -131,7 +132,7 @@ func TestBusySync_MarksTrackedRunnerBusyBeforeClassification(t *testing.T) {
 		t.Fatalf("boot failed: %v", err)
 	}
 
-	runners := h.reconciler.TrackedPoolRunners(pool.Name)
+	runners := h.reconciler.TrackedPoolRunners(pool.ID)
 	if len(runners) != 1 {
 		t.Fatalf("expected 1 tracked runner after boot, got %d", len(runners))
 	}
@@ -148,7 +149,7 @@ func TestBusySync_MarksTrackedRunnerBusyBeforeClassification(t *testing.T) {
 		t.Fatal("expected ListRunners to be called during reconcile")
 	}
 
-	byName := h.trackedByName(pool.Name)
+	byName := h.trackedByName(pool)
 	r, ok := byName[runnerName]
 	if !ok {
 		t.Fatalf("boot runner %q disappeared from tracking", runnerName)
@@ -170,7 +171,7 @@ func TestBusySync_BusyRunnerNotDrainedByScaleToZero(t *testing.T) {
 	if err := h.ctrl.Boot(ctx); err != nil {
 		t.Fatalf("boot failed: %v", err)
 	}
-	h.injectRunner(pool.Name, "runnero-midjob", false)
+	h.injectRunner(pool, "runnero-midjob", false)
 
 	// Runner reports busy at the forge.
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
@@ -180,7 +181,7 @@ func TestBusySync_BusyRunnerNotDrainedByScaleToZero(t *testing.T) {
 		t.Fatalf("reconcile failed: %v", err)
 	}
 
-	runners := h.reconciler.TrackedPoolRunners(pool.Name)
+	runners := h.reconciler.TrackedPoolRunners(pool.ID)
 	if len(runners) != 1 || !runners[0].IsBusy {
 		t.Fatalf("mid-job runner must survive scale-to-zero drain and be busy, got %+v", runners)
 	}
@@ -195,7 +196,7 @@ func TestBusySync_BusyRunnerNotDrainedByScaleToZero(t *testing.T) {
 	if err := h.ctrl.Reconcile(ctx); err != nil {
 		t.Fatalf("second reconcile failed: %v", err)
 	}
-	if got := h.reconciler.TrackedPoolRunners(pool.Name); len(got) != 0 {
+	if got := h.reconciler.TrackedPoolRunners(pool.ID); len(got) != 0 {
 		t.Fatalf("idle runner should be drained after job completion, got %+v", got)
 	}
 	if len(h.terminated) != 1 || h.terminated[0] != "container-runnero-midjob" {
@@ -215,8 +216,8 @@ func TestBusySync_OfflineGuardAndAbsentNames(t *testing.T) {
 	if err := h.ctrl.Boot(ctx); err != nil {
 		t.Fatalf("boot failed: %v", err)
 	}
-	h.injectRunner(pool.Name, "runnero-offline-busy", true)
-	h.injectRunner(pool.Name, "runnero-absent", true)
+	h.injectRunner(pool, "runnero-offline-busy", true)
+	h.injectRunner(pool, "runnero-absent", true)
 
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		// Online=false: must NOT clobber the webhook-set busy state...
@@ -227,7 +228,7 @@ func TestBusySync_OfflineGuardAndAbsentNames(t *testing.T) {
 		t.Fatalf("reconcile failed: %v", err)
 	}
 
-	byName := h.trackedByName(pool.Name)
+	byName := h.trackedByName(pool)
 	if !byName["runnero-offline-busy"].IsBusy {
 		t.Error("offline guard: busy state must be preserved for offline runners")
 	}
@@ -246,14 +247,14 @@ func TestBusySync_ListerErrorFailsOpen(t *testing.T) {
 	if err := h.ctrl.Boot(ctx); err != nil {
 		t.Fatalf("boot failed: %v", err)
 	}
-	h.injectRunner(pool.Name, "runnero-keep", true)
+	h.injectRunner(pool, "runnero-keep", true)
 
 	h.mockProv.listErr = errors.New("forge API unavailable")
 	if err := h.ctrl.Reconcile(ctx); err != nil {
 		t.Fatalf("reconcile must not fail on lister errors: %v", err)
 	}
 
-	runners := h.reconciler.TrackedPoolRunners(pool.Name)
+	runners := h.reconciler.TrackedPoolRunners(pool.ID)
 	if len(runners) != 1 || !runners[0].IsBusy {
 		t.Fatalf("fail-open: last-known busy state must be preserved, got %+v", runners)
 	}
@@ -310,14 +311,14 @@ func TestBusySync_ProviderWithoutListerUntouched(t *testing.T) {
 		t.Fatalf("reconcile failed: %v", err)
 	}
 
-	runners := h.reconciler.TrackedPoolRunners(pool.Name)
+	runners := h.reconciler.TrackedPoolRunners(pool.ID)
 	if len(runners) != 1 {
 		t.Fatalf("expected the boot runner to remain tracked, got %d", len(runners))
 	}
 	if runners[0].IsBusy {
 		t.Error("provider without RunnerLister must leave busy state untouched")
 	}
-	active, idle := h.ctrl.PoolStats(pool.Name)
+	active, idle := h.ctrl.PoolStats(pool.ID)
 	if active != 0 || idle != 1 {
 		t.Errorf("expected untouched idle classification (active=0 idle=1), got active=%d idle=%d", active, idle)
 	}

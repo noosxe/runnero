@@ -13,6 +13,7 @@ const (
 	// Standard metadata labels applied to all supervisor-managed containers (docs/03 §2).
 	LabelManaged   = "com.runnero.managed"
 	LabelPoolName  = "com.runnero.pool-name"
+	LabelPoolID    = "com.runnero.pool-id"
 	LabelID        = "com.runnero.id"
 	LabelSpawnedAt = "com.runnero.spawned-at"
 	LabelTaskType  = "com.runnero.task-type"

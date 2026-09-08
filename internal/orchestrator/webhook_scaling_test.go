@@ -60,7 +60,7 @@ func TestLabelsMatch(t *testing.T) {
 
 func TestMatchPoolForEvent(t *testing.T) {
 	repoPool := db.RunnerPool{
-		ID:            1,
+		ID:            162,
 		Name:          "repo-pool",
 		Provider:      "github",
 		RepositoryUrl: "https://github.com/octocat/hello-world",
@@ -68,7 +68,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 		Labels:        `["self-hosted","linux"]`,
 	}
 	orgPool := db.RunnerPool{
-		ID:            2,
+		ID:            163,
 		Name:          "org-pool",
 		Provider:      "github",
 		RepositoryUrl: "https://github.com/octocat",
@@ -76,7 +76,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 		Labels:        `["self-hosted","linux"]`,
 	}
 	globalPool := db.RunnerPool{
-		ID:            3,
+		ID:            164,
 		Name:          "global-pool",
 		Provider:      "github",
 		RepositoryUrl: "https://github.com",
@@ -84,7 +84,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 		Labels:        `["self-hosted","linux"]`,
 	}
 	giteaPool := db.RunnerPool{
-		ID:            4,
+		ID:            165,
 		Name:          "gitea-pool",
 		Provider:      "gitea",
 		RepositoryUrl: "https://gitea.example.com/octocat/hello-world",
@@ -184,7 +184,7 @@ func TestPoolController_HandleWorkflowJob_Queued_Success(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             166,
 		Name:           "webhook-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/test-repo",
@@ -265,7 +265,7 @@ func TestPoolController_HandleWorkflowJob_Queued_MaxConcurrencyReached(t *testin
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             167,
 		Name:           "max-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/test-repo",
@@ -338,7 +338,7 @@ func TestPoolController_HandleWorkflowJob_Queued_GlobalQuotaSaturated(t *testing
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             114,
 		Name:           "quota-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/test-repo",
@@ -409,8 +409,8 @@ func TestPoolController_HandleWorkflowJob_Queued_GlobalQuotaSaturated(t *testing
 	if spawnCount != 2 {
 		t.Fatalf("expected spawnCount to remain 2 when global quota is saturated, got %d", spawnCount)
 	}
-	if controller.QueueLengthForPool("quota-pool") != 1 {
-		t.Fatalf("expected 1 request in internal queue, got %d", controller.QueueLengthForPool("quota-pool"))
+	if controller.QueueLengthForPool(114) != 1 {
+		t.Fatalf("expected 1 request in internal queue, got %d", controller.QueueLengthForPool(114))
 	}
 
 	// Simulate container termination event -> frees capacity and drains queue
@@ -425,8 +425,8 @@ func TestPoolController_HandleWorkflowJob_Queued_GlobalQuotaSaturated(t *testing
 	}
 
 	// Queue should now be drained and a new runner spawned
-	if controller.QueueLengthForPool("quota-pool") != 0 {
-		t.Fatalf("expected queue to be drained, remaining: %d", controller.QueueLengthForPool("quota-pool"))
+	if controller.QueueLengthForPool(114) != 0 {
+		t.Fatalf("expected queue to be drained, remaining: %d", controller.QueueLengthForPool(114))
 	}
 	if spawnCount < 3 {
 		t.Fatalf("expected queued runner to be spawned upon capacity release, got spawnCount=%d", spawnCount)
@@ -437,7 +437,7 @@ func TestPoolController_HandleWorkflowJob_InProgressAndCompleted(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             168,
 		Name:           "status-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/test-repo",
@@ -481,7 +481,7 @@ func TestPoolController_HandleWorkflowJob_InProgressAndCompleted(t *testing.T) {
 		t.Fatalf("boot failed: %v", err)
 	}
 
-	active, idle := controller.PoolStats("status-pool")
+	active, idle := controller.PoolStats(168)
 	if active != 0 || idle != 1 {
 		t.Fatalf("expected 0 active, 1 idle; got active=%d, idle=%d", active, idle)
 	}
@@ -498,7 +498,7 @@ func TestPoolController_HandleWorkflowJob_InProgressAndCompleted(t *testing.T) {
 		t.Fatalf("HandleWorkflowJob in_progress failed: %v", err)
 	}
 
-	active, idle = controller.PoolStats("status-pool")
+	active, idle = controller.PoolStats(168)
 	if active != 1 || idle != 0 {
 		t.Fatalf("expected 1 active, 0 idle after in_progress; got active=%d, idle=%d", active, idle)
 	}
@@ -515,7 +515,7 @@ func TestPoolController_HandleWorkflowJob_InProgressAndCompleted(t *testing.T) {
 		t.Fatalf("HandleWorkflowJob completed failed: %v", err)
 	}
 
-	active, idle = controller.PoolStats("status-pool")
+	active, idle = controller.PoolStats(168)
 	if active != 0 || idle != 1 {
 		t.Fatalf("expected 0 active, 1 idle after completed; got active=%d, idle=%d", active, idle)
 	}

@@ -78,7 +78,7 @@ test.describe('Flow 08: Runner Pool Edit Workflow', () => {
     await page.getByRole('button', { name: /Continue to Specifications/i }).click();
     await page.getByRole('button', { name: /Review & Confirm/i }).click();
 
-    await expect(page.getByText(/Renaming recycles the pool's idle runners/i)).toBeVisible();
+    await expect(page.getByText(/Renaming only changes how the pool is displayed/i)).toBeVisible();
 
     await page.getByRole('button', { name: 'Save Changes' }).click();
     await expect(page.getByText('Edit Runner Pool')).toBeHidden();

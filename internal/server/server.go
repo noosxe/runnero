@@ -538,5 +538,3 @@ func (s *Server) handleWebhook(c *echo.Context) error {
 	s.webhookReceiver.Handle(c.Request().Context(), provider, c.Request(), c.Response())
 	return nil
 }
-
-

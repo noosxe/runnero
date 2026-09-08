@@ -17,9 +17,9 @@ import (
 )
 
 type mockRenovateExecutor struct {
-	executeFn           func(ctx context.Context, poolID int64) (*db.RenovateRun, error)
-	handleExitFn        func(ctx context.Context, containerID string, exitCode int, logPath string) (bool, error)
-	lastExecutedPoolID  int64
+	executeFn          func(ctx context.Context, poolID int64) (*db.RenovateRun, error)
+	handleExitFn       func(ctx context.Context, containerID string, exitCode int, logPath string) (bool, error)
+	lastExecutedPoolID int64
 }
 
 func (m *mockRenovateExecutor) Execute(ctx context.Context, poolID int64) (*db.RenovateRun, error) {

@@ -20,7 +20,7 @@ func TestPoolController_ScaleToZero_HoldsZeroContainersWhenIdle(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             159,
 		Name:           "scale-zero-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/scale-zero-repo",
@@ -88,14 +88,14 @@ func TestPoolController_ScaleToZero_HoldsZeroContainersWhenIdle(t *testing.T) {
 }
 
 // TestPoolController_ScaleToZero_QueuedEventSpawnsOnDemandAndReconcilePreserves verifies that:
-// 1. Webhook queued event triggers immediate on-demand runner provisioning from 0 containers.
-// 2. Audit loop / Reconcile cycle preserves the on-demand idle runner during its startup grace period
-//    and does not terminate it or spawn duplicate replenishments (RUN-71).
+//  1. Webhook queued event triggers immediate on-demand runner provisioning from 0 containers.
+//  2. Audit loop / Reconcile cycle preserves the on-demand idle runner during its startup grace period
+//     and does not terminate it or spawn duplicate replenishments (RUN-71).
 func TestPoolController_ScaleToZero_QueuedEventSpawnsOnDemandAndReconcilePreserves(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             155,
 		Name:           "zero-webhook-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/zero-repo",
@@ -129,7 +129,7 @@ func TestPoolController_ScaleToZero_QueuedEventSpawnsOnDemandAndReconcilePreserv
 			if reconciler == nil {
 				return nil, nil
 			}
-			return reconciler.TrackedPoolRunners("zero-webhook-pool"), nil
+			return reconciler.TrackedPoolRunners(155), nil
 		},
 		TerminateRunnerFn: func(ctx context.Context, containerID string) error {
 			mu.Lock()
@@ -211,7 +211,7 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             156,
 		Name:           "lifecycle-zero-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/lifecycle-repo",
@@ -247,7 +247,7 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 			if reconciler == nil || spawnCount == 0 {
 				return nil, nil
 			}
-			runners := reconciler.TrackedPoolRunners("lifecycle-zero-pool")
+			runners := reconciler.TrackedPoolRunners(156)
 			for i := range runners {
 				runners[i].State = containerState
 			}
@@ -291,7 +291,7 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 		t.Fatalf("queued event failed: %v", err)
 	}
 
-	runners := reconciler.TrackedPoolRunners("lifecycle-zero-pool")
+	runners := reconciler.TrackedPoolRunners(156)
 	if len(runners) != 1 {
 		t.Fatalf("expected 1 tracked runner, got %d", len(runners))
 	}
@@ -313,7 +313,7 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 		t.Fatalf("in_progress event failed: %v", err)
 	}
 
-	runners = reconciler.TrackedPoolRunners("lifecycle-zero-pool")
+	runners = reconciler.TrackedPoolRunners(156)
 	if !runners[0].IsBusy {
 		t.Fatalf("expected runner to be marked busy")
 	}
@@ -347,8 +347,8 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 	if controller.TotalActiveRunners() != 0 {
 		t.Fatalf("expected 0 active runners after reaping completed runner, got %d", controller.TotalActiveRunners())
 	}
-	if len(reconciler.TrackedPoolRunners("lifecycle-zero-pool")) != 0 {
-		t.Fatalf("expected 0 tracked runners, got %d", len(reconciler.TrackedPoolRunners("lifecycle-zero-pool")))
+	if len(reconciler.TrackedPoolRunners(156)) != 0 {
+		t.Fatalf("expected 0 tracked runners, got %d", len(reconciler.TrackedPoolRunners(156)))
 	}
 
 	// Verify no subsequent replenishment
@@ -367,7 +367,7 @@ func TestPoolController_ScaleToZero_StaleOrphanedRunnerDrainedAfterGracePeriod(t
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             157,
 		Name:           "stale-zero-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/stale-repo",
@@ -397,7 +397,7 @@ func TestPoolController_ScaleToZero_StaleOrphanedRunnerDrainedAfterGracePeriod(t
 			if reconciler == nil {
 				return nil, nil
 			}
-			return reconciler.TrackedPoolRunners("stale-zero-pool"), nil
+			return reconciler.TrackedPoolRunners(157), nil
 		},
 		TerminateRunnerFn: func(ctx context.Context, containerID string) error {
 			mu.Lock()
@@ -478,7 +478,7 @@ func TestPoolController_ScaleToZero_LiveTransitionFromStandbyDrainsToZero(t *tes
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             158,
 		Name:           "standby-to-zero-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/test-org/standby-repo",
@@ -512,7 +512,7 @@ func TestPoolController_ScaleToZero_LiveTransitionFromStandbyDrainsToZero(t *tes
 			if reconciler == nil {
 				return nil, nil
 			}
-			return reconciler.TrackedPoolRunners("standby-to-zero-pool"), nil
+			return reconciler.TrackedPoolRunners(158), nil
 		},
 		TerminateRunnerFn: func(ctx context.Context, containerID string) error {
 			mu.Lock()

@@ -129,7 +129,7 @@ request are ignored and the response is rebuilt from the persisted row.
 | :--- | :--- | :--- |
 | `min_idle_runners`, `max_concurrency`, `max_runner_lifetime_seconds` | **Control** | Converges on next reconcile tick (docs/03 §4) — no runner interaction. |
 | Renovate `enabled` / `cron_schedule` / `image` | **Control** | Affects the Renovate scheduler only. |
-| `name` | **Control** (guarded) | Rename with busy-runner precondition + idle recycle (§5.4). |
+| `name` | **Control** | Metadata-only rename — no runner interaction (§5.4, as amended by RUN-126). |
 | `auth_profile_id` | **Spawn identity** | Idle runners are registered under the old profile; recycle so respawns mint tokens via the new profile. (Secret *rotation inside* a profile already propagates to future spawns — docs/17.) |
 | `repository_url` / `target_urls`, `scope` | **Spawn identity** | Idle runners are registered against old targets; recycle. |
 | `labels`, `runner_image`, `allow_docker`, `cpu_limit`, `memory_limit` | **Spawn identity** | Baked into the container at spawn; recycle idle so the warm pool reflects the edit immediately instead of at lifetime expiry. |
@@ -152,24 +152,42 @@ visible instead of error-driven.
 
 ### 5.4 Rename Semantics
 
-The reconciler keys tracked runners, diagnostics, and the provisioning queue
-by **pool name**. A naive rename is indistinguishable from delete+create, and
-the delete path (`drainPool`) deregisters and terminates *all* tracked runners
-—including busy ones. Therefore:
+*As implemented (RUN-126 amendment):* the original design keyed tracked
+runners, diagnostics, and the provisioning queue by **pool name**, making a
+rename indistinguishable from delete+create and forcing a busy-runner
+precondition plus an idle recycle. The shipped implementation keys all
+controller-side state by **pool database id**:
 
-1. Precondition: `PoolStats(poolName).active == 0` (no busy runners). Violation
-   → `CodeFailedPrecondition("pool has N busy runner(s); wait for jobs to
-   finish or terminate runners before renaming")`.
-2. Idle runners are recycled (same mechanism as §5.2) so nothing worth keeping
-   remains tracked under the old name.
-3. The DB rename then leaves the old name with an empty tracked set — nothing
-   to drain — and the next reconcile rebuilds the warm pool under the new name.
+1. Renames are metadata-only: the reconciler, diagnostics, ghost counters,
+   and provisioning queue never observe the change, so no busy-guard and no
+   recycle are needed.
+2. Spawned containers keep their spawn-time `pool-name` label (and container
+   name) until they recycle naturally; API responses fill the pool name from
+   the database row, so the UI is never stale.
+3. Deleted pools are detected by id diff; a renamed pool keeps its id and is
+   therefore never drained.
 
-**Known narrow race:** a job can land on an idle runner between the busy-check
-and the commit; that runner is then terminated by the removed-name drain on
-the next reconcile. This mirrors today's `DeletePool` behavior (which drains
-unconditionally) and is accepted; the structural fix is ID-keyed tracking
-(§11).
+The busy-guard race called out below is eliminated by construction.
+
+<details>
+<summary>Original design (pre-RUN-126), kept for context</summary>
+
+The reconciler keys tracked runners by **pool name**. A naive rename is
+indistinguishable from delete+create, and the delete path (`drainPool`)
+deregisters and terminates *all* tracked runners — including busy ones.
+Therefore:
+
+1. Precondition: `PoolStats(poolName).active == 0` (no busy runners).
+2. Idle runners are recycled so nothing worth keeping remains tracked under
+   the old name.
+3. The DB rename then leaves the old name with an empty tracked set.
+
+**Known narrow race:** a job can land on an idle runner between the
+busy-check and the commit; that runner is then terminated by the
+removed-name drain on the next reconcile. Accepted; the structural fix is
+ID-keyed tracking (§11, RUN-126).
+
+</details>
 
 ### 5.5 Ordering (single logical flow)
 
@@ -315,8 +333,10 @@ in edit mode:
 
 ## 11. Related Follow-ups (Linear, out of scope here)
 
-- **ID-keyed runner tracking** in the controller (structural fix making
-  renames race-free by construction; also shrinks the rename busy-guard).
+- ~~**ID-keyed runner tracking** in the controller (structural fix making
+  renames race-free by construction; also shrinks the rename busy-guard).~~
+  *Implemented (RUN-126): tracking, diagnostics, ghost counters, and the
+  provisioning queue key on the pool database id; renames are metadata-only.*
 - **`drainPool` busy-preservation** on pool delete (today it terminates busy
   runners unconditionally; a "drain gracefully" option deserves its own
   design).

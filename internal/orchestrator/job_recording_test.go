@@ -38,11 +38,12 @@ func newJobRecHarness(t *testing.T, pool db.RunnerPool) *jobRecHarness {
 	return h
 }
 
-func (h *jobRecHarness) addTrackedRunner(poolName, name string, busy bool) {
+func (h *jobRecHarness) addTrackedRunner(pool db.RunnerPool, name string, busy bool) {
 	status := orchestrator.RunnerStatus{
 		ID:        "c-" + name,
 		Name:      name,
-		PoolName:  poolName,
+		PoolName:  pool.Name,
+		PoolID:    pool.ID,
 		State:     "running",
 		IsBusy:    busy,
 		SpawnedAt: time.Now().UTC(),
@@ -65,7 +66,7 @@ func TestJobRecording_OpenOnIdleToBusyTransition(t *testing.T) {
 		t.Fatalf("boot failed: %v", err)
 	}
 
-	runners := h.reconciler.TrackedPoolRunners(pool.Name)
+	runners := h.reconciler.TrackedPoolRunners(pool.ID)
 	if len(runners) != 1 {
 		t.Fatalf("expected 1 tracked runner after boot, got %d", len(runners))
 	}
@@ -145,7 +146,7 @@ func TestJobRecording_CloseOnContainerDeath(t *testing.T) {
 		t.Fatalf("boot failed: %v", err)
 	}
 
-	h.addTrackedRunner(pool.Name, "runnero-death-1", false)
+	h.addTrackedRunner(pool, "runnero-death-1", false)
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{Name: "runnero-death-1", Busy: true, Online: true},
 	}
@@ -182,7 +183,7 @@ func TestJobRecording_CleanExitClosesCompleted(t *testing.T) {
 		t.Fatalf("boot failed: %v", err)
 	}
 
-	h.addTrackedRunner(pool.Name, "runnero-clean-1", false)
+	h.addTrackedRunner(pool, "runnero-clean-1", false)
 	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
 		{Name: "runnero-clean-1", Busy: true, Online: true},
 	}

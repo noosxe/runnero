@@ -13,26 +13,33 @@ const (
 
 // RunnerConfig defines parameters for spawning an ephemeral runner or task container.
 type RunnerConfig struct {
-	Name         string   `json:"name"`
-	RepoURL      string   `json:"repo_url"`
-	Token        string   `json:"token"`
-	Labels       []string `json:"labels"`
-	WorkDir      string   `json:"work_dir"`
-	Image        string   `json:"image"`
-	CPULimit     string   `json:"cpu_limit"`
-	MemoryLimit  string   `json:"memory_limit"`
-	AllowDocker  bool     `json:"allow_docker"`
-	Env          []string `json:"env,omitempty"`
-	PoolName     string   `json:"pool_name,omitempty"`
-	DockerHostID string   `json:"docker_host_id,omitempty"` // Groundwork for multi-host Docker (OQ #22)
-	Network      string   `json:"network,omitempty"`        // Managed bridge network name (defaults to DefaultNetworkName)
+	Name        string   `json:"name"`
+	RepoURL     string   `json:"repo_url"`
+	Token       string   `json:"token"`
+	Labels      []string `json:"labels"`
+	WorkDir     string   `json:"work_dir"`
+	Image       string   `json:"image"`
+	CPULimit    string   `json:"cpu_limit"`
+	MemoryLimit string   `json:"memory_limit"`
+	AllowDocker bool     `json:"allow_docker"`
+	Env         []string `json:"env,omitempty"`
+	PoolName    string   `json:"pool_name,omitempty"`
+	// PoolID is the stable database identifier of the owning runner pool; it
+	// survives renames, unlike PoolName (docs/22 §5.4, RUN-126).
+	PoolID       int64  `json:"pool_id,omitempty"`
+	DockerHostID string `json:"docker_host_id,omitempty"` // Groundwork for multi-host Docker (OQ #22)
+	Network      string `json:"network,omitempty"`        // Managed bridge network name (defaults to DefaultNetworkName)
 }
 
 // RunnerStatus represents the current state of a containerized runner.
 type RunnerStatus struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	PoolName  string    `json:"pool_name"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	PoolName string `json:"pool_name"`
+	// PoolID is the owning pool's stable database id, parsed from the container's
+	// pool-id label (RUN-126). Zero for containers spawned before the label
+	// existed; the reconciler resolves those by name at adoption time.
+	PoolID    int64     `json:"pool_id,omitempty"`
 	State     string    `json:"state"` // e.g., "running", "exited", "created"
 	IPAddress string    `json:"ip_address"`
 	ExitCode  int       `json:"exit_code"`
