@@ -204,24 +204,25 @@ func TestJobRecording_CleanExitClosesCompleted(t *testing.T) {
 	}
 }
 
-// TestJobRecording_LifetimeKillIdleStandbyRecordsNothing verifies the docs/21
-// §5.2 guard end to end: the max-lifetime kill switch still force-terminates an
-// idle standby that never ran a job, but records no timeout row - the runner
-// has no open job row, so kill-switch churn must not fabricate job history.
-func TestJobRecording_LifetimeKillIdleStandbyRecordsNothing(t *testing.T) {
+// TestJobRecording_IdleStandbyPastLifetimeSurvivesAndRecordsNothing verifies
+// the docs/23 churn fix end to end: an idle standby spawned long past the
+// lifetime limit is neither force-terminated (the kill switch is busy-only)
+// nor recorded in job_history — it never ran a job. It must still be serving
+// the pool after the reconcile cycle (docs/21 §5.2, docs/23 §4.3).
+func TestJobRecording_IdleStandbyPastLifetimeSurvivesAndRecordsNothing(t *testing.T) {
 	ctx := context.Background()
-	pool := busySyncPool("job-rec-pool", 0, 5)
+	pool := busySyncPool("job-rec-idle-survivor", 1, 5)
 	pool.MaxRunnerLifetimeSeconds = 7200
 	h := newJobRecHarness(t, pool)
-	if err := h.ctrl.Boot(ctx); err != nil {
-		t.Fatalf("boot failed: %v", err)
-	}
 
-	// An idle standby spawned 3h ago: past the 2h lifetime limit.
+	// An idle standby spawned 3h ago: past the 2h lifetime limit. Injected
+	// before boot so the pool's single idle slot is taken and the replenisher
+	// neither spawns nor drains.
 	status := orchestrator.RunnerStatus{
 		ID:        "c-runnero-old-standby",
 		Name:      "runnero-old-standby",
 		PoolName:  pool.Name,
+		PoolID:    pool.ID,
 		State:     "running",
 		IsBusy:    false,
 		SpawnedAt: time.Now().UTC().Add(-3 * time.Hour),
@@ -231,12 +232,28 @@ func TestJobRecording_LifetimeKillIdleStandbyRecordsNothing(t *testing.T) {
 	h.liveMu.Unlock()
 	h.reconciler.TrackRunner(status)
 
+	if err := h.ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+
 	if err := h.ctrl.Reconcile(ctx); err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
 
 	if len(h.rec.records) != 0 {
-		t.Fatalf("lifetime kill of an idle standby must record no job row, got %+v", h.rec.records)
+		t.Fatalf("idle standby must never record a job row, got %+v", h.rec.records)
+	}
+	if len(h.terminated) != 0 {
+		t.Fatalf("idle standby past the lifetime limit must not be force-terminated, got %v", h.terminated)
+	}
+	var surviving bool
+	for _, r := range h.reconciler.TrackedPoolRunners(pool.ID) {
+		if r.ID == status.ID && r.State == "running" && !r.IsBusy {
+			surviving = true
+		}
+	}
+	if !surviving {
+		t.Fatalf("idle standby must remain tracked and serving, got %+v", h.reconciler.TrackedPoolRunners(pool.ID))
 	}
 }
 

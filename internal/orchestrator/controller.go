@@ -475,7 +475,7 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 		c.drainPool(ctx, removed.id)
 	}
 
-	// 6. Force-terminate hung runners exceeding max_runner_lifetime_seconds (docs/03 §4, §7)
+	// 6. Force-terminate busy runners whose job exceeds max_runner_lifetime_seconds (docs/03 §4, §7; docs/23)
 	c.checkHungRunners(ctx, pools)
 
 	// 7. Reconcile pool targets (converges up or down to live targets)
@@ -492,8 +492,10 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-// CheckHungRunners inspects all pools and force-terminates any running containers
-// that exceed the pool's max_runner_lifetime_seconds, marking their job_history row 'timeout' (docs/03 §4, §7).
+// CheckHungRunners inspects all pools and force-terminates busy runners whose
+// job exceeds the pool's max_runner_lifetime_seconds, anchored at first busy
+// assignment (docs/03 §4, §7; docs/23). Idle standbys are never terminated; the
+// kill records a job_history 'timeout' row for the mid-job runner.
 func (c *PoolController) CheckHungRunners(ctx context.Context) error {
 	c.provisionMu.Lock()
 	defer c.provisionMu.Unlock()
@@ -532,11 +534,30 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 
 		tracked := c.reconciler.TrackedPoolRunners(p.ID)
 		for _, r := range tracked {
-			if r.State != "running" || r.SpawnedAt.IsZero() {
-				continue
+			if r.State != "running" || !r.IsBusy {
+				continue // idle standbys are never lifetime-terminated (docs/23 §4.3)
 			}
 
-			elapsed := now.Sub(r.SpawnedAt)
+			// docs/23 §4.3: the lifetime clock is anchored at first busy
+			// assignment, not spawn. BusySince is set-once at the idle→busy
+			// transition; a busy runner without an anchor falls back to the
+			// spawn clock so the guarantee never depends on anchor bookkeeping
+			// being complete (docs/23 §4.4.1).
+			anchor := r.BusySince
+			anchorSrc := "busy"
+			if anchor.IsZero() {
+				anchor, anchorSrc = r.SpawnedAt, "spawn"
+				if anchor.IsZero() {
+					continue
+				}
+				c.logger.Warn("busy runner without busy anchor, falling back to spawn time",
+					"pool", p.Name,
+					"runner_id", r.ID,
+					"runner_name", r.Name,
+				)
+			}
+
+			elapsed := now.Sub(anchor)
 			if elapsed > lifetimeLimit {
 				c.logger.Warn("hung runner exceeded max lifetime, force terminating",
 					"pool", p.Name,
@@ -544,6 +565,8 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 					"runner_name", r.Name,
 					"elapsed", elapsed,
 					"limit", lifetimeLimit,
+					"anchor", anchor,
+					"anchor_source", anchorSrc,
 				)
 
 				var logPath string
@@ -563,16 +586,16 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 				// Untrack runner from active pool state
 				c.reconciler.UntrackRunner(p.ID, r.ID)
 
-				// Record timeout in job_history - but only for runners that were
-				// actually mid-job (docs/21 §5.2): an idle standby reaped by the
-				// lifetime switch never started a job, and recording one would
-				// fabricate a full-lifetime timeout row on every kill cycle.
+				// Record timeout in job_history (docs/21 §5.2, docs/23 §4.3): the
+				// lifetime switch is busy-only now, so every termination is mid-job;
+				// the IsBusy guard stays as a defensive assert. The row anchors at the
+				// same clock that fired the kill, not at container spawn.
 				if c.jobRecorder != nil && r.IsBusy {
 					runnerName := r.Name
 					if runnerName == "" {
 						runnerName = r.ID
 					}
-					if err := c.jobRecorder.RecordJobTimeout(ctx, p.ID, runnerName, logPath, r.SpawnedAt, now); err != nil {
+					if err := c.jobRecorder.RecordJobTimeout(ctx, p.ID, runnerName, logPath, anchor, now); err != nil {
 						c.logger.Error("failed recording job timeout", "runner", runnerName, "err", err)
 					}
 				}
@@ -1331,16 +1354,12 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	// - Scale-to-zero mode (MinIdleRunners == 0): idle standby runners are drained immediately,
 	//   while on-demand runners are preserved during their startup grace period so they can accept queued jobs (RUN-71).
 	//   Orphaned on-demand runners that exceed the grace period without picking up a job are drained.
+	//   The lifetime switch never caps the grace period: it is busy-only since
+	//   docs/23 §4.6, so unpicked on-demand runners are governed by the grace
+	//   period alone.
 	// - Fixed idle target (MinIdleRunners > 0): excess idle runners beyond target are drained (RUN-42).
 	if p.MinIdleRunners == 0 {
 		gracePeriod := c.scaleToZeroGracePeriod
-		if p.MaxRunnerLifetimeSeconds > 0 {
-			lifetime := time.Duration(p.MaxRunnerLifetimeSeconds) * time.Second
-			if lifetime < gracePeriod {
-				gracePeriod = lifetime
-			}
-		}
-
 		now := time.Now().UTC()
 		for _, r := range idleRunners {
 			isStaleStandby := !r.OnDemand

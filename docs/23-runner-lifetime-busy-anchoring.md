@@ -2,7 +2,7 @@
 
 | | |
 | :--- | :--- |
-| Status | *Design Phase* — design doc for the semantics rework; no implementation yet |
+| Status | Accepted & implemented — design merged in PR #191, implemented by RUN-138 |
 | Linear | RUN-122 (milestone M26) |
 | Touches | `internal/orchestrator` (hung-runner check, busy-state transitions, scale-to-zero), docs/03, docs/21 |
 

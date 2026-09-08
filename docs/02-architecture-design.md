@@ -232,7 +232,7 @@ pools:
     labels: ["frontend", "node-20"]
     runner_image: "ghcr.io/noosxe/runnero:latest"
     allow_docker: false
-    max_runner_lifetime_seconds: 7200
+    max_runner_lifetime_seconds: 7200 # max busy wall-clock per job, anchored at pickup (docs/23); idle standbys are never lifetime-terminated
     cpu_limit: "2.0"
     memory_limit: "4g"
     renovate:

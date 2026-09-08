@@ -560,3 +560,115 @@ func TestPoolController_ScaleToZero_LiveTransitionFromStandbyDrainsToZero(t *tes
 		t.Fatalf("expected 0 active runners, got %d", controller.TotalActiveRunners())
 	}
 }
+
+// TestPoolController_ScaleToZero_LifetimeNeverCapsGracePeriod verifies docs/23
+// §4.6: the lifetime switch is busy-only, so it no longer shortens the
+// on-demand startup grace. An orphaned on-demand idle runner older than the
+// pool's max_runner_lifetime_seconds but younger than the grace period must
+// survive; only exceeding the full grace period drains it.
+func TestPoolController_ScaleToZero_LifetimeNeverCapsGracePeriod(t *testing.T) {
+	ctx := context.Background()
+
+	pool := db.RunnerPool{
+		ID:                       158,
+		Name:                     "uncapped-grace-pool",
+		Provider:                 "github",
+		RepositoryUrl:            "https://github.com/test-org/uncapped-repo",
+		Scope:                    "repo",
+		AuthProfileID:            10,
+		MinIdleRunners:           0,
+		MaxConcurrency:           5,
+		Labels:                   `["self-hosted","linux"]`,
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
+		MaxRunnerLifetimeSeconds: 60, // 1 minute — far below the 5 minute grace
+	}
+
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{}
+	resolver := &mockGitProviderResolver{
+		providers: map[int64]provider.GitProvider{10: gitProv},
+	}
+
+	var mu sync.Mutex
+	terminated := make([]string, 0)
+	var reconciler *orchestrator.Reconciler
+
+	mockEngine := &orchestrator.MockContainerProvider{
+		AuditRunnersFn: func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+			if reconciler == nil {
+				return nil, nil
+			}
+			return reconciler.TrackedPoolRunners(158), nil
+		},
+		TerminateRunnerFn: func(ctx context.Context, containerID string) error {
+			mu.Lock()
+			defer mu.Unlock()
+			terminated = append(terminated, containerID)
+			return nil
+		},
+		PingFn: func(ctx context.Context) error {
+			return nil
+		},
+	}
+	reconciler = orchestrator.NewReconciler(mockEngine)
+
+	controller := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:                     repo,
+		ContainerEngine:        mockEngine,
+		ProviderResolver:       resolver,
+		Reconciler:             reconciler,
+		GlobalMaxRunners:       10,
+		Interval:               time.Hour,
+		ScaleToZeroGracePeriod: 5 * time.Minute,
+	})
+
+	if err := controller.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+
+	track := func(spawnedAgo time.Duration) {
+		t.Helper()
+		status := orchestrator.RunnerStatus{
+			PoolID:    158,
+			ID:        "orphan-1",
+			Name:      "runnero-orphan-1",
+			PoolName:  pool.Name,
+			State:     "running",
+			OnDemand:  true,
+			IsBusy:    false,
+			SpawnedAt: time.Now().UTC().Add(-spawnedAgo),
+		}
+		reconciler.UntrackRunner(158, status.ID)
+		reconciler.TrackRunner(status)
+	}
+
+	// 90s old: past the 60s lifetime, inside the 5min grace. The old
+	// min(grace, lifetime) cap drained here; docs/23 §4.6 keeps it alive.
+	track(90 * time.Second)
+	if err := controller.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+	mu.Lock()
+	if len(terminated) != 0 {
+		mu.Unlock()
+		t.Fatalf("orphaned on-demand runner within grace must not be drained even when past the lifetime, got %v", terminated)
+	}
+	mu.Unlock()
+	if got := len(reconciler.TrackedPoolRunners(158)); got != 1 {
+		t.Fatalf("runner must remain tracked within grace period, got %d", got)
+	}
+
+	// 6min old: past the full grace period — drained, lifetime irrelevant.
+	track(6 * time.Minute)
+	if err := controller.Reconcile(ctx); err != nil {
+		t.Fatalf("second reconcile failed: %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(terminated) != 1 {
+		t.Fatalf("orphaned on-demand runner past the grace period must be drained, got %v", terminated)
+	}
+	if controller.TotalActiveRunners() != 0 {
+		t.Fatalf("expected 0 active runners after draining, got %d", controller.TotalActiveRunners())
+	}
+}

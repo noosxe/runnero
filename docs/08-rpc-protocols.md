@@ -95,7 +95,7 @@ message Pool {
   string scope = 14;              // "repo" or "org"
   string cpu_limit = 15;
   string memory_limit = 16;
-  int32 max_runner_lifetime_seconds = 17;
+  int32 max_runner_lifetime_seconds = 17; // max busy wall-clock per job, anchored at first pickup (docs/23)
   repeated string target_urls = 18; // Multi-target URLs (homogeneously repos or orgs)
 
   // Operational state & diagnostics (read-only, populated by server)

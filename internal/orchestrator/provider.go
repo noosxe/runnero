@@ -44,6 +44,12 @@ type RunnerStatus struct {
 	IPAddress string    `json:"ip_address"`
 	ExitCode  int       `json:"exit_code"`
 	SpawnedAt time.Time `json:"spawned_at"`
+	// BusySince anchors the runner-lifetime kill switch: the moment this
+	// supervisor lifetime first observed the runner busy (docs/23 §4). Set once
+	// at the idle→busy transition and sticky until the tracked state is dropped;
+	// seeded with SpawnedAt for containers adopted already running (docs/23
+	// §4.4.1). Zero means unknown — consumers fall back to SpawnedAt.
+	BusySince time.Time `json:"busy_since,omitempty"`
 	IsBusy    bool      `json:"is_busy,omitempty"`
 	OnDemand  bool      `json:"on_demand,omitempty"`
 	// ForgeID is the forge-assigned runner id observed by the busy-state

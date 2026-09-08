@@ -112,11 +112,22 @@ func (r *Reconciler) Audit(ctx context.Context) (AuditReport, error) {
 			if s.SpawnedAt.IsZero() && !existing.SpawnedAt.IsZero() {
 				s.SpawnedAt = existing.SpawnedAt
 			}
+			if s.BusySince.IsZero() && !existing.BusySince.IsZero() {
+				s.BusySince = existing.BusySince
+			}
 			if !s.OnDemand && existing.OnDemand {
 				s.OnDemand = existing.OnDemand
 			}
 		} else {
 			// Container was discovered on host but not yet in memory -> adopted
+			// docs/23 §4.4.1: the host listing cannot report busy state, so every
+			// adopted running container gets the conservative spawn anchor. A runner
+			// already mid-job at adoption thus keeps exactly the pre-docs/23
+			// spawn+lifetime bound; set-once semantics then keep it there for the
+			// container's life.
+			if s.State == "running" && !s.SpawnedAt.IsZero() {
+				s.BusySince = s.SpawnedAt
+			}
 			report.Adopted = append(report.Adopted, s)
 		}
 
@@ -196,6 +207,12 @@ func (r *Reconciler) UntrackRunner(poolID int64, containerID string) {
 }
 
 // MarkRunnerBusy updates the busy status of a runner matching the given name or ID.
+//
+// It also maintains the runner-lifetime anchor (docs/23 §4.2): the idle→busy
+// transition stamps BusySince with the current time, set-once; busy→idle
+// busy→idle flips leave it in place (sticky) so a listing flap cannot extend a
+// hung job's wall clock. The anchor clears only when the tracked state is
+// dropped with the container.
 func (r *Reconciler) MarkRunnerBusy(runnerNameOrID string, busy bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -204,6 +221,9 @@ func (r *Reconciler) MarkRunnerBusy(runnerNameOrID string, busy bool) {
 		for id, status := range poolMap {
 			if status.ID == runnerNameOrID || status.Name == runnerNameOrID {
 				status.IsBusy = busy
+				if busy && status.BusySince.IsZero() {
+					status.BusySince = time.Now().UTC()
+				}
 				poolMap[id] = status
 				return
 			}
