@@ -69,14 +69,15 @@ For providers that emit `workflow_job` webhook events, the supervisor exposes an
 
 This provides near-instant job pickup with no polling overhead.
 
-### Polling-Based Scaling (Forgejo)
+### Polling-Based Scaling (Forgejo native, GitHub opt-in per docs/24)
 
-Forgejo does not currently support `workflow_job` webhooks. For Forgejo pools, the existing periodic audit loop (Section 3) doubles as the scaling trigger:
+Forgejo does not support `workflow_job` webhooks. For Forgejo pools, the existing periodic audit loop (Section 3) doubles as the scaling trigger:
 
 1. Every ~10 seconds, the audit loop calls `PollQueuedJobs()` on the Forgejo provider for each configured Forgejo pool.
 2. If `queued_jobs > idle_runners`, the replenisher provisions additional runners up to `max_concurrency`.
 3. This introduces an artificial latency of ~10–15 seconds before a queued job is picked up.
 
+**Demand Polling Fallback (docs/24, RUN-145):** GitHub pools can scale without inbound webhooks by opting in per pool via `poll_fallback` (DB column; wizard checkbox "Scale without webhooks"). The controller polls each repo-scope target with the pool's label contract — `PollTarget{URL, Scope, Labels}` — counting only queued jobs whose `runs-on` labels the pool satisfies. Org- and global-scope GitHub targets are skipped with a diagnostic (the API exposes no org-level queued-runs listing); Gitea has no repo-scoped queued-jobs API at all and cannot enable the fallback. GitHub polling uses a two-step query (`actions/runs?status=queued` → per-run jobs) with an `ETag`/`If-None-Match` short-circuit; the per-pool `poll_interval_seconds` column (default 30, DB-level knob in v1) throttles the cadence with ±20% jitter, and consecutive fully-failed polls add backoff (capped at 5× the interval). Deficit runners on fallback pools are provisioned as on-demand. The `PollQueuedJobs` error surface is `provider.ErrPollingUnsupported` (Gitea) / `provider.ErrPollingScopeUnsupported` (GitHub non-repo scope).
 Both scaling paths converge into the same Target Pool Replenisher and Quota Saturation logic described in Section 4.
 
 ## 4. Target Pool Replenisher & Quota Saturation
