@@ -107,7 +107,7 @@ func (m *mockGitProvider) ScalingMode() provider.ScalingMode {
 	return provider.ScalingWebhook
 }
 
-func (m *mockGitProvider) PollQueuedJobs(ctx context.Context, targetURL string) (int, error) {
+func (m *mockGitProvider) PollQueuedJobs(ctx context.Context, target provider.PollTarget) (int, error) {
 	m.pollCalls++
 	if m.pollErr != nil {
 		return 0, m.pollErr

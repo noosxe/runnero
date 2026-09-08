@@ -30,14 +30,17 @@ const (
 
 // PoolDiagnosticState captures the live operational health, intent, and error diagnostics of a runner pool.
 type PoolDiagnosticState struct {
-	PoolID             int64            `json:"pool_id"`
-	PoolName           string           `json:"pool_name"`
-	HealthStatus       PoolHealthStatus `json:"health_status"`
-	CurrentIntent      string           `json:"current_intent"`
-	LastError          string           `json:"last_error,omitempty"`
-	LastErrorCode      string           `json:"last_error_code,omitempty"`
-	LastErrorTimestamp time.Time        `json:"last_error_timestamp,omitempty"`
-	LastReconciledAt   time.Time        `json:"last_reconciled_at"`
+	PoolID              int64            `json:"pool_id"`
+	PoolName            string           `json:"pool_name"`
+	HealthStatus        PoolHealthStatus `json:"health_status"`
+	CurrentIntent       string           `json:"current_intent"`
+	LastError           string           `json:"last_error,omitempty"`
+	LastErrorCode       string           `json:"last_error_code,omitempty"`
+	LastErrorTimestamp  time.Time        `json:"last_error_timestamp,omitempty"`
+	LastReconciledAt    time.Time        `json:"last_reconciled_at"`
+	LastPollAt          time.Time        `json:"last_poll_at,omitempty"`
+	LastPollQueuedCount int              `json:"last_poll_queued_count,omitempty"`
+	LastPollError       string           `json:"last_poll_error,omitempty"`
 }
 
 var (

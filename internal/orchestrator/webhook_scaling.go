@@ -2,13 +2,13 @@ package orchestrator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/provider"
 	"github.com/noosxe/runnero/internal/webhook"
 )
 
@@ -40,50 +40,11 @@ func NormalizeRepositoryURL(rawURL string) string {
 }
 
 // LabelsMatch checks whether a runner pool configured with poolLabelsRaw provides
-// all the labels required by the workflow job.
+// all the labels required by the workflow job. Delegates to the shared provider
+// implementation (docs/24 §5.2) so the webhook fast path and demand polling
+// apply identical label semantics.
 func LabelsMatch(poolLabelsRaw string, requiredLabels []string) bool {
-	if len(requiredLabels) == 0 {
-		return true
-	}
-
-	poolLabelsList := parsePoolLabels(poolLabelsRaw)
-	poolLabelSet := make(map[string]struct{}, len(poolLabelsList))
-	for _, l := range poolLabelsList {
-		poolLabelSet[strings.ToLower(strings.TrimSpace(l))] = struct{}{}
-	}
-
-	for _, req := range requiredLabels {
-		clean := strings.ToLower(strings.TrimSpace(req))
-		if clean == "" {
-			continue
-		}
-		if _, ok := poolLabelSet[clean]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func parsePoolLabels(raw string) []string {
-	if raw == "" {
-		return []string{"self-hosted", "linux"}
-	}
-	var arr []string
-	if err := json.Unmarshal([]byte(raw), &arr); err == nil && len(arr) > 0 {
-		return arr
-	}
-	parts := strings.Split(raw, ",")
-	res := make([]string, 0, len(parts))
-	for _, p := range parts {
-		trimmed := strings.TrimSpace(p)
-		if trimmed != "" {
-			res = append(res, trimmed)
-		}
-	}
-	if len(res) == 0 {
-		return []string{"self-hosted", "linux"}
-	}
-	return res
+	return provider.LabelsMatch(poolLabelsRaw, requiredLabels)
 }
 
 // MatchPoolForEvent finds the most specific matching runner pool for a webhook event.
