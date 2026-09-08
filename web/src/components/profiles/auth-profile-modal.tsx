@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useCreateAuthProfile, useUpdateAuthProfile } from "../../lib/api/query-hooks";
+import { toWireAuthMethod } from "../../lib/utils/auth-methods";
 import type { AuthProfile } from "../../gen/api_pb";
 import { KeyRound, X, AlertCircle } from "lucide-react";
 
@@ -91,7 +92,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           await updateProfileMutation.mutateAsync({
             id: profile.id,
             name: profileName.trim(),
-            authMethod,
+            authMethod: toWireAuthMethod(authMethod),
             appId: BigInt(appId.trim()),
             privateKey: privateKeyPem.trim()
               ? encoder.encode(privateKeyPem.trim())
@@ -101,7 +102,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
         } else {
           await createProfileMutation.mutateAsync({
             name: profileName.trim(),
-            authMethod,
+            authMethod: toWireAuthMethod(authMethod),
             appId: BigInt(appId.trim()),
             privateKey: encoder.encode(privateKeyPem.trim()),
             token: "",
@@ -116,7 +117,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           await updateProfileMutation.mutateAsync({
             id: profile.id,
             name: profileName.trim(),
-            authMethod,
+            authMethod: toWireAuthMethod(authMethod),
             appId: 0n,
             privateKey: new Uint8Array(),
             token: token.trim(),
@@ -124,7 +125,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
         } else {
           await createProfileMutation.mutateAsync({
             name: profileName.trim(),
-            authMethod,
+            authMethod: toWireAuthMethod(authMethod),
             appId: 0n,
             privateKey: new Uint8Array(),
             token: token.trim(),

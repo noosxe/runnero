@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { create } from "@bufbuild/protobuf";
 import { PoolSchema } from "../gen/api_pb";
+import { toWireAuthMethod } from "../lib/utils/auth-methods";
 import { getSuggestedRunnerLabels } from "../lib/utils/labels";
 import {
   useOnboardingStatus,
@@ -226,7 +227,7 @@ export function OnboardingPage() {
         const encoder = new TextEncoder();
         res = await createAuthProfileMutation.mutateAsync({
           name: profileName.trim(),
-          authMethod: "github_app",
+          authMethod: toWireAuthMethod("github_app"),
           appId: BigInt(appId.trim()),
           privateKey: encoder.encode(privateKeyPem.trim()),
           token: "",
@@ -238,7 +239,7 @@ export function OnboardingPage() {
         }
         res = await createAuthProfileMutation.mutateAsync({
           name: profileName.trim(),
-          authMethod,
+          authMethod: toWireAuthMethod(authMethod),
           appId: 0n,
           privateKey: new Uint8Array(),
           token: token.trim(),
