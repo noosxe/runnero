@@ -17,6 +17,8 @@ The repository is organized as a unified monorepo hosting multiple interdependen
 ### Problem Statement
 Un-gated CI workflows execute all tests, linters, and multi-architecture Docker container builds (including native ARM64 runners on `ubuntu-24.04-arm`) regardless of what changed in a pull request. A documentation typo fix or isolated frontend tweak would unnecessarily spin up Go data-race tests and 3-minute multi-arch Docker image builds, consuming runner queues and delaying PR merges.
 
+A cost-optimization pass (September 2026) tightened the gates further: the supervisor image build uses a **narrow path filter on pull requests** and the broad filter only on `main` pushes and tags; the Go data-race detector runs on the **amd64 leg only**; `web/dist` is built **once** per run (`web-assets` job) and shared to both matrix legs as an artifact; pull-request gate jobs use a **shallow checkout** (push events keep full history); and every job declares an explicit `timeout-minutes` budget so a hung job can never burn the 6-hour default.
+
 Conversely, GitHub Actions' native top-level `on.pull_request.paths` has critical architectural flaws:
 1. **Missing Status Checks**: If a workflow is skipped via top-level `paths:`, GitHub completely omits reporting status checks for that workflow. If branch protection rulesets expect those checks, pull requests become permanently blocked waiting for checks that will never report.
 2. **Schema & Asset Invalidation Blindspots**: Changes to shared assets (such as `proto/api.proto`) must trigger both Go CI and Web CI, but top-level path definitions easily drift or fail to capture cross-cutting dependencies.
@@ -42,28 +44,29 @@ graph TD
     PR --> WF5[Supervisor Build: supervisor-build.yml]
 
     subgraph "Go CI Pipeline"
-        WF1 --> G1[Job: changes<br/>dorny/paths-filter@v3<br/>ubuntu-latest ~4s]
-        G1 -->|go == true| G2[Job: Build & Test<br/>Native amd64 + arm64 matrix]
+        WF1 --> G1[Job: changes<br/>dorny/paths-filter@v4<br/>ubuntu-latest ~4s]
+        G1 -->|go == true| G4[Job: web-assets<br/>build web/dist once, share artifact]
+        G4 --> G2[Job: Build & Test<br/>amd64 + arm64 matrix<br/>race detector on amd64 only]
         G1 -->|go == false| G3[Skipped ~0s]
     end
 
     subgraph "Web CI Pipeline"
-        WF2 --> W1[Job: changes<br/>dorny/paths-filter@v3<br/>ubuntu-latest ~4s]
+        WF2 --> W1[Job: changes<br/>dorny/paths-filter@v4<br/>ubuntu-latest ~4s]
         W1 -->|web == true| W2[Job: Lint, Test & Build<br/>Oxlint, Vitest, Vite]
         W1 -->|web == false| W3[Skipped ~0s]
     end
 
     subgraph "Lint CI Pipeline"
-        WF3 --> L1[Job: changes<br/>dorny/paths-filter@v3<br/>ubuntu-latest ~4s]
+        WF3 --> L1[Job: changes<br/>dorny/paths-filter@v4<br/>ubuntu-latest ~4s]
         L1 -->|scripts == true| L2[Job: ShellCheck & Script Tests]
         L1 -->|docker == true| L3[Job: Hadolint Matrix]
         L1 -->|none == true| L4[Skipped ~0s]
     end
 
     subgraph "Container Build Pipelines"
-        WF4 --> B1[Job: changes<br/>dorny/paths-filter@v3]
+        WF4 --> B1[Job: changes<br/>dorny/paths-filter@v4]
         B1 -->|image == true| B2[Native Multi-Arch Build & Push]
-        WF5 --> S1[Job: changes<br/>dorny/paths-filter@v3]
+        WF5 --> S1[Job: changes<br/>dorny/paths-filter@v4]
         S1 -->|image == true| S2[Native Multi-Arch Build & Push]
     end
 ```
@@ -79,6 +82,7 @@ jobs:
     # Release tags skip detection and build unconditionally
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -86,13 +90,16 @@ jobs:
       should_run: ${{ steps.filter.outputs.should_run }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
-          # Full history so paths-filter accurately diffs against PR base or previous push
-          fetch-depth: 0
+          # Push events diff against the previous commit and need full
+          # history; pull_request events resolve changed files via the
+          # GitHub REST API (paths-filter, pull-requests: read) and only
+          # need a shallow checkout.
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
 
       - name: Filter Changed Paths
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -125,12 +132,13 @@ The table below defines the exact path filters evaluated across all workflows:
 | **Go CI** (`go.yml`) | `go` | `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Makefile`<br/>`.github/workflows/go.yml` | Any modification to backend Go code, database queries/migrations, Protobuf schemas, Go module dependencies, build automation, or the workflow itself. |
 | **Web CI** (`web.yml`) | `web` | `web/**`<br/>`proto/**`<br/>`.github/workflows/web.yml` | Any modification to the React SPA, frontend dependencies (`pnpm-lock.yaml`), shared Protobuf schemas, or the frontend workflow. |
 | **Lint CI** (`lint.yml`) | `scripts`<br/>`docker` | `src/**`<br/>`tests/**`<br/>`Dockerfile`<br/>`Dockerfile.supervisor`<br/>`.dockerignore`<br/>`.github/workflows/lint.yml` | `scripts`: Triggers `shellcheck` and script unit tests on runner bash scripts.<br/>`docker`: Triggers `hadolint` on container files. |
-| **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`tests/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition, scripts, or release workflow. |
-| **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image` | `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum`<br/>`.github/workflows/supervisor-build.yml` | Modifications to the supervisor binary context, embedded web UI assets, or container recipe. |
+| **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition, runner scripts, or release workflow. `tests/**` is excluded: script-test changes are validated by `Lint CI` and never enter the image. |
+| **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image`<br/>(event-dependent) | **Pull requests** (`image-pr`): `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`.github/workflows/supervisor-build.yml`<br/>**`main` pushes & dispatch** (`image-push`): PR set plus `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum` | PRs only need to prove the image recipe still builds — Go/web correctness is already covered by Go CI and Web CI. Pushes to `main` and releases validate the full build context (the embedded binary and web UI). |
 
 ### Handling Cross-Cutting Changes
 - **Protobuf Schemas (`proto/**`)**: Modifying `proto/api.proto` triggers **both** `Go CI` and `Web CI` because code is generated into both `internal/pb/` and `web/src/lib/api/pb/`.
-- **Embedded Web Assets**: Modifying `web/**` triggers `Web CI` (lint/test/build) and `Supervisor Multi-Arch Build` (since `web/dist` is embedded into the supervisor binary). It does **not** trigger `Go CI` unless Go sources or module files are also touched.
+- **Embedded Web Assets**: Modifying `web/**` triggers `Web CI` (lint/test/build). The `Supervisor Multi-Arch Build` picks it up on pushes to `main` (since `web/dist` is embedded into the supervisor binary) but **not** on pull requests, where frontend correctness is already validated by `Web CI`. It does **not** trigger `Go CI` unless Go sources or module files are also touched; inside `Go CI` itself, `web/dist` is built once by the `web-assets` job and shared with both matrix legs.
+- **Runner Image vs. Script Tests**: `tests/**` changes no longer trigger the runner image build — they are validated by `Lint CI` (ShellCheck + script unit tests) and never enter the image context.
 - **Documentation Only (`docs/**`, `README.md`, `AGENTS.md`)**: All 5 workflows trigger their ~4-second `changes` gate job and immediately finish. All heavy matrix and container builds are cleanly skipped.
 
 ---
@@ -139,8 +147,8 @@ The table below defines the exact path filters evaluated across all workflows:
 
 | Event | Behavior | Gatekeeper Action | Downstream Jobs |
 | :--- | :--- | :--- | :--- |
-| **Pull Request (`pull_request`)** | Evaluates diff against PR target (`main`). | Runs `dorny/paths-filter@v3` against base SHA. | Run **only** if matching paths were changed in the PR branch. |
-| **Push to `main` (`push`)** | Evaluates diff against previous commit (`github.event.before`). | Runs `dorny/paths-filter@v3` against prior SHA. | Run **only** for changed subsystems, avoiding duplicate builds on merge commits. |
+| **Pull Request (`pull_request`)** | Evaluates diff against PR target (`main`). | Runs `dorny/paths-filter@v4` against the base SHA via the GitHub REST API (shallow checkout suffices). | Run **only** if matching paths were changed in the PR branch; the supervisor image build applies its narrow `image-pr` filter (see §3). |
+| **Push to `main` (`push`)** | Evaluates diff against previous commit (`github.event.before`); full-history checkout. | Runs `dorny/paths-filter@v4` against the prior SHA. | Run **only** for changed subsystems, avoiding duplicate builds on merge commits; the supervisor image build applies its broad `image-push` filter. |
 | **Git Tag Release (`refs/tags/v*`)** | Container release deployment. | Gatekeeper skipped (`if: ${{ !startsWith(...) }}`). | Run **unconditionally** to compile and publish immutable multi-arch images. |
 | **Manual Dispatch (`workflow_dispatch`)** | Operator manual verification. | Gatekeeper runs or passes through. | Run **unconditionally** upon manual trigger. |
 
@@ -155,7 +163,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - `build-test`, `web-ci`, and `lint` jobs require only `contents: read`.
    - `packages: write` is strictly restricted to container build workflows (`build.yml`, `supervisor-build.yml`) and is only utilized when pushing images to `ghcr.io`.
 2. **Pinning Action Versions**:
-   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v6`, `dorny/paths-filter@v3`, `actions/setup-go@v6`, `actions/setup-node@v4`, `pnpm/action-setup@v4`, `hadolint/hadolint-action@v3.1.0`).
+   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`).
 3. **Concurrency Control**:
    - Every workflow specifies `concurrency: group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true`.
    - If a developer pushes a new commit to an active PR, running jobs are automatically cancelled, preventing wasted runner resources.
@@ -163,6 +171,8 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - Gating jobs run unauthenticated and access zero repository secrets.
    - PRs from forks cannot access packaging secrets or publish images.
 
+5. **Runner Time Budgets**:
+   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate/lint jobs, 10–15 for test jobs, 30 for image builds), so a single hung job can never burn the 6-hour default in runner time.
 ---
 
 ## 6. Verification & Operational Guidelines
@@ -171,7 +181,7 @@ When implementing or updating workflow path filters:
 
 1. **Self-Check Requirement**: Every workflow file must monitor itself in its path filter list (e.g. `.github/workflows/go.yml` in `go.yml`). This ensures that changes to the CI definition itself are always validated by the CI it defines.
 2. **Local Parity**: CI steps must maintain exact parity with the Nix development shell commands:
-   - `go build ./...`, `go vet ./...`, `go test -race ./...` (matches `make build`, `make vet`, `make test`).
+   - `go vet ./...` and `go test ./...` on both matrix legs, plus `go test -race ./...` on the **amd64 leg only** (matches `make vet`, `make test`, `make test-race`). The standalone `go build ./...` step was dropped — `vet`/`test` already compile the module — and `web/dist` is built once by the `web-assets` job and shared to both legs as an artifact.
    - `pnpm run lint`, `pnpm run format:check`, `pnpm test`, `pnpm run build` (matches `make lint-web`, `make test-web`).
    - `shellcheck src/*.sh`, `bash tests/unit/entrypoint_test.sh` (matches `make test-scripts`).
 3. **Status Check Monitoring**:
@@ -222,7 +232,7 @@ The repository leverages four distinct package ecosystems:
 5. **Gatekeeper CI Synergy**:
    - Dependabot PRs integrate cleanly with the Gatekeeper architecture (`dorny/paths-filter@v3`):
      - An `npm` PR modifying `web/pnpm-lock.yaml` triggers only `web.yml` (Oxlint, Oxfmt, Vitest, Vite build), skipping Go and container build pipelines.
-     - A `gomod` PR modifying `go.mod` triggers only `go.yml` (cross-platform AMD64 & ARM64 Go tests + race detector).
+     - A `gomod` PR modifying `go.mod` triggers only `go.yml` (cross-platform AMD64 & ARM64 Go tests, race detector on AMD64) — and on `main` pushes also the supervisor image build via the broad `image-push` filter.
      - A `docker` PR triggers `lint.yml` (`hadolint`) and `build.yml` (runner multi-arch build).
      - A `github-actions` PR triggers the respective workflow files for self-validation.
    - This ensures rapid, cost-effective CI runs (~1–2 minutes) without blocking runner resources.

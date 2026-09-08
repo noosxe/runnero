@@ -30,23 +30,40 @@ jobs:
     name: Detect Supervisor Changes
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
     outputs:
-      image: ${{ steps.filter.outputs.image }}
+      # Resolved by the select step below: narrow filter on pull requests,
+      # broad filter on pushes to main and manual dispatch.
+      image: ${{ steps.select.outputs.image }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          # Push events diff against the previous commit and need full
+          # history; pull_request events resolve changed files via the
+          # GitHub REST API (paths-filter, pull-requests: read) and only
+          # need a shallow checkout.
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
 
       - name: Filter Changed Paths
         uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
-            image:
+            # Narrow on pull requests: Go/web correctness is already
+            # validated by go.yml / web.yml, so a PR only needs to prove
+            # the image recipe itself still builds.
+            image-pr:
+              - 'Dockerfile.supervisor'
+              - '.dockerignore'
+              - 'deploy/supervisor/**'
+              - '.github/workflows/supervisor-build.yml'
+            # Broad on pushes to main and manual dispatch: release images
+            # must always be proven against the full build context.
+            image-push:
               - 'Dockerfile.supervisor'
               - '.dockerignore'
               - 'deploy/supervisor/**'
@@ -58,11 +75,25 @@ jobs:
               - 'go.sum'
               - '.github/workflows/supervisor-build.yml'
 
+      # Pick the filter result for this event: pull requests use the
+      # narrow image-pr filter; pushes to main and manual dispatch use the
+      # broad image-push filter. (Plain expression ternaries are unsafe
+      # here: a 'false' string output is truthy in GitHub expressions.)
+      - name: Select Filter Result
+        id: select
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "image=${{ steps.filter.outputs.image-pr }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=${{ steps.filter.outputs.image-push }}" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build Native Supervisor Image
     needs: changes
     if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || needs.changes.outputs.image == 'true') }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     strategy:
       matrix:
         include:
@@ -120,6 +151,7 @@ jobs:
   merge:
     name: Merge Manifests & Publish Supervisor Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
