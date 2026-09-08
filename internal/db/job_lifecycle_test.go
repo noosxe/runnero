@@ -72,7 +72,7 @@ func TestOpenCloseTransitionJobLifecycle(t *testing.T) {
 	}
 
 	completed := now.Add(5 * time.Minute)
-	if err := database.CloseTransitionJob(ctx, poolID, "runnero-a-1", "completed", "", completed); err != nil {
+	if err := database.CloseTransitionJob(ctx, poolID, "runnero-a-1", "completed", 0, "", completed); err != nil {
 		t.Fatalf("CloseTransitionJob failed: %v", err)
 	}
 
@@ -480,4 +480,52 @@ func TestRecordWebhookCompletedCloseRules(t *testing.T) {
 			t.Fatalf("expected no rows, got %d", len(history))
 		}
 	})
+}
+
+
+// TestCloseTransitionJobEnrichesJobID verifies the docs/21 section 5.3 close
+// enrichment: a non-zero job id is written onto the closing row, and a zero
+// job id leaves any existing value untouched (COALESCE).
+func TestCloseTransitionJobEnrichesJobID(t *testing.T) {
+	database, poolID, cleanup := newJobLifecycleDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	if err := database.OpenTransitionJob(ctx, poolID, "runnero-enrich-1", now); err != nil {
+		t.Fatalf("OpenTransitionJob failed: %v", err)
+	}
+	if err := database.CloseTransitionJob(ctx, poolID, "runnero-enrich-1", "success", 9001, "", now.Add(time.Minute)); err != nil {
+		t.Fatalf("CloseTransitionJob with job id failed: %v", err)
+	}
+	history, err := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+	if err != nil {
+		t.Fatalf("ListJobHistory failed: %v", err)
+	}
+	if len(history) != 1 || !history[0].JobID.Valid || history[0].JobID.Int64 != 9001 {
+		t.Fatalf("expected one row enriched with job id 9001, got %+v", history)
+	}
+
+	// A zero job id must not clobber a previously stored value.
+	if err := database.RecordWebhookQueued(ctx, poolID, 9002, WebhookJobMeta{}, now.Add(2*time.Minute)); err != nil {
+		t.Fatalf("RecordWebhookQueued failed: %v", err)
+	}
+	if err := database.RecordWebhookStarted(ctx, poolID, 9002, "runnero-enrich-1", now.Add(2*time.Minute), now.Add(2*time.Minute), WebhookJobMeta{}); err != nil {
+		t.Fatalf("RecordWebhookStarted failed: %v", err)
+	}
+	if err := database.CloseTransitionJob(ctx, poolID, "runnero-enrich-1", "completed", 0, "", now.Add(3*time.Minute)); err != nil {
+		t.Fatalf("CloseTransitionJob without job id failed: %v", err)
+	}
+	history, err = database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+	if err != nil {
+		t.Fatalf("ListJobHistory failed: %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("expected 2 closed rows, got %d: %+v", len(history), history)
+	}
+	for _, r := range history {
+		if !r.JobID.Valid {
+			t.Fatalf("every closed row must carry a job id, got %+v", r)
+		}
+	}
 }

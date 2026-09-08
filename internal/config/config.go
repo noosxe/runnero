@@ -24,16 +24,17 @@ const EnvPrefix = "SUPERVISOR_"
 
 // Environment variable names for the supervisor contract.
 const (
-	EnvDBEncryptionKey     = EnvPrefix + "DB_ENCRYPTION_KEY"
-	EnvPort                = EnvPrefix + "PORT"
-	EnvDBPath              = EnvPrefix + "DB_PATH"
-	EnvLogLevel            = EnvPrefix + "LOG_LEVEL"
-	EnvDockerHost          = EnvPrefix + "DOCKER_HOST"
-	EnvDataDir             = EnvPrefix + "DATA_DIR"
-	EnvBackupIntervalHours = EnvPrefix + "BACKUP_INTERVAL_HOURS"
-	EnvBackupRetention     = EnvPrefix + "BACKUP_RETENTION_COUNT"
-	EnvConfigFile          = EnvPrefix + "CONFIG"
-	EnvSecureCookie        = EnvPrefix + "SECURE_COOKIE"
+	EnvDBEncryptionKey      = EnvPrefix + "DB_ENCRYPTION_KEY"
+	EnvPort                 = EnvPrefix + "PORT"
+	EnvDBPath               = EnvPrefix + "DB_PATH"
+	EnvLogLevel             = EnvPrefix + "LOG_LEVEL"
+	EnvDockerHost           = EnvPrefix + "DOCKER_HOST"
+	EnvDataDir              = EnvPrefix + "DATA_DIR"
+	EnvBackupIntervalHours  = EnvPrefix + "BACKUP_INTERVAL_HOURS"
+	EnvBackupRetention      = EnvPrefix + "BACKUP_RETENTION_COUNT"
+	EnvConfigFile           = EnvPrefix + "CONFIG"
+	EnvSecureCookie         = EnvPrefix + "SECURE_COOKIE"
+	EnvEnrichJobConclusions = EnvPrefix + "ENRICH_JOB_CONCLUSIONS"
 )
 
 // Default values for the supervisor environment contract (docs/open-questions.md #3).
@@ -57,16 +58,17 @@ const MinEncryptionKeyBytes = 32
 // keys double as the YAML/TOML file keys and (with dashes) the CLI flag
 // names, keeping all three layers spelled identically.
 var envKeys = map[string]string{
-	EnvDBEncryptionKey:     "db-encryption-key",
-	EnvPort:                "port",
-	EnvDBPath:              "db-path",
-	EnvLogLevel:            "log-level",
-	EnvDockerHost:          "docker-host",
-	EnvDataDir:             "data-dir",
-	EnvBackupIntervalHours: "backup-interval-hours",
-	EnvBackupRetention:     "backup-retention-count",
-	EnvConfigFile:          "config",
-	EnvSecureCookie:        "secure-cookie",
+	EnvDBEncryptionKey:      "db-encryption-key",
+	EnvPort:                 "port",
+	EnvDBPath:               "db-path",
+	EnvLogLevel:             "log-level",
+	EnvDockerHost:           "docker-host",
+	EnvDataDir:              "data-dir",
+	EnvBackupIntervalHours:  "backup-interval-hours",
+	EnvBackupRetention:      "backup-retention-count",
+	EnvEnrichJobConclusions: "enrich-job-conclusions",
+	EnvConfigFile:           "config",
+	EnvSecureCookie:         "secure-cookie",
 }
 
 // Config is the typed result of loading every configuration layer. Field
@@ -82,6 +84,7 @@ type Config struct {
 	BackupRetentionCount int    `koanf:"backup-retention-count"`
 	ConfigFile           string `koanf:"config"`
 	SecureCookie         bool   `koanf:"secure-cookie"`
+	EnrichJobConclusions bool   `koanf:"enrich-job-conclusions"`
 }
 
 // Options parameterizes Load. The zero value loads defaults plus the
@@ -178,6 +181,7 @@ func defaults() map[string]any {
 		"backup-interval-hours":  DefaultBackupIntervalHours,
 		"backup-retention-count": DefaultBackupRetentionCount,
 		"db-encryption-key":      "",
+		"enrich-job-conclusions": true,
 	}
 }
 

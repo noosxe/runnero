@@ -26,7 +26,7 @@ type AuditReport struct {
 type Reconciler struct {
 	provider ContainerProvider
 
-	mu      sync.RWMutex
+	mu sync.RWMutex
 	// tracked maps poolName -> map[containerID]RunnerStatus
 	tracked map[string]map[string]RunnerStatus
 }
@@ -172,6 +172,25 @@ func (r *Reconciler) MarkRunnerBusy(runnerNameOrID string, busy bool) {
 		for id, status := range poolMap {
 			if status.ID == runnerNameOrID || status.Name == runnerNameOrID {
 				status.IsBusy = busy
+				poolMap[id] = status
+				return
+			}
+		}
+	}
+}
+
+// SetRunnerForgeID persists the forge-assigned runner id onto the tracked
+// runner state matching the given name or container id (docs/21 §5.3).
+// Best-effort: a runner absent from tracked state is silently ignored —
+// the next listing observation re-offers the id.
+func (r *Reconciler) SetRunnerForgeID(runnerNameOrID string, forgeID int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, poolMap := range r.tracked {
+		for id, status := range poolMap {
+			if status.ID == runnerNameOrID || status.Name == runnerNameOrID {
+				status.ForgeID = forgeID
 				poolMap[id] = status
 				return
 			}

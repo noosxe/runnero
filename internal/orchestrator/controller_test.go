@@ -536,6 +536,7 @@ type mockJobRecorder struct {
 		poolID     int64
 		runnerName string
 		status     string
+		jobID      int64
 	}
 	interrupted int64
 
@@ -1595,12 +1596,13 @@ func (m *mockJobRecorder) OpenTransitionJob(ctx context.Context, poolID int64, r
 	return nil
 }
 
-func (m *mockJobRecorder) CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status, logPath string, completedAt time.Time) error {
+func (m *mockJobRecorder) CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status string, jobID int64, logPath string, completedAt time.Time) error {
 	m.closes = append(m.closes, struct {
 		poolID     int64
 		runnerName string
 		status     string
-	}{poolID, runnerName, status})
+		jobID      int64
+	}{poolID, runnerName, status, jobID})
 	return nil
 }
 

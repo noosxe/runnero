@@ -247,12 +247,15 @@ func (d *DB) OpenTransitionJob(ctx context.Context, poolID int64, runnerName str
 }
 
 // CloseTransitionJob closes a runner's open job_history row with the given
-// terminal status (docs/21 §5.2). A no-op when no row is open.
-func (d *DB) CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status, logPath string, completedAt time.Time) error {
+// terminal status (docs/21 §5.2). A non-zero jobID enriches the row with the
+// forge's external job id (docs/21 §5.3); zero leaves any existing value
+// untouched. A no-op when no row is open.
+func (d *DB) CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status string, jobID int64, logPath string, completedAt time.Time) error {
 	if _, err := d.CloseOpenJobRow(ctx, CloseOpenJobRowParams{
 		CompletedAt:      sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
 		Status:           status,
 		LogRetentionPath: sql.NullString{String: logPath, Valid: logPath != ""},
+		JobID:            sql.NullInt64{Int64: jobID, Valid: jobID > 0},
 		PoolID:           poolID,
 		RunnerName:       runnerName,
 	}); err != nil {

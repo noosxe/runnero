@@ -122,14 +122,15 @@ func runDaemonContext(ctx context.Context) error {
 	reconciler := orchestrator.NewReconciler(dockerClient)
 	eventListener := orchestrator.NewEventListener(dockerClient, nil)
 	poolCtrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
-		DB:               database,
-		JobRecorder:      database,
-		ContainerEngine:  dockerClient,
-		ProviderResolver: providerResolver,
-		Reconciler:       reconciler,
-		EventListener:    eventListener,
-		DataDir:          cfg.DataDir,
-		TaskExitHandler:  renovateExecutor,
+		DB:                database,
+		JobRecorder:       database,
+		ContainerEngine:   dockerClient,
+		ProviderResolver:  providerResolver,
+		Reconciler:        reconciler,
+		EventListener:     eventListener,
+		DataDir:           cfg.DataDir,
+		EnrichConclusions: cfg.EnrichJobConclusions,
+		TaskExitHandler:   renovateExecutor,
 	})
 
 	if err := poolCtrl.Boot(ctx); err != nil {

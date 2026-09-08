@@ -214,6 +214,31 @@ func TestLoadSecureCookie(t *testing.T) {
 	})
 }
 
+func TestLoadEnrichJobConclusions(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+
+	t.Run("defaults to enabled", func(t *testing.T) {
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if !cfg.EnrichJobConclusions {
+			t.Errorf("enrich-job-conclusions = false, want default true (docs/21 section 5.3)")
+		}
+	})
+
+	t.Run("disable from environment", func(t *testing.T) {
+		t.Setenv(EnvEnrichJobConclusions, "false")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.EnrichJobConclusions {
+			t.Errorf("enrich-job-conclusions = true, want false from env")
+		}
+	})
+}
+
 func TestConfigFileResolution(t *testing.T) {
 	t.Setenv(EnvDBEncryptionKey, testKey)
 

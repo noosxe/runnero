@@ -65,7 +65,7 @@ type ProvisionRequest struct {
 type JobHistoryRecorder interface {
 	RecordJobTimeout(ctx context.Context, poolID int64, runnerName, logPath string, startedAt, completedAt time.Time) error
 	OpenTransitionJob(ctx context.Context, poolID int64, runnerName string, startedAt time.Time) error
-	CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status, logPath string, completedAt time.Time) error
+	CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status string, jobID int64, logPath string, completedAt time.Time) error
 	CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error)
 	CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, completedAt time.Time) (int64, error)
 
@@ -143,6 +143,13 @@ type ControllerOptions struct {
 	TaskExitHandler        TaskExitHandler
 	GhostSweepOfflineCycles int
 	GhostSweepMaxDeregistrations int
+	// EnrichConclusions enables conclusion enrichment on job completion
+	// (docs/21 §5.3): when a busy-to-idle transition closes a job row, the
+	// controller asks the forge for the runner's latest job once and stores
+	// the external job id and conclusion. Effective only when the resolved
+	// provider implements RunnerJobsLister; failures fail open. Enabled by
+	// the enrich-job-conclusions config default.
+	EnrichConclusions bool
 }
 
 // PoolController orchestrates the lifecycle control loop across all runner pools (docs/03 §1).
@@ -164,6 +171,7 @@ type PoolController struct {
 	scaleToZeroGracePeriod time.Duration
 	ghostOfflineCycles     int
 	ghostMaxDeregistrations int
+	enrichConclusions       bool
 	ghostMu                sync.Mutex
 	ghostCounters          map[string]map[string]int // pool -> runner name -> consecutive offline-untracked cycles (docs/20 §4.1)
 
@@ -237,6 +245,7 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		state:                  StateStopped,
 		ghostOfflineCycles:     ghostCycles,
 		ghostMaxDeregistrations: ghostMax,
+		enrichConclusions:      opts.EnrichConclusions,
 		ghostCounters:          make(map[string]map[string]int),
 		logger:                 logging.For("controller"),
 		diagnostics:            make(map[string]PoolDiagnosticState),
@@ -617,7 +626,7 @@ func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID, po
 	if err != nil || poolID <= 0 {
 		return
 	}
-	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, "", time.Now().UTC()); err != nil {
+	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, 0, "", time.Now().UTC()); err != nil {
 		c.logger.Warn("closing job row on runner death", "pool", poolName, "runner", runnerName, "err", err)
 	}
 }
@@ -966,7 +975,7 @@ func (c *PoolController) fetchRemoteRunners(ctx context.Context, gitProv provide
 //
 // The same transitions drive job-history recording (docs/21 §5.2):
 // idle→busy opens a job row, busy→idle closes it.
-func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPool, remote []provider.RemoteRunnerStatus) {
+func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPool, gitProv provider.GitProvider, remote []provider.RemoteRunnerStatus) {
 	if c.reconciler == nil || len(remote) == 0 {
 		return
 	}
@@ -993,30 +1002,93 @@ func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPo
 			// registration/contact races (docs/19 §2.3).
 			continue
 		}
+		// Persist the forge-assigned runner id for conclusion enrichment
+		// (docs/21 §5.3): the listing is the only id source, so each
+		// observation refreshes the tracked state.
+		if state.ID > 0 && state.ID != r.ForgeID {
+			c.reconciler.SetRunnerForgeID(r.Name, state.ID)
+		}
 		if r.IsBusy != state.Busy {
 			c.reconciler.MarkRunnerBusy(r.Name, state.Busy)
-			c.recordJobTransition(ctx, p, r.Name, state.Busy)
+			if state.Busy {
+				c.recordJobTransition(ctx, p, r.Name, true)
+			} else {
+				// Job completion (docs/21 §5.3): prefer the forge's
+				// conclusion and external job id, falling back to a plain
+				// completed row when enrichment is disabled, unsupported,
+				// or fails (G3).
+				forgeID := r.ForgeID
+				if state.ID > 0 {
+					forgeID = state.ID
+				}
+				status, jobID := c.enrichedCloseStatus(ctx, gitProv, p, forgeID)
+				c.recordJobClose(ctx, p, r.Name, status, jobID)
+			}
 		}
 	}
 }
 
-// recordJobTransition records a job-history lifecycle transition for a runner
-// observed flipping busy state (docs/21 §5.2). Best-effort: recording failures
-// are logged and never block the reconcile cycle (docs/21 G3).
+// recordJobTransition opens a job-history row for a runner observed flipping
+// idle to busy (docs/21 §5.2). Best-effort: recording failures are logged and
+// never block the reconcile cycle (docs/21 G3).
 func (c *PoolController) recordJobTransition(ctx context.Context, p db.RunnerPool, runnerName string, busy bool) {
 	if c.jobRecorder == nil {
 		return
 	}
-	now := time.Now().UTC()
-	var err error
-	if busy {
-		err = c.jobRecorder.OpenTransitionJob(ctx, p.ID, runnerName, now)
-	} else {
-		err = c.jobRecorder.CloseTransitionJob(ctx, p.ID, runnerName, "completed", "", now)
-	}
-	if err != nil {
+	if err := c.jobRecorder.OpenTransitionJob(ctx, p.ID, runnerName, time.Now().UTC()); err != nil {
 		c.logger.Warn("job lifecycle recording failed", "pool", p.Name, "runner", runnerName, "busy", busy, "err", err)
 	}
+}
+
+// recordJobClose closes a runner's open job-history row with the given terminal
+// status, enriching it with the forge's external job id when known (docs/21
+// §5.2, §5.3). Best-effort per G3.
+func (c *PoolController) recordJobClose(ctx context.Context, p db.RunnerPool, runnerName, status string, jobID int64) {
+	if c.jobRecorder == nil {
+		return
+	}
+	if err := c.jobRecorder.CloseTransitionJob(ctx, p.ID, runnerName, status, jobID, "", time.Now().UTC()); err != nil {
+		c.logger.Warn("job lifecycle recording failed", "pool", p.Name, "runner", runnerName, "status", status, "err", err)
+	}
+}
+
+// conclusionEnrichTimeout bounds the single per-completion forge call (docs/21
+// §5.3): enrichment must never stall the reconcile loop.
+const conclusionEnrichTimeout = 5 * time.Second
+
+// enrichedCloseStatus resolves the terminal status and external job id for a
+// just-completed job by asking the forge for the runner's latest jobs once
+// (docs/21 §5.3). Fail-open contract (G3): disabled via config, missing forge
+// id, missing RunnerJobsLister capability, unsupported scope, API error, or no
+// concluded job all degrade to a plain completed row with no job id.
+func (c *PoolController) enrichedCloseStatus(ctx context.Context, gitProv provider.GitProvider, p db.RunnerPool, forgeID int64) (string, int64) {
+	if !c.enrichConclusions || forgeID <= 0 || gitProv == nil {
+		return "completed", 0
+	}
+	lister, ok := gitProv.(provider.RunnerJobsLister)
+	if !ok {
+		return "completed", 0
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, conclusionEnrichTimeout)
+	defer cancel()
+
+	jobs, err := lister.RunnerLatestJobs(ctx, provider.RegistrationScope(p.Scope), p.RepositoryUrl, forgeID)
+	if err != nil {
+		c.logger.Warn("conclusion enrichment failed, closing as completed", "pool", p.Name, "forge_id", forgeID, "err", err)
+		return "completed", 0
+	}
+	for _, j := range jobs {
+		// Newest-first: the first job the forge reports as concluded is the
+		// one that just finished; running entries (empty completed_at) are
+		// skipped rather than trusted, since busy-flag lag can race the
+		// forge's own job state.
+		if j.CompletedAt.IsZero() {
+			continue
+		}
+		return webhookConclusionStatus(j.Conclusion), j.ID
+	}
+	return "completed", 0
 }
 
 // ghostSweep deregisters orphaned runner registrations — idle, offline,
@@ -1127,7 +1199,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	// or phantom idle, and ungraceful container deaths cannot leave orphaned
 	// registrations behind. Webhooks remain the sub-second fast path.
 	remote, target := c.fetchRemoteRunners(ctx, gitProv, p)
-	c.applyRemoteBusyState(ctx, p, remote)
+	c.applyRemoteBusyState(ctx, p, gitProv, remote)
 	c.ghostSweep(ctx, gitProv, p, target, remote)
 
 	tracked := c.reconciler.TrackedPoolRunners(p.Name)

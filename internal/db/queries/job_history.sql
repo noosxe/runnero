@@ -112,7 +112,8 @@ INSERT INTO job_history (
 UPDATE job_history
 SET completed_at = ?,
     status = ?,
-    log_retention_path = ?
+    log_retention_path = ?,
+    job_id = COALESCE(?, job_id)
 WHERE pool_id = ?
   AND runner_name = ?
   AND completed_at IS NULL;

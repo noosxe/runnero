@@ -77,7 +77,8 @@ const closeOpenJobRow = `-- name: CloseOpenJobRow :execrows
 UPDATE job_history
 SET completed_at = ?,
     status = ?,
-    log_retention_path = ?
+    log_retention_path = ?,
+    job_id = COALESCE(?, job_id)
 WHERE pool_id = ?
   AND runner_name = ?
   AND completed_at IS NULL
@@ -87,6 +88,7 @@ type CloseOpenJobRowParams struct {
 	CompletedAt      sql.NullTime   `json:"completed_at"`
 	Status           string         `json:"status"`
 	LogRetentionPath sql.NullString `json:"log_retention_path"`
+	JobID            sql.NullInt64  `json:"job_id"`
 	PoolID           int64          `json:"pool_id"`
 	RunnerName       string         `json:"runner_name"`
 }
@@ -96,6 +98,7 @@ func (q *Queries) CloseOpenJobRow(ctx context.Context, arg CloseOpenJobRowParams
 		arg.CompletedAt,
 		arg.Status,
 		arg.LogRetentionPath,
+		arg.JobID,
 		arg.PoolID,
 		arg.RunnerName,
 	)
