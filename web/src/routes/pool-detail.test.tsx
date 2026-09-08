@@ -8,6 +8,9 @@ const mockPool = {
   provider: "github",
   repositoryUrl: "https://github.com/noosxe/runnero",
   scope: "repo",
+  authProfileId: 10n,
+  labels: ["self-hosted", "linux"],
+  targetUrls: ["https://github.com/noosxe/runnero"],
   minIdleRunners: 1,
   maxConcurrency: 5,
   activeRunners: 2,
@@ -120,6 +123,24 @@ vi.mock("../lib/api/query-hooks", () => ({
   useTriggerRenovateRun: () => ({
     mutateAsync: mockTriggerRenovateAsync,
     isPending: false,
+  }),
+  useCreatePool: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  useDiscoverTargets: () => ({
+    data: { targets: [], installUrl: "", installations: [] },
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useAuthProfiles: () => ({
+    data: [{ id: 10n, name: "test-profile", authMethod: "pat" }],
+    isLoading: false,
+  }),
+  useSession: () => ({
+    data: { hostOs: "linux", hostArch: "amd64" },
+    isLoading: false,
   }),
   useUpdatePool: () => ({
     mutateAsync: mockUpdatePoolAsync,

@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ type mockStatsProvider struct {
 	activeCounts map[string]int32
 	idleCounts   map[string]int32
 	diagnostics  map[string]server.PoolDiagnostics
+	recycled     []string
 }
 
 func newMockStatsProvider() *mockStatsProvider {
@@ -56,6 +58,28 @@ func (m *mockStatsProvider) Reload(ctx context.Context) error {
 	defer m.mu.Unlock()
 	m.reloadsCount++
 	return nil
+}
+
+// RecycleIdleRunners records recycle requests so tests can assert the
+// spawn-identity/rename recycling behavior of UpdatePool (docs/22 §5.2).
+func (m *mockStatsProvider) RecycleIdleRunners(ctx context.Context, poolName string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.recycled = append(m.recycled, poolName)
+	return nil
+}
+
+// recycledCount reports how often RecycleIdleRunners was called for poolName.
+func (m *mockStatsProvider) recycledCount(poolName string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := 0
+	for _, p := range m.recycled {
+		if p == poolName {
+			n++
+		}
+	}
+	return n
 }
 
 func TestPoolServiceCRUDAndValidation(t *testing.T) {
@@ -930,5 +954,280 @@ func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 	} else {
 		t.Fatalf("expected stream message, got none (err: %v)", stream.Err())
 	}
+}
+
+// startPoolEditTestServer spins up a full PoolService HTTP stack with admin
+// auth and returns an authenticated client plus the session cookie value.
+func startPoolEditTestServer(t *testing.T, database *db.DB, jwtSecret []byte, stats server.PoolStatsProvider) (*httptest.Server, supervisorv1connect.PoolServiceClient, string) {
+	t.Helper()
+	ctx := context.Background()
+
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		PoolStats:        stats,
+		JWTSigningSecret: jwtSecret,
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	})); err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	cookie := loginRes.Header().Get("Set-Cookie")
+	rawCookie := strings.Split(strings.Split(cookie, ";")[0], "=")[1]
+	return ts, supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL), rawCookie
+}
+
+// editPoolPayload returns a complete, valid update payload for poolID with
+// mutable fields the test phases adjust individually.
+func editPoolPayload(poolID, profileID int64, name string) *supervisorv1.Pool {
+	return &supervisorv1.Pool{
+		Id:                       poolID,
+		Name:                     name,
+		Provider:                 "github",
+		RepositoryUrl:            "https://github.com/acme/widgets",
+		TargetUrls:               []string{"https://github.com/acme/widgets", "https://github.com/acme/gadgets"},
+		Scope:                    "repo",
+		AuthProfileId:            profileID,
+		MinIdleRunners:           1,
+		MaxConcurrency:           4,
+		Labels:                   []string{"self-hosted", "linux"},
+		RunnerImage:              "ghcr.io/noosxe/runnero:v1",
+		AllowDocker:              true,
+		MaxRunnerLifetimeSeconds: 3600,
+		CpuLimit:                 "2",
+		MemoryLimit:              "4g",
+	}
+}
+
+func updatePool(t *testing.T, client supervisorv1connect.PoolServiceClient, rawCookie string, pool *supervisorv1.Pool) (*supervisorv1.Pool, error) {
+	t.Helper()
+	req := connect.NewRequest(&supervisorv1.UpdatePoolRequest{Pool: pool})
+	req.Header().Set("Cookie", "session_token="+rawCookie)
+	res, err := client.UpdatePool(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	return res.Msg.Pool, nil
+}
+
+func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
+	ctx := context.Background()
+	database, jwtSecret := setupTestDB(t)
+	stats := newMockStatsProvider()
+	_, client, rawCookie := startPoolEditTestServer(t, database, jwtSecret, stats)
+
+	profile, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
+		Name:           "edit-profile",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "encrypted-token", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthProfile failed: %v", err)
+	}
+
+	createReq := connect.NewRequest(&supervisorv1.CreatePoolRequest{
+		Pool: editPoolPayload(0, profile.ID, "edit-pool"),
+	})
+	createReq.Header().Set("Cookie", "session_token="+rawCookie)
+	createRes, err := client.CreatePool(ctx, createReq)
+	if err != nil {
+		t.Fatalf("CreatePool failed: %v", err)
+	}
+	poolID := createRes.Msg.Pool.Id
+
+	// Second pool to collide names with later.
+	dupReq := connect.NewRequest(&supervisorv1.CreatePoolRequest{
+		Pool: &supervisorv1.Pool{
+			Name:          "dup-pool",
+			Provider:      "github",
+			RepositoryUrl: "https://github.com/acme/other",
+			Scope:         "repo",
+			AuthProfileId: profile.ID,
+			AllowDocker:   true,
+		},
+	})
+	dupReq.Header().Set("Cookie", "session_token="+rawCookie)
+	dupRes, err := client.CreatePool(ctx, dupReq)
+	if err != nil {
+		t.Fatalf("CreatePool (dup) failed: %v", err)
+	}
+	dupID := dupRes.Msg.Pool.Id
+
+	targetIDsBefore := poolTargetIDs(t, database, poolID)
+
+	// 1. Control-plane-only edit: no idle recycle, no target rewrite.
+	control := editPoolPayload(poolID, profile.ID, "edit-pool")
+	control.MinIdleRunners = 2
+	control.MaxConcurrency = 9
+	if _, err := updatePool(t, client, rawCookie, control); err != nil {
+		t.Fatalf("control-plane update failed: %v", err)
+	}
+	if got := stats.recycledCount("edit-pool"); got != 0 {
+		t.Errorf("control-plane-only edit must not recycle idle runners, got %d recycles", got)
+	}
+	if got := poolTargetIDs(t, database, poolID); !targetIDsEqual(targetIDsBefore, got) {
+		t.Errorf("unchanged target set must not rewrite pool_targets: before=%v after=%v", targetIDsBefore, got)
+	}
+
+	// 2. Spawn-identity edit (labels): recycles idle runners.
+	identity := editPoolPayload(poolID, profile.ID, "edit-pool")
+	identity.Labels = []string{"self-hosted", "gpu"}
+	if _, err := updatePool(t, client, rawCookie, identity); err != nil {
+		t.Fatalf("spawn-identity update failed: %v", err)
+	}
+	if got := stats.recycledCount("edit-pool"); got != 1 {
+		t.Errorf("spawn-identity edit must recycle idle runners once, got %d recycles", got)
+	}
+
+	// 3. Provider is immutable.
+	switchPool := editPoolPayload(poolID, profile.ID, "edit-pool")
+	switchPool.Provider = "forgejo"
+	if _, err := updatePool(t, client, rawCookie, switchPool); err == nil {
+		t.Fatal("provider change must be rejected")
+	} else if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("provider change: want CodeInvalidArgument, got %v", connect.CodeOf(err))
+	}
+
+	// 4. Duplicate name maps to CodeAlreadyExists.
+	dup := editPoolPayload(dupID, profile.ID, "edit-pool")
+	if _, err := updatePool(t, client, rawCookie, dup); err == nil {
+		t.Fatal("duplicate pool name must be rejected")
+	} else if connect.CodeOf(err) != connect.CodeAlreadyExists {
+		t.Errorf("duplicate name: want CodeAlreadyExists, got %v", connect.CodeOf(err))
+	}
+
+	// 5. Unknown id maps to CodeNotFound.
+	missing := editPoolPayload(9999, profile.ID, "ghost-pool")
+	if _, err := updatePool(t, client, rawCookie, missing); err == nil {
+		t.Fatal("unknown pool id must be rejected")
+	} else if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("unknown id: want CodeNotFound, got %v", connect.CodeOf(err))
+	}
+
+	// 6. Invalid renovate cron rejected before any write.
+	rowBefore, err := database.GetRunnerPoolById(ctx, poolID)
+	if err != nil {
+		t.Fatalf("GetRunnerPoolById failed: %v", err)
+	}
+	badCron := editPoolPayload(poolID, profile.ID, "edit-pool")
+	badCron.Renovate = &supervisorv1.RenovateConfig{Enabled: true, CronSchedule: "not-a-cron"}
+	if _, err := updatePool(t, client, rawCookie, badCron); err == nil {
+		t.Fatal("invalid renovate cron must be rejected")
+	} else if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("invalid cron: want CodeInvalidArgument, got %v", connect.CodeOf(err))
+	}
+	rowAfter, err := database.GetRunnerPoolById(ctx, poolID)
+	if err != nil {
+		t.Fatalf("GetRunnerPoolById failed: %v", err)
+	}
+	if rowAfter.MaxConcurrency != rowBefore.MaxConcurrency || rowAfter.Name != rowBefore.Name {
+		t.Errorf("rejected update must not modify the pool row: before=%+v after=%+v", rowBefore, rowAfter)
+	}
+
+	// 7. Rename with busy runners is rejected before recycle or write.
+	stats.mu.Lock()
+	stats.activeCounts["edit-pool"] = 2
+	stats.mu.Unlock()
+	rename := editPoolPayload(poolID, profile.ID, "edit-pool-renamed")
+	if _, err := updatePool(t, client, rawCookie, rename); err == nil {
+		t.Fatal("rename with busy runners must be rejected")
+	} else if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("rename busy: want CodeFailedPrecondition, got %v (%v)", connect.CodeOf(err), err)
+	}
+	if got := stats.recycledCount("edit-pool"); got != 1 {
+		t.Errorf("rejected rename must not recycle, got %d recycles", got)
+	}
+	rowAfter, err = database.GetRunnerPoolById(ctx, poolID)
+	if err != nil {
+		t.Fatalf("GetRunnerPoolById failed: %v", err)
+	}
+	if rowAfter.Name != "edit-pool" {
+		t.Errorf("rejected rename must not modify the pool row, name=%q", rowAfter.Name)
+	}
+
+	// 8. Rename with zero busy runners succeeds, recycles, and rewrites the row.
+	stats.mu.Lock()
+	stats.activeCounts["edit-pool"] = 0
+	stats.mu.Unlock()
+	renamedPool, err := updatePool(t, client, rawCookie, rename)
+	if err != nil {
+		t.Fatalf("rename failed: %v", err)
+	}
+	if renamedPool.Name != "edit-pool-renamed" {
+		t.Errorf("rename response name=%q, want edit-pool-renamed", renamedPool.Name)
+	}
+	if got := stats.recycledCount("edit-pool"); got != 2 {
+		t.Errorf("rename must recycle idle runners under the old name, got %d recycles", got)
+	}
+	if _, err := database.GetRunnerPoolByName(ctx, "edit-pool"); err == nil {
+		t.Error("old pool name must no longer resolve")
+	}
+
+	// 9. Audit log records before/after restricted to changed fields.
+	auditLogs, err := database.ListAuditLogs(ctx, db.ListAuditLogsParams{Limit: 10, Offset: 0})
+	if err != nil || len(auditLogs) == 0 {
+		t.Fatalf("expected audit logs, got err=%v count=%d", err, len(auditLogs))
+	}
+	var details struct {
+		Changes map[string]struct {
+			Before any    `json:"before"`
+			After  any    `json:"after"`
+		} `json:"changes"`
+	}
+	for _, log := range auditLogs {
+		if log.Action == "pool.update" && log.ResourceID.Valid && log.ResourceID.Int64 == poolID {
+			if err := json.Unmarshal([]byte(log.Details.String), &details); err != nil {
+				t.Fatalf("parsing pool.update audit details: %v", err)
+			}
+			break
+		}
+	}
+	if _, ok := details.Changes["name"]; !ok {
+		t.Errorf("rename audit must record a name change, got %v", details.Changes)
+	} else if details.Changes["name"].Before != "edit-pool" || details.Changes["name"].After != "edit-pool-renamed" {
+		t.Errorf("rename audit name change mismatch: %+v", details.Changes["name"])
+	}
+	if _, ok := details.Changes["provider"]; ok {
+		t.Errorf("audit must be restricted to changed fields; unexpected provider entry in %v", details.Changes)
+	}
+}
+
+func poolTargetIDs(t *testing.T, database *db.DB, poolID int64) []int64 {
+	t.Helper()
+	targets, err := database.ListPoolTargetsByPoolId(context.Background(), poolID)
+	if err != nil {
+		t.Fatalf("ListPoolTargetsByPoolId failed: %v", err)
+	}
+	ids := make([]int64, 0, len(targets))
+	for _, target := range targets {
+		ids = append(ids, target.ID)
+	}
+	return ids
+}
+
+func targetIDsEqual(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 

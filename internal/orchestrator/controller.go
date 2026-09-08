@@ -1752,6 +1752,36 @@ func (c *PoolController) drainPool(ctx context.Context, poolName string) {
 	c.removePoolDiagnostics(poolName)
 }
 
+// RecycleIdleRunners deregisters and terminates all non-busy tracked runners
+// of poolName so the next reconcile respawns them with the pool's current
+// configuration (docs/22 §6.2). Busy runners are never touched; failed
+// terminations stay tracked for the next audit cycle to reap. Unlike drainPool
+// it keeps pool diagnostics and queued provisioning requests — the pool
+// continues to exist.
+func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolName string) error {
+	if c.reconciler == nil || c.engine == nil {
+		return nil
+	}
+
+	c.provisionMu.Lock()
+	defer c.provisionMu.Unlock()
+
+	for _, r := range c.reconciler.TrackedPoolRunners(poolName) {
+		if r.IsBusy || r.State != "running" {
+			continue
+		}
+		c.deregisterRunner(ctx, r)
+		if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
+			c.logger.Warn("recycle: failed terminating idle runner", "pool", poolName, "runner", r.ID, "err", err)
+			continue
+		}
+		c.reconciler.UntrackRunner(poolName, r.ID)
+	}
+	return nil
+}
+
+var _ server.IdleRecycler = (*PoolController)(nil)
+
 // PoolRunners returns all active/idle runners currently tracked for a pool as server.RunnerInstanceInfo.
 func (c *PoolController) PoolRunners(poolName string) []server.RunnerInstanceInfo {
 	if c.reconciler == nil {

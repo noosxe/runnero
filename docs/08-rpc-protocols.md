@@ -134,7 +134,20 @@ message UpdatePoolRequest {
 message UpdatePoolResponse {
   Pool pool = 1;
 }
+```
 
+> **UpdatePool semantics (docs/22 §5):** full-replace of every writable pool
+> field; read-only runtime fields in the request are ignored. Provider is
+> immutable (`CodeInvalidArgument`). Renaming requires zero busy runners
+> (`CodeFailedPrecondition`) and recycles idle runners under the old name.
+> Duplicate names return `CodeAlreadyExists`; unknown ids `CodeNotFound`.
+> Spawn-identity edits (targets, labels, image, `allow_docker`, resource
+> limits, auth profile) recycle the pool's idle runners before the write —
+> busy runners are never terminated by an edit. `pool_targets` rows are
+> rewritten only when the normalized target set changed, and the `pool.update`
+> audit entry records before/after values restricted to changed fields.
+
+```protobuf
 message DeletePoolRequest {
   int64 id = 1;
 }

@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -54,6 +56,17 @@ type PoolStatsProvider interface {
 	Reload(ctx context.Context) error
 }
 
+// IdleRecycler recycles a pool's idle runners so subsequent spawns pick up changed
+// pool configuration (docs/22 §6.2). *orchestrator.PoolController satisfies this
+// interface; PoolService discovers it by interface assertion on statsProvider so
+// absent controllers (unit fakes, web-only operation) degrade to a no-op.
+type IdleRecycler interface {
+	// RecycleIdleRunners deregisters and terminates all non-busy tracked runners
+	// of poolName so the next reconcile respawns them with the pool's current
+	// configuration. Busy runners are never touched.
+	RecycleIdleRunners(ctx context.Context, poolName string) error
+}
+
 // RunnerInstanceInfo represents an active runner container's runtime state.
 type RunnerInstanceInfo struct {
 	ID        string
@@ -99,6 +112,14 @@ type PoolService struct {
 	statsProvider PoolStatsProvider
 	runnerMgr     RunnerManager
 	discoverer    TargetDiscovererFunc
+	logger        *slog.Logger
+}
+
+// WithPoolLogger sets the logger for pool service operations.
+func WithPoolLogger(logger *slog.Logger) PoolServiceOption {
+	return func(s *PoolService) {
+		s.logger = logger
+	}
 }
 
 // NewPoolService constructs a PoolService instance.
@@ -107,6 +128,7 @@ func NewPoolService(database PoolDatabase, statsProvider PoolStatsProvider, runn
 		db:            database,
 		statsProvider: statsProvider,
 		runnerMgr:     runnerMgr,
+		logger:        slog.Default(),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -126,6 +148,117 @@ func parseLabels(raw string) []string {
 		}
 	}
 	return res
+}
+
+// normalizeValueSet trims, drops empties, de-duplicates, and sorts a set of
+// string values (targets or labels) so change detection is order-insensitive
+// (docs/22 §6.1).
+func normalizeValueSet(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		if _, dup := seen[v]; dup {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// normalizeTargetSet derives the effective target set from a pool payload:
+// explicit target URLs when present, otherwise the repository URL (mirrors the
+// CreatePool/UpdatePool persistence fallback).
+func normalizeTargetSet(p *supervisorv1.Pool) []string {
+	targets := p.TargetUrls
+	if len(targets) == 0 && strings.TrimSpace(p.RepositoryUrl) != "" {
+		targets = []string{p.RepositoryUrl}
+	}
+	return normalizeValueSet(targets)
+}
+
+// normalizeStoredTargets converts persisted pool_targets rows into a
+// normalized target set.
+func normalizeStoredTargets(targets []db.PoolTarget) []string {
+	values := make([]string, 0, len(targets))
+	for _, t := range targets {
+		values = append(values, t.TargetUrl)
+	}
+	return normalizeValueSet(values)
+}
+
+// normalizeLabels normalizes a stored labels string into a comparable set.
+func normalizeLabels(raw string) []string {
+	return normalizeValueSet(strings.Split(raw, ","))
+}
+
+// spawnIdentityChanged reports whether any spawn-identity field (docs/22 §5.2)
+// differs between the persisted pool and the update about to be written.
+// Control-plane fields (name, warm-pool sizing, lifetime caps, renovate) are
+// excluded: they converge through reconcile without touching runners.
+func spawnIdentityChanged(existing db.RunnerPool, existingTargets []string, params db.UpdateRunnerPoolParams, newTargets []string) bool {
+	if existing.AuthProfileID != params.AuthProfileID {
+		return true
+	}
+	if existing.RepositoryUrl != params.RepositoryUrl {
+		return true
+	}
+	if existing.Scope != params.Scope {
+		return true
+	}
+	if !slices.Equal(normalizeLabels(existing.Labels), normalizeLabels(params.Labels)) {
+		return true
+	}
+	if existing.RunnerImage != params.RunnerImage {
+		return true
+	}
+	if existing.AllowDocker != params.AllowDocker {
+		return true
+	}
+	if existing.CpuLimit != params.CpuLimit || existing.MemoryLimit != params.MemoryLimit {
+		return true
+	}
+	return !slices.Equal(existingTargets, newTargets)
+}
+
+// poolConfigChanges builds before/after audit metadata restricted to changed
+// fields (docs/22 §6.1).
+func poolConfigChanges(existing db.RunnerPool, existingTargets []string, updated db.RunnerPool, newTargets []string, req *supervisorv1.Pool, renovateBefore db.RenovateConfig, renovateBeforeErr error) map[string]any {
+	changes := map[string]any{}
+	add := func(name string, before, after any, differs bool) {
+		if differs {
+			changes[name] = map[string]any{"before": before, "after": after}
+		}
+	}
+	add("name", existing.Name, updated.Name, existing.Name != updated.Name)
+	add("auth_profile_id", existing.AuthProfileID, updated.AuthProfileID, existing.AuthProfileID != updated.AuthProfileID)
+	add("repository_url", existing.RepositoryUrl, updated.RepositoryUrl, existing.RepositoryUrl != updated.RepositoryUrl)
+	add("scope", existing.Scope, updated.Scope, existing.Scope != updated.Scope)
+	add("labels", parseLabels(existing.Labels), parseLabels(updated.Labels), !slices.Equal(normalizeLabels(existing.Labels), normalizeLabels(updated.Labels)))
+	add("targets", existingTargets, newTargets, !slices.Equal(existingTargets, newTargets))
+	add("runner_image", existing.RunnerImage, updated.RunnerImage, existing.RunnerImage != updated.RunnerImage)
+	add("allow_docker", existing.AllowDocker, updated.AllowDocker, existing.AllowDocker != updated.AllowDocker)
+	add("min_idle_runners", existing.MinIdleRunners, updated.MinIdleRunners, existing.MinIdleRunners != updated.MinIdleRunners)
+	add("max_concurrency", existing.MaxConcurrency, updated.MaxConcurrency, existing.MaxConcurrency != updated.MaxConcurrency)
+	add("max_runner_lifetime_seconds", existing.MaxRunnerLifetimeSeconds, updated.MaxRunnerLifetimeSeconds, existing.MaxRunnerLifetimeSeconds != updated.MaxRunnerLifetimeSeconds)
+	add("cpu_limit", existing.CpuLimit.String, updated.CpuLimit.String, existing.CpuLimit != updated.CpuLimit)
+	add("memory_limit", existing.MemoryLimit.String, updated.MemoryLimit.String, existing.MemoryLimit != updated.MemoryLimit)
+	if req.Renovate != nil && renovateBeforeErr == nil {
+		afterCron := strings.TrimSpace(req.Renovate.CronSchedule)
+		afterImage := strings.TrimSpace(req.Renovate.Image)
+		if afterImage == "" {
+			afterImage = "renovate/renovate:latest"
+		}
+		add("renovate.enabled", renovateBefore.Enabled, req.Renovate.Enabled, renovateBefore.Enabled != req.Renovate.Enabled)
+		add("renovate.cron_schedule", renovateBefore.CronSchedule.String, afterCron, renovateBefore.CronSchedule.String != afterCron)
+		add("renovate.image", renovateBefore.Image, afterImage, renovateBefore.Image != afterImage)
+	}
+	return changes
 }
 
 func (s *PoolService) toProto(ctx context.Context, p db.RunnerPool) *supervisorv1.Pool {
@@ -400,7 +533,10 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 	}), nil
 }
 
-// UpdatePool updates an existing runner pool, creates an audit log, and notifies the controller loop.
+// UpdatePool updates an existing runner pool per docs/22 §5.5: validate, load the
+// existing row, guard renames on busy runners, recycle idle runners when spawn
+// identity changes, persist with mapped error codes, audit before/after, and
+// notify the controller loop.
 func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[supervisorv1.UpdatePoolRequest]) (*connect.Response[supervisorv1.UpdatePoolResponse], error) {
 	pool := req.Msg.Pool
 	if err := validatePoolInput(pool); err != nil {
@@ -415,6 +551,12 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("pool id %d not found: %w", pool.Id, err))
 	}
 
+	provider := strings.ToLower(strings.TrimSpace(pool.Provider))
+	if provider != existing.Provider {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(
+			"provider is immutable: pool %d was created as %q; recreate the pool to change provider", pool.Id, existing.Provider))
+	}
+
 	scope := strings.TrimSpace(pool.Scope)
 	if scope == "" {
 		scope = existing.Scope
@@ -422,10 +564,10 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 
 	labelsStr := strings.Join(pool.Labels, ",")
 
-	updated, err := s.db.UpdateRunnerPool(ctx, db.UpdateRunnerPoolParams{
+	params := db.UpdateRunnerPoolParams{
 		ID:                       pool.Id,
 		Name:                     strings.TrimSpace(pool.Name),
-		Provider:                 strings.ToLower(strings.TrimSpace(pool.Provider)),
+		Provider:                 provider,
 		RepositoryUrl:            strings.TrimSpace(pool.RepositoryUrl),
 		Scope:                    scope,
 		AuthProfileID:            pool.AuthProfileId,
@@ -437,20 +579,49 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		MaxRunnerLifetimeSeconds: int64(pool.MaxRunnerLifetimeSeconds),
 		CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
 		MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
-	})
+	}
+
+	newTargets := normalizeTargetSet(pool)
+	storedTargets, err := s.db.ListPoolTargetsByPoolId(ctx, pool.Id)
 	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("loading pool targets: %w", err))
+	}
+	existingTargets := normalizeStoredTargets(storedTargets)
+
+	renamed := params.Name != existing.Name
+	identityChanged := spawnIdentityChanged(existing, existingTargets, params, newTargets)
+
+	// Renaming requires zero busy runners: the controller tracks runners by pool
+	// name, so the old name must hand back a clean slate before the DB write
+	// (docs/22 §5.4).
+	if renamed && s.statsProvider != nil {
+		if active, _ := s.statsProvider.PoolStats(existing.Name); active > 0 {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf(
+				"cannot rename pool %q to %q: %d busy runner(s); wait for jobs to finish or terminate runners before renaming",
+				existing.Name, params.Name, active))
+		}
+	}
+
+	// Spawn-identity edits and renames recycle idle runners so respawns pick up
+	// the new configuration; busy runners are never touched (docs/22 §5.2).
+	if renamed || identityChanged {
+		s.recycleIdleRunners(ctx, existing.Name)
+	}
+
+	updated, err := s.db.UpdateRunnerPool(ctx, params)
+	if err != nil {
+		if db.IsUniqueConstraintError(err) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("pool name %q already exists", params.Name))
+		}
 		if strings.Contains(err.Error(), "FOREIGN KEY") {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("auth_profile_id %d does not exist", pool.AuthProfileId))
 		}
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("updating runner pool: %w", err))
 	}
 
+	renovateBefore, renovateBeforeErr := s.db.GetRenovateConfigByPoolId(ctx, pool.Id)
+
 	if pool.Renovate != nil {
-		if pool.Renovate.Enabled && strings.TrimSpace(pool.Renovate.CronSchedule) != "" {
-			if _, err := cron.ParseSchedule(strings.TrimSpace(pool.Renovate.CronSchedule)); err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid renovate cron schedule: %w", err))
-			}
-		}
 		img := strings.TrimSpace(pool.Renovate.Image)
 		if img == "" {
 			img = "renovate/renovate:latest"
@@ -462,37 +633,43 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 			CronSchedule: sql.NullString{String: cronSched, Valid: cronSched != ""},
 			Image:        img,
 		})
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
-			_, _ = s.db.CreateRenovateConfig(ctx, db.CreateRenovateConfigParams{
+		switch {
+		case err == nil:
+		case errors.Is(err, sql.ErrNoRows):
+			if _, cerr := s.db.CreateRenovateConfig(ctx, db.CreateRenovateConfigParams{
 				PoolID:       updated.ID,
 				Enabled:      pool.Renovate.Enabled,
 				CronSchedule: sql.NullString{String: cronSched, Valid: cronSched != ""},
 				Image:        img,
-			})
+			}); cerr != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("creating renovate config: %w", cerr))
+			}
+		default:
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("updating renovate config: %w", err))
 		}
 	}
 
-	// Update pool_targets
-	targetURLs := pool.TargetUrls
-	if len(targetURLs) == 0 && updated.RepositoryUrl != "" {
-		targetURLs = []string{updated.RepositoryUrl}
-	}
-	_ = s.db.DeletePoolTargetsByPoolId(ctx, pool.Id)
-	for _, t := range targetURLs {
-		t = strings.TrimSpace(t)
-		if t != "" {
-			_, _ = s.db.AddPoolTarget(ctx, db.AddPoolTargetParams{
+	// Rewrite pool_targets only when the normalized target set changed, so
+	// full-pool round-trips (e.g. the Renovate tab) do not churn target rows
+	// (docs/22 §6.1).
+	if !slices.Equal(existingTargets, newTargets) {
+		if err := s.db.DeletePoolTargetsByPoolId(ctx, pool.Id); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("replacing pool targets: %w", err))
+		}
+		for _, t := range newTargets {
+			if _, err := s.db.AddPoolTarget(ctx, db.AddPoolTargetParams{
 				PoolID:    pool.Id,
 				TargetUrl: t,
-			})
+			}); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("adding pool target %q: %w", t, err))
+			}
 		}
 	}
 
 	recordAuditLog(ctx, s.db, "pool.update", "runner_pool", &updated.ID, map[string]any{
-		"name":            updated.Name,
-		"provider":        updated.Provider,
-		"min_idle":        updated.MinIdleRunners,
-		"max_concurrency": updated.MaxConcurrency,
+		"name":     updated.Name,
+		"provider": updated.Provider,
+		"changes":  poolConfigChanges(existing, existingTargets, updated, newTargets, pool, renovateBefore, renovateBeforeErr),
 	})
 
 	if s.statsProvider != nil {
@@ -502,6 +679,20 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 	return connect.NewResponse(&supervisorv1.UpdatePoolResponse{
 		Pool: s.toProto(ctx, updated),
 	}), nil
+}
+
+// recycleIdleRunners asks the controller (when present) to recycle the pool's
+// idle runners so respawns pick up the updated configuration. Best-effort:
+// failures are logged and the update proceeds — recycled runners respawn on
+// the next reconcile tick either way (docs/22 §5.5).
+func (s *PoolService) recycleIdleRunners(ctx context.Context, poolName string) {
+	recycler, ok := s.statsProvider.(IdleRecycler)
+	if !ok || recycler == nil {
+		return
+	}
+	if err := recycler.RecycleIdleRunners(ctx, poolName); err != nil {
+		s.logger.Warn("failed recycling idle runners after pool update", "pool", poolName, "err", err)
+	}
 }
 
 // DeletePool removes a runner pool from the database, emits an audit log, and notifies the controller.

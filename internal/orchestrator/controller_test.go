@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1641,4 +1642,131 @@ func (m *mockJobRecorder) RecordWebhookCompleted(ctx context.Context, poolID, jo
 	}
 	m.webhookCompleted = append(m.webhookCompleted, webhookCompletedCall{poolID: poolID, jobID: jobID, runnerName: runnerName, status: status, completedAt: completedAt})
 	return nil
+}
+
+// TestPoolControllerRecycleIdleRunners pins the idle-recycle contract of
+// docs/22 §6.2: only non-busy running runners are deregistered, terminated,
+// and untracked; busy runners are never touched; exited runners are left for
+// audit reaping; unknown pools are a no-op; reconcile afterwards respawns the
+// warm pool under the pool's current configuration.
+func TestPoolControllerRecycleIdleRunners(t *testing.T) {
+	ctx := context.Background()
+
+	pool := db.RunnerPool{
+		ID:             1,
+		Name:           "ci-pool",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/owner/repo",
+		Scope:          "repo",
+		AuthProfileID:  10,
+		MinIdleRunners: 3,
+		MaxConcurrency: 5,
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+		AllowDocker:    true,
+	}
+
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{}
+	resolver := &mockGitProviderResolver{
+		providers: map[int64]provider.GitProvider{10: gitProv},
+	}
+
+	spawnCount := 0
+	mockEngine := &orchestrator.MockContainerProvider{
+		SpawnRunnerFn: func(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
+			spawnCount++
+			return fmt.Sprintf("spawned-runner-%d", spawnCount), nil
+		},
+	}
+
+	reconciler := orchestrator.NewReconciler(mockEngine)
+	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               repo,
+		ContainerEngine:  mockEngine,
+		ProviderResolver: resolver,
+		Reconciler:       reconciler,
+	})
+
+	// Pre-existing fleet adopted at boot: one busy, two idle, one exited.
+	// Three running runners satisfy min_idle=3, so boot must not spawn.
+	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		return []orchestrator.RunnerStatus{
+			{ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
+			{ID: "r-idle-1", Name: "runnero-ci-pool-idle1", PoolName: "ci-pool", State: "running"},
+			{ID: "r-idle-2", Name: "runnero-ci-pool-idle2", PoolName: "ci-pool", State: "running"},
+			{ID: "r-exited", Name: "runnero-ci-pool-exited", PoolName: "ci-pool", State: "exited"},
+		}, nil
+	}
+
+	if err := ctrl.Boot(ctx); err != nil {
+		t.Fatalf("ctrl.Boot failed: %v", err)
+	}
+	if spawnCount != 0 {
+		t.Fatalf("boot must not spawn (warm pool satisfied by adopted runners), got %d spawns", spawnCount)
+	}
+
+	// Recycle: idle runners deregistered, terminated, and untracked.
+	if err := ctrl.RecycleIdleRunners(ctx, "ci-pool"); err != nil {
+		t.Fatalf("RecycleIdleRunners failed: %v", err)
+	}
+
+	terminated := terminatedIDSet(mockEngine)
+	for _, id := range []string{"r-idle-1", "r-idle-2"} {
+		if !terminated[id] {
+			t.Errorf("idle runner %s must be terminated by recycle, terminated=%v", id, terminated)
+		}
+	}
+	if terminated["r-busy"] {
+		t.Error("busy runner must never be terminated by recycle")
+	}
+	if terminated["r-exited"] {
+		t.Error("exited runner must not be terminated by recycle (left for audit reaping)")
+	}
+
+	if active, idle := ctrl.PoolStats("ci-pool"); active != 1 || idle != 0 {
+		t.Errorf("after recycle PoolStats = (active=%d, idle=%d), want (1, 0)", active, idle)
+	}
+	for _, name := range []string{"runnero-ci-pool-idle1", "runnero-ci-pool-idle2"} {
+		if !slices.Contains(gitProv.deregistered, name) {
+			t.Errorf("idle runner %s must be deregistered, deregistered=%v", name, gitProv.deregistered)
+		}
+	}
+
+	// Unknown pool: no error, no side effects.
+	terminationsBefore := len(mockEngine.TerminatedIDs)
+	if err := ctrl.RecycleIdleRunners(ctx, "ghost-pool"); err != nil {
+		t.Fatalf("RecycleIdleRunners(unknown pool) failed: %v", err)
+	}
+	if len(mockEngine.TerminatedIDs) != terminationsBefore {
+		t.Error("recycling an unknown pool must not terminate anything")
+	}
+
+	// Reconcile afterwards respawns the warm pool: the busy runner survives,
+	// the exited runner is dropped by audit, and two idle runners respawn.
+	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		return []orchestrator.RunnerStatus{
+			{ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
+		}, nil
+	}
+	if err := ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("ctrl.Reconcile failed: %v", err)
+	}
+	if spawnCount != 2 {
+		t.Errorf("reconcile must respawn to the warm-pool target (3 active target, 1 busy surviving), got %d spawns", spawnCount)
+	}
+	if active, idle := ctrl.PoolStats("ci-pool"); active != 1 || idle != 2 {
+		t.Errorf("after reconcile PoolStats = (busy=%d, idle=%d), want (1, 2)", active, idle)
+	}
+	if terminatedIDSet(mockEngine)["r-busy"] {
+		t.Error("busy runner must survive reconcile after recycle")
+	}
+}
+
+// terminatedIDSet snapshots which container IDs the mock engine terminated.
+func terminatedIDSet(engine *orchestrator.MockContainerProvider) map[string]bool {
+	set := make(map[string]bool)
+	for _, id := range engine.TerminatedIDs {
+		set[id] = true
+	}
+	return set
 }
