@@ -94,11 +94,12 @@ per-cycle remote listing — no extra API calls):
 - **busy→idle** on `R`, or **container death while `R` has an open row**
   (ephemeral runners exit after their job; die-event and reap paths both already
   run): close the open row — `completed_at=now`, runtime = completed − started,
-  status resolved per §5.3 / §5.4.
 - The hung-runner path closes the runner's open job_history row as `timeout` —
-  and only when one is open. A force-terminated runner that was never mid-job
-  (an idle standby reaped by `max_runner_lifetime_seconds`) records nothing, so
-  kill-switch churn cannot fabricate full-lifetime `timeout` rows.
+  and only when one is open. Since the lifetime switch is busy-only
+  (docs/23), every force-terminated runner was mid-job and anchors its
+  `timeout` row's `started_at` at the same busy clock that fired the kill; an
+  idle standby can never be lifetime-terminated, so kill-switch churn cannot
+  fabricate `timeout` rows.
 - Merge rule: when a `workflow_job` event names the same runner (§5.5), it attaches
   to the open transition row instead of creating a second one.
 

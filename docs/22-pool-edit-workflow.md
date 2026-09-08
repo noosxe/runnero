@@ -127,7 +127,7 @@ request are ignored and the response is rebuilt from the persisted row.
 
 | Field | Class | Effect of edit |
 | :--- | :--- | :--- |
-| `min_idle_runners`, `max_concurrency`, `max_runner_lifetime_seconds` | **Control** | Converges on next reconcile tick (docs/03 §4) — no runner interaction. |
+| `min_idle_runners`, `max_concurrency`, `max_runner_lifetime_seconds` | **Control** | Converges on next reconcile tick (docs/03 §4) — no runner interaction. Lifetime is busy-anchored (docs/23): a lowered limit can terminate in-flight busy runners on the next tick; idle standbys are unaffected. |
 | Renovate `enabled` / `cron_schedule` / `image` | **Control** | Affects the Renovate scheduler only. |
 | `name` | **Control** | Metadata-only rename — no runner interaction (§5.4, as amended by RUN-126). |
 | `auth_profile_id` | **Spawn identity** | Idle runners are registered under the old profile; recycle so respawns mint tokens via the new profile. (Secret *rotation inside* a profile already propagates to future spawns — docs/17.) |

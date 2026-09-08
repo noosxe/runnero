@@ -48,7 +48,7 @@ CREATE TABLE runner_pools (
     labels TEXT NOT NULL, -- JSON array, e.g. '["self-hosted","linux","arm64"]'
     runner_image TEXT NOT NULL,
     allow_docker BOOLEAN NOT NULL DEFAULT 0,
-    max_runner_lifetime_seconds INTEGER NOT NULL DEFAULT 7200,
+    max_runner_lifetime_seconds INTEGER NOT NULL DEFAULT 7200, -- max busy wall-clock per job, anchored at first pickup (docs/23)
     cpu_limit TEXT,
     memory_limit TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

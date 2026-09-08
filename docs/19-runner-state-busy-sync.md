@@ -115,6 +115,10 @@ Semantics:
    fails open to the last known (webhook or default idle) state. A pool
    error counter entry is *not* raised for lister failures (they are
    transient by nature).
+6. **Lifetime anchor stamping (docs/23 §4.2)**: the idle→busy transition
+   applied by this sync (or the webhook fast path) also stamps the runner's
+   busy anchor (`BusySince`), set-once. A missed webhook therefore delays the
+   anchor — and the kill deadline — by at most one audit cycle.
 
 ### 2.4 Consistency semantics
 

@@ -528,6 +528,7 @@ type mockJobRecorder struct {
 		runnerName string
 		status     string
 		logPath    string
+		startedAt  time.Time
 	}
 	opens []struct {
 		poolID     int64
@@ -578,11 +579,13 @@ func (m *mockJobRecorder) RecordJobTimeout(ctx context.Context, poolID int64, ru
 		runnerName string
 		status     string
 		logPath    string
+		startedAt  time.Time
 	}{
 		poolID:     poolID,
 		runnerName: runnerName,
 		status:     "timeout",
 		logPath:    logPath,
+		startedAt:  startedAt,
 	})
 	return nil
 }
@@ -638,33 +641,62 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 		DataDir:          tempDir,
 	})
 
-	// Add a synthetic hung container spawned 10 seconds ago (limit is 5s).
-	// IsBusy=true: it was mid-job, so its kill records a timeout row
-	// (docs/21 §5.2 - idle-standby lifetime kills record nothing).
-	hungRunner := orchestrator.RunnerStatus{
+	// Limit is 5s. Four runners exercise the docs/23 §8 matrix:
+	// - busyAnchored: busy clock (BusySince) past the limit -> terminated,
+	//   even though the busy anchor is *later* than spawn.
+	// - busyFallback: busy with no anchor -> defensive spawn fallback
+	//   (docs/23 §4.4.1) -> terminated on the spawn clock.
+	// - idleStandby: idle well past the limit -> never lifetime-terminated
+	//   (docs/23 §2: the churn fix).
+	// - recentlyBusy: spawned past the limit but picked up its job 1s ago ->
+	//   survives on the busy clock; under the old spawn-anchored semantics it
+	//   would have been killed mid-job.
+	now := time.Now().UTC()
+	busyAnchored := orchestrator.RunnerStatus{
 		PoolID:    120,
 		ID:        "hung-container-1",
-		Name:      "hung-runner-1",
+		Name:      "busy-anchored-1",
 		PoolName:  "timeout-pool",
 		State:     "running",
 		IsBusy:    true,
-		SpawnedAt: time.Now().UTC().Add(-10 * time.Second),
+		SpawnedAt: now.Add(-10 * time.Second),
+		BusySince: now.Add(-6 * time.Second),
 	}
-	// Add a healthy fresh container spawned 1 second ago
-	freshRunner := orchestrator.RunnerStatus{
+	busyFallback := orchestrator.RunnerStatus{
 		PoolID:    120,
-		ID:        "fresh-container-2",
-		Name:      "fresh-runner-2",
+		ID:        "hung-container-2",
+		Name:      "busy-fallback-2",
 		PoolName:  "timeout-pool",
 		State:     "running",
-		SpawnedAt: time.Now().UTC().Add(-1 * time.Second),
+		IsBusy:    true,
+		SpawnedAt: now.Add(-7 * time.Second),
 	}
+	idleStandby := orchestrator.RunnerStatus{
+		PoolID:    120,
+		ID:        "old-standby-3",
+		Name:      "old-standby-3",
+		PoolName:  "timeout-pool",
+		State:     "running",
+		IsBusy:    false,
+		SpawnedAt: now.Add(-10 * time.Second),
+	}
+	recentlyBusy := orchestrator.RunnerStatus{
+		PoolID:    120,
+		ID:        "recently-busy-4",
+		Name:      "recently-busy-4",
+		PoolName:  "timeout-pool",
+		State:     "running",
+		IsBusy:    true,
+		SpawnedAt: now.Add(-10 * time.Second),
+		BusySince: now.Add(-1 * time.Second),
+	}
+	reconciler.TrackRunner(busyAnchored)
+	reconciler.TrackRunner(busyFallback)
+	reconciler.TrackRunner(idleStandby)
+	reconciler.TrackRunner(recentlyBusy)
 
-	reconciler.TrackRunner(hungRunner)
-	reconciler.TrackRunner(freshRunner)
-
-	if len(reconciler.TrackedPoolRunners(120)) != 2 {
-		t.Fatalf("expected 2 runners tracked initially")
+	if len(reconciler.TrackedPoolRunners(120)) != 4 {
+		t.Fatalf("expected 4 runners tracked initially")
 	}
 
 	// Trigger hung runner inspection
@@ -672,29 +704,117 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 		t.Fatalf("CheckHungRunners failed: %v", err)
 	}
 
-	// 1. Acceptance: synthetic hung container killed at limit
-	if len(terminatedIDs) != 1 || terminatedIDs[0] != "hung-container-1" {
-		t.Fatalf("expected hung-container-1 to be terminated, got: %v", terminatedIDs)
+	// 1. Acceptance: exactly the two over-limit busy runners are terminated.
+	terminatedWant := map[string]bool{"hung-container-1": true, "hung-container-2": true}
+	if len(terminatedIDs) != len(terminatedWant) {
+		t.Fatalf("expected %d terminated runners, got: %v", len(terminatedWant), terminatedIDs)
+	}
+	for _, id := range terminatedIDs {
+		if !terminatedWant[id] {
+			t.Fatalf("unexpected termination of %q, got: %v", id, terminatedIDs)
+		}
 	}
 
-	// 2. Logs captured before container termination
-	if len(logsCapturedIDs) != 1 || logsCapturedIDs[0] != "hung-container-1" {
-		t.Errorf("expected logs captured for hung-container-1, got: %v", logsCapturedIDs)
+	// 2. Logs captured before container termination for both kills.
+	if len(logsCapturedIDs) != len(terminatedWant) {
+		t.Errorf("expected logs captured for both hung runners, got: %v", logsCapturedIDs)
 	}
 
-	// 3. job_history record created with status 'timeout'
-	if len(jobRecorder.records) != 1 {
-		t.Fatalf("expected 1 job_history record, got %d", len(jobRecorder.records))
+	// 3. job_history: one 'timeout' row per kill, started_at anchored at the
+	//   clock that fired the kill — BusySince for the anchored runner,
+	//   SpawnedAt for the fallback runner (docs/23 §4.3).
+	if len(jobRecorder.records) != 2 {
+		t.Fatalf("expected 2 job_history records, got %d", len(jobRecorder.records))
 	}
-	record := jobRecorder.records[0]
-	if record.poolID != 120 || record.runnerName != "hung-runner-1" || record.status != "timeout" {
-		t.Errorf("unexpected timeout record: %+v", record)
+	for _, record := range jobRecorder.records {
+		if record.poolID != 120 || record.status != "timeout" {
+			t.Errorf("unexpected timeout record: %+v", record)
+		}
+		switch record.runnerName {
+		case "busy-anchored-1":
+			if !record.startedAt.Equal(busyAnchored.BusySince) {
+				t.Errorf("anchored kill must record started_at=BusySince, got %v want %v", record.startedAt, busyAnchored.BusySince)
+			}
+		case "busy-fallback-2":
+			if !record.startedAt.Equal(busyFallback.SpawnedAt) {
+				t.Errorf("fallback kill must record started_at=SpawnedAt, got %v want %v", record.startedAt, busyFallback.SpawnedAt)
+			}
+		default:
+			t.Errorf("unexpected timeout record for %q", record.runnerName)
+		}
 	}
 
-	// 4. Fresh runner is NOT terminated and remains tracked
+	// 4. The idle standby and the recently-busy runner survive and remain
+	//   tracked — the idle-standby churn fix and the busy-clock extension.
 	tracked := reconciler.TrackedPoolRunners(120)
-	if len(tracked) != 1 || tracked[0].ID != "fresh-container-2" {
-		t.Errorf("fresh container should still be running, tracked: %+v", tracked)
+	if len(tracked) != 2 {
+		t.Fatalf("expected 2 surviving runners, tracked: %+v", tracked)
+	}
+	surviving := make(map[string]orchestrator.RunnerStatus, len(tracked))
+	for _, r := range tracked {
+		surviving[r.ID] = r
+	}
+	if s, ok := surviving["old-standby-3"]; !ok || s.IsBusy {
+		t.Errorf("idle standby past the limit must survive untouched, got: %+v", s)
+	}
+	if s, ok := surviving["recently-busy-4"]; !ok || !s.IsBusy {
+		t.Errorf("runner spawned past the limit but busy for 1s must survive, got: %+v", s)
+	}
+}
+
+// TestPoolController_HungRunnerCheck_DisabledWhenLifetimeZero regression-guards
+// the docs/23 §5 config contract: max_runner_lifetime_seconds <= 0 disables the
+// kill switch entirely — no termination, busy or idle.
+func TestPoolController_HungRunnerCheck_DisabledWhenLifetimeZero(t *testing.T) {
+	ctx := context.Background()
+	pool := db.RunnerPool{
+		ID:                       121,
+		Name:                     "no-limit-pool",
+		Provider:                 "github",
+		RepositoryUrl:            "https://github.com/owner/no-limit-repo",
+		Scope:                    "repo",
+		AuthProfileID:            10,
+		MinIdleRunners:           1,
+		MaxConcurrency:           5,
+		MaxRunnerLifetimeSeconds: 0,
+		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
+	}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{}
+	resolver := &mockGitProviderResolver{providers: map[int64]provider.GitProvider{10: gitProv}}
+
+	terminated := make([]string, 0)
+	mockEngine := &orchestrator.MockContainerProvider{
+		TerminateRunnerFn: func(ctx context.Context, containerID string) error {
+			terminated = append(terminated, containerID)
+			return nil
+		},
+		PingFn: func(ctx context.Context) error { return nil },
+	}
+	reconciler := orchestrator.NewReconciler(mockEngine)
+	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               repo,
+		ContainerEngine:  mockEngine,
+		ProviderResolver: resolver,
+		Reconciler:       reconciler,
+	})
+
+	now := time.Now().UTC()
+	for _, r := range []orchestrator.RunnerStatus{
+		{PoolID: 121, ID: "busy-old", Name: "busy-old", PoolName: pool.Name, State: "running", IsBusy: true, SpawnedAt: now.Add(-time.Hour), BusySince: now.Add(-time.Hour)},
+		{PoolID: 121, ID: "idle-old", Name: "idle-old", PoolName: pool.Name, State: "running", IsBusy: false, SpawnedAt: now.Add(-time.Hour)},
+	} {
+		reconciler.TrackRunner(r)
+	}
+
+	if err := ctrl.CheckHungRunners(ctx); err != nil {
+		t.Fatalf("CheckHungRunners failed: %v", err)
+	}
+	if len(terminated) != 0 {
+		t.Fatalf("lifetime=0 must disable the kill switch, terminated: %v", terminated)
+	}
+	if got := len(reconciler.TrackedPoolRunners(121)); got != 2 {
+		t.Fatalf("both runners must remain tracked, got %d", got)
 	}
 }
 
