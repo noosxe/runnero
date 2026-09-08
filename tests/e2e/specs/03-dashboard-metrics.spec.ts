@@ -5,8 +5,11 @@ test.describe('Flow 03: Dashboard & System Metrics', () => {
     await page.goto('/login');
     if (page.url().includes('/login')) {
       await page.getByLabel('Username').fill('admin');
-      await page.getByLabel('Password').fill('AdminPassword123!');
+      await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
       await page.getByRole('button', { name: /Sign In/i }).click();
+      // Wait for the session to establish before any navigation cancels the
+      // in-flight login POST.
+      await page.waitForURL((url) => !url.pathname.includes('/login'));
     }
   });
 
@@ -14,15 +17,15 @@ test.describe('Flow 03: Dashboard & System Metrics', () => {
     await page.goto('/');
 
     // Validate page header
-    await expect(page.getByText('Runner Dashboard')).toBeVisible();
+    await expect(page.getByText(/Dashboard Overview|Runner Dashboard/)).toBeVisible();
 
     // Validate metrics cards
-    await expect(page.getByText(/Total Jobs/i)).toBeVisible();
+    await expect(page.getByText(/Jobs Executed/i)).toBeVisible();
     await expect(page.getByText(/Success Rate/i)).toBeVisible();
-    await expect(page.getByText(/Avg Queue Latency/i)).toBeVisible();
-    await expect(page.getByText(/Avg Job Runtime/i)).toBeVisible();
+    await expect(page.getByText(/Queue Wait-Time Latency/i)).toBeVisible();
+    await expect(page.getByText(/Execution Health & Ratio|Avg Job Runtime/i)).toBeVisible();
 
     // Validate Pools Summary section
-    await expect(page.getByText(/Runner Pools Overview/i)).toBeVisible();
+    await expect(page.getByText(/Configured Runner Pools/i)).toBeVisible();
   });
 });

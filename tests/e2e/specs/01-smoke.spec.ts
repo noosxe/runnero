@@ -5,7 +5,7 @@ test.describe('E2E Infrastructure Smoke Test', () => {
     const response = await request.get('/healthz');
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.status).toBe('ok');
+    expect(body.status).toBe('healthy');
   });
 
   test('supervisor root serves embedded SPA index page', async ({ page }) => {

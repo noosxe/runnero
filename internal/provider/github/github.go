@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -1170,6 +1171,16 @@ func parseTargetURL(rawURL string) (owner, repo string, err error) {
 	return owner, repo, nil
 }
 
+// baseURLOverride derives a base-URL override from the GITHUB_BASE_URL
+// environment variable (E2E stacks against a mock provider, GitHub Enterprise
+// appliances). Empty keeps DefaultBaseURL (api.github.com).
+func baseURLOverride() []ClientOption {
+	if raw := strings.TrimSpace(os.Getenv("GITHUB_BASE_URL")); raw != "" {
+		return []ClientOption{WithBaseURL(raw)}
+	}
+	return nil
+}
+
 func init() {
 	provider.DefaultRegistry.Register(provider.AuthMethodGitHubApp, func(ctx context.Context, profile db.DecryptedAuthProfile) (provider.GitProvider, error) {
 		if !profile.AppID.Valid || profile.AppID.Int64 <= 0 {
@@ -1178,13 +1189,13 @@ func init() {
 		if profile.PrivateKey == "" {
 			return nil, fmt.Errorf("%w: private_key is required for github_app", provider.ErrMissingCredentials)
 		}
-		return NewAppProvider(profile.AppID.Int64, profile.PrivateKey)
+		return NewAppProvider(profile.AppID.Int64, profile.PrivateKey, baseURLOverride()...)
 	})
 
 	provider.DefaultRegistry.Register(provider.AuthMethodPAT, func(ctx context.Context, profile db.DecryptedAuthProfile) (provider.GitProvider, error) {
 		if profile.Token == "" {
 			return nil, fmt.Errorf("%w: token is required for pat auth", provider.ErrMissingCredentials)
 		}
-		return NewPATProvider(profile.Token)
+		return NewPATProvider(profile.Token, baseURLOverride()...)
 	})
 }

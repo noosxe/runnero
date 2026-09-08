@@ -20,6 +20,8 @@ func main() {
 	})
 
 	// GitHub API Endpoints
+	mux.HandleFunc("/user", handleGitHubUser)
+	mux.HandleFunc("/user/repos", handleGitHubUserRepos)
 	mux.HandleFunc("/app", handleGitHubApp)
 	mux.HandleFunc("/app/installations", handleGitHubInstallations)
 	mux.HandleFunc("/repos/", handleGitHubRepos)
@@ -141,6 +143,38 @@ func handleGitHubOrgs(w http.ResponseWriter, r *http.Request) {
 			"name":      "test-repo",
 			"full_name": "test-org/test-repo",
 			"private":   true,
+		},
+	})
+}
+
+// handleGitHubUser serves GET /user for GitHub PAT credential validation.
+func handleGitHubUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"login": "e2e-user",
+		"id":    1,
+	})
+}
+
+// handleGitHubUserRepos serves GET /user/repos for GitHub PAT repository discovery.
+func handleGitHubUserRepos(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode([]map[string]any{
+		{
+			"name":        "test-repo",
+			"full_name":   "test-org/test-repo",
+			"html_url":    "https://github.com/test-org/test-repo",
+			"description": "Primary E2E test repository",
+			"private":     true,
+			"owner":       map[string]any{"avatar_url": ""},
+		},
+		{
+			"name":        "backend-core",
+			"full_name":   "test-org/backend-core",
+			"html_url":    "https://github.com/test-org/backend-core",
+			"description": "Core backend services",
+			"private":     false,
+			"owner":       map[string]any{"avatar_url": ""},
 		},
 	})
 }
