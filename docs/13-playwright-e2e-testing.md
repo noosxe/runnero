@@ -100,7 +100,8 @@ tests/e2e/
     ├── 04-runner-pools.spec.ts
     ├── 05-terminal-streaming.spec.ts
     ├── 06-renovate-management.spec.ts
-    └── 07-settings-maintenance.spec.ts
+    ├── 07-settings-maintenance.spec.ts
+    └── 08-pool-edit-workflow.spec.ts
 ```
 
 ### 3.2 Mock Git Provider Server (`mock/provider`)
@@ -109,6 +110,11 @@ A lightweight, in-memory Go server responding to all Git provider endpoints conf
   - `GET /api/v3/app` & `POST /api/v3/app/installations/{id}/access_tokens`: App authentication verification and installation token minting.
   - `GET /api/v3/orgs/{org}/repos` & `GET /api/v3/repos/{owner}/{repo}`: Repository listing and validation.
   - `POST /api/v3/repos/{owner}/{repo}/actions/runners/registration-token`: Generates mock runner tokens (`mock-tok-12345`).
+  - `GET /repos/{owner}/{repo}/actions/runners`, `GET /orgs/{org}/actions/runners`, `GET /enterprises/{enterprise}/actions/runners`: GitHub-style registered-runner listing (`total_count` + `runners[]` with `id`/`name`/`busy`/`status`) served from a shared in-memory registry — the surface polled by busy-state sync (docs/19 §2.2) and consumed by the ghost sweep and the recycle/deregistration paths (docs/20 §4.3). The stack runs no real runner processes, so the registry is empty unless a spec seeds it.
+  - `DELETE {any scope}/actions/runners/{id}`: Runner deregistration (204 No Content; unknown ids count as already deregistered).
+- **Spec Control Surface (mock admin)**:
+  - `GET /_admin/runners` & `PUT /_admin/runners` (`{name, busy, status}`): Dumps / upserts the registered-runners registry — lets specs mirror tracked runners at the forge and flip busy flags to exercise busy-state paths.
+  - `DELETE /_admin/runners/{name}`: Drops a mirrored registration (idempotent, 204).
 - **Gitea / Forgejo Mock Endpoints**:
   - `GET /api/v1/user`: Personal access token verification.
   - `POST /api/v1/repos/{owner}/{repo}/actions/runners/registration-token`: Registration token issuance.
@@ -117,7 +123,7 @@ A lightweight, in-memory Go server responding to all Git provider endpoints conf
 ### 3.3 Mock Docker Daemon Server (`mock/docker`)
 The supervisor interacts with Docker over HTTP (`tcp://e2e-mock-docker:2375`):
 - `GET /_ping`: Returns HTTP 200 OK (`Docker-Experimental: false`).
-- `POST /v1.56/containers/create`: Captures requested image and environment variables, returns simulated container ID `cnt-e2e-mock-001`.
+- `POST /v1.56/containers/create`: Captures requested image and environment variables, returns simulated container ID `cnt-e2e-mock-001`. Honors the `?name=` query parameter so the supervisor's spawn-time runner names (`runnero-<pool-slug>-<hex>`) stay stable across audit cycles — the busy-state sync and ghost sweep match registered runners by exactly these names (docs/19, docs/20).
 - `POST /v1.56/containers/{id}/start`: Simulates successful container start.
 - `GET /v1.56/containers/json`: Lists simulated running runner containers with labels and timestamps.
 - `GET /v1.56/containers/{id}/logs`: Emits multiplexed binary frames (`stdcopy` format) streaming mock runner registration logs into the supervisor.
@@ -136,6 +142,7 @@ The supervisor interacts with Docker over HTTP (`tcp://e2e-mock-docker:2375`):
 | **Live Terminal** | `05-terminal-streaming.spec.ts` | Selects an active runner container. Opens log terminal dialog. Watches simulated live binary log stream (`application/proto`). Verifies xterm.js renders output lines. Toggles Auto-Scroll. Clicks "Copy All Logs" and verifies clipboard buffer. | Terminal canvas/DOM populated with stdout/stderr; auto-scroll stickiness preserved. |
 | **Renovate Management**| `06-renovate-management.spec.ts` | Navigates to `/renovate`. Verifies scheduled cron badge, last run status, and repository targets. Clicks "Trigger Immediate Run". Observes live job status update and history table row append. | Immediate trigger mutation works; status transitions from queued $\to$ running $\to$ success. |
 | **Settings & Ops** | `07-settings-maintenance.spec.ts` | Navigates to `/settings`. Toggles theme between Light and Dark mode (asserts `class="dark"` on `<html>`). Inspects SQLite database metrics. Clicks "Create Immediate Backup". Verifies audit log table captures recent administrator actions. | Theme persists to `localStorage`; backup download trigger completes; audit log entries match test actions. |
+| **Pool Edit Workflow** | `08-pool-edit-workflow.spec.ts` | Edits `min_idle` (control-plane, no recycle banner); edits labels (spawn identity, recycle banner) and verifies idle runners respawn; renames the pool through the wizard; verifies the duplicate-name server rejection; mirrors runners in the mock provider's registry via `/_admin/runners`, flips one busy, and verifies a spawn-identity edit recycles idle runners but spares the busy one (docs/19, docs/22 §5.2). | Wizard banners match edit class; busy runner keeps its busy state and survives the edit; recycled standbys are replaced by fresh spawns; server errors surface as banners.
 
 ---
 
