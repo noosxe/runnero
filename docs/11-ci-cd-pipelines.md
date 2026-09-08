@@ -47,6 +47,7 @@ graph TD
         WF1 --> G1[Job: changes<br/>dorny/paths-filter@v4<br/>ubuntu-latest ~4s]
         G1 -->|go == true| G4[Job: web-assets<br/>build web/dist once, share artifact]
         G4 --> G2[Job: Build & Test<br/>amd64 + arm64 matrix<br/>race detector on amd64 only]
+        G4 --> G5[Job: Go Lint<br/>golangci-lint v2.12.2<br/>default linters + gofmt formatter]
         G1 -->|go == false| G3[Skipped ~0s]
     end
 
@@ -129,7 +130,7 @@ The table below defines the exact path filters evaluated across all workflows:
 
 | Workflow | Gate Output Key | Monitored Path Patterns | Trigger Rationale |
 | :--- | :--- | :--- | :--- |
-| **Go CI** (`go.yml`) | `go` | `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Makefile`<br/>`.github/workflows/go.yml` | Any modification to backend Go code, database queries/migrations, Protobuf schemas, Go module dependencies, build automation, or the workflow itself. |
+| **Go CI** (`go.yml`) | `go` | `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Makefile`<br/>`.golangci.yml`<br/>`.github/workflows/go.yml` | Any modification to backend Go code, database queries/migrations, Protobuf schemas, Go module dependencies, build automation, the golangci-lint configuration, or the workflow itself. |
 | **Web CI** (`web.yml`) | `web` | `web/**`<br/>`proto/**`<br/>`.github/workflows/web.yml` | Any modification to the React SPA, frontend dependencies (`pnpm-lock.yaml`), shared Protobuf schemas, or the frontend workflow. |
 | **Lint CI** (`lint.yml`) | `scripts`<br/>`docker` | `src/**`<br/>`tests/**`<br/>`Dockerfile`<br/>`Dockerfile.supervisor`<br/>`.dockerignore`<br/>`.github/workflows/lint.yml` | `scripts`: Triggers `shellcheck` and script unit tests on runner bash scripts.<br/>`docker`: Triggers `hadolint` on container files. |
 | **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition, runner scripts, or release workflow. `tests/**` is excluded: script-test changes are validated by `Lint CI` and never enter the image. |
@@ -137,7 +138,7 @@ The table below defines the exact path filters evaluated across all workflows:
 
 ### Handling Cross-Cutting Changes
 - **Protobuf Schemas (`proto/**`)**: Modifying `proto/api.proto` triggers **both** `Go CI` and `Web CI` because code is generated into both `internal/pb/` and `web/src/lib/api/pb/`.
-- **Embedded Web Assets**: Modifying `web/**` triggers `Web CI` (lint/test/build). The `Supervisor Multi-Arch Build` picks it up on pushes to `main` (since `web/dist` is embedded into the supervisor binary) but **not** on pull requests, where frontend correctness is already validated by `Web CI`. It does **not** trigger `Go CI` unless Go sources or module files are also touched; inside `Go CI` itself, `web/dist` is built once by the `web-assets` job and shared with both matrix legs.
+- **Embedded Web Assets**: Modifying `web/**` triggers `Web CI` (lint/test/build). The `Supervisor Multi-Arch Build` picks it up on pushes to `main` (since `web/dist` is embedded into the supervisor binary) but **not** on pull requests, where frontend correctness is already validated by `Web CI`. It does **not** trigger `Go CI` unless Go sources or module files are also touched; inside `Go CI` itself, `web/dist` is built once by the `web-assets` job and shared with both matrix legs and the `lint` job.
 - **Runner Image vs. Script Tests**: `tests/**` changes no longer trigger the runner image build — they are validated by `Lint CI` (ShellCheck + script unit tests) and never enter the image context.
 - **Documentation Only (`docs/**`, `README.md`, `AGENTS.md`)**: All 5 workflows trigger their ~4-second `changes` gate job and immediately finish. All heavy matrix and container builds are cleanly skipped.
 
@@ -163,7 +164,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - `build-test`, `web-ci`, and `lint` jobs require only `contents: read`.
    - `packages: write` is strictly restricted to container build workflows (`build.yml`, `supervisor-build.yml`) and is only utilized when pushing images to `ghcr.io`.
 2. **Pinning Action Versions**:
-   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`).
+   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`, `golangci/golangci-lint-action@v9`). The golangci-lint **binary** version itself is pinned exactly (`v2.12.2`) to match the Nix dev shell so CI and local `make lint` can never disagree; keep the two in sync on upgrades.
 3. **Concurrency Control**:
    - Every workflow specifies `concurrency: group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true`.
    - If a developer pushes a new commit to an active PR, running jobs are automatically cancelled, preventing wasted runner resources.
@@ -172,7 +173,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - PRs from forks cannot access packaging secrets or publish images.
 
 5. **Runner Time Budgets**:
-   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate/lint jobs, 10–15 for test jobs, 30 for image builds), so a single hung job can never burn the 6-hour default in runner time.
+   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate jobs and the fast shell/Docker lint jobs, 10 for the Go Lint job — golangci-lint compiles the module — and 10–15 for test jobs, 30 for image builds), so a single hung job can never burn the 6-hour default in runner time.
 ---
 
 ## 6. Verification & Operational Guidelines
@@ -181,7 +182,8 @@ When implementing or updating workflow path filters:
 
 1. **Self-Check Requirement**: Every workflow file must monitor itself in its path filter list (e.g. `.github/workflows/go.yml` in `go.yml`). This ensures that changes to the CI definition itself are always validated by the CI it defines.
 2. **Local Parity**: CI steps must maintain exact parity with the Nix development shell commands:
-   - `go vet ./...` and `go test ./...` on both matrix legs, plus `go test -race ./...` on the **amd64 leg only** (matches `make vet`, `make test`, `make test-race`). The standalone `go build ./...` step was dropped — `vet`/`test` already compile the module — and `web/dist` is built once by the `web-assets` job and shared to both legs as an artifact.
+   - `golangci-lint run` in the `lint` job (matches `make lint`), using `.golangci.yml` (default linters + gofmt formatter) and the exact golangci-lint version from the Nix dev shell.
+   - `go vet ./...` and `go test ./...` on both matrix legs, plus `go test -race ./...` on the **amd64 leg only** (matches `make vet`, `make test`, `make test-race`). The standalone `go build ./...` step was dropped — `vet`/`test` already compile the module — and `web/dist` is built once by the `web-assets` job and shared with both legs and the lint job as an artifact.
    - `pnpm run lint`, `pnpm run format:check`, `pnpm test`, `pnpm run build` (matches `make lint-web`, `make test-web`).
    - `shellcheck src/*.sh`, `bash tests/unit/entrypoint_test.sh` (matches `make test-scripts`).
 3. **Status Check Monitoring**:

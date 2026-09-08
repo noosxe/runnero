@@ -56,6 +56,7 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - 'Makefile'
+              - '.golangci.yml'
               - '.github/workflows/go.yml'
 
   # Build the embedded web UI once per run: both matrix legs need web/dist
@@ -99,6 +100,43 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # golangci-lint gate (matches `make lint`): default linters plus the gofmt
+  # formatter declared in .golangci.yml. Runs golangci-lint v2 pinned to
+  # the exact version from the Nix dev shell so CI and local gates can
+  # never disagree. Depends on web-assets because lint analysis compiles
+  # the module and go:embed in web/embed.go requires web/dist.
+  lint:
+    name: Go Lint
+    needs: [changes, web-assets]
+    if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Same artifact as the build-test legs: lint needs the embedded web
+      # assets present to type-check the module.
+      - name: Download Web Assets
+        uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          # Exact pin: must match the golangci-lint version in the Nix dev
+          # shell (currently 2.12.2). Keep the two in sync on upgrades.
+          version: v2.12.2
   build-test:
     name: Build & Test (${{ matrix.arch }})
     needs: [changes, web-assets]
