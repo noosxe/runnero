@@ -119,12 +119,21 @@ func handleContainerCreate(w http.ResponseWriter, r *http.Request) {
 
 	mu.Lock()
 	id := fmt.Sprintf("cnt-mock-%04d", counter)
-	name := fmt.Sprintf("/runnero-runner-%04d", counter)
+
+	// The Docker API carries the requested container name as the ?name= query
+	// parameter. Honoring it keeps the supervisor's spawn-time runner names
+	// (runnero-<pool-slug>-<hex>) stable across audit cycles — the busy-state
+	// sync (docs/19) and ghost sweep (docs/20) match registered runners by
+	// exactly these names, and churned names would break that matching.
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		name = fmt.Sprintf("runnero-runner-%04d", counter)
+	}
 	counter++
 
 	cnt := &containerState{
 		ID:      id,
-		Names:   []string{name},
+		Names:   []string{"/" + name},
 		Image:   req.Image,
 		State:   "created",
 		Status:  "Created",
