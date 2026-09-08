@@ -202,3 +202,80 @@ func TestJobRecording_CleanExitClosesCompleted(t *testing.T) {
 		t.Fatalf("expected 1 close(completed), got %+v", h.rec.closes)
 	}
 }
+
+// TestJobRecording_LifetimeKillIdleStandbyRecordsNothing verifies the docs/21
+// §5.2 guard end to end: the max-lifetime kill switch still force-terminates an
+// idle standby that never ran a job, but records no timeout row - the runner
+// has no open job row, so kill-switch churn must not fabricate job history.
+func TestJobRecording_LifetimeKillIdleStandbyRecordsNothing(t *testing.T) {
+	ctx := context.Background()
+	pool := busySyncPool("job-rec-pool", 0, 5)
+	pool.MaxRunnerLifetimeSeconds = 7200
+	h := newJobRecHarness(t, pool)
+	if err := h.ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+
+	// An idle standby spawned 3h ago: past the 2h lifetime limit.
+	status := orchestrator.RunnerStatus{
+		ID:        "c-runnero-old-standby",
+		Name:      "runnero-old-standby",
+		PoolName:  pool.Name,
+		State:     "running",
+		IsBusy:    false,
+		SpawnedAt: time.Now().UTC().Add(-3 * time.Hour),
+	}
+	h.liveMu.Lock()
+	h.liveRunners[status.ID] = status
+	h.liveMu.Unlock()
+	h.reconciler.TrackRunner(status)
+
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	if len(h.rec.records) != 0 {
+		t.Fatalf("lifetime kill of an idle standby must record no job row, got %+v", h.rec.records)
+	}
+}
+
+// TestJobRecording_LifetimeKillBusyRunnerRecordsTimeout verifies the guard's
+// other half: force-terminating a runner that was mid-job still closes its
+// open row as a timeout (docs/21 §5.2).
+func TestJobRecording_LifetimeKillBusyRunnerRecordsTimeout(t *testing.T) {
+	ctx := context.Background()
+	pool := busySyncPool("job-rec-pool", 0, 5)
+	pool.MaxRunnerLifetimeSeconds = 7200
+	h := newJobRecHarness(t, pool)
+	if err := h.ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+
+	status := orchestrator.RunnerStatus{
+		ID:        "c-runnero-old-busy",
+		Name:      "runnero-old-busy",
+		PoolName:  pool.Name,
+		State:     "running",
+		IsBusy:    true,
+		SpawnedAt: time.Now().UTC().Add(-3 * time.Hour),
+	}
+	h.liveMu.Lock()
+	h.liveRunners[status.ID] = status
+	h.liveMu.Unlock()
+	h.reconciler.TrackRunner(status)
+	// The busy-state sync opened this runner's job row on idle→busy.
+	if err := h.rec.OpenTransitionJob(ctx, pool.ID, "runnero-old-busy", time.Now().UTC().Add(-2*time.Hour)); err != nil {
+		t.Fatalf("OpenTransitionJob failed: %v", err)
+	}
+
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	if len(h.rec.records) != 1 {
+		t.Fatalf("lifetime kill of a mid-job runner must record a timeout, got %+v", h.rec.records)
+	}
+	if h.rec.records[0].runnerName != "runnero-old-busy" {
+		t.Fatalf("timeout recorded for %q, want runnero-old-busy", h.rec.records[0].runnerName)
+	}
+}

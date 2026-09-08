@@ -95,8 +95,10 @@ per-cycle remote listing — no extra API calls):
   (ephemeral runners exit after their job; die-event and reap paths both already
   run): close the open row — `completed_at=now`, runtime = completed − started,
   status resolved per §5.3 / §5.4.
-- The hung-runner path (`RecordJobTimeout`) keeps writing `timeout` rows and now
-  also closes any open row for that runner (no duplicates).
+- The hung-runner path closes the runner's open job_history row as `timeout` —
+  and only when one is open. A force-terminated runner that was never mid-job
+  (an idle standby reaped by `max_runner_lifetime_seconds`) records nothing, so
+  kill-switch churn cannot fabricate full-lifetime `timeout` rows.
 - Merge rule: when a `workflow_job` event names the same runner (§5.5), it attaches
   to the open transition row instead of creating a second one.
 

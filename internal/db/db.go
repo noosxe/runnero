@@ -48,8 +48,8 @@ type Options struct {
 // DB wraps an opened SQLite database connection pool and its configuration,
 // embedding sqlc-generated type-safe Queries and credential encryption.
 type DB struct {
-	sqlDB     *sql.DB
-	path      string
+	sqlDB *sql.DB
+	path  string
 	*Queries
 	encryptor *Encryptor
 }
@@ -197,31 +197,21 @@ func (d *DB) Path() string {
 	return d.path
 }
 
-// RecordJobTimeout records a timeout event into job_history for a force-terminated hung runner (docs/03 §4, §7).
-// If the runner has an open lifecycle row (docs/21 §5.2), it is closed as 'timeout' instead — never two rows for one job.
+// RecordJobTimeout closes a runner's open job_history row as 'timeout'
+// (docs/21 §5.2) - the lifetime kill switch force-terminating a runner that
+// was mid-job. When no row is open (an idle standby reaped by the lifetime
+// switch never started a job), nothing is recorded: kill-switch churn must
+// not fabricate job rows.
 func (d *DB) RecordJobTimeout(ctx context.Context, poolID int64, runnerName, logPath string, startedAt, completedAt time.Time) error {
-	rows, err := d.CloseOpenJobRow(ctx, CloseOpenJobRowParams{
+	if _, err := d.CloseOpenJobRow(ctx, CloseOpenJobRowParams{
 		CompletedAt:      sql.NullTime{Time: completedAt.UTC(), Valid: true},
 		Status:           "timeout",
 		LogRetentionPath: sql.NullString{String: logPath, Valid: logPath != ""},
+		JobID:            sql.NullInt64{},
 		PoolID:           poolID,
 		RunnerName:       runnerName,
-	})
-	if err == nil && rows > 0 {
-		return nil
-	}
-
-	_, err = d.CreateJobHistory(ctx, CreateJobHistoryParams{
-		PoolID:           poolID,
-		RunnerName:       runnerName,
-		Status:           "timeout",
-		StartedAt:        sql.NullTime{Time: startedAt, Valid: !startedAt.IsZero()},
-		CompletedAt:      sql.NullTime{Time: completedAt, Valid: !completedAt.IsZero()},
-		LogRetentionPath: sql.NullString{String: logPath, Valid: logPath != ""},
-		Source:           "timeout",
-	})
-	if err != nil {
-		return fmt.Errorf("recording job timeout: %w", err)
+	}); err != nil {
+		return fmt.Errorf("closing job row as timeout: %w", err)
 	}
 	return nil
 }
