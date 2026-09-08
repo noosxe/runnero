@@ -28,6 +28,7 @@ jobs:
     name: Detect Go Changes
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -37,8 +38,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
         with:
-          # Full history so paths-filter can diff against the previous push
-          fetch-depth: 0
+          # Push events diff against the previous commit and need full
+          # history; pull_request events resolve changed files via the
+          # GitHub REST API (paths-filter, pull-requests: read) and only
+          # need a shallow checkout.
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
 
       - name: Filter Changed Paths
         uses: dorny/paths-filter@v4
@@ -54,11 +58,53 @@ jobs:
               - 'Makefile'
               - '.github/workflows/go.yml'
 
-  build-test:
-    name: Build & Test (${{ matrix.arch }})
+  # Build the embedded web UI once per run: both matrix legs need web/dist
+  # for the go:embed in web/embed.go. Sharing one artifact avoids running
+  # pnpm install + vite build twice (once per architecture).
+  web-assets:
+    name: Build Web Assets
     needs: changes
     if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Build
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Upload Web Assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 1
+          if-no-files-found: error
+
+  build-test:
+    name: Build & Test (${{ matrix.arch }})
+    needs: [changes, web-assets]
+    if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true') }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     strategy:
       # Report failures on both architectures instead of cancelling the
       # sibling leg; the matrix uses native runners (no QEMU), same mapping
@@ -86,26 +132,16 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
+      # web/dist is built once in the web-assets job and shared with both
+      # matrix legs (go:embed in web/embed.go needs it at compile time).
+      - name: Download Web Assets
+        uses: actions/download-artifact@v8
         with:
-          version: 11
+          name: web-dist
+          path: web/dist
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: 'pnpm'
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Build Web Assets
-        working-directory: web
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
-
-      - name: Build
-        run: go build ./...
+      # No standalone `go build` step: `go vet` and `go test` below already
+      # compile every package in the module.
 
       - name: Vet
         run: go vet ./...
@@ -113,7 +149,11 @@ jobs:
       - name: Test
         run: go test ./...
 
+      # Race detection rebuilds the module with CGO instrumentation and
+      # roughly doubles test time; a single architecture is sufficient to
+      # catch races, so only the amd64 leg pays for it.
       - name: Test (Data Race Detector)
+        if: matrix.arch == 'amd64'
         env:
           CGO_ENABLED: "1"
         run: go test -race ./...
