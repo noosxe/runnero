@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useCreateAuthProfile, useUpdateAuthProfile } from "../../lib/api/query-hooks";
-import { toWireAuthMethod } from "../../lib/utils/auth-methods";
+import { fromWireAuthMethod, toWireAuthMethod } from "../../lib/utils/auth-methods";
 import type { AuthProfile } from "../../gen/api_pb";
 import { KeyRound, X, AlertCircle } from "lucide-react";
 
@@ -38,7 +38,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
 
   const [profileName, setProfileName] = useState(isEdit ? profile.name : "");
   const [authMethod, setAuthMethod] = useState<AuthMethod>(
-    isEdit ? (profile.authMethod as AuthMethod) : "github_pat",
+    isEdit ? fromWireAuthMethod(profile.authMethod) : "github_pat",
   );
   const [appId, setAppId] = useState(isEdit && profile.appId > 0n ? String(profile.appId) : "");
   const [privateKeyPem, setPrivateKeyPem] = useState("");
