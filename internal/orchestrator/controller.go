@@ -503,8 +503,11 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 				// Untrack runner from active pool state
 				c.reconciler.UntrackRunner(p.Name, r.ID)
 
-				// Record timeout in job_history
-				if c.jobRecorder != nil {
+				// Record timeout in job_history - but only for runners that were
+				// actually mid-job (docs/21 §5.2): an idle standby reaped by the
+				// lifetime switch never started a job, and recording one would
+				// fabricate a full-lifetime timeout row on every kill cycle.
+				if c.jobRecorder != nil && r.IsBusy {
 					runnerName := r.Name
 					if runnerName == "" {
 						runnerName = r.ID

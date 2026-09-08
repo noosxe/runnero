@@ -637,12 +637,15 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 		DataDir:          tempDir,
 	})
 
-	// Add a synthetic hung container spawned 10 seconds ago (limit is 5s)
+	// Add a synthetic hung container spawned 10 seconds ago (limit is 5s).
+	// IsBusy=true: it was mid-job, so its kill records a timeout row
+	// (docs/21 §5.2 - idle-standby lifetime kills record nothing).
 	hungRunner := orchestrator.RunnerStatus{
 		ID:        "hung-container-1",
 		Name:      "hung-runner-1",
 		PoolName:  "timeout-pool",
 		State:     "running",
+		IsBusy:    true,
 		SpawnedAt: time.Now().UTC().Add(-10 * time.Second),
 	}
 	// Add a healthy fresh container spawned 1 second ago

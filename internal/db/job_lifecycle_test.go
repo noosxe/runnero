@@ -132,9 +132,10 @@ func TestRecordJobTimeoutClosesOpenRow(t *testing.T) {
 	}
 }
 
-// TestRecordJobTimeoutCreatesRowWithoutOpen verifies the legacy behavior for
-// runners with no lifecycle row (e.g. recorded before this feature shipped).
-func TestRecordJobTimeoutCreatesRowWithoutOpen(t *testing.T) {
+// TestRecordJobTimeoutNoRowWithoutOpen verifies the docs/21 §5.2 guard: a
+// lifetime kill of a runner with no open job row (an idle standby, never
+// mid-job) records nothing - kill-switch churn must not fabricate job rows.
+func TestRecordJobTimeoutNoRowWithoutOpen(t *testing.T) {
 	database, poolID, cleanup := newJobLifecycleDB(t)
 	defer cleanup()
 	ctx := context.Background()
@@ -144,11 +145,11 @@ func TestRecordJobTimeoutCreatesRowWithoutOpen(t *testing.T) {
 		t.Fatalf("RecordJobTimeout failed: %v", err)
 	}
 	rows, err := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
-	if err != nil || len(rows) != 1 {
-		t.Fatalf("expected exactly 1 row, got %d (err=%v)", len(rows), err)
+	if err != nil {
+		t.Fatalf("ListJobHistory failed: %v", err)
 	}
-	if rows[0].Source != "timeout" {
-		t.Fatalf("created row source = %q, want timeout", rows[0].Source)
+	if len(rows) != 0 {
+		t.Fatalf("no row must be recorded without an open job, got %d: %+v", len(rows), rows)
 	}
 }
 
@@ -481,7 +482,6 @@ func TestRecordWebhookCompletedCloseRules(t *testing.T) {
 		}
 	})
 }
-
 
 // TestCloseTransitionJobEnrichesJobID verifies the docs/21 section 5.3 close
 // enrichment: a non-zero job id is written onto the closing row, and a zero
