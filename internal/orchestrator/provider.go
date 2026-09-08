@@ -39,7 +39,11 @@ type RunnerStatus struct {
 	SpawnedAt time.Time `json:"spawned_at"`
 	IsBusy    bool      `json:"is_busy,omitempty"`
 	OnDemand  bool      `json:"on_demand,omitempty"`
-	TargetURL string    `json:"target_url,omitempty"`
+	// ForgeID is the forge-assigned runner id observed by the busy-state
+	// listing (docs/21 §5.3); zero until observed. Conclusion enrichment
+	// keys its API calls on it.
+	ForgeID   int64  `json:"forge_id,omitempty"`
+	TargetURL string `json:"target_url,omitempty"`
 }
 
 // ContainerProvider abstracts container lifecycle operations from the underlying container engine.
