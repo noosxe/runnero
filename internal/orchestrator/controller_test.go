@@ -388,6 +388,106 @@ func TestPoolController_HandleContainerEvent_ReapAndReplenish(t *testing.T) {
 	}
 }
 
+// RUN-121: die and destroy events (and the audit cycle) can re-process the
+// same container after another reap path already captured the logs and
+// removed it. The duplicate reap must complete without error, treating the
+// engine's benign "already gone / removal in progress" responses as success
+// instead of warning, and must not double-replenish the pool.
+func TestPoolController_HandleContainerEvent_DoubleDeliveryBenign(t *testing.T) {
+	ctx := context.Background()
+	tempDir := t.TempDir()
+
+	pool := db.RunnerPool{
+		ID:             120,
+		Name:           "double-delivery-pool",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/owner/double-repo",
+		Scope:          "repo",
+		AuthProfileID:  21,
+		MinIdleRunners: 1,
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+	}
+
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{tokensIssued: make([]string, 0)}
+	resolver := &mockGitProviderResolver{
+		providers: map[int64]provider.GitProvider{21: gitProv},
+	}
+
+	var captureCalls, terminateCalls int
+	spawnedIDs := make([]string, 0)
+	mockEngine := &orchestrator.MockContainerProvider{
+		SpawnRunnerFn: func(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
+			id := "runner-dd-" + config.Name
+			spawnedIDs = append(spawnedIDs, id)
+			return id, nil
+		},
+		TerminateRunnerFn: func(ctx context.Context, containerID string) error {
+			terminateCalls++
+			return nil
+		},
+		CaptureLogsFn: func(ctx context.Context, containerID, dataDir string) (string, error) {
+			captureCalls++
+			if captureCalls > 1 {
+				// Losing race: the winning reap path already captured the logs
+				// and started removal (RUN-121).
+				return "", orchestrator.ErrLogsUnavailable
+			}
+			return orchestrator.LogPath(dataDir, containerID), nil
+		},
+	}
+
+	reconciler := orchestrator.NewReconciler(mockEngine)
+	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               repo,
+		ContainerEngine:  mockEngine,
+		ProviderResolver: resolver,
+		Reconciler:       reconciler,
+		DataDir:          tempDir,
+	})
+
+	// 1. Boot: spawns 1 idle runner
+	if err := ctrl.Boot(ctx); err != nil {
+		t.Fatalf("ctrl.Boot failed: %v", err)
+	}
+	if len(spawnedIDs) != 1 {
+		t.Fatalf("expected 1 spawned on boot, got %d", len(spawnedIDs))
+	}
+	firstRunnerID := spawnedIDs[0]
+
+	// 2. Die event: the winning reap path captures logs and removes the container
+	dieEvent := orchestrator.ContainerEvent{
+		ContainerID: firstRunnerID,
+		PoolName:    "double-delivery-pool",
+		Action:      "die",
+		ExitCode:    0,
+	}
+	if err := ctrl.HandleContainerEvent(ctx, dieEvent); err != nil {
+		t.Fatalf("HandleContainerEvent(die) failed: %v", err)
+	}
+	if len(spawnedIDs) != 2 {
+		t.Fatalf("expected 2 spawns (1 initial + 1 replacement), got %d", len(spawnedIDs))
+	}
+
+	// 3. Duplicate delivery: destroy event for the same container arrives
+	// after removal already finished. Must be benign — no error, no WARN-worthy
+	// engine failure, and no double replenish.
+	destroyEvent := orchestrator.ContainerEvent{
+		ContainerID: firstRunnerID,
+		PoolName:    "double-delivery-pool",
+		Action:      "destroy",
+	}
+	if err := ctrl.HandleContainerEvent(ctx, destroyEvent); err != nil {
+		t.Fatalf("HandleContainerEvent(destroy) must treat duplicate delivery as benign, got: %v", err)
+	}
+
+	if len(spawnedIDs) != 2 {
+		t.Errorf("expected no extra spawn on duplicate delivery, got %d spawns", len(spawnedIDs))
+	}
+	if captureCalls != 2 || terminateCalls != 2 {
+		t.Errorf("expected reap attempted twice (capture=%d, terminate=%d), got capture=%d terminate=%d", 2, 2, captureCalls, terminateCalls)
+	}
+}
 func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 	ctx := context.Background()
 

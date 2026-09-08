@@ -678,7 +678,13 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID string, 
 	c.closeJobRowOnDeath(ctx, containerID, poolID, exitCode, exitKnown)
 	if c.dataDir != "" && c.engine != nil {
 		if _, err := c.engine.CaptureLogs(ctx, containerID, c.dataDir); err != nil {
-			c.logger.Warn("capturing exit logs before container removal", "id", containerID, "err", err)
+			// A concurrent reap path (audit cycle vs die/destroy event) already
+			// captured the logs and started removal — benign (RUN-121).
+			if errors.Is(err, ErrLogsUnavailable) {
+				c.logger.Debug("skipping exit log capture, container already reaped by another path", "id", containerID, "err", err)
+			} else {
+				c.logger.Warn("capturing exit logs before container removal", "id", containerID, "err", err)
+			}
 		}
 	}
 	if c.engine != nil {
