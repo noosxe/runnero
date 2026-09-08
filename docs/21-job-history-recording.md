@@ -106,16 +106,25 @@ Closing a job without a webhook leaves the outcome unknown. To recover `success`
 `failure` without user-visible loss, add an optional provider capability:
 
 ```
-RunnerLatestJobs(ctx, targetURL, runnerName) ([]RunnerJob{ID, Conclusion, CompletedAt}, error)
+RunnerLatestJobs(ctx, scope, targetURL, runnerID int64) ([]RunnerJob{ID, Conclusion, CompletedAt}, error)
 ```
 
+- The capability is keyed by the **scope-specific forge runner id** (the refined
+  signature from implementation: resolving a name to an id per call would double
+  the API cost, so the id from the `RunnerLister` listing is persisted onto
+  tracked runner state instead).
 - GitHub implementation: `GET /repos/{owner}/{repo}/actions/runners/{runner_id}/jobs`
-  (recent jobs incl. `conclusion`). Requires the runner id, which the existing
-  `RunnerLister` listing already carries — persisted onto tracked runner state.
+  for repo scope, `/orgs/{org}/actions/runners/{runner_id}/jobs` for org scope.
+  Enterprise (global) scope has no public endpoint and reports unsupported.
 - Invoked **once per job completion** (not per cycle) with a bounded timeout; the
-  result sets status + external `job_id` on the closing row.
-- Failure or unimplemented provider → row closes as `completed` (fail-open, G3).
-- Globally toggleable via config (default: on where implemented).
+  newest forge job with a non-empty `completed_at` sets status + external `job_id`
+  on the closing row. Unconcluded entries are skipped (busy-flag lag races the
+  forge's own job state).
+- Failure, unimplemented provider, missing forge id, or no concluded job → row
+  closes as `completed` with no job id (fail-open, G3). Container-death closes
+  keep the §5.4 exit-code mapping: by the time a dead runner is reaped its
+  registration is typically already gone, so the lookup would mostly 404.
+- Globally toggleable via `SUPERVISOR_ENRICH_JOB_CONCLUSIONS` (default: on).
 
 ### 5.4 Crash recovery
 
@@ -232,7 +241,11 @@ Single SQLite migration (recreate-table pattern):
   row, insert fresh) and both close branches (by external id with duplicate
   cleanup, fallback by runner with job-id enrichment), queued-event upsert
   before capacity gating, and db/orchestrator dedup invariant tests.
-- **Phase 3 — conclusion enrichment**: `RunnerLatestJobs` capability (GitHub first),
-  config toggle, fail-open tests.
+- **Phase 3 — conclusion enrichment** *(shipped)*: optional `RunnerJobsLister`
+  provider capability (`RunnerLatestJobs`) implemented for GitHub repo/org
+  scopes, keyed by the listing-carried forge runner id persisted onto tracked
+  state, invoked once per job completion under a bounded timeout to set the
+  forge conclusion and external job id on the closing row, `SUPERVISOR_ENRICH_JOB_CONCLUSIONS`
+  toggle (default on), and fail-open tests at every degradation point.
 - Phases are independently shippable; Phase 1 alone makes every dashboard indicator
   live in webhookless mode (except queue wait, which honestly reports unavailable).
