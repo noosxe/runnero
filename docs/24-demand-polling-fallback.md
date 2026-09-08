@@ -118,11 +118,10 @@ PollQueuedJobs(ctx context.Context, target PollTarget) (int, error)
 ```
 
 Forgejo's implementation ignores `Labels` for now (documented limitation:
-counts all waiting tasks; label-aware filtering is a follow-up if the task
-payload exposes labels usefully). Gitea returns a typed
+counts all waiting tasks; label-aware filtering is tracked as RUN-144).
+Gitea returns a typed
 `ErrPollingUnsupported`; the controller surfaces it as a pool diagnostic if
 `poll_fallback` somehow ends up enabled.
-
 ### 5.4 Cadence and throttling
 
 The audit cycle (~10 s) remains the driver — no new goroutine/timer
@@ -130,6 +129,9 @@ machinery. Each pool tracks `lastPollAt`; the audit cycle polls a pool only
 when `now - lastPollAt >= poll_interval_seconds ± 20% jitter`. Jitter
 desynchronizes multi-target pools hammering the same API host in lockstep.
 Worst-case pickup latency is one interval (default 30 s) plus the ~10–15 s
+
+The interval is a DB-level knob in v1 (default 30 s, CHECK 15–3600); it is
+not exposed in the wizard or edit UI — surface it only if an operator asks.
 runner boot — acceptable for a fallback path, and the property that matters:
 it is bounded, unlike "never".
 
@@ -158,13 +160,15 @@ grace instead of being drained as surplus.
 
 ### 5.7 Validation rules (create + edit)
 
-| Provider | `poll_fallback` | Interval field |
-| :--- | :--- | :--- |
-| GitHub, repo-scope targets | editable, default off | editable (15–3600 s, default 30) |
-| GitHub, any org/global target | editable but diagnostics report skipped targets | editable |
-| Gitea | rejected (`polling unsupported for gitea`) | hidden |
-| Forgejo | not applicable — always on | editable |
+The UI exposes only the `poll_fallback` toggle; the interval stays a
+DB-level knob (§5.4).
 
+| Provider | `poll_fallback` |
+| :--- | :--- |
+| GitHub, repo-scope targets | editable, default off |
+| GitHub, any org/global target | editable but diagnostics report skipped targets |
+| Gitea | rejected (`polling unsupported for gitea`) |
+| Forgejo | not applicable — always on |
 ### 5.8 Data model & migration
 
 `006_demand_polling_fallback.sql`:
@@ -185,11 +189,10 @@ pool create/update/get/list gain both columns.
   validation per §5.7; audited as part of the existing `pool.create` /
   `pool.update` audit events.
 - Wizard (docs/14) and edit workflow (docs/22): one checkbox — "Scale without
-  webhooks (poll for queued jobs)" — plus interval input, rendered per the
-  §5.7 matrix. Forgejo shows polling as an inherent capability, not a toggle.
+  webhooks (poll for queued jobs)" — rendered per the §5.7 matrix. Forgejo
+  shows polling as an inherent capability, not a toggle.
 - Pool diagnostics (docs/16): expose `last_poll_at`, `last_poll_queued_count`,
   `last_poll_error` so "why isn't it scaling" is answerable from the UI.
-
 ### 5.10 Failure modes & observability
 
 | Failure | Behavior |
@@ -240,13 +243,12 @@ Every poll that changes the spawn decision logs the existing
 - **Scale-on-webhook-timeout only** — doesn't help when webhooks never arrive,
   which is the entire problem.
 
-## 7. Open questions
+## 7. Resolved decisions
 
-1. Interval default 30 s — right trade-off between pickup latency and API
-   quota for typical workstation use? (15 s floor, 1 h ceiling.)
-2. Should the interval field ship in the UI in v1, or stay a DB-level knob
-   with a fixed default until someone asks?
-3. Gitea revisit trigger: track Gitea releases for a repo-scoped Actions
-   listing API and file a follow-up when it lands.
-4. Forgejo label-aware filtering: worth implementing if the tasks payload
-   carries usable labels (follow-up issue, independent of this doc).
+Recorded during design review (PR #200):
+
+1. **Interval default 30 s** — confirmed.
+2. **Interval UI** — not exposed in v1; DB-level knob only (§5.4).
+3. **Gitea** — no release tracking; if a repo-scoped Actions listing API
+   ever lands, file an issue then.
+4. **Forgejo label-aware filtering** — filed as RUN-144.
