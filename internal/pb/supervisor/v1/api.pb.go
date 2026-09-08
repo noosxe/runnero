@@ -413,8 +413,15 @@ type Pool struct {
 	LastErrorCode      string           `protobuf:"bytes,24,opt,name=last_error_code,json=lastErrorCode,proto3" json:"last_error_code,omitempty"`
 	LastErrorTimestamp string           `protobuf:"bytes,25,opt,name=last_error_timestamp,json=lastErrorTimestamp,proto3" json:"last_error_timestamp,omitempty"`
 	LastReconciledAt   string           `protobuf:"bytes,26,opt,name=last_reconciled_at,json=lastReconciledAt,proto3" json:"last_reconciled_at,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Demand polling fallback (docs/24)
+	PollFallback        bool  `protobuf:"varint,27,opt,name=poll_fallback,json=pollFallback,proto3" json:"poll_fallback,omitempty"`
+	PollIntervalSeconds int32 `protobuf:"varint,28,opt,name=poll_interval_seconds,json=pollIntervalSeconds,proto3" json:"poll_interval_seconds,omitempty"` // 0 means server default (30s)
+	// Demand-poll diagnostics (read-only, populated by server, docs/24 §5.9)
+	LastPollAt          string `protobuf:"bytes,29,opt,name=last_poll_at,json=lastPollAt,proto3" json:"last_poll_at,omitempty"`
+	LastPollQueuedCount int32  `protobuf:"varint,30,opt,name=last_poll_queued_count,json=lastPollQueuedCount,proto3" json:"last_poll_queued_count,omitempty"`
+	LastPollError       string `protobuf:"bytes,31,opt,name=last_poll_error,json=lastPollError,proto3" json:"last_poll_error,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Pool) Reset() {
@@ -625,6 +632,41 @@ func (x *Pool) GetLastErrorTimestamp() string {
 func (x *Pool) GetLastReconciledAt() string {
 	if x != nil {
 		return x.LastReconciledAt
+	}
+	return ""
+}
+
+func (x *Pool) GetPollFallback() bool {
+	if x != nil {
+		return x.PollFallback
+	}
+	return false
+}
+
+func (x *Pool) GetPollIntervalSeconds() int32 {
+	if x != nil {
+		return x.PollIntervalSeconds
+	}
+	return 0
+}
+
+func (x *Pool) GetLastPollAt() string {
+	if x != nil {
+		return x.LastPollAt
+	}
+	return ""
+}
+
+func (x *Pool) GetLastPollQueuedCount() int32 {
+	if x != nil {
+		return x.LastPollQueuedCount
+	}
+	return 0
+}
+
+func (x *Pool) GetLastPollError() string {
+	if x != nil {
+		return x.LastPollError
 	}
 	return ""
 }
@@ -4573,7 +4615,7 @@ const file_api_proto_rawDesc = "" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x19\n" +
 	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\x12\x1b\n" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
-	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\xee\a\n" +
+	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\xc6\t\n" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -4603,7 +4645,13 @@ const file_api_proto_rawDesc = "" +
 	"last_error\x18\x17 \x01(\tR\tlastError\x12&\n" +
 	"\x0flast_error_code\x18\x18 \x01(\tR\rlastErrorCode\x120\n" +
 	"\x14last_error_timestamp\x18\x19 \x01(\tR\x12lastErrorTimestamp\x12,\n" +
-	"\x12last_reconciled_at\x18\x1a \x01(\tR\x10lastReconciledAt\"e\n" +
+	"\x12last_reconciled_at\x18\x1a \x01(\tR\x10lastReconciledAt\x12#\n" +
+	"\rpoll_fallback\x18\x1b \x01(\bR\fpollFallback\x122\n" +
+	"\x15poll_interval_seconds\x18\x1c \x01(\x05R\x13pollIntervalSeconds\x12 \n" +
+	"\flast_poll_at\x18\x1d \x01(\tR\n" +
+	"lastPollAt\x123\n" +
+	"\x16last_poll_queued_count\x18\x1e \x01(\x05R\x13lastPollQueuedCount\x12&\n" +
+	"\x0flast_poll_error\x18\x1f \x01(\tR\rlastPollError\"e\n" +
 	"\x0eRenovateConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12#\n" +
 	"\rcron_schedule\x18\x02 \x01(\tR\fcronSchedule\x12\x14\n" +
