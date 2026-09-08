@@ -1,0 +1,19 @@
+# golangci-lint v2 configuration.
+# Docs: https://golangci-lint.run/docs/configuration/file/
+#
+# Deliberately minimal: linters stay at their defaults (errcheck, govet,
+# ineffassign, staticcheck, unused). The only addition is the gofmt
+# formatter, so `golangci-lint run` (make lint) fails on formatting drift
+# and `golangci-lint fmt` fixes it in place.
+#
+# simplify: false keeps the check exactly equivalent to plain `gofmt`
+# (what `make fmt` runs); the v2 default is true (`gofmt -s`), which is
+# stricter than the rest of our tooling.
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: false
