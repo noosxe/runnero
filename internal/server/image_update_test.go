@@ -650,4 +650,3 @@ func TestImageUpdate_DismissImageUpdate(t *testing.T) {
 		t.Errorf("expected CodeNotFound, got %v", connect.CodeOf(err))
 	}
 }
-

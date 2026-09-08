@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -19,12 +20,12 @@ type mockTerminator struct {
 	terminated []string
 }
 
-func (m *mockTerminator) PoolRunners(poolName string) []server.RunnerInstanceInfo {
+func (m *mockTerminator) PoolRunners(poolID int64) []server.RunnerInstanceInfo {
 	return []server.RunnerInstanceInfo{
 		{
 			ID:        "c-12345",
 			Name:      "test-runner-1",
-			PoolName:  poolName,
+			PoolName:  fmt.Sprintf("pool-%d", poolID),
 			State:     "running",
 			IPAddress: "172.17.0.2",
 			SpawnedAt: time.Now().Add(-10 * time.Minute),
@@ -33,8 +34,8 @@ func (m *mockTerminator) PoolRunners(poolName string) []server.RunnerInstanceInf
 	}
 }
 
-func (m *mockTerminator) TerminateRunner(_ context.Context, poolName, containerID string) error {
-	m.terminated = append(m.terminated, poolName+":"+containerID)
+func (m *mockTerminator) TerminateRunner(_ context.Context, poolID int64, containerID string) error {
+	m.terminated = append(m.terminated, fmt.Sprintf("%d:%s", poolID, containerID))
 	return nil
 }
 
@@ -361,4 +362,3 @@ func TestRecordAuditLogHelper(t *testing.T) {
 		t.Errorf("expected action auth.login, got %s", logs[0].Action)
 	}
 }
-

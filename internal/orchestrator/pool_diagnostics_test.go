@@ -121,7 +121,7 @@ func TestPoolControllerDiagnosticsLifecycle(t *testing.T) {
 	mockRepo := &mockPoolRepo{
 		pools: []db.RunnerPool{
 			{
-				ID:             1,
+				ID:             150,
 				Name:           "pool-test-diag",
 				Provider:       "github",
 				RepositoryUrl:  "https://github.com/org/repo",
@@ -144,7 +144,7 @@ func TestPoolControllerDiagnosticsLifecycle(t *testing.T) {
 	})
 
 	// Initial default diagnostics
-	initDiag := ctrl.PoolDiagnostics("pool-test-diag")
+	initDiag := ctrl.PoolDiagnostics(150)
 	if initDiag.HealthStatus != "healthy" && initDiag.HealthStatus != "provisioning" {
 		t.Errorf("expected initial health status, got %s", initDiag.HealthStatus)
 	}
@@ -152,7 +152,7 @@ func TestPoolControllerDiagnosticsLifecycle(t *testing.T) {
 	// 2. Boot with Decryption failure -> DEGRADED + AUTH_DECRYPTION_FAILED
 	_ = ctrl.Boot(ctx)
 
-	diag := ctrl.PoolDiagnostics("pool-test-diag")
+	diag := ctrl.PoolDiagnostics(150)
 	if diag.HealthStatus != "degraded" {
 		t.Errorf("expected health degraded, got %s", diag.HealthStatus)
 	}
@@ -173,7 +173,7 @@ func TestPoolControllerDiagnosticsLifecycle(t *testing.T) {
 	}
 
 	_ = ctrl.Reconcile(ctx)
-	diag = ctrl.PoolDiagnostics("pool-test-diag")
+	diag = ctrl.PoolDiagnostics(150)
 	if diag.HealthStatus != "degraded" {
 		t.Errorf("expected health degraded on engine fail, got %s", diag.HealthStatus)
 	}
@@ -184,7 +184,7 @@ func TestPoolControllerDiagnosticsLifecycle(t *testing.T) {
 	// 4. Successful Reconcile -> HEALTHY
 	mockEngine.SpawnRunnerFn = nil
 	_ = ctrl.Reconcile(ctx)
-	diag = ctrl.PoolDiagnostics("pool-test-diag")
+	diag = ctrl.PoolDiagnostics(150)
 	if diag.HealthStatus != "healthy" {
 		t.Errorf("expected health healthy on success, got %s", diag.HealthStatus)
 	}

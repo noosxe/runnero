@@ -415,8 +415,10 @@ describe("PoolWizardModal (edit mode)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
     fireEvent.click(screen.getByRole("button", { name: /Review & Confirm/i }));
 
-    expect(screen.getByText(/Renaming recycles the pool's idle runners/i)).toBeInTheDocument();
-    expect(screen.getByText(/requires zero busy runners/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Renaming only changes how the pool is displayed/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/runners are unaffected/i)).toBeInTheDocument();
   });
 
   it("submits the full pool with id and preserves max_runner_lifetime_seconds", async () => {

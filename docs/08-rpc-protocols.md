@@ -138,9 +138,10 @@ message UpdatePoolResponse {
 
 > **UpdatePool semantics (docs/22 §5):** full-replace of every writable pool
 > field; read-only runtime fields in the request are ignored. Provider is
-> immutable (`CodeInvalidArgument`). Renaming requires zero busy runners
-> (`CodeFailedPrecondition`) and recycles idle runners under the old name.
-> Duplicate names return `CodeAlreadyExists`; unknown ids `CodeNotFound`.
+> immutable (`CodeInvalidArgument`). Renaming is metadata-only — tracking is
+> keyed by pool id, so live runners are unaffected and keep their spawn-time
+> name label until they recycle naturally (RUN-126). Duplicate names return
+> `CodeAlreadyExists`; unknown ids `CodeNotFound`.
 > Spawn-identity edits (targets, labels, image, `allow_docker`, resource
 > limits, auth profile) recycle the pool's idle runners before the write —
 > busy runners are never terminated by an edit. `pool_targets` rows are

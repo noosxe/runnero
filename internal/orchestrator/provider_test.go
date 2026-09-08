@@ -72,7 +72,7 @@ func TestMockContainerProvider(t *testing.T) {
 	// 6. AuditRunners
 	mock.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 		return []orchestrator.RunnerStatus{
-			{
+			{PoolID: 100,
 				ID:        "c-1",
 				Name:      "runner-1",
 				PoolName:  "pool-a",

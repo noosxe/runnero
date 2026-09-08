@@ -53,7 +53,8 @@ const (
 
 // ProvisionRequest represents a queued runner provisioning request when the global quota is saturated.
 type ProvisionRequest struct {
-	PoolName  string    `json:"pool_name"`
+	PoolID    int64     `json:"pool_id"`
+	PoolName  string    `json:"pool_name,omitempty"` // logging aid; spawn identity is the DB row
 	TargetURL string    `json:"target_url,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -128,20 +129,20 @@ const (
 
 // ControllerOptions configures the PoolController.
 type ControllerOptions struct {
-	DB                   PoolRepository
-	JobRecorder          JobHistoryRecorder
-	ContainerEngine      ContainerProvider
-	ProviderResolver     GitProviderResolver
-	Reconciler           *Reconciler
-	EventListener        *EventListener
-	DataDir              string
-	GlobalMaxRunners     int
-	ShutdownTimeout      time.Duration
-	ShutdownPollInterval time.Duration
-	Interval               time.Duration
-	ScaleToZeroGracePeriod time.Duration
-	TaskExitHandler        TaskExitHandler
-	GhostSweepOfflineCycles int
+	DB                           PoolRepository
+	JobRecorder                  JobHistoryRecorder
+	ContainerEngine              ContainerProvider
+	ProviderResolver             GitProviderResolver
+	Reconciler                   *Reconciler
+	EventListener                *EventListener
+	DataDir                      string
+	GlobalMaxRunners             int
+	ShutdownTimeout              time.Duration
+	ShutdownPollInterval         time.Duration
+	Interval                     time.Duration
+	ScaleToZeroGracePeriod       time.Duration
+	TaskExitHandler              TaskExitHandler
+	GhostSweepOfflineCycles      int
 	GhostSweepMaxDeregistrations int
 	// EnrichConclusions enables conclusion enrichment on job completion
 	// (docs/21 §5.3): when a busy-to-idle transition closes a job row, the
@@ -154,26 +155,29 @@ type ControllerOptions struct {
 
 // PoolController orchestrates the lifecycle control loop across all runner pools (docs/03 §1).
 type PoolController struct {
-	mu                     sync.RWMutex
-	provisionMu            sync.Mutex // single-writer provisioning lock (RUN-38)
-	db                     PoolRepository
-	jobRecorder            JobHistoryRecorder
-	engine                 ContainerProvider
-	providerResolver       GitProviderResolver
-	reconciler             *Reconciler
-	eventListener          *EventListener
-	taskExitHandler        TaskExitHandler
-	dataDir                string
-	globalMaxRunners       int
-	shutdownTimeout        time.Duration
-	shutdownPollInterval   time.Duration
-	interval               time.Duration
-	scaleToZeroGracePeriod time.Duration
-	ghostOfflineCycles     int
+	mu                      sync.RWMutex
+	provisionMu             sync.Mutex // single-writer provisioning lock (RUN-38)
+	db                      PoolRepository
+	jobRecorder             JobHistoryRecorder
+	engine                  ContainerProvider
+	providerResolver        GitProviderResolver
+	reconciler              *Reconciler
+	eventListener           *EventListener
+	taskExitHandler         TaskExitHandler
+	dataDir                 string
+	globalMaxRunners        int
+	shutdownTimeout         time.Duration
+	shutdownPollInterval    time.Duration
+	interval                time.Duration
+	scaleToZeroGracePeriod  time.Duration
+	ghostOfflineCycles      int
 	ghostMaxDeregistrations int
 	enrichConclusions       bool
-	ghostMu                sync.Mutex
-	ghostCounters          map[string]map[string]int // pool -> runner name -> consecutive offline-untracked cycles (docs/20 §4.1)
+	ghostMu                 sync.Mutex
+	ghostCounters           map[int64]map[string]int // pool id -> runner name -> consecutive offline-untracked cycles (docs/20 §4.1)
+
+	poolIDsMu     sync.RWMutex
+	poolIDsByName map[string]int64 // spawn-time name -> pool id; resolves legacy events/containers (RUN-126)
 
 	queue         []ProvisionRequest // internal provisioning queue for quota saturation (RUN-39)
 	state         ControllerState
@@ -181,7 +185,7 @@ type PoolController struct {
 	logger        *slog.Logger
 
 	diagMu      sync.RWMutex
-	diagnostics map[string]PoolDiagnosticState
+	diagnostics map[int64]PoolDiagnosticState
 }
 
 // NewPoolController creates a new lifecycle control loop engine.
@@ -228,27 +232,72 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		ghostMax = DefaultGhostSweepMaxDeregistrations
 	}
 
-	return &PoolController{
-		db:                     opts.DB,
-		jobRecorder:            jobRec,
-		engine:                 opts.ContainerEngine,
-		providerResolver:       opts.ProviderResolver,
-		reconciler:             opts.Reconciler,
-		eventListener:          opts.EventListener,
-		taskExitHandler:        opts.TaskExitHandler,
-		dataDir:                opts.DataDir,
-		globalMaxRunners:       globalMax,
-		shutdownTimeout:        shutdownTimeout,
-		shutdownPollInterval:   shutdownPollInterval,
-		interval:               opts.Interval,
-		scaleToZeroGracePeriod: gracePeriod,
-		state:                  StateStopped,
-		ghostOfflineCycles:     ghostCycles,
+	ctrl := PoolController{
+		db:                      opts.DB,
+		jobRecorder:             jobRec,
+		engine:                  opts.ContainerEngine,
+		providerResolver:        opts.ProviderResolver,
+		reconciler:              opts.Reconciler,
+		eventListener:           opts.EventListener,
+		taskExitHandler:         opts.TaskExitHandler,
+		dataDir:                 opts.DataDir,
+		globalMaxRunners:        globalMax,
+		shutdownTimeout:         shutdownTimeout,
+		shutdownPollInterval:    shutdownPollInterval,
+		interval:                opts.Interval,
+		scaleToZeroGracePeriod:  gracePeriod,
+		state:                   StateStopped,
+		ghostOfflineCycles:      ghostCycles,
 		ghostMaxDeregistrations: ghostMax,
-		enrichConclusions:      opts.EnrichConclusions,
-		ghostCounters:          make(map[string]map[string]int),
-		logger:                 logging.For("controller"),
-		diagnostics:            make(map[string]PoolDiagnosticState),
+		enrichConclusions:       opts.EnrichConclusions,
+		ghostCounters:           make(map[int64]map[string]int),
+		poolIDsByName:           make(map[string]int64),
+		logger:                  logging.For("controller"),
+		diagnostics:             make(map[int64]PoolDiagnosticState),
+	}
+
+	// Legacy adoption (RUN-126): containers spawned before the pool-id label
+	// existed carry only a pool-name label; resolve those by name at audit time
+	// so boot-time adoption of in-flight runners survives the upgrade (docs/03 §2).
+	if ctrl.reconciler != nil && ctrl.db != nil {
+		ctrl.reconciler.SetPoolNameResolver(ctrl.resolvePoolIDByName)
+	}
+
+	return &ctrl
+}
+
+// resolvePoolIDByName maps a pool name to its database id, falling back to a
+// direct database lookup on cache misses (boot-time audits run before the
+// first Reconcile refreshes the cache).
+func (c *PoolController) resolvePoolIDByName(name string) (int64, bool) {
+	c.poolIDsMu.RLock()
+	id, ok := c.poolIDsByName[name]
+	c.poolIDsMu.RUnlock()
+	if ok {
+		return id, true
+	}
+
+	if c.db == nil {
+		return 0, false
+	}
+	pools, err := c.db.ListRunnerPools(context.Background())
+	if err != nil {
+		return 0, false
+	}
+	c.refreshPoolIDs(pools)
+	c.poolIDsMu.RLock()
+	defer c.poolIDsMu.RUnlock()
+	id, ok = c.poolIDsByName[name]
+	return id, ok
+}
+
+// refreshPoolIDs rebuilds the name->id cache from the current pool list.
+func (c *PoolController) refreshPoolIDs(pools []db.RunnerPool) {
+	c.poolIDsMu.Lock()
+	defer c.poolIDsMu.Unlock()
+	c.poolIDsByName = make(map[string]int64, len(pools))
+	for _, p := range pools {
+		c.poolIDsByName[p.Name] = p.ID
 	}
 }
 
@@ -370,7 +419,7 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 		} else {
 			// Reap any exited containers detected during audit cycle
 			for _, exited := range report.Exited {
-				c.reapContainer(ctx, exited.ID, exited.PoolName, exited.ExitCode, true)
+				c.reapContainer(ctx, exited.ID, exited.PoolID, exited.ExitCode, true)
 			}
 		}
 	}
@@ -392,27 +441,38 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("loading pools for reconcile: %w", err)
 	}
+	c.refreshPoolIDs(pools)
 
-	// 5. Detect removed pools and drain their runners
-	currentPools := make(map[string]struct{}, len(pools))
+	// 5. Detect removed pools and drain their runners (keyed by pool id so
+	// renames never look like deletes; RUN-126, docs/22 §5.4)
+	currentPools := make(map[int64]struct{}, len(pools))
 	for _, p := range pools {
-		currentPools[p.Name] = struct{}{}
+		currentPools[p.ID] = struct{}{}
 	}
 
-	var removedPools []string
+	type removedPool struct {
+		id   int64
+		name string
+	}
+	var removedPools []removedPool
 	if c.reconciler != nil {
 		c.reconciler.mu.RLock()
-		for trackedPool := range c.reconciler.tracked {
-			if _, exists := currentPools[trackedPool]; !exists {
-				removedPools = append(removedPools, trackedPool)
+		for trackedID, poolMap := range c.reconciler.tracked {
+			if _, exists := currentPools[trackedID]; !exists {
+				name := ""
+				for _, r := range poolMap {
+					name = r.PoolName
+					break
+				}
+				removedPools = append(removedPools, removedPool{id: trackedID, name: name})
 			}
 		}
 		c.reconciler.mu.RUnlock()
 	}
 
 	for _, removed := range removedPools {
-		c.logger.Info("pool removed from database, draining runners", "pool", removed)
-		c.drainPool(ctx, removed)
+		c.logger.Info("pool removed from database, draining runners", "pool", removed.name, "pool_id", removed.id)
+		c.drainPool(ctx, removed.id)
 	}
 
 	// 6. Force-terminate hung runners exceeding max_runner_lifetime_seconds (docs/03 §4, §7)
@@ -470,7 +530,7 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 			}
 		}
 
-		tracked := c.reconciler.TrackedPoolRunners(p.Name)
+		tracked := c.reconciler.TrackedPoolRunners(p.ID)
 		for _, r := range tracked {
 			if r.State != "running" || r.SpawnedAt.IsZero() {
 				continue
@@ -501,7 +561,7 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 				}
 
 				// Untrack runner from active pool state
-				c.reconciler.UntrackRunner(p.Name, r.ID)
+				c.reconciler.UntrackRunner(p.ID, r.ID)
 
 				// Record timeout in job_history - but only for runners that were
 				// actually mid-job (docs/21 §5.2): an idle standby reaped by the
@@ -564,17 +624,25 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 		}
 	}
 
+	poolID := event.PoolID
+	if poolID == 0 && event.PoolName != "" {
+		// Legacy container spawned before the pool-id label existed
+		// (RUN-126): resolve its pool by the spawn-time name.
+		poolID, _ = c.resolvePoolIDByName(event.PoolName)
+	}
+
 	// 1. Reap dead container
-	c.reapContainer(ctx, event.ContainerID, event.PoolName, event.ExitCode, true)
+	c.reapContainer(ctx, event.ContainerID, poolID, event.ExitCode, true)
 
 	// 2. Replenish target pool immediately
-	if event.PoolName != "" {
+	if poolID != 0 {
 		pools, err := c.loadPools(ctx)
 		if err != nil {
 			return fmt.Errorf("loading pools during event reap: %w", err)
 		}
+		c.refreshPoolIDs(pools)
 		for _, p := range pools {
-			if p.Name == event.PoolName {
+			if p.ID == poolID {
 				return c.reconcilePool(ctx, p)
 			}
 		}
@@ -583,8 +651,8 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 	return nil
 }
 
-func (c *PoolController) reapContainer(ctx context.Context, containerID, poolName string, exitCode int, exitKnown bool) {
-	c.closeJobRowOnDeath(ctx, containerID, poolName, exitCode, exitKnown)
+func (c *PoolController) reapContainer(ctx context.Context, containerID string, poolID int64, exitCode int, exitKnown bool) {
+	c.closeJobRowOnDeath(ctx, containerID, poolID, exitCode, exitKnown)
 	if c.dataDir != "" && c.engine != nil {
 		if _, err := c.engine.CaptureLogs(ctx, containerID, c.dataDir); err != nil {
 			c.logger.Warn("capturing exit logs before container removal", "id", containerID, "err", err)
@@ -596,7 +664,7 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID, poolNam
 		}
 	}
 	if c.reconciler != nil {
-		c.reconciler.UntrackRunner(poolName, containerID)
+		c.reconciler.UntrackRunner(poolID, containerID)
 	}
 
 	// Drain internal provisioning queue as global capacity freed up
@@ -607,12 +675,12 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID, poolNam
 // is reaped (docs/21 §5.2): a clean exit (code 0) closes the row as 'completed',
 // anything else as 'interrupted' — the job outcome is unknowable without the
 // forge API. Best-effort; boot recovery (docs/21 §5.4) catches any leftovers.
-func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID, poolName string, exitCode int, exitKnown bool) {
-	if c.jobRecorder == nil || c.reconciler == nil || poolName == "" {
+func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID string, poolID int64, exitCode int, exitKnown bool) {
+	if c.jobRecorder == nil || c.reconciler == nil || poolID == 0 {
 		return
 	}
 	var runnerName string
-	for _, r := range c.reconciler.TrackedPoolRunners(poolName) {
+	for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
 		if r.ID == containerID {
 			runnerName = r.Name
 			break
@@ -625,27 +693,9 @@ func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID, po
 	if exitKnown && exitCode == 0 {
 		status = "completed"
 	}
-	poolID, err := c.poolIDByName(ctx, poolName)
-	if err != nil || poolID <= 0 {
-		return
-	}
 	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, 0, "", time.Now().UTC()); err != nil {
-		c.logger.Warn("closing job row on runner death", "pool", poolName, "runner", runnerName, "err", err)
+		c.logger.Warn("closing job row on runner death", "pool_id", poolID, "runner", runnerName, "err", err)
 	}
-}
-
-// poolIDByName resolves a pool's database ID by name; 0 when unknown.
-func (c *PoolController) poolIDByName(ctx context.Context, poolName string) (int64, error) {
-	pools, err := c.loadPools(ctx)
-	if err != nil {
-		return 0, err
-	}
-	for _, p := range pools {
-		if p.Name == poolName {
-			return p.ID, nil
-		}
-	}
-	return 0, nil
 }
 
 // Start boots the controller and runs the continuous periodic reconciliation loop until ctx is canceled.
@@ -794,7 +844,7 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 			report, err := c.reconciler.Audit(ctx)
 			if err == nil {
 				for _, exited := range report.Exited {
-					c.reapContainer(ctx, exited.ID, exited.PoolName, exited.ExitCode, true)
+					c.reapContainer(ctx, exited.ID, exited.PoolID, exited.ExitCode, true)
 				}
 			}
 
@@ -983,7 +1033,7 @@ func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPo
 		return
 	}
 
-	tracked := c.reconciler.TrackedPoolRunners(p.Name)
+	tracked := c.reconciler.TrackedPoolRunners(p.ID)
 	if len(tracked) == 0 {
 		return
 	}
@@ -1115,7 +1165,7 @@ func (c *PoolController) ghostSweep(ctx context.Context, gitProv provider.GitPro
 	}
 
 	trackedNames := make(map[string]struct{})
-	for _, r := range c.reconciler.TrackedPoolRunners(p.Name) {
+	for _, r := range c.reconciler.TrackedPoolRunners(p.ID) {
 		trackedNames[r.Name] = struct{}{}
 	}
 	prefix := "runnero-" + SlugifyPoolName(p.Name) + "-"
@@ -1123,10 +1173,10 @@ func (c *PoolController) ghostSweep(ctx context.Context, gitProv provider.GitPro
 	c.ghostMu.Lock()
 	defer c.ghostMu.Unlock()
 
-	counters := c.ghostCounters[p.Name]
+	counters := c.ghostCounters[p.ID]
 	if counters == nil {
 		counters = make(map[string]int)
-		c.ghostCounters[p.Name] = counters
+		c.ghostCounters[p.ID] = counters
 	}
 
 	seen := make(map[string]struct{}, len(remote))
@@ -1172,7 +1222,7 @@ func (c *PoolController) ghostSweep(ctx context.Context, gitProv provider.GitPro
 		}
 	}
 	if len(counters) == 0 {
-		delete(c.ghostCounters, p.Name)
+		delete(c.ghostCounters, p.ID)
 	}
 }
 
@@ -1205,7 +1255,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	c.applyRemoteBusyState(ctx, p, gitProv, remote)
 	c.ghostSweep(ctx, gitProv, p, target, remote)
 
-	tracked := c.reconciler.TrackedPoolRunners(p.Name)
+	tracked := c.reconciler.TrackedPoolRunners(p.ID)
 	var idleRunners []RunnerStatus
 	activeCount := int64(0)
 	for _, r := range tracked {
@@ -1267,7 +1317,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 			if drained < excess {
 				c.deregisterRunner(ctx, r)
 				_ = c.engine.TerminateRunner(ctx, r.ID)
-				c.reconciler.UntrackRunner(p.Name, r.ID)
+				c.reconciler.UntrackRunner(p.ID, r.ID)
 				drained++
 			} else {
 				remainingIdle = append(remainingIdle, r)
@@ -1305,7 +1355,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 				)
 				c.deregisterRunner(ctx, r)
 				_ = c.engine.TerminateRunner(ctx, r.ID)
-				c.reconciler.UntrackRunner(p.Name, r.ID)
+				c.reconciler.UntrackRunner(p.ID, r.ID)
 				activeCount--
 			}
 		}
@@ -1317,12 +1367,12 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 			r := idleRunners[i]
 			c.deregisterRunner(ctx, r)
 			_ = c.engine.TerminateRunner(ctx, r.ID)
-			c.reconciler.UntrackRunner(p.Name, r.ID)
+			c.reconciler.UntrackRunner(p.ID, r.ID)
 			activeCount--
 		}
 	}
 
-	queuedForPool := int64(c.QueueLengthForPool(p.Name))
+	queuedForPool := int64(c.QueueLengthForPool(p.ID))
 	needed := effectiveTarget - (activeCount + queuedForPool)
 	if needed <= 0 {
 		intent := ""
@@ -1349,7 +1399,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	onDemand := (p.MinIdleRunners == 0 || (gitProv != nil && gitProv.ScalingMode() == provider.ScalingPolling))
 	for i := int64(0); i < needed; i++ {
 		// Check per-pool max_concurrency
-		if p.MaxConcurrency > 0 && (activeCount+int64(c.QueueLengthForPool(p.Name))) >= p.MaxConcurrency {
+		if p.MaxConcurrency > 0 && (activeCount+int64(c.QueueLengthForPool(p.ID))) >= p.MaxConcurrency {
 			c.logger.Info("pool reached max concurrency limit, skipping further spawns", "pool", p.Name, "max_concurrency", p.MaxConcurrency)
 			break
 		}
@@ -1364,7 +1414,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 				"global_max", c.globalMaxRunners,
 			)
 			c.setPoolError(p.Name, p.ID, ErrCodeGlobalQuotaSaturated, fmt.Sprintf("Global runner quota saturated (%d/%d): queued provisioning request", c.TotalActiveRunners(), c.globalMaxRunners))
-			c.enqueueRequest(p.Name, targetURL)
+			c.enqueueRequest(p, targetURL)
 			continue
 		}
 
@@ -1424,6 +1474,7 @@ func (c *PoolController) spawnSingleRunner(ctx context.Context, p db.RunnerPool,
 	config := RunnerConfig{
 		Name:        containerName,
 		PoolName:    p.Name,
+		PoolID:      p.ID,
 		RepoURL:     targetURL,
 		Token:       token,
 		Image:       p.RunnerImage,
@@ -1446,6 +1497,7 @@ func (c *PoolController) spawnSingleRunner(ctx context.Context, p db.RunnerPool,
 		ID:        id,
 		Name:      containerName,
 		PoolName:  p.Name,
+		PoolID:    p.ID,
 		State:     "running",
 		SpawnedAt: time.Now().UTC(),
 		OnDemand:  onDemand,
@@ -1480,14 +1532,14 @@ func (c *PoolController) TotalActiveRunners() int {
 }
 
 // PoolStats returns the active (busy running a job) and idle runner counts for a pool.
-func (c *PoolController) PoolStats(poolName string) (active int32, idle int32) {
+func (c *PoolController) PoolStats(poolID int64) (active int32, idle int32) {
 	if c.reconciler == nil {
 		return 0, 0
 	}
 	c.reconciler.mu.RLock()
 	defer c.reconciler.mu.RUnlock()
 
-	poolMap, ok := c.reconciler.tracked[poolName]
+	poolMap, ok := c.reconciler.tracked[poolID]
 	if !ok {
 		return 0, 0
 	}
@@ -1504,11 +1556,11 @@ func (c *PoolController) PoolStats(poolName string) (active int32, idle int32) {
 }
 
 // PoolDiagnostics returns the live operational health, intent, and reconciliation diagnostics for a pool.
-func (c *PoolController) PoolDiagnostics(poolName string) server.PoolDiagnostics {
+func (c *PoolController) PoolDiagnostics(poolID int64) server.PoolDiagnostics {
 	c.diagMu.RLock()
 	defer c.diagMu.RUnlock()
 
-	diag, ok := c.diagnostics[poolName]
+	diag, ok := c.diagnostics[poolID]
 	if !ok {
 		return server.PoolDiagnostics{
 			HealthStatus:  string(HealthHealthy),
@@ -1529,7 +1581,7 @@ func (c *PoolController) setPoolProvisioning(poolName string, poolID int64, inte
 	c.diagMu.Lock()
 	defer c.diagMu.Unlock()
 
-	diag, ok := c.diagnostics[poolName]
+	diag, ok := c.diagnostics[poolID]
 	if !ok {
 		diag = PoolDiagnosticState{
 			PoolID:   poolID,
@@ -1539,14 +1591,14 @@ func (c *PoolController) setPoolProvisioning(poolName string, poolID int64, inte
 	diag.HealthStatus = HealthProvisioning
 	diag.CurrentIntent = intent
 	diag.LastReconciledAt = time.Now().UTC()
-	c.diagnostics[poolName] = diag
+	c.diagnostics[poolID] = diag
 }
 
 func (c *PoolController) setPoolHealthy(poolName string, poolID int64, intent string) {
 	c.diagMu.Lock()
 	defer c.diagMu.Unlock()
 
-	diag, ok := c.diagnostics[poolName]
+	diag, ok := c.diagnostics[poolID]
 	if !ok {
 		diag = PoolDiagnosticState{
 			PoolID:   poolID,
@@ -1558,14 +1610,14 @@ func (c *PoolController) setPoolHealthy(poolName string, poolID int64, intent st
 	diag.LastError = ""
 	diag.LastErrorCode = ""
 	diag.LastReconciledAt = time.Now().UTC()
-	c.diagnostics[poolName] = diag
+	c.diagnostics[poolID] = diag
 }
 
 func (c *PoolController) setPoolError(poolName string, poolID int64, code, msg string) {
 	c.diagMu.Lock()
 	defer c.diagMu.Unlock()
 
-	diag, ok := c.diagnostics[poolName]
+	diag, ok := c.diagnostics[poolID]
 	if !ok {
 		diag = PoolDiagnosticState{
 			PoolID:   poolID,
@@ -1577,13 +1629,13 @@ func (c *PoolController) setPoolError(poolName string, poolID int64, code, msg s
 	diag.LastError = msg
 	diag.LastErrorTimestamp = time.Now().UTC()
 	diag.LastReconciledAt = time.Now().UTC()
-	c.diagnostics[poolName] = diag
+	c.diagnostics[poolID] = diag
 }
 
-func (c *PoolController) removePoolDiagnostics(poolName string) {
+func (c *PoolController) removePoolDiagnostics(poolID int64) {
 	c.diagMu.Lock()
 	defer c.diagMu.Unlock()
-	delete(c.diagnostics, poolName)
+	delete(c.diagnostics, poolID)
 }
 
 // SystemRunnerStats returns the total active (busy executing job) and idle runner counts across all pools.
@@ -1616,25 +1668,26 @@ func (c *PoolController) QueueLength() int {
 }
 
 // QueueLengthForPool returns the number of queued requests for a specific pool.
-func (c *PoolController) QueueLengthForPool(poolName string) int {
+func (c *PoolController) QueueLengthForPool(poolID int64) int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	count := 0
 	for _, req := range c.queue {
-		if req.PoolName == poolName {
+		if req.PoolID == poolID {
 			count++
 		}
 	}
 	return count
 }
 
-func (c *PoolController) enqueueRequest(poolName, targetURL string) {
+func (c *PoolController) enqueueRequest(pool db.RunnerPool, targetURL string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.queue = append(c.queue, ProvisionRequest{
-		PoolName:  poolName,
+		PoolID:    pool.ID,
+		PoolName:  pool.Name,
 		TargetURL: targetURL,
 		CreatedAt: time.Now().UTC(),
 	})
@@ -1674,7 +1727,7 @@ func (c *PoolController) drainQueue(ctx context.Context) {
 		}
 
 		poolActive := int64(0)
-		for _, r := range c.reconciler.TrackedPoolRunners(p.Name) {
+		for _, r := range c.reconciler.TrackedPoolRunners(p.ID) {
 			if r.State == "running" {
 				poolActive++
 			}
@@ -1726,30 +1779,30 @@ func (c *PoolController) Reload(ctx context.Context) error {
 	return c.Reconcile(ctx)
 }
 
-func (c *PoolController) drainPool(ctx context.Context, poolName string) {
+func (c *PoolController) drainPool(ctx context.Context, poolID int64) {
 	if c.reconciler == nil || c.engine == nil {
 		return
 	}
-	tracked := c.reconciler.TrackedPoolRunners(poolName)
+	tracked := c.reconciler.TrackedPoolRunners(poolID)
 	for _, r := range tracked {
 		if r.State == "running" {
 			c.deregisterRunner(ctx, r)
 			_ = c.engine.TerminateRunner(ctx, r.ID)
-			c.reconciler.UntrackRunner(poolName, r.ID)
+			c.reconciler.UntrackRunner(poolID, r.ID)
 		}
 	}
 
 	c.mu.Lock()
 	var remaining []ProvisionRequest
 	for _, req := range c.queue {
-		if req.PoolName != poolName {
+		if req.PoolID != poolID {
 			remaining = append(remaining, req)
 		}
 	}
 	c.queue = remaining
 	c.mu.Unlock()
 
-	c.removePoolDiagnostics(poolName)
+	c.removePoolDiagnostics(poolID)
 }
 
 // RecycleIdleRunners deregisters and terminates all non-busy tracked runners
@@ -1758,7 +1811,7 @@ func (c *PoolController) drainPool(ctx context.Context, poolName string) {
 // terminations stay tracked for the next audit cycle to reap. Unlike drainPool
 // it keeps pool diagnostics and queued provisioning requests — the pool
 // continues to exist.
-func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolName string) error {
+func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) error {
 	if c.reconciler == nil || c.engine == nil {
 		return nil
 	}
@@ -1766,16 +1819,16 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolName string
 	c.provisionMu.Lock()
 	defer c.provisionMu.Unlock()
 
-	for _, r := range c.reconciler.TrackedPoolRunners(poolName) {
+	for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
 		if r.IsBusy || r.State != "running" {
 			continue
 		}
 		c.deregisterRunner(ctx, r)
 		if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
-			c.logger.Warn("recycle: failed terminating idle runner", "pool", poolName, "runner", r.ID, "err", err)
+			c.logger.Warn("recycle: failed terminating idle runner", "pool", r.PoolName, "pool_id", poolID, "runner", r.ID, "err", err)
 			continue
 		}
-		c.reconciler.UntrackRunner(poolName, r.ID)
+		c.reconciler.UntrackRunner(poolID, r.ID)
 	}
 	return nil
 }
@@ -1783,11 +1836,11 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolName string
 var _ server.IdleRecycler = (*PoolController)(nil)
 
 // PoolRunners returns all active/idle runners currently tracked for a pool as server.RunnerInstanceInfo.
-func (c *PoolController) PoolRunners(poolName string) []server.RunnerInstanceInfo {
+func (c *PoolController) PoolRunners(poolID int64) []server.RunnerInstanceInfo {
 	if c.reconciler == nil {
 		return nil
 	}
-	statuses := c.reconciler.TrackedPoolRunners(poolName)
+	statuses := c.reconciler.TrackedPoolRunners(poolID)
 	res := make([]server.RunnerInstanceInfo, 0, len(statuses))
 	for _, s := range statuses {
 		res = append(res, server.RunnerInstanceInfo{
@@ -1804,15 +1857,14 @@ func (c *PoolController) PoolRunners(poolName string) []server.RunnerInstanceInf
 }
 
 // TerminateRunner manually terminates a runner container and reconciles pool tracking state.
-func (c *PoolController) TerminateRunner(ctx context.Context, poolName, containerID string) error {
+func (c *PoolController) TerminateRunner(ctx context.Context, poolID int64, containerID string) error {
 	if c.engine != nil {
 		if err := c.engine.TerminateRunner(ctx, containerID); err != nil {
 			return err
 		}
 	}
 	if c.reconciler != nil {
-		c.reconciler.UntrackRunner(poolName, containerID)
+		c.reconciler.UntrackRunner(poolID, containerID)
 	}
 	return nil
 }
-

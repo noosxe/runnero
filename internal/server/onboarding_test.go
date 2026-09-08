@@ -64,9 +64,9 @@ func TestOnboardingStatusLifecycle(t *testing.T) {
 
 	// 3. Create auth profile
 	prof, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
-		Name:                "test-profile",
-		AuthMethod:          "pat",
-		TokenEncrypted:      sql.NullString{String: "enc", Valid: true},
+		Name:           "test-profile",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "enc", Valid: true},
 	})
 	if err != nil {
 		t.Fatalf("CreateAuthProfile failed: %v", err)

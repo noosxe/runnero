@@ -24,11 +24,19 @@ To reconcile the running container state on host restarts or daemon crashes with
 ```ini
 com.runnero.managed=true
 com.runnero.pool-name=<pool-name>
+com.runnero.pool-id=<pool-database-id>
 com.runnero.id=<unique-runner-id>
 com.runnero.spawned-at=<timestamp>
 ```
 
 Upon boot, the supervisor queries the host engine filtering for `com.runnero.managed=true` to dynamically rebuild its in-memory tracking state.
+
+Tracking keys on the **pool database id** (`com.runnero.pool-id`), which is
+stable across renames (RUN-126); the name label is carried for readability
+only. Containers spawned before the id label existed are promoted at audit
+time by resolving their spawn-time name label against the database, so boot
+adoption of in-flight runners survives the upgrade; containers whose pool can
+no longer be resolved fall into orphan handling.
 
 ## 3. Real-time Container Audit Engine
 

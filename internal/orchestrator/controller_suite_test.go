@@ -65,7 +65,7 @@ func (s *ControllerTestSuite) TearDownTest() {
 
 func (s *ControllerTestSuite) TestReplenisher_ProviderFailureHandledGracefully() {
 	pool := db.RunnerPool{
-		ID:             1,
+		ID:             115,
 		Name:           "failing-prov-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
@@ -108,7 +108,7 @@ func (s *ControllerTestSuite) TestReplenisher_ProviderFailureHandledGracefully()
 
 	// Since token generation fails during boot, no runners should have been spawned
 	s.Assert().Equal(int32(0), atomic.LoadInt32(&spawnAttempts))
-	active, idle := ctrl.PoolStats("failing-prov-pool")
+	active, idle := ctrl.PoolStats(115)
 	s.Assert().Equal(int32(0), active)
 	s.Assert().Equal(int32(0), idle)
 
@@ -119,14 +119,14 @@ func (s *ControllerTestSuite) TestReplenisher_ProviderFailureHandledGracefully()
 
 	// Reconcile should now spawn the required MinIdleRunners (2)
 	s.Assert().Equal(int32(2), atomic.LoadInt32(&spawnAttempts))
-	active, idle = ctrl.PoolStats("failing-prov-pool")
+	active, idle = ctrl.PoolStats(115)
 	s.Assert().Equal(int32(0), active)
 	s.Assert().Equal(int32(2), idle)
 }
 
 func (s *ControllerTestSuite) TestReplenisher_EngineFailurePreservesState() {
 	pool := db.RunnerPool{
-		ID:             2,
+		ID:             116,
 		Name:           "engine-fail-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
@@ -156,7 +156,7 @@ func (s *ControllerTestSuite) TestReplenisher_EngineFailurePreservesState() {
 
 	// Boot attempted 1 spawn which failed; state is healthy with 0 idle
 	s.Assert().Equal(int32(1), atomic.LoadInt32(&spawnCalls))
-	active, idle := ctrl.PoolStats("engine-fail-pool")
+	active, idle := ctrl.PoolStats(116)
 	s.Assert().Equal(int32(0), active)
 	s.Assert().Equal(int32(0), idle)
 
@@ -167,7 +167,7 @@ func (s *ControllerTestSuite) TestReplenisher_EngineFailurePreservesState() {
 
 func (s *ControllerTestSuite) TestQuota_GlobalQuotaSaturationAndFairQueueDrain() {
 	pool := db.RunnerPool{
-		ID:             3,
+		ID:             114,
 		Name:           "quota-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
@@ -287,7 +287,7 @@ func (s *ControllerTestSuite) TestQuota_GlobalQuotaSaturationAndFairQueueDrain()
 
 func (s *ControllerTestSuite) TestLifecycle_ImmediateShutdownTerminatesAll() {
 	pool := db.RunnerPool{
-		ID:             4,
+		ID:             117,
 		Name:           "shutdown-pool",
 		Provider:       "github",
 		RepositoryUrl:  "https://github.com/owner/repo",
