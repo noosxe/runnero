@@ -99,9 +99,9 @@ func TestListRunnersRepoScope(t *testing.T) {
 	}
 
 	assertRunnersEqual(t, runners, []provider.RemoteRunnerStatus{
-		{Name: "runnero-busy", Busy: true, Online: true},
-		{Name: "runnero-idle", Busy: false, Online: true},
-		{Name: "runnero-offline", Busy: false, Online: false},
+		{ID: 1000, Name: "runnero-busy", Busy: true, Online: true},
+		{ID: 1001, Name: "runnero-idle", Busy: false, Online: true},
+		{ID: 1002, Name: "runnero-offline", Busy: false, Online: false},
 	})
 }
 
@@ -126,13 +126,13 @@ func TestListRunnersOrgAndEnterpriseScopes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListRunners (org) failed: %v", err)
 	}
-	assertRunnersEqual(t, orgRunners, []provider.RemoteRunnerStatus{{Name: "org-runner", Busy: true, Online: true}})
+	assertRunnersEqual(t, orgRunners, []provider.RemoteRunnerStatus{{ID: 1000, Name: "org-runner", Busy: true, Online: true}})
 
 	entRunners, err := client.ListRunners(ctx, provider.ScopeGlobal, "https://github.com/my-ent")
 	if err != nil {
 		t.Fatalf("ListRunners (enterprise) failed: %v", err)
 	}
-	assertRunnersEqual(t, entRunners, []provider.RemoteRunnerStatus{{Name: "ent-runner", Busy: false, Online: true}})
+	assertRunnersEqual(t, entRunners, []provider.RemoteRunnerStatus{{ID: 1000, Name: "ent-runner", Busy: false, Online: true}})
 }
 
 func TestListRunnersPagination(t *testing.T) {

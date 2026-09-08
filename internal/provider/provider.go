@@ -1,6 +1,9 @@
 package provider
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // RegistrationScope defines the registration scope of a runner within the Git provider (docs/02 §3.2).
 type RegistrationScope string
@@ -89,6 +92,35 @@ type RemoteRunnerStatus struct {
 	Busy bool
 	// Online reports whether the forge considers the runner reachable/recently contacted.
 	Online bool
+	// ID is the forge-assigned runner id (docs/21 §5.3). Zero when the
+	// provider's listing does not expose one; the conclusion-enrichment
+	// capability keys its API calls on it.
+	ID int64
+}
+
+// RunnerJob is one forge-reported workflow job for a registered runner (docs/21 §5.3).
+type RunnerJob struct {
+	// ID is the forge's external job id, stored onto job_history.job_id.
+	ID int64
+	// Conclusion is the forge's terminal outcome (e.g. success, failure,
+	// cancelled); empty when the job has not concluded.
+	Conclusion string
+	// CompletedAt is when the forge recorded the job's completion; zero when
+	// the job has not concluded.
+	CompletedAt time.Time
+}
+
+// RunnerJobsLister is optionally implemented by GitProviders whose API exposes
+// recent workflow jobs per registered runner (docs/21 §5.3). The orchestrator
+// invokes it once per job completion to recover the forge's conclusion for
+// rows closed via busy-state transitions; callers must type-assert and fail
+// open when the capability is missing or errors.
+type RunnerJobsLister interface {
+	// RunnerLatestJobs returns the forge's most recent jobs for the runner,
+	// newest first, keyed by the scope-specific runner id carried by the
+	// RunnerLister listing. Unsupported scopes return an error; callers
+	// fail open.
+	RunnerLatestJobs(ctx context.Context, scope RegistrationScope, targetURL string, runnerID int64) ([]RunnerJob, error)
 }
 
 // RunnerLister is optionally implemented by GitProviders whose API exposes registered-runner state (docs/19 §2).

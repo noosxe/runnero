@@ -56,6 +56,7 @@ type Client struct {
 var (
 	_ provider.GitProvider           = (*Client)(nil)
 	_ provider.RenovateTokenProvider = (*Client)(nil)
+	_ provider.RunnerJobsLister      = (*Client)(nil)
 	_ provider.RunnerLister          = (*Client)(nil)
 )
 
@@ -227,7 +228,6 @@ func (c *Client) GetRegistrationToken(ctx context.Context, scope provider.Regist
 	return tokenResp.Token, nil
 }
 
-
 // runnersEndpoint returns the registered-runners collection endpoint for the
 // scope, shared by ListRunners and DeregisterRunner (docs/19 §2.2, docs/20 §4.3).
 func runnersEndpoint(baseURL string, scope provider.RegistrationScope, owner, repo string) (string, error) {
@@ -245,6 +245,7 @@ func runnersEndpoint(baseURL string, scope provider.RegistrationScope, owner, re
 		return "", fmt.Errorf("unsupported registration scope: %q", scope)
 	}
 }
+
 // ListRunners implements provider.RunnerLister (docs/19 §2.2): returns the registered
 // runners and their busy/online state for the target, following the same scope-based
 // endpoints as the registration flow and reusing its token resolution.
@@ -292,6 +293,7 @@ func (c *Client) ListRunners(ctx context.Context, scope provider.RegistrationSco
 		var listResp struct {
 			TotalCount int `json:"total_count"`
 			Runners    []struct {
+				ID     int64  `json:"id"`
 				Name   string `json:"name"`
 				Busy   bool   `json:"busy"`
 				Status string `json:"status"`
@@ -308,6 +310,7 @@ func (c *Client) ListRunners(ctx context.Context, scope provider.RegistrationSco
 
 		for _, r := range listResp.Runners {
 			all = append(all, provider.RemoteRunnerStatus{
+				ID:     r.ID,
 				Name:   r.Name,
 				Busy:   r.Busy,
 				Online: r.Status == "online",
@@ -320,6 +323,99 @@ func (c *Client) ListRunners(ctx context.Context, scope provider.RegistrationSco
 		}
 	}
 	return all, nil
+}
+
+// runnerJobsEndpoint returns the recent-jobs-per-runner endpoint for the scope
+// (docs/21 §5.3). The GitHub API exposes it for repo- and org-scoped runners;
+// enterprise runner jobs have no public endpoint, so global scope is unsupported
+// and callers fail open.
+func runnerJobsEndpoint(baseURL string, scope provider.RegistrationScope, owner, repo string, runnerID int64) (string, error) {
+	switch scope {
+	case provider.ScopeRepo:
+		if repo == "" {
+			return "", fmt.Errorf("%w: repository name required for repo scope", ErrInvalidTargetURL)
+		}
+		return fmt.Sprintf("%s/repos/%s/%s/actions/runners/%d/jobs", baseURL, owner, repo, runnerID), nil
+	case provider.ScopeOrg:
+		return fmt.Sprintf("%s/orgs/%s/actions/runners/%d/jobs", baseURL, owner, runnerID), nil
+	case provider.ScopeGlobal:
+		return "", fmt.Errorf("recent jobs for enterprise runners are not exposed by the GitHub API")
+	default:
+		return "", fmt.Errorf("unsupported registration scope: %q", scope)
+	}
+}
+
+// RunnerLatestJobs implements provider.RunnerJobsLister (docs/21 §5.3): returns the
+// forge's most recent jobs for the runner, newest first, keyed by the scope-specific
+// runner id carried by the ListRunners listing. Conclusions may be empty for jobs
+// that have not concluded; completed_at uses the standard GitHub timestamp format.
+func (c *Client) RunnerLatestJobs(ctx context.Context, scope provider.RegistrationScope, targetURL string, runnerID int64) ([]provider.RunnerJob, error) {
+	if runnerID <= 0 {
+		return nil, fmt.Errorf("runner id required to list runner jobs")
+	}
+	owner, repo, err := parseTargetURL(targetURL)
+	if err != nil {
+		return nil, err
+	}
+
+	authToken, err := c.getAuthBearerToken(ctx, owner, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint, err := runnerJobsEndpoint(c.baseURL, scope, owner, repo, runnerID)
+	if err != nil {
+		return nil, err
+	}
+
+	// per_page bounds the response; the orchestrator only needs the newest
+	// few entries to find the job that just completed.
+	jobsURL := fmt.Sprintf("%s?per_page=10", endpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, jobsURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	c.setCommonHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("listing runner jobs: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		return nil, fmt.Errorf("failed to list runner jobs (status %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var listResp struct {
+		TotalCount int `json:"total_count"`
+		Jobs       []struct {
+			ID          int64  `json:"id"`
+			Conclusion  string `json:"conclusion"`
+			CompletedAt string `json:"completed_at"`
+		} `json:"jobs"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&listResp)
+	closeErr := resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("decoding runner jobs response: %w", err)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("closing runner jobs response: %w", closeErr)
+	}
+
+	jobs := make([]provider.RunnerJob, 0, len(listResp.Jobs))
+	for _, j := range listResp.Jobs {
+		job := provider.RunnerJob{ID: j.ID, Conclusion: j.Conclusion}
+		if j.CompletedAt != "" {
+			if t, err := time.Parse(time.RFC3339, j.CompletedAt); err == nil {
+				job.CompletedAt = t
+			}
+		}
+		jobs = append(jobs, job)
+	}
+	return jobs, nil
 }
 
 // DeregisterRunner implements provider.RunnerDeregistrar (docs/20 §4.3): removes a
