@@ -154,6 +154,10 @@ message UpdatePoolResponse {
 
 message DeletePoolRequest {
   int64 id = 1;
+  // Drain gracefully: idle runners are terminated immediately, busy runners
+  // are left to finish their current job (ephemeral exit) before teardown.
+  // Default false preserves the hard-terminate behavior.
+  bool drain_graceful = 2;
 }
 
 message DeletePoolResponse {
