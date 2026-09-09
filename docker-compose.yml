@@ -25,6 +25,13 @@ services:
       - SUPERVISOR_WEBHOOK_GITHUB_SECRET=${SUPERVISOR_WEBHOOK_GITHUB_SECRET:-}
       - SUPERVISOR_WEBHOOK_GITEA_SECRET=${SUPERVISOR_WEBHOOK_GITEA_SECRET:-}
       - SUPERVISOR_WEBHOOK_FORGEJO_SECRET=${SUPERVISOR_WEBHOOK_FORGEJO_SECRET:-}
+      # Embedded Tailscale (docs/26): off unless the auth key is set. Outbound-only;
+      # no ports are published and no extra volumes are mounted (state lives in /data).
+      - SUPERVISOR_TAILSCALE_AUTHKEY=${SUPERVISOR_TAILSCALE_AUTHKEY:-}
+      - SUPERVISOR_TAILSCALE_HOSTNAME=${SUPERVISOR_TAILSCALE_HOSTNAME:-runnero}
+      - SUPERVISOR_TAILSCALE_FUNNEL=${SUPERVISOR_TAILSCALE_FUNNEL:-true}
+      - SUPERVISOR_TAILSCALE_UI=${SUPERVISOR_TAILSCALE_UI:-true}
+      - SUPERVISOR_TAILSCALE_STATE_DIR=${SUPERVISOR_TAILSCALE_STATE_DIR:-}
     volumes:
       # Persistent SQLite database, backups, and compressed runner execution logs
       - supervisor-data:/data

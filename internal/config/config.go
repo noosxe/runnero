@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -38,6 +39,15 @@ const (
 	EnvWebhookGitHubSecret  = EnvPrefix + "WEBHOOK_GITHUB_SECRET"
 	EnvWebhookGiteaSecret   = EnvPrefix + "WEBHOOK_GITEA_SECRET"
 	EnvWebhookForgejoSecret = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
+
+	// Embedded Tailscale integration (RUN-155, docs/26). The feature is
+	// completely off unless SUPERVISOR_TAILSCALE_AUTHKEY is set; every other
+	// variable is ignored (and never validated) in off mode.
+	EnvTailscaleAuthKey  = EnvPrefix + "TAILSCALE_AUTHKEY"
+	EnvTailscaleHostname = EnvPrefix + "TAILSCALE_HOSTNAME"
+	EnvTailscaleFunnel   = EnvPrefix + "TAILSCALE_FUNNEL"
+	EnvTailscaleUI       = EnvPrefix + "TAILSCALE_UI"
+	EnvTailscaleStateDir = EnvPrefix + "TAILSCALE_STATE_DIR"
 )
 
 // Default values for the supervisor environment contract (docs/open-questions.md #3).
@@ -49,6 +59,12 @@ const (
 	DefaultDockerHost           = "unix:///var/run/docker.sock"
 	DefaultBackupIntervalHours  = 6
 	DefaultBackupRetentionCount = 7
+
+	// Embedded Tailscale defaults (RUN-155, docs/26 §4).
+	DefaultTailscaleHostname     = "runnero"
+	DefaultTailscaleStateDirName = "tailscale"
+	DefaultTailscaleFunnel       = "true"
+	DefaultTailscaleUI           = "true"
 )
 
 // MinEncryptionKeyBytes is the minimum acceptable length for
@@ -75,6 +91,12 @@ var envKeys = map[string]string{
 	EnvWebhookGitHubSecret:  "webhook-github-secret",
 	EnvWebhookGiteaSecret:   "webhook-gitea-secret",
 	EnvWebhookForgejoSecret: "webhook-forgejo-secret",
+
+	EnvTailscaleAuthKey:  "tailscale-auth-key",
+	EnvTailscaleHostname: "tailscale-hostname",
+	EnvTailscaleFunnel:   "tailscale-funnel",
+	EnvTailscaleUI:       "tailscale-ui",
+	EnvTailscaleStateDir: "tailscale-state-dir",
 }
 
 // Config is the typed result of loading every configuration layer. Field
@@ -94,6 +116,17 @@ type Config struct {
 	WebhookGitHubSecret  string `koanf:"webhook-github-secret"`
 	WebhookGiteaSecret   string `koanf:"webhook-gitea-secret"`
 	WebhookForgejoSecret string `koanf:"webhook-forgejo-secret"`
+
+	// Embedded Tailscale integration (RUN-155, docs/26 §4). TailscaleFunnel
+	// and TailscaleUI hold the raw string values because a malformed boolean
+	// must only fail boots that actually enabled the feature (an unset
+	// auth key keeps the integration completely off, docs/26 §4); the
+	// typed accessors below parse them after Validate.
+	TailscaleAuthKey  string `koanf:"tailscale-auth-key"`
+	TailscaleHostname string `koanf:"tailscale-hostname"`
+	TailscaleFunnel   string `koanf:"tailscale-funnel"`
+	TailscaleUI       string `koanf:"tailscale-ui"`
+	TailscaleStateDir string `koanf:"tailscale-state-dir"`
 }
 
 // Options parameterizes Load. The zero value loads defaults plus the
@@ -194,6 +227,12 @@ func defaults() map[string]any {
 		"webhook-github-secret":  "",
 		"webhook-gitea-secret":   "",
 		"webhook-forgejo-secret": "",
+
+		"tailscale-auth-key":  "",
+		"tailscale-hostname":  DefaultTailscaleHostname,
+		"tailscale-funnel":    DefaultTailscaleFunnel,
+		"tailscale-ui":        DefaultTailscaleUI,
+		"tailscale-state-dir": "",
 	}
 }
 
@@ -238,7 +277,48 @@ func (c *Config) normalize() {
 	c.WebhookGitHubSecret = strings.TrimSpace(c.WebhookGitHubSecret)
 	c.WebhookGiteaSecret = strings.TrimSpace(c.WebhookGiteaSecret)
 	c.WebhookForgejoSecret = strings.TrimSpace(c.WebhookForgejoSecret)
+	c.TailscaleAuthKey = strings.TrimSpace(c.TailscaleAuthKey)
+	c.TailscaleHostname = strings.TrimSpace(c.TailscaleHostname)
+	c.TailscaleFunnel = strings.TrimSpace(c.TailscaleFunnel)
+	c.TailscaleUI = strings.TrimSpace(c.TailscaleUI)
+	c.TailscaleStateDir = strings.TrimSpace(c.TailscaleStateDir)
+	if c.TailscaleEnabled() && c.TailscaleStateDir == "" && c.DataDir != "" {
+		c.TailscaleStateDir = filepath.Join(c.DataDir, DefaultTailscaleStateDirName)
+	}
 	if c.DBPath == "" && c.DataDir != "" {
 		c.DBPath = filepath.Join(c.DataDir, DefaultDBFileName)
 	}
+}
+
+// TailscaleEnabled reports whether the embedded Tailscale integration is
+// activated (RUN-155, docs/26): a non-empty auth key opts the deployment in;
+// anything unset means the feature is completely off and every other
+// Tailscale setting is ignored.
+func (c *Config) TailscaleEnabled() bool {
+	return c.TailscaleAuthKey != ""
+}
+
+// TailscaleFunnelOn reports whether the public funnel webhook listener
+// (`:443`) should open. Call only on a validated config (Validate rejects
+// malformed values in enabled mode); an unset value means the default (true).
+func (c *Config) TailscaleFunnelOn() bool {
+	v, _ := parseTailscaleBool(c.TailscaleFunnel)
+	return v
+}
+
+// TailscaleUIOn reports whether the tailnet-only management listener
+// (`:8443`) should open. Call only on a validated config; an unset value
+// means the default (true).
+func (c *Config) TailscaleUIOn() bool {
+	v, _ := parseTailscaleBool(c.TailscaleUI)
+	return v
+}
+
+// parseTailscaleBool interprets the raw funnel/ui settings: empty means the
+// documented default (true), anything else must be a strconv boolean.
+func parseTailscaleBool(raw string) (bool, error) {
+	if raw == "" {
+		return true, nil
+	}
+	return strconv.ParseBool(raw)
 }

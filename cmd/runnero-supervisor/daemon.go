@@ -27,6 +27,7 @@ import (
 	"github.com/noosxe/runnero/internal/registry"
 	"github.com/noosxe/runnero/internal/renovate"
 	"github.com/noosxe/runnero/internal/server"
+	"github.com/noosxe/runnero/internal/tailscale"
 	"github.com/noosxe/runnero/internal/webhook"
 )
 
@@ -34,6 +35,10 @@ import (
 // in-flight health requests are trivially short, and later milestones
 // (M6, RUN-41) layer their own component shutdowns under the same budget.
 const daemonShutdownTimeout = 10 * time.Second
+
+// startTailscale boots the embedded Tailscale node (RUN-155); the
+// package-level seam lets wiring tests substitute a fake node.
+var startTailscale = tailscale.Start
 
 func newDaemonCommand() *cobra.Command {
 	return &cobra.Command{
@@ -193,18 +198,50 @@ func runDaemonContext(ctx context.Context) error {
 	// polling-only; verified events flow to the pool controller for webhook-driven
 	// scaling (docs/03 §4). Rotation = restart (secrets come from the environment).
 	webhookSecrets := configuredWebhookSecrets()
+	var webhookReceiver *webhook.Receiver
 	if len(webhookSecrets) > 0 {
 		providers := slices.Sorted(maps.Keys(webhookSecrets))
 		logger.Info("webhook receiver enabled", "providers", strings.Join(providers, ", "))
-		serverOpts.WebhookReceiver = webhook.NewReceiver(
+		webhookReceiver = webhook.NewReceiver(
 			webhook.StaticSecretResolver(webhookSecrets),
 			webhook.WithEventHandler(poolCtrl),
 			webhook.WithLogger(logger),
 		)
+		serverOpts.WebhookReceiver = webhookReceiver
 	}
 
 	srv := server.New(serverOpts)
 
+	// Embedded Tailscale (RUN-155, docs/26): completely off unless
+	// SUPERVISOR_TAILSCALE_AUTHKEY is set; on-mode boot is fail-fast (bounded
+	// retry, then abort) because a deployment that asked for Tailscale wants
+	// breakage visible, not a silent fallback. Constructed here — after srv —
+	// so the funnel mux can reuse the webhook receiver mounted above.
+	var tsStack *tailscale.Stack
+	if cfg.TailscaleEnabled() {
+		if cfg.TailscaleFunnelOn() && len(webhookSecrets) == 0 {
+			logger.Warn("tailscale funnel enabled but no webhook secrets configured; the public listener will only answer 405/404",
+				"docs", "docs/26 §3")
+		}
+		var funnelReceiver tailscale.WebhookHandler
+		if webhookReceiver != nil {
+			funnelReceiver = webhookReceiver
+		}
+		var err error
+		tsStack, err = startTailscale(ctx, tailscale.Config{
+			AuthKey:  cfg.TailscaleAuthKey,
+			Hostname: cfg.TailscaleHostname,
+			StateDir: cfg.TailscaleStateDir,
+			Funnel:   cfg.TailscaleFunnelOn(),
+			UI:       cfg.TailscaleUIOn(),
+		}, tailscale.Handlers{
+			Funnel:  tailscale.FunnelHandler(funnelReceiver),
+			Tailnet: srv.Handler(),
+		}, tailscale.Options{})
+		if err != nil {
+			return fmt.Errorf("daemon: tailscale: %w", err)
+		}
+	}
 	// Start blocks, so serve from a goroutine and surface fatal errors
 	// (port already bound, permission denied) through the select below.
 	serveErr := make(chan error, 1)
@@ -225,6 +262,13 @@ func runDaemonContext(ctx context.Context) error {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Warn("http server graceful shutdown error", "err", err)
+	}
+	if tsStack != nil {
+		// Tailscale failure must never block the supervisor's core shutdown
+		// path (docs/26 §3): drain both listeners, close the node, warn only.
+		if err := tsStack.Shutdown(shutdownCtx); err != nil {
+			logger.Warn("tailscale shutdown error", "err", err)
+		}
 	}
 	if err := poolCtrl.GracefulShutdown(shutdownCtx); err != nil {
 		logger.Warn("pool controller graceful shutdown error", "err", err)

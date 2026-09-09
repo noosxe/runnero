@@ -38,6 +38,7 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 - **Busy-Anchored Runner Lifetime (M26):** The `max_runner_lifetime_seconds` kill switch counts from **first busy assignment** (job pickup), not container spawn: idle standbys are never lifetime-terminated — eliminating the every-2h standby churn (registration + container per interval) — while hung jobs keep the force-terminate guarantee, including runners adopted mid-job across a supervisor restart (spawn-clock fallback). The anchor is set once at the idle→busy transition (webhook fast path or busy-sync, docs/19), survives listing flaps, and the kill switch's `timeout` job rows record the same busy clock that fired; scale-to-zero idle draining is governed by the grace period alone (`docs/23`).
 - **Demand Polling Fallback (docs/24):** Per-pool queued-job polling so webhook-driven GitHub pools scale on workstations, NAT'd, and firewalled hosts that can never receive inbound webhooks: enabling `poll_fallback` on a pool makes the audit cycle poll each repo target for queued jobs (two-step GitHub `actions/runs?status=queued` → run-jobs query with `ETag` short-circuit), count only jobs whose `runs-on` labels the pool satisfies, and provision deficit runners as on-demand up to `max_concurrency` — the webhook route's semantics on a bounded cadence (30 s default, ±20% jitter, rate-limit backoff). Forgejo pools poll natively; Gitea is excluded (no repo-scoped API); pool diagnostics surface last-poll time, observed queued count, and skip/failure notes; webhooks remain the sub-second fast path wherever they work.
 - **Graceful Pool Drain (docs/25):** Per-delete choice on pool removal: idle runners are cleaned up immediately while busy runners are left to finish their current job (ephemeral exit) before final teardown — with a lifetime kill-switch backstop (`DefaultDrainBackstop`, 6h for lifetime-less pools), restart-safe semantics (removed-pool detection drains gracefully, hard drains supersede), and the first delete-confirmation dialog surfacing idle vs busy runner counts with drain-vs-terminate preselection following the busy count.
+- **Embedded Tailscale: Funnel Webhooks + Tailnet-Only Management (docs/26):** A Tailscale node embedded directly in the supervisor binary via `tsnet` — no sidecars, no extra containers, no published ports. When `SUPERVISOR_TAILSCALE_AUTHKEY` is set, the supervisor gains a **public Funnel listener** on `:443` serving only the HMAC-verified `POST /hooks/{provider}` webhook route (auto-provisioned and auto-renewed ts.net TLS certificates), so webhook-driven autoscaling works behind NAT with zero inbound infrastructure, plus a **tailnet-only HTTPS management listener** on `:8443` serving the full Web UI/API behind the existing login (WireGuard membership + credentials = two independent locks). Completely off unless the auth key is configured; the boot URL for provider webhooks is logged at startup.
 - **Comprehensive Automated Test Suites:** Extensive test coverage across Go unit, race detection (`go test -race`), and testify test suites (`mockery`-backed Docker and GitProvider clients), runner script test harnesses, and 20+ frontend Vitest test suites.
 
 ---
@@ -283,6 +284,28 @@ The supervisor daemon layers configuration in increasing precedence: **built-in 
 | `SUPERVISOR_WEBHOOK_GITHUB_SECRET` | String | No | — | Shared HMAC secret verifying GitHub webhook signatures on `POST /hooks/github`. Setting any provider secret mounts the webhook receiver; verified `workflow_job` events then drive real-time autoscaling (`docs/03` §4). |
 | `SUPERVISOR_WEBHOOK_GITEA_SECRET` | String | No | — | Same as above for Gitea webhooks on `POST /hooks/gitea`. |
 | `SUPERVISOR_WEBHOOK_FORGEJO_SECRET` | String | No | — | Same as above for the `POST /hooks/forgejo` endpoint. Note Forgejo does not emit `workflow_job` webhooks; Forgejo pools scale via API polling (`docs/03` §4). |
+| `SUPERVISOR_TAILSCALE_AUTHKEY` | String | No | — | Tailscale auth key that activates the embedded node (feature off when unset). Use a **tagged, reusable** key (e.g. `tag:runnero`, declared in `tagOwners`). Once enrolled, node state persists and the key is ignored on later boots. See the Tailscale section below. |
+| `SUPERVISOR_TAILSCALE_HOSTNAME` | String | No | `runnero` | Node hostname inside the tailnet; the DNS name becomes `<hostname>.<tailnet>.ts.net`. Must be unique per tailnet when running more than one supervisor. |
+| `SUPERVISOR_TAILSCALE_FUNNEL` | Bool | No | `true` | Public funnel listener on `:443` for provider webhooks (`POST /hooks/{provider}` only; everything else 404s). |
+| `SUPERVISOR_TAILSCALE_UI` | Bool | No | `true` | Tailnet-only HTTPS management listener on `:8443` (full Web UI + API behind the existing supervisor login). |
+| `SUPERVISOR_TAILSCALE_STATE_DIR` | String | No | `<data-dir>/tailscale` | tsnet state directory (node identity, certificates). Lives inside the supervisor data volume; treat as secret like the database. |
+#### Embedded Tailscale (Funnel webhooks + tailnet-only management)
+
+Optional, completely off unless `SUPERVISOR_TAILSCALE_AUTHKEY` is set. One-time tailnet prerequisites: **MagicDNS** and **HTTPS** enabled in the admin console, and the `funnel` node attribute in the tailnet policy file:
+
+```json
+"nodeAttrs": [
+  {
+    "target": ["autogroup:member"],
+    "attr":   ["funnel"],
+  },
+],
+```
+
+Then generate a **tagged, reusable** auth key (e.g. owned by `tag:runnero`, declared in `tagOwners`) and set `SUPERVISOR_TAILSCALE_AUTHKEY` in the supervisor environment. On boot the supervisor logs the funnel webhook base URL (`https://<hostname>.<tailnet>.ts.net`) — configure `https://.../<hostname>.<tailnet>.ts.net/hooks/github` as the provider webhook URL and signed `workflow_job` deliveries drive autoscaling with no inbound ports. The management UI stays reachable from any tailnet device at `https://.../<hostname>.<tailnet>.ts.net:8443/` behind the regular supervisor login. TLS certificates for both listeners are issued and renewed automatically. Node state lives in `<data-dir>/tailscale` — keep it across restarts to preserve the DNS name and webhook URL; deleting it requires re-enrollment with a fresh auth key. Set `TS_NO_LOGS_NO_SUPPORT=true` to opt out of tsnet's node-log upload to `log.tailscale.com` (upstream-verified switch; webhook payloads never reach Tailscale's logs either way).
+
+Rotation of the auth key = delete the node in the Tailscale admin console, clear `<data-dir>/tailscale`, set the new key, restart.
+
 ### Standalone Runner Container (`runnero`)
 
 | Variable | Type | Required | Default | Description |
@@ -341,7 +364,6 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
-- **Embedded Tailscale (Funnel Webhooks + Tailnet-Only Management):** *[Design Phase]* — embed a Tailscale node directly in the supervisor binary via tsnet: a public Funnel listener (auto-TS-HTTPS) serving only the HMAC-verified `POST /hooks/{provider}` webhook route, plus a tailnet-only HTTPS listener for the full management UI — no sidecars, no published ports, entirely off unless `SUPERVISOR_TAILSCALE_*` env is configured. Design: [docs/26-tailscale-funnel.md](docs/26-tailscale-funnel.md).
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
 ---
 
