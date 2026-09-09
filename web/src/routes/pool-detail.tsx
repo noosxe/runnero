@@ -20,6 +20,7 @@ import { PoolHealthBadge } from "../components/pools/pool-health-badge";
 import { PoolStatusBanner } from "../components/pools/pool-status-banner";
 import { PoolDiagnosticsCard } from "../components/pools/pool-diagnostics-card";
 import { PoolPollStatus } from "../components/pools/pool-poll-status";
+import { PoolDeleteModal } from "../components/pools/pool-delete-modal";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
 import {
@@ -70,6 +71,7 @@ export function PoolDetailPage() {
 
   const [activeTab, setActiveTab] = useState<"runners" | "config" | "renovate">("runners");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);
   const [runnerToTerminate, setRunnerToTerminate] = useState<RunnerInstance | null>(null);
 
@@ -423,6 +425,15 @@ export function PoolDetailPage() {
               <Pencil className="h-3.5 w-3.5" />
               <span>Edit Configuration</span>
             </button>
+            <button
+              type="button"
+              aria-label="Delete pool"
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Pool</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
@@ -589,6 +600,21 @@ export function PoolDetailPage() {
           authProfiles={authProfiles}
           hostOs={session?.hostOs}
           hostArch={session?.hostArch}
+        />
+      )}
+
+      {/* Delete Pool Modal (RUN-127, docs/25 §4.7) — conditionally mounted so
+          the drain preselection re-derives from the current busy count on
+          every open */}
+      {isDeleteModalOpen && (
+        <PoolDeleteModal
+          isOpen
+          onClose={() => setIsDeleteModalOpen(false)}
+          poolId={pool.id}
+          poolName={pool.name}
+          busyCount={activeInstances}
+          idleCount={idleInstances}
+          maxRunnerLifetimeSeconds={Number(pool.maxRunnerLifetimeSeconds ?? 0)}
         />
       )}
 

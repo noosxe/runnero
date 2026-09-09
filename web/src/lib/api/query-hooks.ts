@@ -219,8 +219,10 @@ export function useUpdatePool() {
 export function useDeletePool() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: bigint) => {
-      return await poolClient.deletePool({ id });
+    // `drainGraceful` keeps busy runners alive until their job finishes
+    // (RUN-127, docs/25 §4.7); the default preserves hard terminate.
+    mutationFn: async ({ id, drainGraceful }: { id: bigint; drainGraceful?: boolean }) => {
+      return await poolClient.deletePool({ id, drainGraceful: drainGraceful ?? false });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.pools });
