@@ -173,6 +173,7 @@ restart-time configuration (same posture as webhook secrets, RUN-153).
   single route group that is HMAC-verified (RUN-68) and carries no cookies,
   sessions, CSRF surface, or UI code. Everything else 404s. TLS certificates
   are ts.net-issued automatically; no cert management.
+- **Certificate lifecycle is automatic (verified in upstream source, `v1.102.3`).** Both listeners install an SNI-based `GetCertificate` callback (`tsnet.Server.getCert` → the embedded node's local client), so no static cert is ever pinned. Underneath runs the same ACME machinery tailscaled uses (`feature/acme`): first use issues a Let's Encrypt certificate for the node's ts.net name (requires HTTPS enabled on the tailnet — §3 prerequisite); a cached cert is served only while it outlives the requested minimum validity; certificates approaching expiry renew asynchronously (requests never stall behind renewal); a **background refresh loop periodically pokes the cert manager so renewals happen on idle nodes** — a supervisor with zero webhook traffic still keeps its certs fresh; and a blocking on-demand fetch covers the expired/missing case, with ACME rate-limit responses surfaced as retryable errors. Certificates persist in the tsnet state dir, so restarts never re-issue. Renewal shares the node's outbound-only egress profile; no certificate code exists in supervisor scope.
 - **`FunnelOnly()`** prevents tailnet clients from using the public listener;
   tailnet users get the UI listener. Least privilege: each listener serves
   exactly one audience.
