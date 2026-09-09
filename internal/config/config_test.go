@@ -239,6 +239,46 @@ func TestLoadEnrichJobConclusions(t *testing.T) {
 	})
 }
 
+func TestLoadWebhookSecrets(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+
+	t.Run("unset by default", func(t *testing.T) {
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.WebhookGitHubSecret != "" || cfg.WebhookGiteaSecret != "" || cfg.WebhookForgejoSecret != "" {
+			t.Errorf("webhook secrets = %q/%q/%q, want all empty by default", cfg.WebhookGitHubSecret, cfg.WebhookGiteaSecret, cfg.WebhookForgejoSecret)
+		}
+	})
+
+	t.Run("from environment", func(t *testing.T) {
+		t.Setenv(EnvWebhookGitHubSecret, " github-secret ")
+		t.Setenv(EnvWebhookGiteaSecret, "gitea-secret")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.WebhookGitHubSecret != "github-secret" {
+			t.Errorf("webhook-github-secret = %q, want trimmed value from env", cfg.WebhookGitHubSecret)
+		}
+		if cfg.WebhookGiteaSecret != "gitea-secret" {
+			t.Errorf("webhook-gitea-secret = %q, want value from env", cfg.WebhookGiteaSecret)
+		}
+	})
+
+	t.Run("from yaml file", func(t *testing.T) {
+		path := writeFile(t, "webhooks.yaml", "webhook-github-secret: yaml-secret\n")
+		cfg, err := Load(Options{Flags: testFlags(t, "--config", path)})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.WebhookGitHubSecret != "yaml-secret" {
+			t.Errorf("webhook-github-secret = %q, want value from yaml", cfg.WebhookGitHubSecret)
+		}
+	})
+}
+
 func TestConfigFileResolution(t *testing.T) {
 	t.Setenv(EnvDBEncryptionKey, testKey)
 

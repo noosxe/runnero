@@ -115,7 +115,7 @@ GitHub Apps provide fine-grained, least-privilege permissions, automatic credent
    - Check **Active**.
    - **Webhook URL:** `https://<supervisor-domain>/hooks/github`
    - **Webhook secret:** Enter a high-entropy secret string (configure the same secret in the supervisor).
-
+   - **Webhook secret:** Enter a high-entropy secret string and set the same value as `SUPERVISOR_WEBHOOK_GITHUB_SECRET` in the supervisor environment (see the environment table below).
 ##### Step 2: Configure App Permissions
 Select the exact permissions required for runner orchestration:
 
@@ -198,7 +198,7 @@ To enable real-time, event-driven runner provisioning for Gitea Actions:
    - **Target URL:** `https://<supervisor-domain>/hooks/gitea`
    - **HTTP Method:** `POST`
    - **POST Content Type:** `application/json`
-   - **Secret:** Enter the shared HMAC secret matching your supervisor configuration.
+   - **Secret:** Enter the shared HMAC secret matching `SUPERVISOR_WEBHOOK_GITEA_SECRET` in the supervisor environment (see the environment table below).
    - **Trigger On:** Select **Custom Events** → check **Actions** (or `Workflow Job`).
 3. Click **Add Webhook**.
 
@@ -280,7 +280,9 @@ The supervisor daemon layers configuration in increasing precedence: **built-in 
 | `SUPERVISOR_CONFIG` | String | No | — | Path to an optional YAML or TOML configuration file. |
 | `SUPERVISOR_SECURE_COOKIE` | Bool | No | `false` | Enables the `Secure` attribute on auth cookies. Set to `true` when behind HTTPS. |
 | `SUPERVISOR_ENRICH_JOB_CONCLUSIONS` | Bool | No | `true` | On job completion, queries the forge once for the runner's latest concluded job to recover the conclusion and external job id on webhookless deployments (`docs/21` §5.3). Supported for GitHub repo/org pools; failures degrade the row to `completed`. |
-
+| `SUPERVISOR_WEBHOOK_GITHUB_SECRET` | String | No | — | Shared HMAC secret verifying GitHub webhook signatures on `POST /hooks/github`. Setting any provider secret mounts the webhook receiver; verified `workflow_job` events then drive real-time autoscaling (`docs/03` §4). |
+| `SUPERVISOR_WEBHOOK_GITEA_SECRET` | String | No | — | Same as above for Gitea webhooks on `POST /hooks/gitea`. |
+| `SUPERVISOR_WEBHOOK_FORGEJO_SECRET` | String | No | — | Same as above for the `POST /hooks/forgejo` endpoint. Note Forgejo does not emit `workflow_job` webhooks; Forgejo pools scale via API polling (`docs/03` §4). |
 ### Standalone Runner Container (`runnero`)
 
 | Variable | Type | Required | Default | Description |

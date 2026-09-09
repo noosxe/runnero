@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +27,7 @@ import (
 	"github.com/noosxe/runnero/internal/registry"
 	"github.com/noosxe/runnero/internal/renovate"
 	"github.com/noosxe/runnero/internal/server"
+	"github.com/noosxe/runnero/internal/webhook"
 )
 
 // daemonShutdownTimeout bounds the HTTP drain window on SIGTERM/SIGINT:
@@ -159,7 +163,7 @@ func runDaemonContext(ctx context.Context) error {
 	registerHealthChecks(health, database, dockerClient, poolCtrl)
 
 	regClient := registry.NewClient()
-	srv := server.New(server.Options{
+	serverOpts := server.Options{
 		Port:                cfg.Port,
 		Health:              health,
 		AuthDB:              database,
@@ -181,7 +185,25 @@ func runDaemonContext(ctx context.Context) error {
 		DBEncryptionKey:     derivedKeys.DBEncryptionKey,
 		JWTSigningSecret:    derivedKeys.JWTSigningSecret,
 		IsSecureCookie:      cfg.SecureCookie,
-	})
+	}
+
+	// Webhook receiver (M11, RUN-68 / RUN-153): mount POST /hooks/{provider} only
+	// when at least one provider HMAC secret is configured. Deployments without
+	// secrets keep the route unmounted (POST answers 405) and demand detection stays
+	// polling-only; verified events flow to the pool controller for webhook-driven
+	// scaling (docs/03 §4). Rotation = restart (secrets come from the environment).
+	webhookSecrets := configuredWebhookSecrets()
+	if len(webhookSecrets) > 0 {
+		providers := slices.Sorted(maps.Keys(webhookSecrets))
+		logger.Info("webhook receiver enabled", "providers", strings.Join(providers, ", "))
+		serverOpts.WebhookReceiver = webhook.NewReceiver(
+			webhook.StaticSecretResolver(webhookSecrets),
+			webhook.WithEventHandler(poolCtrl),
+			webhook.WithLogger(logger),
+		)
+	}
+
+	srv := server.New(serverOpts)
 
 	// Start blocks, so serve from a goroutine and surface fatal errors
 	// (port already bound, permission denied) through the select below.
@@ -302,4 +324,23 @@ func checkAndImportSeed(ctx context.Context, database *db.DB) error {
 
 	logger.Info("seed configuration imported successfully on first boot", "path", seedPath)
 	return nil
+}
+
+// configuredWebhookSecrets collects the per-provider webhook HMAC secrets from
+// the environment contract (RUN-153). Empty or whitespace-only values count as
+// unconfigured; keys are the canonical lowercase /hooks/{provider} segments
+// the webhook receiver validates against.
+func configuredWebhookSecrets() map[string]string {
+	candidates := map[string]string{
+		"github":  cfg.WebhookGitHubSecret,
+		"gitea":   cfg.WebhookGiteaSecret,
+		"forgejo": cfg.WebhookForgejoSecret,
+	}
+	secrets := make(map[string]string, len(candidates))
+	for provider, secret := range candidates {
+		if secret = strings.TrimSpace(secret); secret != "" {
+			secrets[provider] = secret
+		}
+	}
+	return secrets
 }
