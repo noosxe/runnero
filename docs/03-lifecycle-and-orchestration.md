@@ -116,6 +116,7 @@ For repositories configured with `renovate: enabled: true`, the supervisor exten
 To ensure environments are kept up-to-date securely:
 - **Periodic Update Checks**: The supervisor queries container registries to check if newer versions of the defined `runner_image` are available and alerts the admin in the Web UI.
 - **Automatic Background Updates**: Based on a configurable schedule, the supervisor triggers a background image pull.
+- **Notification lifecycle**: a pool holds at most one pending notification. `PullImage` marks it `pulling` (async execution) and its successful completion resolves exactly that notification — a flag recorded while the pull is in flight (e.g. a concurrent re-check finding an even newer digest) survives completion and stays dismissable (RUN-158); a failed pull reverts the notification to `available` so the admin can retry.
 - **Non-Disruptive Handoff**: Image updates do not disrupt running workflows. Any active runners using the old image are allowed to finish their current job. However, any *newly* provisioned runner container for that pool will instantly use the updated image.
 
 ## 7. Graceful Shutdown Protocol
