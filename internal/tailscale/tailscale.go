@@ -257,13 +257,26 @@ func (n *tsnetNode) ListenTLS(network, addr string) (net.Listener, error) {
 	return n.srv.ListenTLS(network, addr)
 }
 
-// DNSName reports the node's first certificate DNS name
+// DNSName reports the node's fully-qualified ts.net DNS name
 // (<hostname>.<tailnet>.ts.net), or "" before the node is online.
+//
+// CertDomains is the preferred source but only fills once a certificate
+// exists (issued lazily on first TLS use), so fall back to the node's
+// status — otherwise the boot log would print a URL without a host
+// (observed live: "https://:443").
 func (n *tsnetNode) DNSName() string {
 	if domains := n.srv.CertDomains(); len(domains) > 0 {
 		return domains[0]
 	}
-	return ""
+	lc, err := n.srv.LocalClient()
+	if err != nil {
+		return ""
+	}
+	st, err := lc.Status(context.Background())
+	if err != nil || st == nil || st.Self == nil {
+		return ""
+	}
+	return strings.TrimSuffix(st.Self.DNSName, ".")
 }
 
 func (n *tsnetNode) Close() error { return n.srv.Close() }
