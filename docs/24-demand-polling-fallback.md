@@ -57,7 +57,7 @@ Verified against pinned upstream descriptions (GitHub
 
 | Provider | Repo-level queued-jobs query | Notes |
 | :--- | :--- | :--- |
-| GitHub | Two-step: `GET /repos/{o}/{r}/actions/runs?status=queued` → `GET /repos/{o}/{r}/actions/runs/{run_id}/jobs` | Job objects carry `status` (`queued`/`in_progress`/…), `labels` (from `runs-on`), and `runner_name` (null until assigned). **No** repo-level jobs listing and **no** org-level runs listing exist in the spec. Classic PATs need `repo`; fine-grained need `Actions: read`. |
+| GitHub | Two listings (RUN-146): `GET /repos/{o}/{r}/actions/runs?status=queued` **and** `?status=in_progress` → per-run `GET /repos/{o}/{r}/actions/runs/{run_id}/jobs`, counting `status == "queued"` jobs | A run flips `queued → in_progress` as soon as any of its jobs starts, so a multi-job run with one job executing and another still queued only ever appears in the in-progress listing. Job objects carry `status` (`queued`/`in_progress`/…), `labels` (from `runs-on`), and `runner_name` (null until assigned). **No** repo-level jobs listing and **no** org-level runs listing exist in the spec. Classic PATs need `repo`; fine-grained need `Actions: read`. |
 | Gitea | None repo-scoped; only `/user/actions/jobs` and `/user/actions/runs` (authenticated user's own jobs) | Cannot answer "queued jobs for target repo" — unsupported in v1. |
 | Forgejo | `GET /repos/{o}/{r}/actions/tasks` (+ org/admin variants), `status=waiting` | Already implemented (`internal/provider/forgejo`); counts all waiting tasks, no label filter. |
 
@@ -104,6 +104,31 @@ Targets that are org/instance-scoped are skipped with a pool diagnostic
 The org's repos aren't enumerable within scope, so the webhook route remains
 the only demand signal for those targets.
 
+As-built refinement (RUN-146): the query polls **two** run listings per
+target — `status=queued` and `status=in_progress` — and counts
+`status == "queued"` jobs across both (assembled in
+`countQueuedJobsInRuns`, `internal/provider/github/polling.go`; implementation
+uses `per_page=100` for the runs listings). Rationale: GitHub flips a run
+`queued → in_progress` as soon as any of its jobs starts, so a multi-job run
+with one job executing and another still queued never appears in the queued
+listing — a queued-only poll misses the surviving job for the run's entire
+lifetime, starving pure on-demand (`min_idle = 0`) pools. A run appears in
+exactly one status listing at a time, so the two counts never double-count.
+
+Only the queued listing keeps the ETag/304 short-circuit: a run leaves the
+queued set the moment any of its jobs starts, so an unchanged queued set
+implies the cached count is still exact. The in-progress listing is
+recounted on every poll because jobs inside an in-progress run transition
+(and `needs`-gated jobs materialize) without changing run-set membership —
+a cached count there could go stale until the next run-set change, which on
+a quiet repo means the run's entire duration. Cost: one unconditional runs
+call plus one jobs call per in-progress run, bounded by the repo's
+concurrency.
+
+The queued listing's ETag cache key includes the pool's label contract, so
+two pools polling the same repo with different labels never replay each
+other's counts.
+
 ### 5.3 Interface change
 
 `PollQueuedJobs` grows from `(ctx, targetURL string) (int, error)` to accept
@@ -146,6 +171,15 @@ measured ~4.8 s) — can produce one surplus standby. That standby is absorbed
 by existing mechanics: it idles warm, and the over-target recycle path
 (active runners above `min_idle` + queued demand) drains it later. No new
 anti-flap logic is introduced.
+
+As-built refinement (RUN-146): the count also covers queued jobs inside
+*in-progress* runs — GitHub flips a run's status the moment any of its jobs
+starts, so a multi-job run with one job executing and another still queued is
+invisible to a queued-only listing. Once the surviving job is dispatched it
+leaves the queued set, so the self-deduplication argument carries over
+unchanged. Cost note: the in-progress listing is recounted on every poll
+(one runs call + one jobs call per in-progress run, bounded by the repo's
+concurrency); only the queued listing keeps the ETag/304 short-circuit.
 
 ### 5.6 Capacity semantics — unchanged, just reachable
 
