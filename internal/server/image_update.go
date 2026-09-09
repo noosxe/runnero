@@ -253,11 +253,17 @@ func (s *ImageUpdateService) executePull(ctx context.Context, poolID int64, p db
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Only resolve the notification this pull put into "pulling" state
+	// (RUN-158). A flag recorded while the pull was running — a concurrent
+	// CheckImageUpdate, or FlagUpdate from another code path — refers to a
+	// newer digest than the one just pulled and must survive completion;
+	// deleting it caused DismissImageUpdate to 404 (flaky audit test) and
+	// silently dropped fresh notifications.
 	if pullErr != nil {
 		if s.logger != nil {
 			s.logger.Error("background image pull failed", "pool", p.Name, "image", p.RunnerImage, "err", pullErr)
 		}
-		if up, ok := s.updates[poolID]; ok {
+		if up, ok := s.updates[poolID]; ok && up.Status == "pulling" {
 			up.Status = "available" // revert so admin can retry
 		}
 		if s.onPullComplete != nil {
@@ -270,7 +276,7 @@ func (s *ImageUpdateService) executePull(ctx context.Context, poolID int64, p db
 		s.logger.Info("image pull completed", "pool", p.Name, "image", p.RunnerImage)
 	}
 
-	if up, ok := s.updates[poolID]; ok {
+	if up, ok := s.updates[poolID]; ok && up.Status == "pulling" {
 		up.Status = "pulled"
 		delete(s.updates, poolID)
 	}

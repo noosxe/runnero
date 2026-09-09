@@ -535,6 +535,90 @@ func TestImageUpdate_BackgroundPullAndStatusTransition(t *testing.T) {
 	}
 }
 
+// RUN-158 regression: a notification flagged while a background pull is in
+// flight must survive pull completion. executePull used to delete whatever
+// update was current for the pool, so a flag landing between PullImage and
+// the pull's completion was silently dropped — and a subsequent
+// DismissImageUpdate on it 404ed. That was the intermittent
+// TestAuditLogCoverage_MutatingActions failure in CI (amd64, twice). The
+// channels below make the exact interleaving deterministic instead of
+// relying on goroutine timing.
+func TestImageUpdate_PullCompletionSparesConcurrentFlag(t *testing.T) {
+	ctx := context.Background()
+	testImage := "ghcr.io/noosxe/runnero:v1.2.0"
+
+	mockDB := &mockImageUpdateDB{
+		pools: map[int64]db.RunnerPool{
+			55: {ID: 55, Name: "pool-race", RunnerImage: testImage},
+		},
+	}
+
+	pullStarted := make(chan struct{})
+	pullDone := make(chan struct{})
+	mockPuller := &mockImagePuller{
+		pullFn: func(ctx context.Context, img string) error {
+			close(pullStarted)
+			<-pullDone
+			return nil
+		},
+	}
+
+	pullCompleted := make(chan struct{}, 1)
+	svc := NewImageUpdateService(mockDB, mockPuller,
+		WithOnPullComplete(func(poolID int64, err error) {
+			pullCompleted <- struct{}{}
+		}),
+	)
+
+	// The pool already has an update flagged; PullImage will mark it "pulling".
+	first := svc.FlagUpdate(55, testImage, "sha256:firstdigest")
+	if first.Status != "available" {
+		t.Fatalf("expected status available, got %s", first.Status)
+	}
+
+	mux := http.NewServeMux()
+	path, handler := supervisorv1connect.NewImageUpdateServiceHandler(svc, BinaryConnectHandlerOptions()...)
+	mux.Handle(path, handler)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	client := supervisorv1connect.NewImageUpdateServiceClient(srv.Client(), srv.URL)
+
+	if _, err := client.PullImage(ctx, connect.NewRequest(&supervisorv1.PullImageRequest{PoolId: 55})); err != nil {
+		t.Fatalf("PullImage failed: %v", err)
+	}
+	select {
+	case <-pullStarted: // pull is in flight, notification is "pulling"
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for pull to start")
+	}
+
+	// A concurrent re-check flags a new notification while the pull runs.
+	second := svc.FlagUpdate(55, testImage, "sha256:seconddigest")
+
+	close(pullDone)
+	select {
+	case <-pullCompleted:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for pull completion")
+	}
+
+	if second.Status != "available" {
+		t.Fatalf("concurrent flag must survive pull completion untouched, got status %s", second.Status)
+	}
+
+	if _, err := svc.DismissImageUpdate(ctx, connect.NewRequest(&supervisorv1.DismissImageUpdateRequest{Id: second.Id})); err != nil {
+		t.Fatalf("DismissImageUpdate on the concurrent flag failed: %v", err)
+	}
+
+	listRes, err := client.ListImageUpdates(ctx, connect.NewRequest(&supervisorv1.ListImageUpdatesRequest{PoolId: 55}))
+	if err != nil {
+		t.Fatalf("ListImageUpdates failed: %v", err)
+	}
+	if len(listRes.Msg.Updates) != 0 {
+		t.Errorf("expected 0 updates after dismiss, got %d", len(listRes.Msg.Updates))
+	}
+}
+
 func TestImageUpdate_BackgroundPullFailure(t *testing.T) {
 	ctx := context.Background()
 	testImage := "ghcr.io/noosxe/runnero:v1.2.0"
