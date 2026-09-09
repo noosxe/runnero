@@ -2,7 +2,7 @@
 
 | | |
 | :--- | :--- |
-| Status | Design Phase |
+| Status | Accepted & implemented (RUN-127) |
 | Linear | [RUN-127](https://linear.app/runnero/issue/RUN-127) |
 | Touches | `internal/orchestrator` (drain semantics, lifetime backstop, boot adoption), `internal/server` (DeletePool RPC), `proto` (DeletePoolRequest), `web` (delete affordance + confirm dialog — new surface), docs/03, docs/22 §11 |
 
@@ -47,7 +47,7 @@ The issue also asks for a confirm-in-UI flow surfacing N busy jobs. Investigatio
 
 Today the server→controller boundary is implicit: the server only deletes the row and the controller notices on its next reconcile. The design makes drain intent explicit while keeping the row deletion as the single source of truth:
 
-- New narrow interface on the controller (mirroring the `IdleRecycler` pattern from docs/22): `PoolDrainer { DrainPool(ctx, poolID int64, graceful bool) }`. `DeletePool` calls it after the row delete succeeds; the reconciler's removed-pool detection remains as the fallback for restarts and out-of-band deletes (see §4.5 — it degrades to graceful).
+- New narrow interface on the controller (mirroring the `IdleRecycler` pattern from docs/22), discovered by interface assertion on `statsProvider`: `PoolDrainer { DrainPool(ctx, poolID int64, poolName string, lifetime time.Duration, graceful bool) }`. `DeletePool` calls it after the row delete succeeds — passing the pool's name and lifetime switch, which only the RPC path still knows — and the reconciler's removed-pool detection remains as the fallback for restarts and out-of-band deletes (see §4.5 — it degrades to graceful with the default backstop).
 - **Hard mode (default, unchanged)**: current `drainPool` behavior verbatim — deregister/terminate/untrack every running runner, purge queue, drop diagnostics.
 - **Graceful mode**:
   - Idle (tracked, running, not busy) runners: deregister → terminate → untrack, exactly like hard mode. They have nothing to preserve.
@@ -57,7 +57,7 @@ Today the server→controller boundary is implicit: the server only deletes the 
 
 ### 4.3 Why no busy→idle detection is needed
 
-For deleted pools, neither busy-state input works (§2). The design deliberately does not need them: the *completion* signal is container exit, not the busy→idle transition. The busy flag may read stale on a draining runner; it is never consulted for drain decisions after the initial idle/busy split. Job-history rows still close: the reap path closes rows on container death (docs/21 §5.2 "busy→idle **or container death** = job end"); implementation must verify the close path is pool-row-independent and fix if not.
+For deleted pools, neither busy-state input works (§2). The design deliberately does not need them: the *completion* signal is container exit, not the busy→idle transition. The busy flag may read stale on a draining runner; it is never consulted for drain decisions after the initial idle/busy split. Job-history rows: verified at implementation — `job_history.pool_id` is `ON DELETE CASCADE` (migrations 001/004), so a deleted pool's rows are already gone and post-delete closes (`CloseTransitionJob`/`RecordJobTimeout`) are benign no-op UPDATEs; the outcome loss at delete time is pre-existing behavior shared with hard drain.
 
 ### 4.4 Lifetime backstop
 

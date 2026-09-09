@@ -337,9 +337,11 @@ in edit mode:
   renames race-free by construction; also shrinks the rename busy-guard).~~
   *Implemented (RUN-126): tracking, diagnostics, ghost counters, and the
   provisioning queue key on the pool database id; renames are metadata-only.*
-- **`drainPool` busy-preservation** on pool delete (today it terminates busy
+- ~~**`drainPool` busy-preservation** on pool delete (today it terminates busy
   runners unconditionally; a "drain gracefully" option deserves its own
-  design).
+  design).~~ *Designed (docs/25) and implemented (RUN-127): `DeletePool` gains
+  `drain_graceful`; idle runners are removed immediately while busy runners
+  finish their jobs under a lifetime backstop.*
 - **Gitea → Forgejo forge-migration flow** (provider switch with target host
   validation), should the scenario materialize.
 - **Transactional pool+renovate+targets writes** (single sqlite tx) — noted as
