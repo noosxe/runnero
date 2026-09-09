@@ -1429,7 +1429,7 @@ func TestDeletePoolDrainModePassThrough(t *testing.T) {
 			Pool: &supervisorv1.Pool{
 				Name:                     name,
 				Provider:                 "github",
-				RepositoryUrl:            "https://github.com/org/" + name,
+				RepositoryUrl:            "https://github.com/" + name + "-org",
 				Scope:                    "org",
 				AuthProfileId:            authProfile.ID,
 				MinIdleRunners:           0,
