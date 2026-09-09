@@ -17,7 +17,9 @@
 
           packages = with pkgs; [
             # Go and Go Tools
-            go
+            # Pinned: tsnet (RUN-155) requires go >= 1.26.6; matches the
+            # golang:1.27-alpine build stage in Dockerfile.supervisor
+            go_1_27
             gopls
             gotools
             golangci-lint
