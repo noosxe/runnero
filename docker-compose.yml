@@ -20,6 +20,11 @@ services:
       - SUPERVISOR_BACKUP_INTERVAL_HOURS=${SUPERVISOR_BACKUP_INTERVAL_HOURS:-6}
       - SUPERVISOR_BACKUP_RETENTION_COUNT=${SUPERVISOR_BACKUP_RETENTION_COUNT:-7}
       - SUPERVISOR_SECURE_COOKIE=${SUPERVISOR_SECURE_COOKIE:-false}
+      # Webhook receiver secrets (docs/03 §4): set in .env to enable real-time
+      # autoscaling per provider; leave empty to keep the endpoint disabled
+      - SUPERVISOR_WEBHOOK_GITHUB_SECRET=${SUPERVISOR_WEBHOOK_GITHUB_SECRET:-}
+      - SUPERVISOR_WEBHOOK_GITEA_SECRET=${SUPERVISOR_WEBHOOK_GITEA_SECRET:-}
+      - SUPERVISOR_WEBHOOK_FORGEJO_SECRET=${SUPERVISOR_WEBHOOK_FORGEJO_SECRET:-}
     volumes:
       # Persistent SQLite database, backups, and compressed runner execution logs
       - supervisor-data:/data

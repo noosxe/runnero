@@ -35,6 +35,9 @@ const (
 	EnvConfigFile           = EnvPrefix + "CONFIG"
 	EnvSecureCookie         = EnvPrefix + "SECURE_COOKIE"
 	EnvEnrichJobConclusions = EnvPrefix + "ENRICH_JOB_CONCLUSIONS"
+	EnvWebhookGitHubSecret  = EnvPrefix + "WEBHOOK_GITHUB_SECRET"
+	EnvWebhookGiteaSecret   = EnvPrefix + "WEBHOOK_GITEA_SECRET"
+	EnvWebhookForgejoSecret = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
 )
 
 // Default values for the supervisor environment contract (docs/open-questions.md #3).
@@ -69,6 +72,9 @@ var envKeys = map[string]string{
 	EnvEnrichJobConclusions: "enrich-job-conclusions",
 	EnvConfigFile:           "config",
 	EnvSecureCookie:         "secure-cookie",
+	EnvWebhookGitHubSecret:  "webhook-github-secret",
+	EnvWebhookGiteaSecret:   "webhook-gitea-secret",
+	EnvWebhookForgejoSecret: "webhook-forgejo-secret",
 }
 
 // Config is the typed result of loading every configuration layer. Field
@@ -85,6 +91,9 @@ type Config struct {
 	ConfigFile           string `koanf:"config"`
 	SecureCookie         bool   `koanf:"secure-cookie"`
 	EnrichJobConclusions bool   `koanf:"enrich-job-conclusions"`
+	WebhookGitHubSecret  string `koanf:"webhook-github-secret"`
+	WebhookGiteaSecret   string `koanf:"webhook-gitea-secret"`
+	WebhookForgejoSecret string `koanf:"webhook-forgejo-secret"`
 }
 
 // Options parameterizes Load. The zero value loads defaults plus the
@@ -182,6 +191,9 @@ func defaults() map[string]any {
 		"backup-retention-count": DefaultBackupRetentionCount,
 		"db-encryption-key":      "",
 		"enrich-job-conclusions": true,
+		"webhook-github-secret":  "",
+		"webhook-gitea-secret":   "",
+		"webhook-forgejo-secret": "",
 	}
 }
 
@@ -223,6 +235,9 @@ func (c *Config) normalize() {
 	c.DataDir = strings.TrimSpace(c.DataDir)
 	c.DBPath = strings.TrimSpace(c.DBPath)
 	c.DockerHost = strings.TrimSpace(c.DockerHost)
+	c.WebhookGitHubSecret = strings.TrimSpace(c.WebhookGitHubSecret)
+	c.WebhookGiteaSecret = strings.TrimSpace(c.WebhookGiteaSecret)
+	c.WebhookForgejoSecret = strings.TrimSpace(c.WebhookForgejoSecret)
 	if c.DBPath == "" && c.DataDir != "" {
 		c.DBPath = filepath.Join(c.DataDir, DefaultDBFileName)
 	}
