@@ -135,6 +135,11 @@ message Pool {
 }
 ```
 
+> Ordering contract (RUN-150): the server returns `targets` (and the GitHub
+> App `installations`) in a stable, provider-independent order — sorted
+> case-insensitively by name, raw-name tie-break — regardless of the order
+> upstream listings use. Consumers must not rely on upstream ordering.
+
 ---
 
 ## 7. Frontend User Interface (`web/src/routes/pools.tsx`)

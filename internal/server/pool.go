@@ -1020,6 +1020,17 @@ func defaultDiscover(ctx context.Context, profile db.DecryptedAuthProfile, scope
 	return result, nil
 }
 
+// compareDiscoveredName orders discovered-entity names case-insensitively
+// ("acme/app" and "Acme/APP" interleave naturally), breaking ties on the raw
+// name so the order is a total one (RUN-150).
+func compareDiscoveredName(a, b string) int {
+	al, bl := strings.ToLower(a), strings.ToLower(b)
+	if c := strings.Compare(al, bl); c != 0 {
+		return c
+	}
+	return strings.Compare(a, b)
+}
+
 // DiscoverTargets queries accessible repositories or organizations using an auth profile.
 func (s *PoolService) DiscoverTargets(ctx context.Context, req *connect.Request[supervisorv1.DiscoverTargetsRequest]) (*connect.Response[supervisorv1.DiscoverTargetsResponse], error) {
 	if req.Msg == nil {
@@ -1053,6 +1064,17 @@ func (s *PoolService) DiscoverTargets(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("discovering %s targets: %w", scope, err))
 	}
+	// Stable, provider-independent ordering (RUN-150): the providers return
+	// targets in whatever order their listing endpoints use — GitHub App
+	// discovery even groups repositories per installation — so sort here.
+	// Case-insensitive on the name, with a raw-name tie-break for a total
+	// order, so every consumer of this RPC gets a deterministic list.
+	slices.SortFunc(result.Targets, func(a, b provider.DiscoveredTarget) int {
+		return compareDiscoveredName(a.FullName, b.FullName)
+	})
+	slices.SortFunc(result.Installations, func(a, b provider.AppInstallation) int {
+		return compareDiscoveredName(a.AccountLogin, b.AccountLogin)
+	})
 
 	protoTargets := make([]*supervisorv1.DiscoveredTarget, 0, len(result.Targets))
 	for _, t := range result.Targets {
