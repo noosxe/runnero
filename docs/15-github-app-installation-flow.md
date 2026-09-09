@@ -122,6 +122,7 @@ Add `GetAppMetadata` and update `DiscoverOrganizations` / `DiscoverRepositories`
    - If installations count is 0: populates `install_url` so the frontend can prompt the user.
    - If installations exist: populates `install_url` and returns `installations` so the frontend can render direct "Manage Access" links for each target account.
 
+   - Targets are sorted server-side (`DiscoverTargets`, RUN-150) — case-insensitive by name with a raw-name tie-break — because the per-installation grouping makes upstream order unstable across refetches; installations sort the same way by `AccountLogin`.
 ### 4.2. In-Memory Caching
 
 To avoid hitting GitHub's API on every single wizard keystroke or render:

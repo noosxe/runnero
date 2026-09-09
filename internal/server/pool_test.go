@@ -850,6 +850,102 @@ func TestPoolServiceDiscoverTargets(t *testing.T) {
 	}
 }
 
+// RUN-150: DiscoverTargets must return a stable, provider-independent order —
+// case-insensitive by FullName with a raw-name tie-break — regardless of what
+// order the provider returns. GitHub App discovery groups repos per
+// installation, so upstream order is not even stable across refetches.
+func TestPoolServiceDiscoverTargetsSortsTargetsByName(t *testing.T) {
+	ctx := context.Background()
+	database, jwtSecret := setupTestDB(t)
+
+	prof, err := database.CreateEncryptedAuthProfile(ctx, "sort-gh-profile", "pat", sql.NullInt64{}, "", "secret-token")
+	if err != nil {
+		t.Fatalf("CreateEncryptedAuthProfile failed: %v", err)
+	}
+
+	poolSvc := server.NewPoolService(database, nil, nil, server.WithDiscoverer(func(ctx context.Context, p db.DecryptedAuthProfile, scope string) (*server.DiscoveryResult, error) {
+		// Deliberately shuffled and mixed-case, mimicking a per-installation
+		// grouped GitHub App listing.
+		return &server.DiscoveryResult{
+			InstallURL: "https://github.com/apps/test-app/installations/new",
+			Installations: []provider.AppInstallation{
+				{ID: 7, AccountLogin: "zeta-corp", AccountType: "Organization"},
+				{ID: 3, AccountLogin: "AcmeOrg", AccountType: "Organization"},
+			},
+			Targets: []provider.DiscoveredTarget{
+				{Name: "zeta-app", FullName: "zeta-corp/zeta-app", HTMLURL: "https://github.com/zeta-corp/zeta-app"},
+				{Name: "beta", FullName: "Acme/beta", HTMLURL: "https://github.com/Acme/beta"},
+				{Name: "alpha", FullName: "acme/alpha", HTMLURL: "https://github.com/acme/alpha"},
+				{Name: "alpha", FullName: "Acme/alpha", HTMLURL: "https://github.com/Acme/alpha"},
+				{Name: "gamma", FullName: "acme/gamma", HTMLURL: "https://github.com/acme/gamma"},
+			},
+		}, nil
+	}))
+
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		JWTSigningSecret: jwtSecret,
+	})
+
+	path, handler := supervisorv1connect.NewPoolServiceHandler(poolSvc, srv.ConnectHandlerOptions()...)
+	srv.MountConnectHandler(path, handler)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	cookie := loginRes.Header().Get("Set-Cookie")
+	rawCookie := strings.Split(strings.Split(cookie, ";")[0], "=")[1]
+
+	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
+
+	req := connect.NewRequest(&supervisorv1.DiscoverTargetsRequest{
+		AuthProfileId: prof.ID,
+		Scope:         "repo",
+	})
+	req.Header().Set("Cookie", "session_token="+rawCookie)
+	res, err := client.DiscoverTargets(ctx, req)
+	if err != nil {
+		t.Fatalf("DiscoverTargets failed: %v", err)
+	}
+
+	// Case-insensitive on FullName; the Acme/alpha vs acme/alpha tie is broken
+	// on the raw name, so the order is fully deterministic.
+	wantOrder := []string{"Acme/alpha", "acme/alpha", "Acme/beta", "acme/gamma", "zeta-corp/zeta-app"}
+	if len(res.Msg.Targets) != len(wantOrder) {
+		t.Fatalf("expected %d targets, got %d", len(wantOrder), len(res.Msg.Targets))
+	}
+	for i, want := range wantOrder {
+		if got := res.Msg.Targets[i].FullName; got != want {
+			t.Errorf("target %d: want %q, got %q", i, want, got)
+		}
+	}
+	if res.Msg.Targets[0].HtmlUrl != "https://github.com/Acme/alpha" {
+		t.Errorf("target fields must survive mapping, got %+v", res.Msg.Targets[0])
+	}
+
+	if len(res.Msg.Installations) != 2 {
+		t.Fatalf("expected 2 installations, got %d", len(res.Msg.Installations))
+	}
+	if res.Msg.Installations[0].AccountLogin != "AcmeOrg" || res.Msg.Installations[1].AccountLogin != "zeta-corp" {
+		t.Errorf("installations must sort case-insensitively by AccountLogin, got [%s, %s]",
+			res.Msg.Installations[0].AccountLogin, res.Msg.Installations[1].AccountLogin)
+	}
+}
+
 func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 	ctx := context.Background()
 	database, jwtSecret := setupTestDB(t)
