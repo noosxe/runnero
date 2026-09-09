@@ -341,6 +341,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
+- **Embedded Tailscale (Funnel Webhooks + Tailnet-Only Management):** *[Design Phase]* — embed a Tailscale node directly in the supervisor binary via tsnet: a public Funnel listener (auto-TS-HTTPS) serving only the HMAC-verified `POST /hooks/{provider}` webhook route, plus a tailnet-only HTTPS listener for the full management UI — no sidecars, no published ports, entirely off unless `SUPERVISOR_TAILSCALE_*` env is configured. Design: [docs/26-tailscale-funnel.md](docs/26-tailscale-funnel.md).
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
 ---
 
