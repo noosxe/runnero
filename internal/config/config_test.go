@@ -443,3 +443,96 @@ func TestLogLevelNormalization(t *testing.T) {
 		t.Errorf("log level = %q, want normalized %q", cfg.LogLevel, "warn")
 	}
 }
+
+// --- Embedded Tailscale (RUN-155, docs/26 §4) ---
+
+// TestTailscaleOffByDefaultIgnoresEverything pins the opt-in contract:
+// with no auth key the feature is off and stray tailscale variables —
+// including malformed booleans — never fail the boot.
+func TestTailscaleOffByDefaultIgnoresEverything(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+	t.Setenv(EnvTailscaleFunnel, "bogus")
+	t.Setenv(EnvTailscaleUI, "also-bogus")
+	cfg, err := Load(Options{})
+	if err != nil {
+		t.Fatalf("off-mode load must ignore tailscale values: %v", err)
+	}
+	if cfg.TailscaleEnabled() {
+		t.Error("TailscaleEnabled() = true without an auth key")
+	}
+	if cfg.TailscaleHostname != DefaultTailscaleHostname {
+		t.Errorf("hostname = %q, want default %q", cfg.TailscaleHostname, DefaultTailscaleHostname)
+	}
+}
+
+// TestTailscaleEnabledDefaults: an auth key alone enables the integration
+// with the documented defaults (runnero, both listeners on, state dir
+// derived under the data dir).
+func TestTailscaleEnabledDefaults(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+	t.Setenv(EnvTailscaleAuthKey, "tskey-authority-0123456789abcdef")
+	cfg, err := Load(Options{})
+	if err != nil {
+		t.Fatalf("loading with auth key only: %v", err)
+	}
+	if !cfg.TailscaleEnabled() {
+		t.Fatal("TailscaleEnabled() = false with an auth key set")
+	}
+	if cfg.TailscaleHostname != DefaultTailscaleHostname {
+		t.Errorf("hostname = %q, want default %q", cfg.TailscaleHostname, DefaultTailscaleHostname)
+	}
+	if !cfg.TailscaleFunnelOn() {
+		t.Error("funnel off by default, want on")
+	}
+	if !cfg.TailscaleUIOn() {
+		t.Error("ui off by default, want on")
+	}
+	if want := filepath.Join(DefaultDataDir, DefaultTailscaleStateDirName); cfg.TailscaleStateDir != want {
+		t.Errorf("state dir = %q, want derived %q", cfg.TailscaleStateDir, want)
+	}
+}
+
+// TestTailscaleEnabledCustomValues: every knob is overridable, and the
+// boolean parsing accepts strconv spellings.
+func TestTailscaleEnabledCustomValues(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+	t.Setenv(EnvTailscaleAuthKey, " tskey-x ")
+	t.Setenv(EnvTailscaleHostname, " lab-runnero ")
+	t.Setenv(EnvTailscaleFunnel, "false")
+	t.Setenv(EnvTailscaleUI, "1")
+	t.Setenv(EnvTailscaleStateDir, " /var/lib/runnero-ts ")
+	cfg, err := Load(Options{})
+	if err != nil {
+		t.Fatalf("loading custom tailscale values: %v", err)
+	}
+	if cfg.TailscaleAuthKey != "tskey-x" || cfg.TailscaleHostname != "lab-runnero" || cfg.TailscaleStateDir != "/var/lib/runnero-ts" {
+		t.Errorf("string values not trimmed: authkey=%q hostname=%q statedir=%q", cfg.TailscaleAuthKey, cfg.TailscaleHostname, cfg.TailscaleStateDir)
+	}
+	if cfg.TailscaleFunnelOn() {
+		t.Error("funnel on, want false")
+	}
+	if !cfg.TailscaleUIOn() {
+		t.Error("ui off, want on ('1')")
+	}
+}
+
+// TestTailscaleBothListenersOffFailsBoot: a node with no listeners serves
+// nothing — a misconfiguration, not a mode (docs/26 §4).
+func TestTailscaleBothListenersOffFailsBoot(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+	t.Setenv(EnvTailscaleAuthKey, "tskey-x")
+	t.Setenv(EnvTailscaleFunnel, "false")
+	t.Setenv(EnvTailscaleUI, "false")
+	_, err := Load(Options{})
+	wantErrContaining(t, err, "both listeners are disabled")
+}
+
+// TestTailscaleBadBoolFailsOnlyWhenEnabled: malformed booleans are boot
+// errors in enabled mode (never silently defaulted).
+func TestTailscaleBadBoolFailsOnlyWhenEnabled(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+	t.Setenv(EnvTailscaleAuthKey, "tskey-x")
+	t.Setenv(EnvTailscaleFunnel, "maybe")
+	_, err := Load(Options{})
+	wantErrContaining(t, err, "invalid tailscale funnel setting")
+}

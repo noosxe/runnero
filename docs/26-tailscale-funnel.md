@@ -2,7 +2,7 @@
 
 | | |
 | :--- | :--- |
-| Status | Proposed — design doc for review (implementation: RUN-155) |
+| Status | Implemented (RUN-155 — accepted with this design; shipped in the implementation PR) |
 | Linear | [RUN-155](https://linear.app/runnero/issue/RUN-155) (implementation) · depends on [RUN-153](https://linear.app/runnero/issue/RUN-153) (webhook receiver wiring — **done**, PR #206) |
 | Related | RUN-154 (Cloudflare Tunnel compose option — sibling/alternative; *not* part of this work) · docs/03 §4 (webhook-driven scaling) · docs/10 (reverse proxy TLS) |
 | Touches | `go.mod` (`tailscale.com/tsnet`), `internal/config` (new env contract), new `internal/tailscale` package, `cmd/runnero-supervisor/daemon.go` (wiring + shutdown), README (features, prerequisites, env table), `.env.example`, `docker-compose.yml` (env pass-through only), docs/03 §4 |
@@ -257,7 +257,13 @@ the webhook URL may be the funnel URL produced at boot.
 
 ## 9. Open items for implementation
 
-- Exact `tailscale.com` pin (toolchain interplay, §2) and measured binary delta.
-- Upstream no-log-upload switch: verify existence, document the finding.
+- ~~Exact `tailscale.com` pin and measured binary delta~~ **resolved:** pinned
+  `tailscale.com v1.102.3` (`go.mod` `go` directive bumped to `1.26.6`; dev shell
+  is on Go 1.27 since the RUN-155 toolchain pin). CGO-free re-verified on the
+  real build; measured binary delta recorded in the implementation PR.
+- ~~Upstream no-log-upload switch~~ **resolved:** `TS_NO_LOGS_NO_SUPPORT=true`
+  disables log-tail uploads in v1.102.3 (verified in the module source,
+  `envknob.NoLogsNoSupport` → logtail config); documented in the README
+  Tailscale section. Default (upload on) stays, as disclosed in §5.
 - If Funnel delivery of `X-Forwarded-For`/client IP ever matters (it doesn't
   for HMAC-verified webhooks), revisit; today the supervisor ignores client IPs.

@@ -71,6 +71,8 @@ This provides near-instant job pickup with no polling overhead.
 
 **Production wiring (RUN-153):** the endpoint is mounted only when at least one provider webhook secret is configured — `SUPERVISOR_WEBHOOK_GITHUB_SECRET`, `SUPERVISOR_WEBHOOK_GITEA_SECRET`, or `SUPERVISOR_WEBHOOK_FORGEJO_SECRET` (see the supervisor environment contract in the README). Every delivery is HMAC-verified against the configured secret; the provider `ping` handshake is acknowledged with `200`, missing or invalid signatures are rejected with `401`, a provider without its own secret answers `500 (webhook secret not configured)`, and unsupported providers answer `400`. Deployments without any secret keep the route unmounted (a `POST` answers `405`) and demand detection stays polling-only (docs/24). Secrets come from the environment, so rotation requires a supervisor restart.
 
+Alternatively — or additionally — the webhook URL may be the supervisor's embedded-Tailscale funnel URL (`https://<hostname>.<tailnet>.ts.net/hooks/{provider}`, RUN-155, docs/26): the supervisor's public Funnel listener serves exactly this route group with the same RUN-153 semantics over ts.net TLS, so webhook delivery works behind NAT with no inbound port publishing; the management UI is reachable tailnet-only on `:8443`.
+
 ### Polling-Based Scaling (Forgejo native, GitHub opt-in per docs/24)
 
 Forgejo does not support `workflow_job` webhooks. For Forgejo pools, the existing periodic audit loop (Section 3) doubles as the scaling trigger:

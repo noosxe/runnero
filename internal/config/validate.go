@@ -37,7 +37,22 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("backup retention must keep at least 1 snapshot (key 'backup-retention-count', env %s)", EnvBackupRetention)
 	}
 
+	if c.TailscaleEnabled() {
+		funnel, funnelErr := parseTailscaleBool(c.TailscaleFunnel)
+		ui, uiErr := parseTailscaleBool(c.TailscaleUI)
+		if funnelErr != nil {
+			return fmt.Errorf("invalid tailscale funnel setting %q: want a boolean (key 'tailscale-funnel', env %s)", c.TailscaleFunnel, EnvTailscaleFunnel)
+		}
+		if uiErr != nil {
+			return fmt.Errorf("invalid tailscale ui setting %q: want a boolean (key 'tailscale-ui', env %s)", c.TailscaleUI, EnvTailscaleUI)
+		}
+		if !funnel && !ui {
+			return fmt.Errorf("tailscale is enabled (env %s set) but both listeners are disabled: set %s=true and/or %s=true, or unset the auth key to turn the integration off", EnvTailscaleAuthKey, EnvTailscaleFunnel, EnvTailscaleUI)
+		}
+	}
+
 	return c.validateDBEncryptionKey()
+
 }
 
 // validateDBEncryptionKey refuses to run with a missing or weak database
