@@ -26,6 +26,7 @@ type mockStatsProvider struct {
 	idleCounts   map[int64]int32
 	diagnostics  map[int64]server.PoolDiagnostics
 	recycled     []int64
+	drains       []drainCall
 }
 
 func newMockStatsProvider() *mockStatsProvider {
@@ -81,6 +82,14 @@ func (m *mockStatsProvider) recycledCount(poolID int64) int {
 		}
 	}
 	return n
+}
+
+// DrainPool records drain requests so tests can assert the delete-path drain
+// mode pass-through of DeletePool (RUN-127, docs/25 §4.2).
+func (m *mockStatsProvider) DrainPool(ctx context.Context, poolID int64, poolName string, lifetime time.Duration, graceful bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.drains = append(m.drains, drainCall{poolID: poolID, poolName: poolName, lifetime: lifetime, graceful: graceful})
 }
 
 func TestPoolServiceCRUDAndValidation(t *testing.T) {
@@ -1356,5 +1365,130 @@ func TestPoolServiceDemandPollingValidation(t *testing.T) {
 	}
 	if updateRes.Msg.Pool.PollIntervalSeconds != 60 {
 		t.Fatalf("expected stored interval 60 preserved on omit, got %d", updateRes.Msg.Pool.PollIntervalSeconds)
+	}
+}
+
+// drainCall records one DrainPool invocation on the mock (RUN-127, docs/25 §4.2).
+type drainCall struct {
+	poolID   int64
+	poolName string
+	lifetime time.Duration
+	graceful bool
+}
+
+// TestDeletePoolDrainModePassThrough verifies the RPC path passes the drain
+// mode and the deleted pool's lifetime switch to the controller, defaults to
+// hard drain for omitting clients, and records the mode in the audit log
+// (docs/25 §4.1, §4.2, §4.4).
+func TestDeletePoolDrainModePassThrough(t *testing.T) {
+	ctx := context.Background()
+	database, jwtSecret := setupTestDB(t)
+	stats := newMockStatsProvider()
+
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		PoolStats:        stats,
+		JWTSigningSecret: jwtSecret,
+	})
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	})); err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	cookie := loginRes.Header().Get("Set-Cookie")
+	rawCookie := strings.Split(strings.Split(cookie, ";")[0], "=")[1]
+
+	authProfile, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
+		Name:           "drain-auth-profile",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "encrypted-token", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthProfile failed: %v", err)
+	}
+
+	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
+	createPool := func(name string, lifetime int32) *supervisorv1.Pool {
+		t.Helper()
+		res, err := client.CreatePool(ctx, connect.NewRequest(&supervisorv1.CreatePoolRequest{
+			Pool: &supervisorv1.Pool{
+				Name:                     name,
+				Provider:                 "github",
+				RepositoryUrl:            "https://github.com/org/" + name,
+				Scope:                    "org",
+				AuthProfileId:            authProfile.ID,
+				MinIdleRunners:           0,
+				MaxConcurrency:           5,
+				MaxRunnerLifetimeSeconds: lifetime,
+			},
+		}))
+		if err != nil {
+			t.Fatalf("CreatePool %s failed: %v", name, err)
+		}
+		return res.Msg.Pool
+	}
+	del := func(id int64, drainGraceful bool) {
+		t.Helper()
+		req := connect.NewRequest(&supervisorv1.DeletePoolRequest{Id: id, DrainGraceful: drainGraceful})
+		req.Header().Set("Cookie", "session_token="+rawCookie)
+		if _, err := client.DeletePool(ctx, req); err != nil {
+			t.Fatalf("DeletePool failed: %v", err)
+		}
+	}
+
+	// Graceful delete passes the flag and the pool's own lifetime.
+	poolA := createPool("drain-graceful", 7200)
+	del(poolA.Id, true)
+	if len(stats.drains) != 1 {
+		t.Fatalf("expected 1 drain call, got %+v", stats.drains)
+	}
+	if got := stats.drains[0]; got.poolID != poolA.Id || got.poolName != poolA.Name || !got.graceful || got.lifetime != 2*time.Hour {
+		t.Fatalf("graceful drain call mismatch: %+v", got)
+	}
+
+	// Default delete keeps the hard behavior (wire default false).
+	poolB := createPool("drain-hard", 0)
+	del(poolB.Id, false)
+	if len(stats.drains) != 2 || stats.drains[1].graceful || stats.drains[1].lifetime != 0 {
+		t.Fatalf("hard drain call mismatch: %+v", stats.drains[1])
+	}
+
+	// Audit log records the chosen mode (docs/25 §6).
+	logs, err := database.ListAuditLogs(ctx, db.ListAuditLogsParams{Limit: 10, Offset: 0})
+	if err != nil {
+		t.Fatalf("ListAuditLogs failed: %v", err)
+	}
+	audited := map[bool]bool{}
+	for _, l := range logs {
+		if l.Action != "pool.delete" {
+			continue
+		}
+		var details map[string]any
+		if err := json.Unmarshal([]byte(l.Details.String), &details); err != nil {
+			t.Fatalf("pool.delete details not JSON: %v", err)
+		}
+		graceful, ok := details["drain_graceful"].(bool)
+		if !ok {
+			t.Fatalf("pool.delete details missing drain_graceful: %s", l.Details.String)
+		}
+		audited[graceful] = true
+	}
+	if !audited[true] || !audited[false] {
+		t.Fatalf("expected both drain modes in pool.delete audit logs: %v", audited)
 	}
 }

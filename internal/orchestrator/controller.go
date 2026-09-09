@@ -50,6 +50,10 @@ const (
 	// DefaultGhostSweepMaxDeregistrations bounds the per-cycle sweep burst after mass-leak
 	// events (e.g. host reboot with a large pool); the remainder is swept on later cycles.
 	DefaultGhostSweepMaxDeregistrations = 50
+	// DefaultDrainBackstop is the force-terminate backstop for gracefully
+	// drained busy runners whose deleted pool set no max_runner_lifetime
+	// (docs/25 §4.4, §8.3): drained leftovers can never outlive this cap.
+	DefaultDrainBackstop = 6 * time.Hour
 )
 
 // ProvisionRequest represents a queued runner provisioning request when the global quota is saturated.
@@ -174,6 +178,8 @@ type PoolController struct {
 	ghostOfflineCycles      int
 	ghostMaxDeregistrations int
 	enrichConclusions       bool
+	drainMu                 sync.Mutex
+	drainingPools           map[int64]drainEntry // pool id -> drain metadata for gracefully deleted pools (docs/25 §4.2)
 	ghostMu                 sync.Mutex
 	ghostCounters           map[int64]map[string]int // pool id -> runner name -> consecutive offline-untracked cycles (docs/20 §4.1)
 
@@ -262,6 +268,7 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		jitterFn:                func() float64 { return rand.Float64() },
 		poolIDsByName:           make(map[string]int64),
 		logger:                  logging.For("controller"),
+		drainingPools:           make(map[int64]drainEntry),
 		diagnostics:             make(map[int64]PoolDiagnosticState),
 	}
 
@@ -480,8 +487,12 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 	}
 
 	for _, removed := range removedPools {
-		c.logger.Info("pool removed from database, draining runners", "pool", removed.name, "pool_id", removed.id)
-		c.drainPool(ctx, removed.id)
+		// Restart and out-of-band deletes converge gracefully: idle runners
+		// are terminated now, busy runners finish their job under the
+		// DefaultDrainBackstop (docs/25 §4.5). An explicit hard drain via
+		// DeletePool supersedes this through the draining-set check.
+		c.logger.Info("pool removed from database, draining gracefully", "pool", removed.name, "pool_id", removed.id)
+		c.drainPool(ctx, removed.id, removed.name, 0, true)
 	}
 
 	// 6. Force-terminate busy runners whose job exceeds max_runner_lifetime_seconds (docs/03 §4, §7; docs/23)
@@ -548,26 +559,13 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 			}
 
 			// docs/23 §4.3: the lifetime clock is anchored at first busy
-			// assignment, not spawn. BusySince is set-once at the idle→busy
-			// transition; a busy runner without an anchor falls back to the
-			// spawn clock so the guarantee never depends on anchor bookkeeping
-			// being complete (docs/23 §4.4.1).
-			anchor := r.BusySince
-			anchorSrc := "busy"
-			if anchor.IsZero() {
-				anchor, anchorSrc = r.SpawnedAt, "spawn"
-				if anchor.IsZero() {
-					continue
-				}
-				c.logger.Warn("busy runner without busy anchor, falling back to spawn time",
-					"pool", p.Name,
-					"runner_id", r.ID,
-					"runner_name", r.Name,
-				)
+			// assignment, not spawn (BusySince, spawn-clock fallback docs/23 §4.4.1).
+			anchor, anchorSrc, ok := c.busyAnchor(p.Name, r)
+			if !ok {
+				continue
 			}
 
-			elapsed := now.Sub(anchor)
-			if elapsed > lifetimeLimit {
+			if elapsed := now.Sub(anchor); elapsed > lifetimeLimit {
 				c.logger.Warn("hung runner exceeded max lifetime, force terminating",
 					"pool", p.Name,
 					"runner_id", r.ID,
@@ -578,42 +576,123 @@ func (c *PoolController) checkHungRunners(ctx context.Context, pools []db.Runner
 					"anchor_source", anchorSrc,
 				)
 
-				var logPath string
-				if c.dataDir != "" {
-					var err error
-					logPath, err = c.engine.CaptureLogs(ctx, r.ID, c.dataDir)
-					if err != nil {
-						c.logger.Warn("capturing exit logs for hung runner", "id", r.ID, "err", err)
-					}
-				}
-
-				// Force terminate container immediately
-				if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
-					c.logger.Error("failed to force terminate hung runner", "id", r.ID, "err", err)
-				}
-
-				// Untrack runner from active pool state
-				c.reconciler.UntrackRunner(p.ID, r.ID)
-
-				// Record timeout in job_history (docs/21 §5.2, docs/23 §4.3): the
-				// lifetime switch is busy-only now, so every termination is mid-job;
-				// the IsBusy guard stays as a defensive assert. The row anchors at the
-				// same clock that fired the kill, not at container spawn.
-				if c.jobRecorder != nil && r.IsBusy {
-					runnerName := r.Name
-					if runnerName == "" {
-						runnerName = r.ID
-					}
-					if err := c.jobRecorder.RecordJobTimeout(ctx, p.ID, runnerName, logPath, anchor, now); err != nil {
-						c.logger.Error("failed recording job timeout", "runner", runnerName, "err", err)
-					}
-				}
-
-				// Capacity freed up, drain internal queue
-				c.drainQueue(ctx)
+				c.terminateHungRunner(ctx, p.ID, p.Name, r, anchor, now)
 			}
 		}
 	}
+
+	// Graceful-drain backstop (docs/25 §4.4): a deleted pool's leftover busy
+	// runners keep a lifetime kill switch — the pool's max_runner_lifetime
+	// when it had one, else DefaultDrainBackstop. Entries retire once the
+	// pool's last container is gone.
+	c.drainMu.Lock()
+	draining := make(map[int64]drainEntry, len(c.drainingPools))
+	for id, e := range c.drainingPools {
+		draining[id] = e
+	}
+	c.drainMu.Unlock()
+
+	for poolID, entry := range draining {
+		tracked := c.reconciler.TrackedPoolRunners(poolID)
+		alive := 0
+		for _, r := range tracked {
+			if r.State != "running" {
+				continue
+			}
+			alive++
+			if !r.IsBusy {
+				continue // idle leftovers are not backstopped; none should exist post-drain
+			}
+
+			anchor, _, ok := c.busyAnchor(entry.name, r)
+			if !ok {
+				continue
+			}
+
+			if now.Sub(anchor) > entry.limit {
+				c.logger.Warn("drained runner exceeded backstop, force terminating",
+					"pool", entry.name,
+					"pool_id", poolID,
+					"runner_id", r.ID,
+					"runner_name", r.Name,
+					"elapsed", now.Sub(anchor),
+					"limit", entry.limit,
+					"anchor", anchor,
+				)
+
+				c.terminateHungRunner(ctx, poolID, entry.name, r, anchor, now)
+			}
+		}
+
+		if alive == 0 {
+			c.drainMu.Lock()
+			delete(c.drainingPools, poolID)
+			c.drainMu.Unlock()
+			c.logger.Info("graceful drain complete", "pool", entry.name, "pool_id", poolID)
+		}
+	}
+}
+
+// busyAnchor returns the docs/23 lifetime clock for a busy runner: BusySince
+// when set, else the spawn clock (docs/23 §4.4.1) so the guarantee never
+// depends on anchor bookkeeping being complete. ok=false means no anchor at
+// all — the caller must skip the runner.
+func (c *PoolController) busyAnchor(poolName string, r RunnerStatus) (time.Time, string, bool) {
+	anchor := r.BusySince
+	src := "busy"
+	if anchor.IsZero() {
+		anchor, src = r.SpawnedAt, "spawn"
+		if anchor.IsZero() {
+			return time.Time{}, "", false
+		}
+		c.logger.Warn("busy runner without busy anchor, falling back to spawn time",
+			"pool", poolName,
+			"runner_id", r.ID,
+			"runner_name", r.Name,
+		)
+	}
+	return anchor, src, true
+}
+
+// terminateHungRunner force-terminates a busy runner that exceeded its
+// lifetime limit — shared by the per-pool lifetime check (docs/23 §4.3) and
+// the graceful-drain backstop (docs/25 §4.4). anchor is the docs/23 busy
+// clock the elapsed time was measured from; job-history rows for deleted
+// pools are already cascade-gone, making the timeout record a benign no-op
+// (docs/25 §4.3).
+func (c *PoolController) terminateHungRunner(ctx context.Context, poolID int64, poolName string, r RunnerStatus, anchor, now time.Time) {
+	var logPath string
+	if c.dataDir != "" {
+		var err error
+		logPath, err = c.engine.CaptureLogs(ctx, r.ID, c.dataDir)
+		if err != nil {
+			c.logger.Warn("capturing exit logs for hung runner", "id", r.ID, "err", err)
+		}
+	}
+
+	// Force terminate container immediately.
+	if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
+		c.logger.Error("failed to force terminate hung runner", "id", r.ID, "err", err)
+	}
+
+	// Untrack runner from active pool state.
+	c.reconciler.UntrackRunner(poolID, r.ID)
+
+	// Record timeout in job_history (docs/21 §5.2, docs/23 §4.3): every
+	// lifetime termination is mid-job (busy-only switch, docs/23 §4.3); the
+	// row anchors at the same clock that fired the kill, not at spawn.
+	if c.jobRecorder != nil {
+		runnerName := r.Name
+		if runnerName == "" {
+			runnerName = r.ID
+		}
+		if err := c.jobRecorder.RecordJobTimeout(ctx, poolID, runnerName, logPath, anchor, now); err != nil {
+			c.logger.Error("failed recording job timeout", "runner", runnerName, "err", err)
+		}
+	}
+
+	// Capacity freed up, drain internal queue.
+	c.drainQueue(ctx)
 }
 
 // HandleContainerEvent processes real-time Docker events ("die", "destroy").
@@ -1840,19 +1919,78 @@ func (c *PoolController) Reload(ctx context.Context) error {
 	return c.Reconcile(ctx)
 }
 
-func (c *PoolController) drainPool(ctx context.Context, poolID int64) {
+// drainEntry records a pool being gracefully drained: the deleted pool's
+// lifetime switch (or DefaultDrainBackstop) applied to its leftover busy
+// runners (docs/25 §4.2, §4.4).
+type drainEntry struct {
+	name  string
+	limit time.Duration
+}
+
+// DrainPool tears down a deleted pool's runners after the pool row is gone
+// (docs/25 §4.2). Hard mode (graceful=false) is the pre-RUN-127 behavior:
+// every running runner is deregistered, terminated, and untracked. Graceful
+// mode terminates idle runners immediately and leaves busy runners to finish
+// their current job — the ephemeral runner exits, the container exits, and
+// the generic audit reap path cleans it up (docs/25 §4.3); a lifetime
+// backstop bounds hung leftovers (docs/25 §4.4). DeletePool calls this
+// directly; the reconciler's removed-pool detection reaches it through the
+// graceful fallback (docs/25 §4.5).
+func (c *PoolController) DrainPool(ctx context.Context, poolID int64, poolName string, lifetime time.Duration, graceful bool) {
+	c.drainPool(ctx, poolID, poolName, lifetime, graceful)
+}
+
+var _ server.PoolDrainer = (*PoolController)(nil)
+
+// drainPool implements DrainPool. Graceful drains are idempotent per pool:
+// once recorded in the draining set, repeat calls (RPC and removed-pool
+// fallback alike) return early; checkHungRunners retires the entry when the
+// pool's last runner is gone.
+func (c *PoolController) drainPool(ctx context.Context, poolID int64, poolName string, lifetime time.Duration, graceful bool) {
 	if c.reconciler == nil || c.engine == nil {
 		return
 	}
-	tracked := c.reconciler.TrackedPoolRunners(poolID)
-	for _, r := range tracked {
-		if r.State == "running" {
-			c.deregisterRunner(ctx, r)
-			_ = c.engine.TerminateRunner(ctx, r.ID)
-			c.reconciler.UntrackRunner(poolID, r.ID)
-		}
+
+	if poolName == "" {
+		poolName = fmt.Sprintf("pool-%d", poolID)
 	}
 
+	if graceful {
+		c.drainMu.Lock()
+		if _, draining := c.drainingPools[poolID]; draining {
+			c.drainMu.Unlock()
+			return
+		}
+		c.drainMu.Unlock()
+	} else {
+		// A hard drain supersedes any in-flight graceful drain: everything
+		// is terminated now and nothing needs a backstop afterwards.
+		c.drainMu.Lock()
+		delete(c.drainingPools, poolID)
+		c.drainMu.Unlock()
+	}
+
+	tracked := c.reconciler.TrackedPoolRunners(poolID)
+	busyLeft := 0
+	for _, r := range tracked {
+		if r.State != "running" {
+			continue
+		}
+		if graceful && r.IsBusy {
+			// Busy runners finish their current job (docs/25 §4.2). No
+			// deregistration: the supervisor cannot use a deleted pool's
+			// credentials, and the ephemeral runner self-deregisters at exit
+			// (docs/25 §4.6).
+			busyLeft++
+			continue
+		}
+		c.deregisterRunner(ctx, r)
+		_ = c.engine.TerminateRunner(ctx, r.ID)
+		c.reconciler.UntrackRunner(poolID, r.ID)
+	}
+
+	// Queue purge and diagnostics removal happen in both modes: the pool row
+	// is gone either way (docs/25 §4.2).
 	c.mu.Lock()
 	var remaining []ProvisionRequest
 	for _, req := range c.queue {
@@ -1864,6 +2002,26 @@ func (c *PoolController) drainPool(ctx context.Context, poolID int64) {
 	c.mu.Unlock()
 
 	c.removePoolDiagnostics(poolID)
+
+	if !graceful {
+		c.logger.Info("pool drained (hard)", "pool", poolName, "pool_id", poolID)
+		return
+	}
+
+	if busyLeft == 0 {
+		c.logger.Info("pool drained gracefully, no busy runners remained", "pool", poolName, "pool_id", poolID)
+		return
+	}
+
+	limit := lifetime
+	if limit <= 0 {
+		limit = DefaultDrainBackstop
+	}
+	c.drainMu.Lock()
+	c.drainingPools[poolID] = drainEntry{name: poolName, limit: limit}
+	c.drainMu.Unlock()
+	c.logger.Info("pool draining gracefully", "pool", poolName, "pool_id", poolID,
+		"busy_left", busyLeft, "lifetime_backstop", limit)
 }
 
 // RecycleIdleRunners deregisters and terminates all non-busy tracked runners

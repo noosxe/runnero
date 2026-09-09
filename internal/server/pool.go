@@ -70,6 +70,18 @@ type IdleRecycler interface {
 	RecycleIdleRunners(ctx context.Context, poolID int64) error
 }
 
+// PoolDrainer tears down a deleted pool's runners after the pool row is gone
+// (docs/25 §4.2). *orchestrator.PoolController satisfies this interface;
+// PoolService discovers it by interface assertion on statsProvider so absent
+// controllers (unit fakes, web-only operation) degrade to a no-op.
+type PoolDrainer interface {
+	// DrainPool terminates (graceful=false) or gracefully drains (graceful=true)
+	// the pool's runners. lifetime is the deleted pool's max_runner_lifetime as a
+	// duration (0 = the controller applies DefaultDrainBackstop) used as the
+	// graceful backstop for busy runners.
+	DrainPool(ctx context.Context, poolID int64, poolName string, lifetime time.Duration, graceful bool)
+}
+
 // RunnerInstanceInfo represents an active runner container's runtime state.
 type RunnerInstanceInfo struct {
 	ID        string
@@ -755,10 +767,18 @@ func (s *PoolService) DeletePool(ctx context.Context, req *connect.Request[super
 	}
 
 	recordAuditLog(ctx, s.db, "pool.delete", "runner_pool", &existing.ID, map[string]any{
-		"name":     existing.Name,
-		"provider": existing.Provider,
+		"name":           existing.Name,
+		"provider":       existing.Provider,
+		"drain_graceful": req.Msg.DrainGraceful,
 	})
 
+	// Tear the runners down explicitly, before the Reload-triggered reconcile
+	// reaches the removed-pool fallback: the RPC path knows the pool's lifetime
+	// switch and drain mode, the fallback does not (docs/25 §4.2, §4.4).
+	if drainer, ok := s.statsProvider.(PoolDrainer); ok && drainer != nil {
+		drainer.DrainPool(ctx, existing.ID, existing.Name,
+			time.Duration(existing.MaxRunnerLifetimeSeconds)*time.Second, req.Msg.DrainGraceful)
+	}
 	if s.statsProvider != nil {
 		_ = s.statsProvider.Reload(ctx)
 	}

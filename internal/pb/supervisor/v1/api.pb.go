@@ -988,8 +988,12 @@ func (x *UpdatePoolResponse) GetPool() *Pool {
 }
 
 type DeletePoolRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Drain gracefully: idle runners are terminated immediately, busy runners
+	// are left to finish their current job (ephemeral exit) before teardown.
+	// Default false preserves the hard-terminate behavior.
+	DrainGraceful bool `protobuf:"varint,2,opt,name=drain_graceful,json=drainGraceful,proto3" json:"drain_graceful,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1029,6 +1033,13 @@ func (x *DeletePoolRequest) GetId() int64 {
 		return x.Id
 	}
 	return 0
+}
+
+func (x *DeletePoolRequest) GetDrainGraceful() bool {
+	if x != nil {
+		return x.DrainGraceful
+	}
+	return false
 }
 
 type DeletePoolResponse struct {
@@ -4666,9 +4677,10 @@ const file_api_proto_rawDesc = "" +
 	"\x11UpdatePoolRequest\x12'\n" +
 	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"=\n" +
 	"\x12UpdatePoolResponse\x12'\n" +
-	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"#\n" +
+	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"J\n" +
 	"\x11DeletePoolRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\".\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12%\n" +
+	"\x0edrain_graceful\x18\x02 \x01(\bR\rdrainGraceful\".\n" +
 	"\x12DeletePoolResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"4\n" +
 	"\x11WatchPoolsRequest\x12\x1f\n" +
