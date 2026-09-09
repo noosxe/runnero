@@ -123,7 +123,7 @@ describe("PoolsPage", () => {
   it("filters pools by search term", () => {
     render(<PoolsPage />);
 
-    const searchInput = screen.getByPlaceholderText("Search pools by name or repository URL...");
+    const searchInput = screen.getByPlaceholderText("Search pools by name or target URL...");
     fireEvent.change(searchInput, { target: { value: "gitea" } });
 
     expect(screen.queryByText("arm64-prod-pool")).not.toBeInTheDocument();
@@ -178,7 +178,27 @@ describe("PoolsPage", () => {
     mockPoolsData = mockPools;
     render(<PoolsPage />);
 
-    expect(screen.getByText("+2 more")).toBeInTheDocument();
+    expect(screen.getByText("3 repos")).toBeInTheDocument();
+  });
+
+  it("shows no count badge for single-target pools", () => {
+    mockPoolsData = mockPools;
+    render(<PoolsPage />);
+
+    // gitea-org-pool has one target (repositoryUrl fallback) and no badge
+    expect(screen.queryByText("1 repos")).not.toBeInTheDocument();
+    expect(screen.getByText("https://gitea.example.com/devops")).toBeInTheDocument();
+  });
+
+  it("filters pools by a secondary target URL", () => {
+    mockPoolsData = mockPools;
+    render(<PoolsPage />);
+
+    const searchInput = screen.getByPlaceholderText("Search pools by name or target URL...");
+    fireEvent.change(searchInput, { target: { value: "noosxe/docs" } });
+
+    expect(screen.getByText("arm64-prod-pool")).toBeInTheDocument();
+    expect(screen.queryByText("gitea-org-pool")).not.toBeInTheDocument();
   });
 
   it("suggests amd64 runner labels when supervisor hostArch is amd64", () => {

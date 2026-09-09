@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { PoolHealthBadge } from "../components/pools/pool-health-badge";
+import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { PoolHealthStatus } from "../gen/api_pb";
 
 function formatDuration(seconds: number): string {
@@ -288,8 +289,9 @@ export function DashboardPage() {
                     </span>
                   </div>
                 </div>
-                <div className="mt-2 truncate text-xs text-slate-500 dark:text-slate-400">
-                  {p.repositoryUrl}
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="truncate font-mono">{poolTargetList(p)[0]}</span>
+                  <TargetCountBadge pool={p} />
                 </div>
                 {p.currentIntent && (
                   <div className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 italic truncate">

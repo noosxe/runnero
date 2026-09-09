@@ -17,6 +17,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { PoolHealthBadge } from "../components/pools/pool-health-badge";
+import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { PoolHealthStatus, type Pool } from "../gen/api_pb";
 
 export function PoolsPage() {
@@ -144,7 +145,7 @@ export function PoolsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search pools by name or repository URL..."
+            placeholder="Search pools by name or target URL..."
             className="w-full rounded-xl border-0 bg-slate-50 py-2 pl-9 pr-4 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-white dark:focus:bg-slate-900"
           />
         </div>
@@ -247,13 +248,9 @@ export function PoolsPage() {
                       </h3>
                       <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                         <p className="text-xs font-mono text-slate-500 truncate max-w-sm">
-                          {p.repositoryUrl}
+                          {poolTargetList(p)[0]}
                         </p>
-                        {p.targetUrls && p.targetUrls.length > 1 && (
-                          <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
-                            +{p.targetUrls.length - 1} more
-                          </span>
-                        )}
+                        <TargetCountBadge pool={p} />
                       </div>
                       {p.currentIntent && (
                         <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 italic flex items-center gap-1.5">

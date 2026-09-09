@@ -297,4 +297,30 @@ describe("PoolDetailPage", () => {
 
     expect(screen.getByText("Image is up-to-date with registry")).toBeInTheDocument();
   });
+
+  it("lists every target in the configuration tab and badges the header", () => {
+    const original = mockPool.targetUrls;
+    mockPool.targetUrls = [
+      "https://github.com/noosxe/runnero",
+      "https://github.com/noosxe/frontend",
+    ];
+    try {
+      render(<PoolDetailPage />);
+
+      // Header shows first target + count badge
+      expect(screen.getByText("2 repos")).toBeInTheDocument();
+
+      const configTabBtn = screen.getByRole("button", { name: /pool configuration/i });
+      fireEvent.click(configTabBtn);
+
+      expect(screen.getByText("Target Repositories")).toBeInTheDocument();
+      // First target appears in the header line and the list
+      expect(
+        screen.getAllByText("https://github.com/noosxe/runnero").length,
+      ).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("https://github.com/noosxe/frontend")).toBeInTheDocument();
+    } finally {
+      mockPool.targetUrls = original;
+    }
+  });
 });
