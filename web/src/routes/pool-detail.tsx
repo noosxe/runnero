@@ -20,6 +20,7 @@ import { PoolHealthBadge } from "../components/pools/pool-health-badge";
 import { PoolStatusBanner } from "../components/pools/pool-status-banner";
 import { PoolDiagnosticsCard } from "../components/pools/pool-diagnostics-card";
 import { PoolPollStatus } from "../components/pools/pool-poll-status";
+import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { PoolDeleteModal } from "../components/pools/pool-delete-modal";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
@@ -148,9 +149,12 @@ export function PoolDetailPage() {
                 </span>
               </span>
             </div>
-            <p className="mt-1 text-xs font-mono text-slate-500 dark:text-slate-400">
-              {pool.repositoryUrl}
-            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <p className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate max-w-md">
+                {poolTargetList(pool)[0]}
+              </p>
+              <TargetCountBadge pool={pool} />
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -438,9 +442,16 @@ export function PoolDetailPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
             <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">Target Repository URL</span>
-              <div className="mt-1 font-mono font-semibold text-slate-900 dark:text-white break-all">
-                {pool.repositoryUrl}
+              <span className="text-slate-400">Target Repositories</span>
+              <div className="mt-1 space-y-1">
+                {poolTargetList(pool).map((url) => (
+                  <div
+                    key={url}
+                    className="font-mono font-semibold text-slate-900 dark:text-white break-all"
+                  >
+                    {url}
+                  </div>
+                ))}
               </div>
             </div>
 

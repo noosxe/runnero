@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { usePools, useRenovateStatus, useTriggerRenovateRun } from "../lib/api/query-hooks";
 import type { Pool } from "../gen/api_pb";
+import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { Bot, Play, ArrowUpRight, Clock, Layers, Calendar, Loader2 } from "lucide-react";
 
 export function RenovatePage() {
@@ -164,8 +165,9 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
         >
           {pool.name}
         </Link>
-        <div className="mt-0.5 text-[11px] font-mono text-slate-400 truncate max-w-xs">
-          {pool.repositoryUrl}
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-mono text-slate-400 max-w-xs">
+          <span className="truncate">{poolTargetList(pool)[0]}</span>
+          <TargetCountBadge pool={pool} />
         </div>
       </td>
 
