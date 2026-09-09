@@ -159,6 +159,20 @@ gains the same condition: `p.MinIdleRunners == 0 || pollsDemand`, so
 deficit-spawned runners on fallback pools are preserved through their startup
 grace instead of being drained as surplus.
 
+As-built refinement (RUN-151, RUN-156): the deficit is computed **per target** —
+`deficit_target = max(0, queued_target − idle_target)`, summed over targets —
+with idle runners attributed to the target they registered against (`TargetURL`).
+This prevents two failure modes observed live: queued demand on one repo being
+masked by idle runners on another (spawn skipped), and deficit spawns landing on
+a repo with no queued jobs via blind round-robin. Spawn targets are drawn from
+a per-target demand queue in stable targets-slice order; round-robin remains the
+fallback only when a cycle has no demand signal. Additionally, the fixed-idle
+(`min_idle > 0`) excess-idle drain spares on-demand runners inside the same
+startup grace period as the scale-to-zero branch — a reconcile tick landing
+between a demand spawn (webhook- or poll-driven) and the runner's first job
+pickup no longer deregisters it as excess idle. Standby runners and on-demand
+runners past the grace period drain as before (RUN-42 semantics preserved).
+
 ### 5.7 Validation rules (create + edit)
 
 The UI exposes only the `poll_fallback` toggle; the interval stays a

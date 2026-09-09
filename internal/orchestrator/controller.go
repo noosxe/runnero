@@ -1392,6 +1392,11 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 
 	effectiveTarget := p.MinIdleRunners
 
+	// demandQueue holds demand-directed spawn targets (RUN-151): one entry per
+	// queued job that no idle runner on that same target can cover, in stable
+	// targets-slice order. Empty unless this cycle polled demand.
+	var demandQueue []string
+
 	// Polling-based scaling for providers without webhook support (e.g. Forgejo per docs/03 §3b, RUN-70):
 	// Demand polling (docs/24 §5.1): natively polling providers (Forgejo) always
 	// poll; webhook providers poll only when the pool opts in via poll_fallback.
@@ -1400,6 +1405,7 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 		totalQueued := 0
 		note := ""
 		pollFailures := 0
+		demandByTarget := make(map[string]int, len(targets))
 		for _, target := range targets {
 			pollTarget := provider.PollTarget{
 				URL:    target,
@@ -1424,21 +1430,43 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 				c.logger.Warn("polling queued jobs for target failed", "pool", p.Name, "target", target, "err", err)
 				continue
 			}
+			demandByTarget[target] = queuedJobs
 			totalQueued += queuedJobs
 		}
 		c.recordPollOutcome(p.Name, p.ID, totalQueued, pollFailures, len(targets), note)
 
+		// RUN-151: attribute idle runners to the target they registered against,
+		// so demand on one repo is not masked by idle runners on another, and
+		// deficit spawns are directed at the repo that actually has queued jobs.
+		idleByTarget := make(map[string]int64, len(idleRunners))
+		for _, r := range idleRunners {
+			if r.TargetURL != "" {
+				idleByTarget[r.TargetURL]++
+			}
+		}
+
 		idleCount := int64(len(idleRunners))
-		if int64(totalQueued) > idleCount {
-			deficit := int64(totalQueued) - idleCount
+		totalDeficit := int64(0)
+		for _, target := range targets {
+			deficit := int64(demandByTarget[target]) - idleByTarget[target]
+			if deficit <= 0 {
+				continue
+			}
+			totalDeficit += deficit
+			for i := int64(0); i < deficit; i++ {
+				demandQueue = append(demandQueue, target)
+			}
+		}
+		if totalDeficit > 0 {
 			c.logger.Info("polling detected queued jobs exceeding idle runners",
 				"pool", p.Name,
 				"queued_jobs", totalQueued,
 				"idle_runners", idleCount,
-				"additional_needed", deficit,
+				"additional_needed", totalDeficit,
+				"demand_by_target", demandByTarget,
 			)
-			if activeCount+deficit > effectiveTarget {
-				effectiveTarget = activeCount + deficit
+			if activeCount+totalDeficit > effectiveTarget {
+				effectiveTarget = activeCount + totalDeficit
 			}
 		}
 	}
@@ -1475,7 +1503,8 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	//   The lifetime switch never caps the grace period: it is busy-only since
 	//   docs/23 §4.6, so unpicked on-demand runners are governed by the grace
 	//   period alone.
-	// - Fixed idle target (MinIdleRunners > 0): excess idle runners beyond target are drained (RUN-42).
+	// - Fixed idle target (MinIdleRunners > 0): excess idle runners beyond target are drained (RUN-42),
+	//   but on-demand runners are spared during the same startup grace period (RUN-156).
 	if p.MinIdleRunners == 0 {
 		gracePeriod := c.scaleToZeroGracePeriod
 		now := time.Now().UTC()
@@ -1498,13 +1527,28 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 		}
 	} else if int64(len(idleRunners)) > effectiveTarget {
 		excess := int64(len(idleRunners)) - effectiveTarget
-		c.logger.Info("pool min_idle reduced live, draining excess idle runners",
+		c.logger.Info("pool idle runners exceed target, draining excess idle runners",
 			"pool", p.Name, "idle_count", len(idleRunners), "target", effectiveTarget, "excess", excess)
-		for i := int64(0); i < excess && i < int64(len(idleRunners)); i++ {
-			r := idleRunners[i]
+		// RUN-156: on-demand runners inside their startup grace period are spared —
+		// they may still be registering with the provider to pick up a queued job
+		// (same guarantee as the scale-to-zero branch above, RUN-71). Without this,
+		// a reconcile tick landing between a demand spawn and its first job pickup
+		// kills the runner before it can go busy. On-demand runners with unknown
+		// age (zero SpawnedAt) drain as before, matching legacy behavior.
+		gracePeriod := c.scaleToZeroGracePeriod
+		now := time.Now().UTC()
+		drained := int64(0)
+		for _, r := range idleRunners {
+			if drained >= excess {
+				break
+			}
+			if r.OnDemand && !r.SpawnedAt.IsZero() && now.Sub(r.SpawnedAt) < gracePeriod {
+				continue
+			}
 			c.deregisterRunner(ctx, r)
 			_ = c.engine.TerminateRunner(ctx, r.ID)
 			c.reconciler.UntrackRunner(p.ID, r.ID)
+			drained++
 			activeCount--
 		}
 	}
@@ -1541,7 +1585,15 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 			break
 		}
 
-		targetURL := targets[int(activeCount)%len(targets)]
+		// RUN-151: honor demand-directed targets first (queued jobs on a specific
+		// repo); fall back to round-robin for plain min-idle replenishment.
+		targetURL := ""
+		if len(demandQueue) > 0 {
+			targetURL = demandQueue[0]
+			demandQueue = demandQueue[1:]
+		} else {
+			targetURL = targets[int(activeCount)%len(targets)]
+		}
 
 		// Check global quota circuit breaker (Total Allowed Runners per docs/03 §4, docs/05 §3)
 		if c.globalMaxRunners > 0 && c.TotalActiveRunners() >= c.globalMaxRunners {
