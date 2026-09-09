@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/testsupport/fakedocker"
 )
 
 // validKeyEnv returns t.Setenv for a strong placeholder encryption key so
@@ -23,6 +24,36 @@ import (
 func validKeyEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("SUPERVISOR_DB_ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef")
+}
+
+// TestMain installs a package-wide tripwire (RUN-143): the production
+// daemon must never boot against the default local Docker socket from a
+// test, because RebuildState adopts real runner containers and graceful
+// shutdown terminates them. Every daemon-booting test obtains a hermetic
+// endpoint via setFakeDocker; a test that forgets falls through to this
+// dead endpoint, fails its health assertions loudly, and cannot harm a
+// live stack.
+func TestMain(m *testing.M) {
+	if os.Getenv("SUPERVISOR_DOCKER_HOST") == "" {
+		_ = os.Setenv("SUPERVISOR_DOCKER_HOST", "tcp://127.0.0.1:1")
+	}
+	os.Exit(m.Run())
+}
+
+// setFakeDocker points the daemon at a per-test fake Docker Engine
+// (internal/testsupport/fakedocker) and returns it. This is the only
+// sanctioned way for a test to boot runDaemonContext: the fake answers the
+// boot-time Engine surface (ping, container list, events) so health
+// assertions see a genuinely healthy engine — without any real Docker.
+func setFakeDocker(t *testing.T) *fakedocker.Fake {
+	t.Helper()
+	fake := fakedocker.New()
+	t.Cleanup(fake.Close)
+	t.Setenv("SUPERVISOR_DOCKER_HOST", fake.Host())
+	if err := fake.Ping(); err != nil {
+		t.Fatalf("fake Docker endpoint not answering: %v", err)
+	}
+	return fake
 }
 
 // TestUsageListsAllSubcommands mirrors the acceptance criterion:
@@ -136,6 +167,7 @@ func getHealth(t *testing.T, url string) healthBody {
 // with the stub probe set, and shuts down cleanly on context cancellation.
 func TestDaemonServesHealthEndpoints(t *testing.T) {
 	validKeyEnv(t)
+	setFakeDocker(t)
 	port := freePort(t)
 	dataDir := t.TempDir()
 	t.Setenv("SUPERVISOR_DATA_DIR", dataDir)
@@ -283,6 +315,7 @@ pools:
 // and ignores YAML on subsequent boots (docs/02 §4, OQ #2).
 func TestDaemonFirstBootSeedImport(t *testing.T) {
 	validKeyEnv(t)
+	setFakeDocker(t)
 	port := freePort(t)
 	dataDir := t.TempDir()
 	dbPath := filepath.Join(dataDir, "firstboot.db")
