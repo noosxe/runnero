@@ -1425,7 +1425,7 @@ func TestDeletePoolDrainModePassThrough(t *testing.T) {
 	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
 	createPool := func(name string, lifetime int32) *supervisorv1.Pool {
 		t.Helper()
-		res, err := client.CreatePool(ctx, connect.NewRequest(&supervisorv1.CreatePoolRequest{
+		req := connect.NewRequest(&supervisorv1.CreatePoolRequest{
 			Pool: &supervisorv1.Pool{
 				Name:                     name,
 				Provider:                 "github",
@@ -1436,7 +1436,9 @@ func TestDeletePoolDrainModePassThrough(t *testing.T) {
 				MaxConcurrency:           5,
 				MaxRunnerLifetimeSeconds: lifetime,
 			},
-		}))
+		})
+		req.Header().Set("Cookie", "session_token="+rawCookie)
+		res, err := client.CreatePool(ctx, req)
 		if err != nil {
 			t.Fatalf("CreatePool %s failed: %v", name, err)
 		}
