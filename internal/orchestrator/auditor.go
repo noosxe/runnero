@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -183,6 +184,16 @@ func (r *Reconciler) TrackedPoolRunners(poolID int64) []RunnerStatus {
 	for _, s := range poolMap {
 		runners = append(runners, s)
 	}
+	// Deterministic order: map iteration randomizes on every call, which
+	// reshuffled API consumers' tables (e.g. the pool detail runner list)
+	// on each poll. Container names are unique, so name order is stable;
+	// SpawnedAt only breaks ties for defensive completeness.
+	sort.Slice(runners, func(i, j int) bool {
+		if runners[i].Name != runners[j].Name {
+			return runners[i].Name < runners[j].Name
+		}
+		return runners[i].SpawnedAt.Before(runners[j].SpawnedAt)
+	})
 	return runners
 }
 

@@ -2,6 +2,7 @@ package orchestrator_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -123,6 +124,49 @@ func TestReconciler_TrackAndUntrack(t *testing.T) {
 }
 
 // TestReconciler_LegacyNameOnlyContainersAdoptedByResolver verifies that
+// TestReconciler_TrackedPoolRunnersStableOrder: the snapshot comes from a
+// Go map, so without sorting every call returned the runners in a different
+// order and UI tables reshuffled on each poll. The snapshot must be
+// deterministically ordered by runner name.
+func TestReconciler_TrackedPoolRunnersStableOrder(t *testing.T) {
+	mockProvider := orchestrator.NewMockContainerProvider()
+	reconciler := orchestrator.NewReconciler(mockProvider)
+
+	names := []string{
+		"runnero-pool-x-delta", "runnero-pool-x-alpha", "runnero-pool-x-charlie",
+		"runnero-pool-x-echo", "runnero-pool-x-bravo", "runnero-pool-x-foxtrot",
+	}
+	for i, name := range names {
+		reconciler.TrackRunner(orchestrator.RunnerStatus{
+			PoolID:   103,
+			ID:       fmt.Sprintf("c-%d", i),
+			Name:     name,
+			PoolName: "pool-x",
+			State:    "running",
+		})
+	}
+
+	first := reconciler.TrackedPoolRunners(103)
+	if len(first) != len(names) {
+		t.Fatalf("expected %d runners, got %d", len(names), len(first))
+	}
+	for i := 1; i < len(first); i++ {
+		if first[i-1].Name >= first[i].Name {
+			t.Fatalf("snapshot not sorted by name: %q before %q", first[i-1].Name, first[i].Name)
+		}
+	}
+
+	// Map iteration randomizes per call; repeated snapshots must agree.
+	for attempt := 0; attempt < 25; attempt++ {
+		again := reconciler.TrackedPoolRunners(103)
+		for i := range again {
+			if again[i].Name != first[i].Name {
+				t.Fatalf("snapshot order changed at %d: %q vs %q", i, again[i].Name, first[i].Name)
+			}
+		}
+	}
+}
+
 // containers spawned before the pool-id label existed (RUN-126) — whose only
 // pool association is the spawn-time name label — are promoted to their
 // pool's database id at audit time, preserving boot adoption of in-flight
