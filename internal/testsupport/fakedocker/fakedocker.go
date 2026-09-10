@@ -61,9 +61,10 @@ type Request struct {
 type Fake struct {
 	srv *httptest.Server
 
-	mu         sync.Mutex
-	containers []Container
-	requests   []Request
+	mu            sync.Mutex
+	containers    []Container
+	requests      []Request
+	eventsStreams int // in-flight /events handlers (RUN-160 leak assertions)
 }
 
 // New starts a fake Docker Engine on a loopback port and returns it. The
@@ -84,6 +85,24 @@ func (f *Fake) Host() string {
 // any /events stream) have returned.
 func (f *Fake) Close() {
 	f.srv.Close()
+}
+
+// CloseClientConnections force-closes every open client connection,
+// in-flight /events streams included. Leak-assertion tests call it after a
+// failed assertion so the t.Cleanup(fake.Close) that follows is not itself
+// blocked by the leak being reported (RUN-160).
+func (f *Fake) CloseClientConnections() {
+	f.srv.CloseClientConnections()
+}
+
+// EventsStreamsActive reports how many /events stream handlers are currently
+// in flight. Boot-failure tests assert zero after the daemon returns (RUN-160):
+// a leaked stream means the daemon's teardown did not release it, and Close()
+// would block until the 5-minute eventsBackstop fires.
+func (f *Fake) EventsStreamsActive() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.eventsStreams
 }
 
 // SetContainers replaces the container list served by /containers/json, so
@@ -166,6 +185,15 @@ func (f *Fake) handleContainerList(w http.ResponseWriter) {
 // the stream's context, which releases this handler — or until the backstop
 // fires. No events are ever emitted.
 func (f *Fake) handleEvents(_ http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	f.eventsStreams++
+	f.mu.Unlock()
+	defer func() {
+		f.mu.Lock()
+		f.eventsStreams--
+		f.mu.Unlock()
+	}()
+
 	select {
 	case <-r.Context().Done():
 	case <-time.After(eventsBackstop):
