@@ -1,0 +1,104 @@
+name: E2E Suite
+
+# Containerized Playwright end-to-end suite (docs/13), executed on the
+# self-hosted runner pool so the suite can never rot silently again (RUN-131).
+# Runs nightly and on every pull request / main push that touches E2E-relevant
+# inputs; the workflow always includes itself so changes to the CI definition
+# are validated by the CI they define.
+#
+# The suite boots its own compose stack (mock provider, mock Docker, supervisor,
+# Playwright) — the only host requirement is Docker with the compose plugin,
+# which the runner image ships by default (docs/18). Docker layer caching is
+# free here: the shared engine keeps the base and compose-built images warm
+# across runs, so nightly runs rebuild only what changed.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Nightly at 03:17 UTC (off the top-of-hour GitHub cron congestion). The
+    # schedule is the rot guardian: it runs the full suite unconditionally,
+    # catching drift that path filtering would rightly skip (e.g. a pinned
+    # Playwright browser breaking against an updated base image).
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+# The compose stack uses fixed container names (project `runnero-e2e`) and the
+# self-hosted runner shares one Docker engine with everything else on the
+# host, so two concurrent suites would collide. Serialize ALL E2E runs
+# repo-wide — and deliberately do NOT cancel in-progress runs: a PR landing
+# mid-nightly must not kill the guardian run halfway through.
+concurrency:
+  group: e2e-suite
+  cancel-in-progress: false
+
+# Least privilege: these jobs only read the repository (AGENTS.md security rules)
+permissions:
+  contents: read
+
+jobs:
+  # Cheap gate job: detects whether E2E-relevant inputs changed. The suite only
+  # runs on matching pull requests / main pushes; schedules and manual dispatch
+  # always run (docs/11 §4).
+  changes:
+    name: Detect E2E-Relevant Changes
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          # Push events diff against the previous commit and need full
+          # history; pull_request events resolve changed files via the
+          # GitHub REST API (paths-filter, pull-requests: read) and only
+          # need a shallow checkout.
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
+
+      - name: Filter Changed Paths
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            e2e:
+              - 'tests/e2e/**'
+              - 'web/**'
+              - 'cmd/**'
+              - 'internal/**'
+              - 'proto/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Dockerfile.supervisor'
+              - 'Makefile'
+              - '.github/workflows/e2e.yml'
+
+  # The suite itself, on the self-hosted pool. Runner containers get the host
+  # Docker socket bound in when their pool is configured with docker access
+  # (`AllowDocker`, docs/03 §2), which is all this job needs: docker CLI +
+  # compose plugin are part of the runner image (docs/18 Tier 1).
+  e2e:
+    name: Playwright E2E (self-hosted)
+    needs: changes
+    if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || needs.changes.outputs.e2e == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Run E2E Suite
+        run: make test-e2e
+
+      # Resource ownership (AGENTS.md): the shared Docker host must not keep
+      # the compose stack, its networks, or its scratch volumes after the run.
+      - name: Tear Down E2E Stack
+        if: always()
+        run: make clean-e2e
