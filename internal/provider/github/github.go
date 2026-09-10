@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -321,30 +322,42 @@ func (c *Client) ListRunners(ctx context.Context, scope provider.RegistrationSco
 	return all, nil
 }
 
-// runnerJobsEndpoint returns the recent-jobs-per-runner endpoint for the scope
-// (docs/21 §5.3). The GitHub API exposes it for repo- and org-scoped runners;
-// enterprise runner jobs have no public endpoint, so global scope is unsupported
-// and callers fail open.
-func runnerJobsEndpoint(baseURL string, scope provider.RegistrationScope, owner, repo string, runnerID int64) (string, error) {
+// runnerJobEndpoints returns the workflow-run listing and the per-run jobs
+// listing for the scope. The GitHub API has no recent-jobs-per-runner
+// endpoint, so the runner's jobs are found by scanning the newest workflow
+// runs and matching each run's jobs on runner_id. Enterprise runners expose
+// no runs listing here, so global scope is unsupported and callers fail open.
+func runnerJobEndpoints(baseURL string, scope provider.RegistrationScope, owner, repo string) (runs string, jobs func(runID int64) string, err error) {
 	switch scope {
 	case provider.ScopeRepo:
 		if repo == "" {
-			return "", fmt.Errorf("%w: repository name required for repo scope", ErrInvalidTargetURL)
+			return "", nil, fmt.Errorf("%w: repository name required for repo scope", ErrInvalidTargetURL)
 		}
-		return fmt.Sprintf("%s/repos/%s/%s/actions/runners/%d/jobs", baseURL, owner, repo, runnerID), nil
+		runs = fmt.Sprintf("%s/repos/%s/%s/actions/runs", baseURL, owner, repo)
+		jobs = func(runID int64) string {
+			return fmt.Sprintf("%s/repos/%s/%s/actions/runs/%d/jobs", baseURL, owner, repo, runID)
+		}
+		return runs, jobs, nil
 	case provider.ScopeOrg:
-		return fmt.Sprintf("%s/orgs/%s/actions/runners/%d/jobs", baseURL, owner, runnerID), nil
+		runs = fmt.Sprintf("%s/orgs/%s/actions/runs", baseURL, owner)
+		jobs = func(runID int64) string {
+			return fmt.Sprintf("%s/orgs/%s/actions/runs/%d/jobs", baseURL, owner, runID)
+		}
+		return runs, jobs, nil
 	case provider.ScopeGlobal:
-		return "", fmt.Errorf("recent jobs for enterprise runners are not exposed by the GitHub API")
+		return "", nil, fmt.Errorf("recent jobs for enterprise runners are not exposed by the GitHub API")
 	default:
-		return "", fmt.Errorf("unsupported registration scope: %q", scope)
+		return "", nil, fmt.Errorf("unsupported registration scope: %q", scope)
 	}
 }
 
-// RunnerLatestJobs implements provider.RunnerJobsLister (docs/21 §5.3): returns the
-// forge's most recent jobs for the runner, newest first, keyed by the scope-specific
-// runner id carried by the ListRunners listing. Conclusions may be empty for jobs
-// that have not concluded; completed_at uses the standard GitHub timestamp format.
+// RunnerLatestJobs implements provider.RunnerJobsLister (docs/21 section 5.3):
+// returns the forge's most recent jobs for the runner, newest first, keyed by
+// the scope-specific runner id carried by the ListRunners listing. The GitHub
+// API has no recent-jobs-per-runner endpoint, so the runner's jobs are
+// collected by scanning the newest workflow runs and matching each run's jobs
+// on runner_id. Conclusions may be empty for jobs that have not concluded;
+// completed_at uses the standard GitHub timestamp format.
 func (c *Client) RunnerLatestJobs(ctx context.Context, scope provider.RegistrationScope, targetURL string, runnerID int64) ([]provider.RunnerJob, error) {
 	if runnerID <= 0 {
 		return nil, fmt.Errorf("runner id required to list runner jobs")
@@ -359,58 +372,81 @@ func (c *Client) RunnerLatestJobs(ctx context.Context, scope provider.Registrati
 		return nil, err
 	}
 
-	endpoint, err := runnerJobsEndpoint(c.baseURL, scope, owner, repo, runnerID)
+	runsEndpoint, jobsEndpoint, err := runnerJobEndpoints(c.baseURL, scope, owner, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	// per_page bounds the response; the orchestrator only needs the newest
-	// few entries to find the job that just completed.
-	jobsURL := fmt.Sprintf("%s?per_page=10", endpoint)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, jobsURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+authToken)
-	c.setCommonHeaders(req)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("listing runner jobs: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		return nil, fmt.Errorf("failed to list runner jobs (status %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	var listResp struct {
-		TotalCount int `json:"total_count"`
-		Jobs       []struct {
-			ID          int64  `json:"id"`
-			Conclusion  string `json:"conclusion"`
-			CompletedAt string `json:"completed_at"`
-		} `json:"jobs"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&listResp)
-	closeErr := resp.Body.Close()
-	if err != nil {
-		return nil, fmt.Errorf("decoding runner jobs response: %w", err)
-	}
-	if closeErr != nil {
-		return nil, fmt.Errorf("closing runner jobs response: %w", closeErr)
-	}
-
-	jobs := make([]provider.RunnerJob, 0, len(listResp.Jobs))
-	for _, j := range listResp.Jobs {
-		job := provider.RunnerJob{ID: j.ID, Conclusion: j.Conclusion}
-		if j.CompletedAt != "" {
-			if t, err := time.Parse(time.RFC3339, j.CompletedAt); err == nil {
-				job.CompletedAt = t
-			}
+	fetchJSON := func(url string, out any) error {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return err
 		}
-		jobs = append(jobs, job)
+		req.Header.Set("Authorization", "Bearer "+authToken)
+		c.setCommonHeaders(req)
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("listing %s: %w", url, err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return fmt.Errorf("failed to list (status %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		}
+		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+			return fmt.Errorf("decoding response: %w", err)
+		}
+		return nil
 	}
+
+	// The newest runs come first from the API; scanning a bounded window is
+	// enough to find the job that just finished, and keeps enrichment well
+	// inside its deadline.
+	var runsResp struct {
+		WorkflowRuns []struct {
+			ID int64 `json:"id"`
+		} `json:"workflow_runs"`
+	}
+	if err := fetchJSON(runsEndpoint+"?per_page=10", &runsResp); err != nil {
+		return nil, err
+	}
+
+	const (
+		maxRunsScanned  = 5
+		maxJobsReturned = 3
+	)
+	var jobs []provider.RunnerJob
+	for i, run := range runsResp.WorkflowRuns {
+		if i >= maxRunsScanned || len(jobs) >= maxJobsReturned {
+			break
+		}
+		var jobsResp struct {
+			Jobs []struct {
+				ID          int64  `json:"id"`
+				RunnerID    int64  `json:"runner_id"`
+				Conclusion  string `json:"conclusion"`
+				CompletedAt string `json:"completed_at"`
+			} `json:"jobs"`
+		}
+		if err := fetchJSON(jobsEndpoint(run.ID)+"?per_page=100", &jobsResp); err != nil {
+			return nil, err
+		}
+		for _, j := range jobsResp.Jobs {
+			if j.RunnerID != runnerID {
+				continue
+			}
+			job := provider.RunnerJob{ID: j.ID, Conclusion: j.Conclusion}
+			if j.CompletedAt != "" {
+				if t, err := time.Parse(time.RFC3339, j.CompletedAt); err == nil {
+					job.CompletedAt = t
+				}
+			}
+			jobs = append(jobs, job)
+		}
+	}
+	sort.Slice(jobs, func(a, b int) bool {
+		return jobs[a].CompletedAt.Unix() > jobs[b].CompletedAt.Unix()
+	})
 	return jobs, nil
 }
 

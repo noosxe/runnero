@@ -797,9 +797,11 @@ func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID str
 		return
 	}
 	var runnerName string
+	var forgeID int64
 	for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
 		if r.ID == containerID {
 			runnerName = r.Name
+			forgeID = r.ForgeID
 			break
 		}
 	}
@@ -807,12 +809,51 @@ func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID str
 		return
 	}
 	status := "interrupted"
+	jobID := int64(0)
 	if exitKnown && exitCode == 0 {
 		status = "completed"
+		// Clean exit: try to resolve the real conclusion before settling for a
+		// plain completed row — poll-fallback pools have no webhooks to correct
+		// it later (docs/21 section 5.3). Fail open, like the busy-sync path.
+		if c.enrichConclusions && forgeID > 0 {
+			if pool, gitProv, ok := c.deathEnrichmentProvider(ctx, poolID); ok {
+				status, jobID = c.enrichedCloseStatus(ctx, gitProv, pool, forgeID)
+			}
+		}
 	}
-	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, 0, "", time.Now().UTC()); err != nil {
+	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, jobID, "", time.Now().UTC()); err != nil {
 		c.logger.Warn("closing job row on runner death", "pool_id", poolID, "runner", runnerName, "err", err)
 	}
+}
+
+// deathEnrichmentProvider gathers the pool row and a jobs-listing-capable
+// provider for the death-path enrichment. ok=false when anything is missing;
+// the caller then keeps the plain completed row (docs/21 G3).
+func (c *PoolController) deathEnrichmentProvider(ctx context.Context, poolID int64) (db.RunnerPool, provider.GitProvider, bool) {
+	pools, err := c.loadPools(ctx)
+	if err != nil {
+		return db.RunnerPool{}, nil, false
+	}
+	var pool db.RunnerPool
+	found := false
+	for _, p := range pools {
+		if p.ID == poolID {
+			pool = p
+			found = true
+			break
+		}
+	}
+	if !found {
+		return db.RunnerPool{}, nil, false
+	}
+	gitProv, err := c.providerResolver.ResolveProvider(ctx, pool.AuthProfileID)
+	if err != nil {
+		return db.RunnerPool{}, nil, false
+	}
+	if _, ok := gitProv.(provider.RunnerJobsLister); !ok {
+		return db.RunnerPool{}, nil, false
+	}
+	return pool, gitProv, true
 }
 
 // Start boots the controller and runs the continuous periodic reconciliation loop until ctx is canceled.

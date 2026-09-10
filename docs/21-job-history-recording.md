@@ -116,8 +116,12 @@ RunnerLatestJobs(ctx, scope, targetURL, runnerID int64) ([]RunnerJob{ID, Conclus
   signature from implementation: resolving a name to an id per call would double
   the API cost, so the id from the `RunnerLister` listing is persisted onto
   tracked runner state instead).
-- GitHub implementation: `GET /repos/{owner}/{repo}/actions/runners/{runner_id}/jobs`
-  for repo scope, `/orgs/{org}/actions/runners/{runner_id}/jobs` for org scope.
+- GitHub implementation: the GitHub API has **no recent-jobs-per-runner endpoint**,
+  so the runner's jobs are found by scanning the newest workflow runs and
+  matching each run's jobs on `runner_id`: `GET /repos/{owner}/{repo}/actions/runs`
+  then `GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs` for repo scope,
+  `/orgs/{org}/actions/runs` and `/orgs/{org}/actions/runs/{run_id}/jobs` for org
+  scope. The scan is bounded (5 runs, stop at 3 of the runner's jobs).
   Enterprise (global) scope has no public endpoint and reports unsupported.
 - Invoked **once per job completion** (not per cycle) with a bounded timeout; the
   newest forge job with a non-empty `completed_at` sets status + external `job_id`
@@ -125,8 +129,11 @@ RunnerLatestJobs(ctx, scope, targetURL, runnerID int64) ([]RunnerJob{ID, Conclus
   forge's own job state).
 - Failure, unimplemented provider, missing forge id, or no concluded job → row
   closes as `completed` with no job id (fail-open, G3). Container-death closes
-  keep the §5.4 exit-code mapping: by the time a dead runner is reaped its
-  registration is typically already gone, so the lookup would mostly 404.
+  participate in the same enrichment: a **clean exit (code 0)** resolves the
+  conclusion exactly like the busy→idle path — poll-fallback pools receive no
+  webhooks, so death is often the only chance to record the real outcome.
+  Unclean exits keep the §5.4 mapping (`interrupted`): the job outcome is
+  unknowable when the runner died mid-job.
 - Globally toggleable via `SUPERVISOR_ENRICH_JOB_CONCLUSIONS` (default: on).
 
 ### 5.4 Crash recovery
@@ -153,6 +160,16 @@ Open rows must not survive forever:
 - `completed`: set `completed_at` + map `conclusion` → status
   (`success`/`failure`/`cancelled`, others → `completed`), close the row, and close
   the runner's open slot.
+- **Death-before-webhook race**: an ephemeral runner's container exits seconds
+  after the job finishes, so the death handler (§5.2) usually closes the row
+  as `completed` before the forge's `completed` event lands — and a closed
+  row no longer matches the open-row-only close paths. When no open row
+  matches, the event therefore **upgrades the already-closed row** instead of
+  no-oping: by external `job_id` first (queued-path rows), otherwise the
+  runner's newest closed `completed` row (poll-path rows, which carry no job
+  id) with the job id stamped on. Rows closed as `interrupted`/`timeout` are
+  never upgraded — the forge conclusion then describes a requeued job, not
+  the death-closed row.
 - Deduplication invariant (all writers): **at most one open row per runner**
   (partial unique index `WHERE completed_at IS NULL`). Webhook rows created before
   a transition row for the same job are merged by job id; transition rows never
