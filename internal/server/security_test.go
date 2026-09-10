@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/noosxe/runnero/internal/server"
@@ -43,8 +44,12 @@ func TestSecurityHeadersPresence(t *testing.T) {
 	if csp == "" {
 		t.Error("Content-Security-Policy header is missing")
 	}
-	if got := csp; got != "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';" {
+	if got := csp; got != server.ValueCSP {
 		t.Errorf("Content-Security-Policy = %q", got)
+	}
+	// The inline pre-paint theme script (web/index.html) must stay allowlisted.
+	if !strings.Contains(csp, "'sha256-/bRTsAHXsuyQc/IEeJa0n8pJe74NAM94NwdrqChr4lk='") {
+		t.Error("Content-Security-Policy does not allowlist the inline theme bootstrap script")
 	}
 
 	// 4. Verify Referrer-Policy: strict-origin-when-cross-origin

@@ -433,8 +433,14 @@ const (
 
 	ValueXFrameOptions       = "DENY"
 	ValueXContentTypeOptions = "nosniff"
-	ValueCSP                 = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
-	ValueReferrerPolicy      = "strict-origin-when-cross-origin"
+	// The script-src hash allowlists exactly one inline script: the pre-paint
+	// theme bootstrap in web/index.html (it must run before first render to
+	// avoid a light flash for dark-theme users, so it cannot be an external
+	// file). If you edit that script, the hash changes and the browser will
+	// block it while printing the new expected value in devtools — update it
+	// here in the same commit.
+	ValueCSP            = "default-src 'self'; script-src 'self' 'sha256-/bRTsAHXsuyQc/IEeJa0n8pJe74NAM94NwdrqChr4lk='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+	ValueReferrerPolicy = "strict-origin-when-cross-origin"
 )
 
 // securityMiddleware sets standard HTTP security headers and strictly denies CORS (same-origin only, OQ #25, #26).
