@@ -26,7 +26,7 @@ type PoolDatabase interface {
 	GetRunnerPoolById(ctx context.Context, id int64) (db.RunnerPool, error)
 	GetRunnerPoolByName(ctx context.Context, name string) (db.RunnerPool, error)
 	CreateRunnerPool(ctx context.Context, arg db.CreateRunnerPoolParams) (db.RunnerPool, error)
-	UpdateRunnerPool(ctx context.Context, arg db.UpdateRunnerPoolParams) (db.RunnerPool, error)
+	UpdatePool(ctx context.Context, req db.PoolUpdate) (db.RunnerPool, error)
 	DeleteRunnerPool(ctx context.Context, id int64) error
 	CreateAuditLog(ctx context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error)
 	GetRenovateConfigByPoolId(ctx context.Context, poolID int64) (db.RenovateConfig, error)
@@ -671,16 +671,45 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 
 	identityChanged := spawnIdentityChanged(existing, existingTargets, params, newTargets)
 
+	renovateBefore, renovateBeforeErr := s.db.GetRenovateConfigByPoolId(ctx, pool.Id)
+
+	var renovate *db.UpdateRenovateConfigParams
+	if pool.Renovate != nil {
+		img := strings.TrimSpace(pool.Renovate.Image)
+		if img == "" {
+			img = "renovate/renovate:latest"
+		}
+		cronSched := strings.TrimSpace(pool.Renovate.CronSchedule)
+		renovate = &db.UpdateRenovateConfigParams{
+			PoolID:       pool.Id,
+			Enabled:      pool.Renovate.Enabled,
+			CronSchedule: sql.NullString{String: cronSched, Valid: cronSched != ""},
+			Image:        img,
+		}
+	}
+
+	// Rewrite pool_targets only when the normalized target set changed, so
+	// full-pool round-trips (e.g. the Renovate tab) do not churn target rows
+	// (docs/22 §6.1). A nil Targets leaves the stored set untouched.
+	var targets []string
+	if !slices.Equal(existingTargets, newTargets) {
+		targets = newTargets
+	}
+
 	// Renames are metadata-only: the controller tracks runners by pool id, so a
 	// rename neither orphans nor recycles live runners — spawned containers keep
 	// their spawn-time pool-name label until they recycle naturally (RUN-126,
 	// docs/22 §5.4). Spawn-identity edits recycle idle runners so respawns pick
 	// up the new configuration; busy runners are never touched (docs/22 §5.2).
-	if identityChanged {
-		s.recycleIdleRunners(ctx, existing.ID)
-	}
-
-	updated, err := s.db.UpdateRunnerPool(ctx, params)
+	// The pool row, renovate config, and target set land in a single
+	// transaction (RUN-129) — sequential writes left mixed state on a
+	// mid-sequence failure — and recycling runs only after the commit, so a
+	// failed update does not churn idle runners.
+	updated, err := s.db.UpdatePool(ctx, db.PoolUpdate{
+		Pool:     params,
+		Renovate: renovate,
+		Targets:  targets,
+	})
 	if err != nil {
 		if db.IsUniqueConstraintError(err) {
 			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("pool name %q already exists", params.Name))
@@ -691,51 +720,8 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("updating runner pool: %w", err))
 	}
 
-	renovateBefore, renovateBeforeErr := s.db.GetRenovateConfigByPoolId(ctx, pool.Id)
-
-	if pool.Renovate != nil {
-		img := strings.TrimSpace(pool.Renovate.Image)
-		if img == "" {
-			img = "renovate/renovate:latest"
-		}
-		cronSched := strings.TrimSpace(pool.Renovate.CronSchedule)
-		_, err := s.db.UpdateRenovateConfig(ctx, db.UpdateRenovateConfigParams{
-			PoolID:       updated.ID,
-			Enabled:      pool.Renovate.Enabled,
-			CronSchedule: sql.NullString{String: cronSched, Valid: cronSched != ""},
-			Image:        img,
-		})
-		switch {
-		case err == nil:
-		case errors.Is(err, sql.ErrNoRows):
-			if _, cerr := s.db.CreateRenovateConfig(ctx, db.CreateRenovateConfigParams{
-				PoolID:       updated.ID,
-				Enabled:      pool.Renovate.Enabled,
-				CronSchedule: sql.NullString{String: cronSched, Valid: cronSched != ""},
-				Image:        img,
-			}); cerr != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("creating renovate config: %w", cerr))
-			}
-		default:
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("updating renovate config: %w", err))
-		}
-	}
-
-	// Rewrite pool_targets only when the normalized target set changed, so
-	// full-pool round-trips (e.g. the Renovate tab) do not churn target rows
-	// (docs/22 §6.1).
-	if !slices.Equal(existingTargets, newTargets) {
-		if err := s.db.DeletePoolTargetsByPoolId(ctx, pool.Id); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("replacing pool targets: %w", err))
-		}
-		for _, t := range newTargets {
-			if _, err := s.db.AddPoolTarget(ctx, db.AddPoolTargetParams{
-				PoolID:    pool.Id,
-				TargetUrl: t,
-			}); err != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("adding pool target %q: %w", t, err))
-			}
-		}
+	if identityChanged {
+		s.recycleIdleRunners(ctx, existing.ID)
 	}
 
 	recordAuditLog(ctx, s.db, "pool.update", "runner_pool", &updated.ID, map[string]any{
