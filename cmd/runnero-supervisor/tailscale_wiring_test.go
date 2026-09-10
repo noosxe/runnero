@@ -231,7 +231,14 @@ func TestDaemonTailscaleBootFailureAbortsBoot(t *testing.T) {
 		t.Fatalf("loading configuration: %v", err)
 	}
 
-	err := runDaemonContext(context.Background())
+	// RUN-159: the daemon's background loops (pool controller /events stream,
+	// backup/retention schedulers) hang off this context. Cancel on cleanup so
+	// fakedocker's Close isn't blocked until its 5-minute events backstop —
+	// an uncancellable Background context made this test take exactly 300s,
+	// dominating the whole Go CI Test step on both architectures.
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	err := runDaemonContext(ctx)
 	if err == nil {
 		t.Fatal("daemon booted despite tailscale failure, want abort")
 	}
