@@ -422,6 +422,11 @@ func init() {
 				token = parts[1]
 			}
 		}
+		if raw := strings.TrimSpace(os.Getenv("GITEA_BASE_URL")); raw != "" {
+			// Deployment-level instance override (E2E stacks against the mock
+			// provider, RUN-134): wins over a url|token-prefixed credential.
+			opts = append(opts, WithBaseURL(raw))
+		}
 		return NewClient(token, opts...)
 	})
 }

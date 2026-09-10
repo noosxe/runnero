@@ -284,3 +284,59 @@ func TestForgejoDiscoveryPagination(t *testing.T) {
 		t.Fatalf("expected 114 orgs, got %d", len(orgs))
 	}
 }
+
+// TestRegistryHonorsForgejoBaseURLEnvOverride pins RUN-134: FORGEJO_BASE_URL
+// is a deployment-level instance override in the registry constructor (E2E
+// stacks against the mock provider), winning over a url|token credential.
+func TestRegistryHonorsForgejoBaseURLEnvOverride(t *testing.T) {
+	profile := db.DecryptedAuthProfile{
+		AuthProfile: db.AuthProfile{AuthMethod: string(provider.AuthMethodForgejoToken)},
+		Token:       "https://credential-instance.example|valid-forgejo-pat",
+	}
+
+	newStub := func(t *testing.T, gotPath *string) *httptest.Server {
+		t.Helper()
+		stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			*gotPath = r.URL.Path
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"login":"someone"}`))
+		}))
+		t.Cleanup(stub.Close)
+		return stub
+	}
+
+	t.Run("env unset keeps credential-embedded instance", func(t *testing.T) {
+		var gotPath string
+		stub := newStub(t, &gotPath)
+		p := profile
+		p.Token = stub.URL + "|valid-forgejo-pat"
+
+		prov, err := provider.DefaultRegistry.Build(context.Background(), p)
+		if err != nil {
+			t.Fatalf("Build: %v", err)
+		}
+		if err := prov.ValidateCredentials(context.Background()); err != nil {
+			t.Fatalf("ValidateCredentials: %v", err)
+		}
+		if gotPath != "/api/v1/user" {
+			t.Fatalf("credential-embedded instance not used, last request path: %q", gotPath)
+		}
+	})
+
+	t.Run("env override wins over credential-embedded instance", func(t *testing.T) {
+		var gotPath string
+		stub := newStub(t, &gotPath)
+		t.Setenv("FORGEJO_BASE_URL", stub.URL)
+
+		prov, err := provider.DefaultRegistry.Build(context.Background(), profile)
+		if err != nil {
+			t.Fatalf("Build: %v", err)
+		}
+		if err := prov.ValidateCredentials(context.Background()); err != nil {
+			t.Fatalf("ValidateCredentials: %v", err)
+		}
+		if gotPath != "/api/v1/user" {
+			t.Fatalf("FORGEJO_BASE_URL override not used, last request path: %q", gotPath)
+		}
+	})
+}
