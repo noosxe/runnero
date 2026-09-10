@@ -11,11 +11,22 @@ test.describe('Flow 07: System Settings & Maintenance', () => {
     const runnersInput = page.getByLabel(/Global Runner Quota/i);
     await expect(runnersInput).toBeVisible();
 
-    // Toggle theme in top-right corner of AppShell
-    const darkBtn = page.getByTitle('Dark Theme');
-    if (await darkBtn.isVisible()) {
-      await darkBtn.click();
-      await expect(page.locator('html')).toHaveClass(/dark/);
-    }
+    // Toggle theme in the AppShell header: the selector must visibly re-skin
+    // the app. `dark:` utilities follow the html.dark class (web/src/index.css
+    // @custom-variant), so the computed body background must actually change —
+    // a class flip alone proved nothing while the variant was still wired to
+    // the OS media query, which is why the selector appeared to do nothing.
+    const body = page.locator('body');
+    const bg = () => body.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const lightBg = await bg();
+
+    await page.getByTitle('Dark Theme').click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    // body uses transition-colors: poll until the interpolated color settles
+    await expect.poll(bg).not.toBe(lightBg);
+
+    await page.getByTitle('Light Theme').click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await expect.poll(bg).toBe(lightBg);
   });
 });
