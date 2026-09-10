@@ -63,9 +63,31 @@ The supervisor supports two scaling modes, determined by each pool's `GitProvide
 
 For providers that emit `workflow_job` webhook events, the supervisor exposes an internal HTTP endpoint (`POST /hooks/{provider}`) to receive these events. When a `workflow_job` event with `action: "queued"` is received:
 
-1. The supervisor identifies the target pool by matching the repository URL.
-2. If the pool has available capacity (`active_runners < max_concurrency`), a new ephemeral runner is provisioned immediately.
-3. If the global `Total Allowed Runners` limit is saturated, the request is queued internally until capacity is available.
+1. The supervisor identifies the target pool by matching the repository URL
+   (+ label compatibility) and a specific pool target.
+2. **Warm-first provisioning:** the job is booked as pending demand for the
+   pool — in-memory, keyed by workflow job id; the booking clears on the
+   job's `in_progress`/`completed` delivery, or expires after 1h if those
+   deliveries never arrive. If idle warm runners registered against the
+   matched target cover the pending demand (`pending ≤ idle_on_target`),
+   **no runner is provisioned**: the forge assigns the job to the warm
+   runner directly. This applies the polling path's deficit principle
+   (RUN-151) to the webhook path — previously every queued event spawned a
+   fresh runner, so warm capacity never absorbed demand and idle runners
+   sat unused whenever webhooks worked. Runners record their spawn-time
+   target, so idle attribution is per target and idle runners on one repo
+   never mask demand on another (multi-target pools); runners without a
+   known target (legacy adoptions) are never counted.
+3. Only the uncovered shortfall provisions a runner, subject to
+   `max_concurrency`. If the global `Total Allowed Runners` limit is
+   saturated, the request is queued internally until capacity is available.
+
+Bursts converge correctly: the first queued event consumes a warm runner, the
+second books demand beyond it and provisions one runner, and so on — total
+capacity tracks total pending demand instead of the old spawn-per-event
+overprovisioning. Bookings are in-memory only, so a supervisor restart
+merely reverts new events to spawn-per-event until warm capacity and forge
+assignment re-converge.
 
 This provides near-instant job pickup with no polling overhead.
 

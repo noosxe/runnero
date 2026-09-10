@@ -165,23 +165,28 @@ func TestSpawnPipeline_FixedIdle_WebhookSpawnSurvivesReconcileInsideGrace(t *tes
 		t.Fatalf("expected 1 min-idle runner on boot, got %d", h.spawnCount())
 	}
 
-	// Webhook queued event provisions a second (on-demand) runner.
-	evt := &webhook.WorkflowJobEvent{
-		Action: "queued",
-		Repository: webhook.RepositoryPayload{
-			FullName: "acme/repo-a",
-			HTMLURL:  targetA,
-		},
-		WorkflowJob: webhook.WorkflowJobPayload{
-			ID:     9001,
-			Labels: []string{"self-hosted", "linux"},
-		},
+	// Webhook queued events provision an on-demand runner once demand exceeds
+	// the warm runner: the first event is covered warm-first (no spawn), the
+	// second books demand beyond idle capacity and provisions the shortfall.
+	for _, jobID := range []int64{9001, 9003} {
+		evt := &webhook.WorkflowJobEvent{
+			Action: "queued",
+			Repository: webhook.RepositoryPayload{
+				FullName: "acme/repo-a",
+				HTMLURL:  targetA,
+			},
+			WorkflowJob: webhook.WorkflowJobPayload{
+				ID:     jobID,
+				Labels: []string{"self-hosted", "linux"},
+			},
+		}
+		if err := h.ctrl.HandleWorkflowJob(ctx, "github", evt); err != nil {
+			t.Fatalf("HandleWorkflowJob (%d) failed: %v", jobID, err)
+		}
 	}
-	if err := h.ctrl.HandleWorkflowJob(ctx, "github", evt); err != nil {
-		t.Fatalf("HandleWorkflowJob failed: %v", err)
-	}
+
 	if h.spawnCount() != 2 {
-		t.Fatalf("expected webhook spawn, got %d spawns", h.spawnCount())
+		t.Fatalf("expected webhook to provision only the shortfall (2 total), got %d spawns", h.spawnCount())
 	}
 
 	// Reconcile tick lands inside the fresh runner's startup window.
@@ -208,19 +213,23 @@ func TestSpawnPipeline_FixedIdle_StaleOnDemandDrainedFreshSpared(t *testing.T) {
 	if err := h.ctrl.Boot(ctx); err != nil {
 		t.Fatalf("Boot failed: %v", err)
 	}
-	evt := &webhook.WorkflowJobEvent{
-		Action: "queued",
-		Repository: webhook.RepositoryPayload{
-			FullName: "acme/repo-a",
-			HTMLURL:  targetA,
-		},
-		WorkflowJob: webhook.WorkflowJobPayload{
-			ID:     9002,
-			Labels: []string{"self-hosted", "linux"},
-		},
-	}
-	if err := h.ctrl.HandleWorkflowJob(ctx, "github", evt); err != nil {
-		t.Fatalf("HandleWorkflowJob failed: %v", err)
+	// Demand beyond the warm runner provisions the on-demand runner: the
+	// first event is covered warm-first, the second spawns the shortfall.
+	for _, jobID := range []int64{9002, 9004} {
+		evt := &webhook.WorkflowJobEvent{
+			Action: "queued",
+			Repository: webhook.RepositoryPayload{
+				FullName: "acme/repo-a",
+				HTMLURL:  targetA,
+			},
+			WorkflowJob: webhook.WorkflowJobPayload{
+				ID:     jobID,
+				Labels: []string{"self-hosted", "linux"},
+			},
+		}
+		if err := h.ctrl.HandleWorkflowJob(ctx, "github", evt); err != nil {
+			t.Fatalf("HandleWorkflowJob (%d) failed: %v", jobID, err)
+		}
 	}
 
 	// Age the boot runner past the grace period (it never picked up a job).
