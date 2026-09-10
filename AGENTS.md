@@ -89,6 +89,13 @@ Work is tracked in Linear via the Linear MCP server, not GitHub issues:
   current feature must be filed on Linear for later pickup. Suggested
   improvements and follow-ups must also be filed, not implemented
   opportunistically.
+- **PRs stay focused.** Any issue that does not directly interfere with the
+  current feature must be filed on Linear for later pickup. Suggested
+  improvements and follow-ups must also be filed, not implemented
+  opportunistically.
+- **Don't babysit PRs.** Commit, push, and move on — do not poll CI status
+  or sleep/wait on checks. The product owner reports CI failures back when
+  they need fixing. Only watch CI when the user explicitly asks for it.
 - PR bodies carry a human-check list — interactive/visual verification is the
   product owner's job. For UI-facing changes, exercise the change through the
   E2E suite first (see below) and say so in the PR body.
@@ -172,6 +179,9 @@ Runners execute untrusted workflow code; security is the absolute priority.
 2. Delete merged branches: remote branches are usually auto-deleted; local
    branches need manual `-d` (use `-D` after a rebase-merge, the squashed
    commit SHA will not match).
-3. Verify clean gates on `main`.
+3. Do not re-run the local test suite — cleanup is housekeeping only:
+   CI on `main` has already run the gates, and re-running everything locally
+   wastes time. Run targeted checks only if something looks off, or the full
+   gates if the user explicitly asks.
 4. Tear down the E2E stack (`make clean-e2e`) and remove scratch files
    (e.g. under `/tmp`) used for smoke runs.
