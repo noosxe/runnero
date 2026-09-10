@@ -307,17 +307,16 @@ describe("PoolDetailPage", () => {
     try {
       render(<PoolDetailPage />);
 
-      // Header shows first target + count badge
+      // Header carries only the count badge; target URLs live in the
+      // configuration tab
       expect(screen.getByText("2 repos")).toBeInTheDocument();
 
       const configTabBtn = screen.getByRole("button", { name: /pool configuration/i });
       fireEvent.click(configTabBtn);
 
       expect(screen.getByText("Target Repositories")).toBeInTheDocument();
-      // First target appears in the header line and the list
-      expect(
-        screen.getAllByText("https://github.com/noosxe/runnero").length,
-      ).toBeGreaterThanOrEqual(1);
+      // Every target is listed exactly once (header no longer repeats the first)
+      expect(screen.getByText("https://github.com/noosxe/runnero")).toBeInTheDocument();
       expect(screen.getByText("https://github.com/noosxe/frontend")).toBeInTheDocument();
     } finally {
       mockPool.targetUrls = original;

@@ -246,12 +246,11 @@ export function PoolsPage() {
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {p.name}
                       </h3>
-                      <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                        <p className="text-xs font-mono text-slate-500 truncate max-w-sm">
-                          {poolTargetList(p)[0]}
-                        </p>
-                        <TargetCountBadge pool={p} />
-                      </div>
+                      {poolTargetList(p).length > 1 && (
+                        <div className="mt-0.5">
+                          <TargetCountBadge pool={p} />
+                        </div>
+                      )}
                       {p.currentIntent && (
                         <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 italic flex items-center gap-1.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-blue-500 inline-block shrink-0" />

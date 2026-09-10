@@ -185,9 +185,10 @@ describe("PoolsPage", () => {
     mockPoolsData = mockPools;
     render(<PoolsPage />);
 
-    // gitea-org-pool has one target (repositoryUrl fallback) and no badge
+    // gitea-org-pool has one target (repositoryUrl fallback): no badge, and no
+    // repo URL is rendered on the card either — the pool name identifies it
     expect(screen.queryByText("1 repos")).not.toBeInTheDocument();
-    expect(screen.getByText("https://gitea.example.com/devops")).toBeInTheDocument();
+    expect(screen.queryByText("https://gitea.example.com/devops")).not.toBeInTheDocument();
   });
 
   it("filters pools by a secondary target URL", () => {

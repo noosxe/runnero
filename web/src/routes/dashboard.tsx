@@ -289,10 +289,11 @@ export function DashboardPage() {
                     </span>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <span className="truncate font-mono">{poolTargetList(p)[0]}</span>
-                  <TargetCountBadge pool={p} />
-                </div>
+                {poolTargetList(p).length > 1 && (
+                  <div className="mt-2 flex items-center text-xs text-slate-500 dark:text-slate-400">
+                    <TargetCountBadge pool={p} />
+                  </div>
+                )}
                 {p.currentIntent && (
                   <div className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 italic truncate">
                     {p.currentIntent}
