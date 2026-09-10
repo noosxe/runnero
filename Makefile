@@ -89,6 +89,7 @@ clean: clean-e2e
 
 ## test-e2e: run containerized Playwright E2E tests
 test-e2e:
+	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans 2>/dev/null || true
 	docker compose -f tests/e2e/docker-compose.e2e.yml up \
 		--build \
 		--abort-on-container-exit \
