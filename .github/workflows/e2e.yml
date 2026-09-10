@@ -32,7 +32,10 @@ on:
 # repo-wide — and deliberately do NOT cancel in-progress runs: a PR landing
 # mid-nightly must not kill the guardian run halfway through.
 concurrency:
-  group: e2e-suite
+  # `-v2` suffix: the original `e2e-suite` slot is held forever by a stranded run
+  # that queued for runner labels which never existed (queued runs on
+  # unavailable labels cannot be cancelled and never complete).
+  group: e2e-suite-v2
   cancel-in-progress: false
 
 # Least privilege: these jobs only read the repository (AGENTS.md security rules)
