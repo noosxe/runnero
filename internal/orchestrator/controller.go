@@ -191,7 +191,9 @@ type PoolController struct {
 	poolIDsMu     sync.RWMutex
 	poolIDsByName map[string]int64 // spawn-time name -> pool id; resolves legacy events/containers (RUN-126)
 
-	queue         []ProvisionRequest // internal provisioning queue for quota saturation (RUN-39)
+	queue []ProvisionRequest // internal provisioning queue for quota saturation (RUN-39)
+
+	demand        webhookDemandTracker // queued-webhook jobs awaiting a runner, per pool (warm-first provisioning)
 	state         ControllerState
 	lastHeartbeat time.Time
 	logger        *slog.Logger

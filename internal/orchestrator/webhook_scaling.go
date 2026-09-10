@@ -176,10 +176,13 @@ func MatchPoolForEventWithTargets(pools []db.RunnerPool, poolTargets map[int64][
 
 // HandleWorkflowJob implements webhook.EventHandler.
 // On "queued" action:
-// 1. Matches pool by repository URL (+ scope) and label compatibility
-// 2. Verifies active_runners < max_concurrency
-// 3. Verifies global runner quota (circuit breaker); enqueues internally if saturated
-// 4. Provisions a replacement runner immediately without waiting for the periodic audit tick.
+//  1. Matches pool by repository URL (+ scope) and label compatibility
+//  2. Books the job as pending demand and serves it from warm idle runners
+//     registered against the matched target where possible (warm-first,
+//     docs/03 §4); only the uncovered shortfall provisions a new runner
+//     without waiting for the periodic audit tick
+//  3. Verifies active_runners < max_concurrency
+//  4. Verifies global runner quota (circuit breaker); enqueues internally if saturated
 func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName string, event *webhook.WorkflowJobEvent) error {
 	if event == nil {
 		return nil
@@ -224,15 +227,42 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		// regardless of whether this deployment can spawn a runner for it.
 		c.recordWebhookQueued(ctx, targetPool, event)
 
-		// Fast capacity check before acquiring single-writer provisioning lock
+		// Book the job as pending demand for this pool before any capacity
+		// decision: repeated queued events must see the demand booked by their
+		// predecessors, or a burst would each observe the same warm runner and
+		// under-provision (docs/03 §4, warm-first provisioning).
+		c.demand.markQueued(targetPool.ID, event.WorkflowJob.ID)
+		pendingDemand := int64(c.demand.pending(targetPool.ID))
+
+		// Fast capacity check before acquiring single-writer provisioning lock.
+		// Warm-runner-first: an idle runner registered against the matched
+		// target is capacity the forge can assign the job to immediately, so
+		// only the demand not covered by such runners may spawn (the same
+		// deficit principle as the polling path, RUN-151). Runners with no
+		// known target (legacy adoptions) are not attributable and never mask
+		// demand, matching idleByTarget accounting.
+		matchedNormalized := NormalizeRepositoryURL(matchedTargetURL)
 		tracked := c.reconciler.TrackedPoolRunners(targetPool.ID)
 		activeCount := int64(0)
+		idleOnTarget := int64(0)
 		for _, r := range tracked {
-			if r.State == "running" {
-				activeCount++
+			if r.State != "running" {
+				continue
+			}
+			activeCount++
+			if !r.IsBusy && r.TargetURL != "" && NormalizeRepositoryURL(r.TargetURL) == matchedNormalized {
+				idleOnTarget++
 			}
 		}
-
+		if pendingDemand <= idleOnTarget {
+			c.logger.Info("queued webhook covered by warm idle runner, skipping spawn",
+				"pool", targetPool.Name,
+				"job_id", event.WorkflowJob.ID,
+				"pending_demand", pendingDemand,
+				"idle_on_target", idleOnTarget,
+			)
+			return nil
+		}
 		// Per-pool max_concurrency check
 		if targetPool.MaxConcurrency > 0 && activeCount >= targetPool.MaxConcurrency {
 			c.logger.Info("pool reached max concurrency limit, skipping queued event spawn",
@@ -262,10 +292,25 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		// Re-check capacity under lock to prevent race conditions
 		tracked = c.reconciler.TrackedPoolRunners(targetPool.ID)
 		activeCount = 0
+		idleOnTarget = 0
 		for _, r := range tracked {
-			if r.State == "running" {
-				activeCount++
+			if r.State != "running" {
+				continue
 			}
+			activeCount++
+			if !r.IsBusy && r.TargetURL != "" && NormalizeRepositoryURL(r.TargetURL) == matchedNormalized {
+				idleOnTarget++
+			}
+		}
+		// Another writer may have provisioned for the same demand while we
+		// waited on the lock; re-run the warm-first shortfall check too.
+		if int64(c.demand.pending(targetPool.ID)) <= idleOnTarget {
+			c.logger.Info("queued webhook covered by warm idle runner under lock, skipping spawn",
+				"pool", targetPool.Name,
+				"job_id", event.WorkflowJob.ID,
+				"idle_on_target", idleOnTarget,
+			)
+			return nil
 		}
 		if targetPool.MaxConcurrency > 0 && activeCount >= targetPool.MaxConcurrency {
 			c.logger.Info("pool reached max concurrency under lock, skipping queued event spawn",
@@ -311,6 +356,7 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		// queued stubs, poll-opened transition rows, and this event never
 		// produce duplicate records.
 		if p := c.resolveEventPool(ctx, providerName, event); p != nil {
+			c.demand.markStarted(p.ID, event.WorkflowJob.ID)
 			c.recordWebhookEvent(ctx, "in_progress", p, event)
 		}
 		return nil
@@ -322,6 +368,7 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		// Webhook enrichment (docs/21 §5.5): close the job's open row with the
 		// forge-provided conclusion and completed_at.
 		if p := c.resolveEventPool(ctx, providerName, event); p != nil {
+			c.demand.markFinished(p.ID, event.WorkflowJob.ID)
 			c.recordWebhookEvent(ctx, "completed", p, event)
 		}
 		return nil

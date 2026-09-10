@@ -180,7 +180,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 	}
 }
 
-func TestPoolController_HandleWorkflowJob_Queued_Success(t *testing.T) {
+func TestPoolController_HandleWorkflowJob_Queued_WarmRunnerCoversDemand(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
@@ -235,7 +235,10 @@ func TestPoolController_HandleWorkflowJob_Queued_Success(t *testing.T) {
 		t.Fatalf("expected 1 initial runner, got %d", spawnCount)
 	}
 
-	// Webhook queued event arrives -> should immediately provision a 2nd runner
+	// Webhook queued event arrives -> the boot-provisioned warm runner is idle
+	// on the matched target, so it covers the demand and NO runner is
+	// provisioned (warm-first, docs/03 §4). The forge assigns the job to the
+	// warm runner directly.
 	evt := &webhook.WorkflowJobEvent{
 		Action: "queued",
 		Repository: webhook.RepositoryPayload{
@@ -252,12 +255,171 @@ func TestPoolController_HandleWorkflowJob_Queued_Success(t *testing.T) {
 		t.Fatalf("HandleWorkflowJob failed: %v", err)
 	}
 
-	if spawnCount != 2 {
-		t.Fatalf("expected 2 runners spawned after queued event, got %d", spawnCount)
+	if spawnCount != 1 {
+		t.Fatalf("warm idle runner should cover the queued event, spawnCount = %d", spawnCount)
+	}
+	if controller.TotalActiveRunners() != 1 {
+		t.Fatalf("expected 1 active runner, got %d", controller.TotalActiveRunners())
 	}
 
-	if controller.TotalActiveRunners() != 2 {
-		t.Fatalf("expected 2 active runners, got %d", controller.TotalActiveRunners())
+	// A burst of further queued events provisions only the shortfall: each
+	// event books demand first, so pending 2 > idle 1 spawns one, and pending
+	// 3 > idle 2 spawns one more — capacity converges to demand (3 jobs, 3
+	// runners) instead of the old spawn-per-event (4 runners).
+	for _, jobID := range []int64{602, 603} {
+		burstEvt := &webhook.WorkflowJobEvent{
+			Action: "queued",
+			Repository: webhook.RepositoryPayload{
+				FullName: "test-org/test-repo",
+				HTMLURL:  "https://github.com/test-org/test-repo",
+			},
+			WorkflowJob: webhook.WorkflowJobPayload{
+				ID:     jobID,
+				Labels: []string{"self-hosted", "linux"},
+			},
+		}
+		if err := controller.HandleWorkflowJob(ctx, "github", burstEvt); err != nil {
+			t.Fatalf("HandleWorkflowJob (burst %d) failed: %v", jobID, err)
+		}
+	}
+
+	if spawnCount != 3 {
+		t.Fatalf("expected burst to provision only the shortfall (3 total runners), got %d", spawnCount)
+	}
+	if controller.TotalActiveRunners() != 3 {
+		t.Fatalf("expected 3 active runners, got %d", controller.TotalActiveRunners())
+	}
+}
+
+// TestPoolController_HandleWorkflowJob_Queued_DemandLifecycle verifies the
+// demand booking lifecycle through the public event surface: in_progress
+// releases a job's booking (its runner is now busy), completed releases a
+// never-started job's booking (cancelled while queued), and a stale booking
+// makes the next queued event spawn even though a warm runner exists.
+func TestPoolController_HandleWorkflowJob_Queued_DemandLifecycle(t *testing.T) {
+	ctx := context.Background()
+
+	pool := db.RunnerPool{
+		ID:             168,
+		Name:           "lifecycle-pool",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/test-org/test-repo",
+		Scope:          "repo",
+		AuthProfileID:  10,
+		MinIdleRunners: 1,
+		MaxConcurrency: 5,
+		Labels:         `["self-hosted","linux"]`,
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+	}
+
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{}
+	resolver := &mockGitProviderResolver{
+		providers: map[int64]provider.GitProvider{10: gitProv},
+	}
+
+	var spawnedNames []string
+	spawnCount := 0
+	mockEngine := &orchestrator.MockContainerProvider{
+		SpawnRunnerFn: func(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
+			spawnCount++
+			spawnedNames = append(spawnedNames, config.Name)
+			return fmt.Sprintf("container-%d", spawnCount), nil
+		},
+		AuditRunnersFn: func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+			return nil, nil
+		},
+		PingFn: func(ctx context.Context) error {
+			return nil
+		},
+	}
+
+	controller := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               repo,
+		ContainerEngine:  mockEngine,
+		ProviderResolver: resolver,
+		GlobalMaxRunners: 10,
+		Interval:         time.Hour,
+	})
+
+	if err := controller.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+
+	queuedEvent := func(jobID int64) *webhook.WorkflowJobEvent {
+		return &webhook.WorkflowJobEvent{
+			Action: "queued",
+			Repository: webhook.RepositoryPayload{
+				FullName: "test-org/test-repo",
+				HTMLURL:  "https://github.com/test-org/test-repo",
+			},
+			WorkflowJob: webhook.WorkflowJobPayload{
+				ID:     jobID,
+				Labels: []string{"self-hosted", "linux"},
+			},
+		}
+	}
+
+	// 801 queued: covered by the warm runner, no spawn.
+	if err := controller.HandleWorkflowJob(ctx, "github", queuedEvent(801)); err != nil {
+		t.Fatalf("queued 801 failed: %v", err)
+	}
+	if spawnCount != 1 {
+		t.Fatalf("expected warm runner to cover 801, spawnCount = %d", spawnCount)
+	}
+
+	// 801 goes in_progress on the warm runner: the booking is released and
+	// the warm runner turns busy.
+	inProgress := &webhook.WorkflowJobEvent{
+		Action: "in_progress",
+		Repository: webhook.RepositoryPayload{
+			FullName: "test-org/test-repo",
+			HTMLURL:  "https://github.com/test-org/test-repo",
+		},
+		WorkflowJob: webhook.WorkflowJobPayload{
+			ID:         801,
+			Labels:     []string{"self-hosted", "linux"},
+			RunnerName: spawnedNames[0],
+		},
+	}
+	if err := controller.HandleWorkflowJob(ctx, "github", inProgress); err != nil {
+		t.Fatalf("in_progress 801 failed: %v", err)
+	}
+
+	// 802 queued: the warm runner is busy (801 is in progress) and the 801
+	// booking is released, so pending is 1 (802) vs 0 idle -> one spawn.
+	// This step alone cannot distinguish a leaked 801 booking (it would also
+	// spawn once); the final assertion below is the discriminator.
+	if err := controller.HandleWorkflowJob(ctx, "github", queuedEvent(802)); err != nil {
+		t.Fatalf("queued 802 failed: %v", err)
+	}
+	if spawnCount != 2 {
+		t.Fatalf("expected one spawn for 802 (no idle left), spawnCount = %d", spawnCount)
+	}
+
+	// 801 completes: the warm runner frees up. 803 queued: pending is 2 (802
+	// in flight plus 803) and idle is 2 (warm plus the 802 runner) -> covered,
+	// no spawn. A leaked 801 booking would make pending 3 and spawn.
+	completed := &webhook.WorkflowJobEvent{
+		Action: "completed",
+		Repository: webhook.RepositoryPayload{
+			FullName: "test-org/test-repo",
+			HTMLURL:  "https://github.com/test-org/test-repo",
+		},
+		WorkflowJob: webhook.WorkflowJobPayload{
+			ID:         801,
+			Labels:     []string{"self-hosted", "linux"},
+			RunnerName: spawnedNames[0],
+		},
+	}
+	if err := controller.HandleWorkflowJob(ctx, "github", completed); err != nil {
+		t.Fatalf("completed 801 failed: %v", err)
+	}
+	if err := controller.HandleWorkflowJob(ctx, "github", queuedEvent(803)); err != nil {
+		t.Fatalf("queued 803 failed: %v", err)
+	}
+	if spawnCount != 2 {
+		t.Fatalf("expected 803 to be covered by freed capacity, spawnCount = %d", spawnCount)
 	}
 }
 
@@ -312,21 +474,24 @@ func TestPoolController_HandleWorkflowJob_Queued_MaxConcurrencyReached(t *testin
 		t.Fatalf("expected 2 initial runners, got %d", spawnCount)
 	}
 
-	// Webhook queued event arrives -> activeCount is already 2 (equal to max_concurrency) -> skip spawn
-	evt := &webhook.WorkflowJobEvent{
-		Action: "queued",
-		Repository: webhook.RepositoryPayload{
-			FullName: "test-org/test-repo",
-			HTMLURL:  "https://github.com/test-org/test-repo",
-		},
-		WorkflowJob: webhook.WorkflowJobPayload{
-			ID:     502,
-			Labels: []string{"self-hosted"},
-		},
-	}
-
-	if err := controller.HandleWorkflowJob(ctx, "github", evt); err != nil {
-		t.Fatalf("HandleWorkflowJob failed: %v", err)
+	// Two queued events are covered by the two warm idle runners (pending 1
+	// then 2, idle 2) — no spawn. The third exceeds idle capacity, and only
+	// then does the per-pool max_concurrency gate (2 active) reject the spawn.
+	for _, jobID := range []int64{502, 503, 504} {
+		evt := &webhook.WorkflowJobEvent{
+			Action: "queued",
+			Repository: webhook.RepositoryPayload{
+				FullName: "test-org/test-repo",
+				HTMLURL:  "https://github.com/test-org/test-repo",
+			},
+			WorkflowJob: webhook.WorkflowJobPayload{
+				ID:     jobID,
+				Labels: []string{"self-hosted"},
+			},
+		}
+		if err := controller.HandleWorkflowJob(ctx, "github", evt); err != nil {
+			t.Fatalf("HandleWorkflowJob (%d) failed: %v", jobID, err)
+		}
 	}
 
 	if spawnCount != 2 {
@@ -389,21 +554,25 @@ func TestPoolController_HandleWorkflowJob_Queued_GlobalQuotaSaturated(t *testing
 		t.Fatalf("expected 2 initial runners, got %d", spawnCount)
 	}
 
-	// Webhook queued event arrives -> global quota saturated -> request is enqueued internally
-	evt := &webhook.WorkflowJobEvent{
-		Action: "queued",
-		Repository: webhook.RepositoryPayload{
-			FullName: "test-org/test-repo",
-			HTMLURL:  "https://github.com/test-org/test-repo",
-		},
-		WorkflowJob: webhook.WorkflowJobPayload{
-			ID:     503,
-			Labels: []string{"self-hosted"},
-		},
-	}
-
-	if err := controller.HandleWorkflowJob(ctx, "github", evt); err != nil {
-		t.Fatalf("HandleWorkflowJob failed: %v", err)
+	// Three queued events: the first two are covered by the two warm idle
+	// runners (warm-first), the third exceeds idle capacity and only then
+	// hits the saturated global quota (2 active = GlobalMaxRunners 2) -> the
+	// request is enqueued internally.
+	for _, jobID := range []int64{503, 504, 505} {
+		evt := &webhook.WorkflowJobEvent{
+			Action: "queued",
+			Repository: webhook.RepositoryPayload{
+				FullName: "test-org/test-repo",
+				HTMLURL:  "https://github.com/test-org/test-repo",
+			},
+			WorkflowJob: webhook.WorkflowJobPayload{
+				ID:     jobID,
+				Labels: []string{"self-hosted"},
+			},
+		}
+		if err := controller.HandleWorkflowJob(ctx, "github", evt); err != nil {
+			t.Fatalf("HandleWorkflowJob (%d) failed: %v", jobID, err)
+		}
 	}
 
 	if spawnCount != 2 {
