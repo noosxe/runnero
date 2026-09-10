@@ -215,6 +215,7 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 				"provider", providerName,
 				"repo", event.Repository.FullName,
 				"job_id", event.WorkflowJob.ID,
+				"requested_labels", event.WorkflowJob.Labels,
 			)
 			return nil
 		}

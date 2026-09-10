@@ -131,7 +131,13 @@ func (r *Reconciler) Audit(ctx context.Context) (AuditReport, error) {
 			report.Adopted = append(report.Adopted, s)
 		}
 
-		// Update tracked status with latest live state
+		// Update tracked status with latest live state, keeping the forge-assigned
+		// runner id sticky: the host listing cannot report it (only the forge API
+		// listing can), and clobbering it would break conclusion enrichment on
+		// the death path, which runs before the next listing refresh (docs/21 §5.3).
+		if prev, ok := poolMap[s.ID]; ok && s.ForgeID == 0 && prev.ForgeID != 0 {
+			s.ForgeID = prev.ForgeID
+		}
 		poolMap[s.ID] = s
 
 		if s.State == "running" {

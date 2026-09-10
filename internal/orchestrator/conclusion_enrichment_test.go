@@ -259,3 +259,84 @@ func TestConclusionEnrichment_UnconcludedJobSkipped(t *testing.T) {
 		t.Fatalf("expected degraded completed close, got %+v", h.rec.closes)
 	}
 }
+
+// TestConclusionEnrichment_EnrichesOnCleanDeath: poll-fallback pools receive
+// no webhooks, so the death path itself must enrich a clean (code 0) exit —
+// the busy→idle race is otherwise always lost to the container exiting first
+// (docs/21 §5.3). Unclean exits stay interrupted with no enrichment call.
+func TestConclusionEnrichment_EnrichesOnCleanDeath(t *testing.T) {
+	ctx := context.Background()
+	pool := busySyncPool("enrich-death", 0, 5)
+	h := newEnrichHarness(t, pool, true)
+	h.injectRunner(pool, "runnero-death-1", false)
+
+	// Job picked up: busy-sync opens the transition row and records the id.
+	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
+		{ID: 7006, Name: "runnero-death-1", Busy: true, Online: true},
+	}
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile (busy) failed: %v", err)
+	}
+	if len(h.rec.opens) != 1 {
+		t.Fatalf("expected 1 open row, got %d", len(h.rec.opens))
+	}
+
+	// The forge still reports busy (flag lag), but the container is already
+	// gone: exit code 0. The audit cycle reaps it and the death path enriches.
+	h.liveMu.Lock()
+	dead := h.liveRunners["container-runnero-death-1"]
+	dead.State = "exited"
+	dead.ExitCode = 0
+	h.liveRunners[dead.ID] = dead
+	h.liveMu.Unlock()
+	h.prov.jobs = []provider.RunnerJob{
+		{ID: 9004, Conclusion: "success", CompletedAt: time.Now().UTC()},
+	}
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile (death) failed: %v", err)
+	}
+
+	if h.prov.jobsCalls != 1 {
+		t.Fatalf("expected exactly 1 death-path enrichment call, got %d", h.prov.jobsCalls)
+	}
+	if len(h.rec.closes) != 1 {
+		t.Fatalf("expected 1 close, got %d", len(h.rec.closes))
+	}
+	if h.rec.closes[0].status != "success" || h.rec.closes[0].jobID != 9004 {
+		t.Errorf("close = (%s, %d), want (success, 9004)", h.rec.closes[0].status, h.rec.closes[0].jobID)
+	}
+}
+
+// TestConclusionEnrichment_UncleanDeathStaysInterrupted: a non-zero exit must
+// close as interrupted without consulting the forge — the job outcome is
+// unknowable when the runner died mid-job (docs/21 §5.2).
+func TestConclusionEnrichment_UncleanDeathStaysInterrupted(t *testing.T) {
+	ctx := context.Background()
+	pool := busySyncPool("enrich-crash", 0, 5)
+	h := newEnrichHarness(t, pool, true)
+	h.injectRunner(pool, "runnero-crash-1", false)
+
+	h.mockProv.remoteRunners = []provider.RemoteRunnerStatus{
+		{ID: 7007, Name: "runnero-crash-1", Busy: true, Online: true},
+	}
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile (busy) failed: %v", err)
+	}
+
+	h.liveMu.Lock()
+	dead := h.liveRunners["container-runnero-crash-1"]
+	dead.State = "exited"
+	dead.ExitCode = 137
+	h.liveRunners[dead.ID] = dead
+	h.liveMu.Unlock()
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile (crash) failed: %v", err)
+	}
+
+	if h.prov.jobsCalls != 0 {
+		t.Fatalf("unclean exit must not consult the forge, got %d calls", h.prov.jobsCalls)
+	}
+	if len(h.rec.closes) != 1 || h.rec.closes[0].status != "interrupted" || h.rec.closes[0].jobID != 0 {
+		t.Fatalf("expected interrupted close, got %+v", h.rec.closes)
+	}
+}
