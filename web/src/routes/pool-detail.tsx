@@ -92,7 +92,10 @@ export function PoolDetailPage() {
       window.setTimeout(() => setLabelsCopied(false), 2000);
     };
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(() => {});
+      navigator.clipboard
+        .writeText(text)
+        .then(done)
+        .catch(() => {});
       return;
     }
     const ta = document.createElement("textarea");
