@@ -16,6 +16,7 @@ import (
 
 	"github.com/noosxe/runnero/internal/db"
 	"github.com/noosxe/runnero/internal/testsupport/fakedocker"
+	"github.com/noosxe/runnero/internal/testsupport/fakegithub"
 )
 
 // validKeyEnv returns t.Setenv for a strong placeholder encryption key so
@@ -37,6 +38,15 @@ func TestMain(m *testing.M) {
 	if os.Getenv("SUPERVISOR_DOCKER_HOST") == "" {
 		_ = os.Setenv("SUPERVISOR_DOCKER_HOST", "tcp://127.0.0.1:1")
 	}
+	// RUN-149: same guard for the Git-provider side. Boot validates every
+	// seeded pool's credentials, which for GitHub means a real call to
+	// api.github.com — a test that forgets setFakeGitHub must fail validation
+	// loudly against this dead endpoint instead of quietly phoning the real
+	// API (boot tolerates the failure, but the call is a network dependency
+	// and flaky offline).
+	if os.Getenv("GITHUB_BASE_URL") == "" {
+		_ = os.Setenv("GITHUB_BASE_URL", "http://127.0.0.1:1")
+	}
 	os.Exit(m.Run())
 }
 
@@ -45,6 +55,20 @@ func TestMain(m *testing.M) {
 // sanctioned way for a test to boot runDaemonContext: the fake answers the
 // boot-time Engine surface (ping, container list, events) so health
 // assertions see a genuinely healthy engine — without any real Docker.
+
+// setFakeGitHub points the daemon at a per-test fake GitHub API
+// (internal/testsupport/fakegithub) and returns it. Boot-time credential
+// validation for GitHub pools lands on the fake instead of the real
+// api.github.com (RUN-149); the returned fake exposes the requests for
+// assertions. Tests that boot without seeded pools don't need it — the
+// TestMain dead-endpoint default covers them.
+func setFakeGitHub(t *testing.T) *fakegithub.Fake {
+	t.Helper()
+	fake := fakegithub.New()
+	t.Cleanup(fake.Close)
+	t.Setenv("GITHUB_BASE_URL", fake.URL())
+	return fake
+}
 func setFakeDocker(t *testing.T) *fakedocker.Fake {
 	t.Helper()
 	fake := fakedocker.New()
@@ -316,6 +340,7 @@ pools:
 func TestDaemonFirstBootSeedImport(t *testing.T) {
 	validKeyEnv(t)
 	setFakeDocker(t)
+	fakeGitHub := setFakeGitHub(t) // RUN-149: boot validation must not hit api.github.com
 	port := freePort(t)
 	dataDir := t.TempDir()
 	dbPath := filepath.Join(dataDir, "firstboot.db")
@@ -365,6 +390,13 @@ pools:
 	}
 	cancel1()
 	<-done1
+
+	// RUN-149: the seeded pool's credentials must have been validated against
+	// the fake GitHub API, not the real api.github.com.
+	reqs := fakeGitHub.Requests()
+	if len(reqs) == 0 || reqs[0].Path != "/user" || reqs[0].Authorization != "Bearer token123" {
+		t.Fatalf("expected boot credential validation on the fake GitHub (GET /user, Bearer token123), got: %+v", reqs)
+	}
 
 	// Verify that DB has first-boot-pool
 	database, err := db.Open(db.Options{Path: dbPath})

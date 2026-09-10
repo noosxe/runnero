@@ -119,6 +119,11 @@ A lightweight, in-memory Go server responding to all Git provider endpoints conf
   - `GET /api/v1/user`: Personal access token verification.
   - `POST /api/v1/repos/{owner}/{repo}/actions/runners/registration-token`: Registration token issuance.
 - **Configurable Fault Injection**: Can be instructed via HTTP headers (e.g., `X-Mock-Status: 500`) to test UI error banners, network retry timeouts, and form validation alerts.
+- **Provider base-URL wiring**: the compose file points the supervisor at the mock
+  with `GITHUB_BASE_URL`, `GITEA_BASE_URL`, and `FORGEJO_BASE_URL` (RUN-134). The
+  GitHub variable has been honored since PR #189; the Gitea and Forgejo registry
+  constructors now read their variables as deployment-level instance overrides
+  that win over a `url|token`-prefixed credential (RUN-149).
 
 ### 3.3 Mock Docker Daemon Server (`mock/docker`)
 The supervisor interacts with Docker over HTTP (`tcp://e2e-mock-docker:2375`):
