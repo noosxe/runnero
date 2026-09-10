@@ -1,20 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 
 test.describe('Flow 02: Onboarding Wizard & Configuration', () => {
-  test.beforeEach(async ({ page }) => {
-    // Ensure we are logged in
-    await page.goto('/login');
-    if (page.url().includes('/login')) {
-      await page.getByLabel('Username').fill('admin');
-      await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
-      await page.getByRole('button', { name: /Sign In/i }).click();
-      // Wait for the session to establish before any navigation cancels the
-      // in-flight login POST.
-      await page.waitForURL((url) => !url.pathname.includes('/login'));
-    }
-  });
 
-  test('walks through git provider, safeguards, initial pool and completes onboarding', async ({ page }) => {
+  test('walks through git provider, safeguards, initial pool and completes onboarding', async ({ authedPage: page }) => {
     await page.goto('/onboarding');
 
     // Step 1: authenticate the existing admin (created in flow 01) when asked;

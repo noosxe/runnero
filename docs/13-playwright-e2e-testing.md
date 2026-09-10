@@ -86,6 +86,8 @@ tests/e2e/
 ├── docker-compose.e2e.yml     # Orchestrates test runner, supervisor, and mock servers
 ├── Dockerfile.playwright      # Playwright container image with Node 24 & browsers
 ├── playwright.config.ts       # Base URL, viewport, timeouts, traces, and reporter configs
+├── fixtures.ts                # Shared fixtures & helpers: login(), authedPage,
+│                              # onboardedPage (RUN-135) — auth + onboarding state in one place
 ├── mock/
 │   ├── provider/              # Standalone Go mock server for GitHub/Gitea/Forgejo APIs
 │   │   ├── main.go
@@ -103,6 +105,17 @@ tests/e2e/
     ├── 07-settings-maintenance.spec.ts
     └── 08-pool-edit-workflow.spec.ts
 ```
+
+Specs share their authentication and onboarding state through `fixtures.ts`
+(RUN-135): `login(page)` is the single sign-in dance, `authedPage` is the
+fixture for flows that only need an admin session, and `onboardedPage`
+additionally guarantees the wizard has completed (the `default-pool`
+artifact exists) — bootstrapping the administrator and walking the wizard on
+a fresh database — so a spec's dependence on flow 02 is declared in its
+signature instead of relying on file execution order. The e2e Playwright
+image bakes `tests/e2e/` in at build time, so fixture changes require an
+image rebuild (`docker compose -f tests/e2e/docker-compose.e2e.yml build
+e2e-playwright`) before they are visible to `compose run`.
 
 ### 3.2 Mock Git Provider Server (`mock/provider`)
 A lightweight, in-memory Go server responding to all Git provider endpoints configured in the supervisor:

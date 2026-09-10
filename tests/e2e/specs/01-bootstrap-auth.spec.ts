@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+import { login } from '../fixtures';
+
 test.describe('Flow 01: System Bootstrap & Authentication', () => {
   test('uninitialized supervisor redirects to onboarding page and sets up admin', async ({ page }) => {
     // Navigate to root
@@ -40,11 +42,9 @@ test.describe('Flow 01: System Bootstrap & Authentication', () => {
   });
 
   test('valid credentials successfully log in and establish session', async ({ page }) => {
-    await page.goto('/login');
-
-    await page.getByLabel('Username').fill('admin');
-    await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
-    await page.getByRole('button', { name: /Sign In/i }).click();
+    // Shared login helper (../fixtures): fill credentials and wait for the
+    // session to establish.
+    await login(page);
 
     // After login, should land on dashboard or onboarding if setup not marked complete
     await expect(page).not.toHaveURL(/\/login/);
