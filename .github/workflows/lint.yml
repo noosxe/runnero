@@ -74,7 +74,10 @@ jobs:
         run: shellcheck src/*.sh
 
       - name: Run Script Unit Tests
-        run: bash tests/unit/entrypoint_test.sh
+        run: |
+          bash tests/unit/entrypoint_test.sh
+          bash tests/unit/parity_packages_test.sh
+          bash tests/unit/playwright_lockstep_test.sh
 
   hadolint:
     name: Hadolint (${{ matrix.dockerfile }})
