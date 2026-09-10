@@ -4,7 +4,7 @@
 # browser builds its matching @playwright/test release expects. A mismatch
 # fails every test at browser launch. tests/unit/playwright_lockstep_test.sh
 # enforces this (make test-scripts).
-FROM mcr.microsoft.com/playwright:v1.55.0-noble
+FROM mcr.microsoft.com/playwright:v1.55.1-noble
 
 WORKDIR /e2e
 
