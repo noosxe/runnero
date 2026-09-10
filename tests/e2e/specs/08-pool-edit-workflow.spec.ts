@@ -1,4 +1,6 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { type APIRequestContext, type Page } from '@playwright/test';
+
+import { test, expect } from '../fixtures';
 
 // Admin control surface of the mock Git provider (tests/e2e/mock/provider):
 // seeds the registered-runners registry the supervisor polls for busy-state
@@ -12,22 +14,8 @@ const MOCK_PROVIDER_URL = process.env.MOCK_PROVIDER_URL ?? 'http://e2e-mock-prov
 // simulates busy runner state through the mock provider's runners listing
 // (docs/19) and verifies the recycle spares busy runners (docs/22 §5.2).
 test.describe('Flow 08: Runner Pool Edit Workflow', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    if (page.url().includes('/login')) {
-      await page.getByLabel('Username').fill('admin');
-      await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
-      await page.getByRole('button', { name: /Sign In/i }).click();
-      // Wait for the session to establish before any navigation cancels the
-      // in-flight login POST.
-      await page.waitForURL((url) => !url.pathname.includes('/login'));
-    }
-    await page.goto('/pools');
-    // Default pool created by the onboarding flow (flow 02)
-    await expect(page.getByText('default-pool', { exact: true })).toBeVisible();
-  });
 
-  test('edits min_idle (control-plane) without runner impact banner', async ({ page }) => {
+  test('edits min_idle (control-plane) without runner impact banner', async ({ onboardedPage: page }) => {
     await page.getByRole('button', { name: 'Edit pool default-pool' }).click();
 
     await expect(page.getByText('Edit Runner Pool')).toBeVisible();
@@ -54,7 +42,7 @@ test.describe('Flow 08: Runner Pool Edit Workflow', () => {
     await expect(idleStat.getByText('3', { exact: true })).toBeVisible();
   });
 
-  test('shows the recycle banner for spawn-identity edits and saves', async ({ page }) => {
+  test('shows the recycle banner for spawn-identity edits and saves', async ({ onboardedPage: page }) => {
     await page.getByRole('button', { name: 'Edit pool default-pool' }).click();
 
     await page.getByRole('button', { name: /Continue to Scope & Targets/i }).click();
@@ -77,7 +65,7 @@ test.describe('Flow 08: Runner Pool Edit Workflow', () => {
       .toBeGreaterThanOrEqual(1);
   });
 
-  test('renames the pool through the wizard', async ({ page }) => {
+  test('renames the pool through the wizard', async ({ onboardedPage: page }) => {
     await page.getByRole('button', { name: 'Edit pool default-pool' }).click();
 
     await page.getByLabel('Pool Name (Slug)').fill('default-pool-renamed');
@@ -94,7 +82,7 @@ test.describe('Flow 08: Runner Pool Edit Workflow', () => {
       page.getByRole('heading', { name: 'default-pool-renamed', exact: true }),
     ).toBeVisible();
 
-    // Rename back so the next test's beforeEach keeps finding the default pool
+    // Rename back so the next test keeps finding the default pool
     await page.getByRole('button', { name: 'Edit pool default-pool-renamed' }).click();
     await page.getByLabel('Pool Name (Slug)').fill('default-pool');
     await page.getByRole('button', { name: /Continue to Scope & Targets/i }).click();
@@ -107,7 +95,7 @@ test.describe('Flow 08: Runner Pool Edit Workflow', () => {
     ).toBeVisible();
   });
 
-  test('rejects renaming onto an existing pool name with a server error banner', async ({ page }) => {
+  test('rejects renaming onto an existing pool name with a server error banner', async ({ onboardedPage: page }) => {
     // Create a collision pool first
     await page.getByRole('button', { name: '+ Add Runner Pool' }).click();
     await page.getByLabel('Pool Name (Slug)').fill('collision-pool');
@@ -134,7 +122,7 @@ test.describe('Flow 08: Runner Pool Edit Workflow', () => {
     await expect(page.getByText('Edit Runner Pool')).toBeVisible();
   });
 
-  test('spares busy runners when a spawn-identity edit recycles idle ones', async ({ page, request }) => {
+  test('spares busy runners when a spawn-identity edit recycles idle ones', async ({ onboardedPage: page, request }) => {
     // Reconcile ticks run every 10s; busy-sync convergence plus warm-pool
     // respawn exceed the default 30s test timeout
     test.setTimeout(180_000);

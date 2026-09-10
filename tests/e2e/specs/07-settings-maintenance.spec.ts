@@ -1,19 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 
 test.describe('Flow 07: System Settings & Maintenance', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    if (page.url().includes('/login')) {
-      await page.getByLabel('Username').fill('admin');
-      await page.getByRole('textbox', { name: 'Password' }).fill('AdminPassword123!');
-      await page.getByRole('button', { name: /Sign In/i }).click();
-      // Wait for the session to establish before any navigation cancels the
-      // in-flight login POST.
-      await page.waitForURL((url) => !url.pathname.includes('/login'));
-    }
-  });
 
-  test('updates global scaling constraints and toggles theme', async ({ page }) => {
+  test('updates global scaling constraints and toggles theme', async ({ authedPage: page }) => {
     await page.goto('/settings');
 
     await expect(page.getByText(/Supervisor Settings & Administration/i)).toBeVisible();
