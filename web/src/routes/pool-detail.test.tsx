@@ -322,4 +322,21 @@ describe("PoolDetailPage", () => {
       mockPool.targetUrls = original;
     }
   });
+
+  it("copies runner labels as a paste-ready runs-on list", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<PoolDetailPage />);
+
+    const configTabBtn = screen.getByRole("button", { name: /pool configuration/i });
+    fireEvent.click(configTabBtn);
+
+    fireEvent.click(screen.getByTitle(/Copy labels/i));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("self-hosted, linux");
+    });
+    expect(screen.getByText("Copied")).toBeInTheDocument();
+  });
 });
