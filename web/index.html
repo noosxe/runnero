@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Runnero AIO Supervisor</title>
+    <script>
+      // Apply the stored theme before first paint so dark-theme users don't
+      // get a light flash. Must mirror web/src/hooks/use-theme.ts
+      // (STORAGE_KEY, system fallback).
+      (function () {
+        try {
+          var t = localStorage.getItem("runnero-theme");
+          if (t !== "light" && t !== "dark") {
+            t =
+              window.matchMedia &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          }
+          if (t === "dark") document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body
     class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-50 min-h-screen transition-colors"

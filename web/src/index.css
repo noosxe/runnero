@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+/*
+ * Dark mode is class-driven: the theme selector (use-theme.ts) toggles the
+ * `dark` class on <html> and persists the choice in localStorage. Without
+ * this override Tailwind v4 wires `dark:` utilities to the OS-level
+ * prefers-color-scheme media query instead, and the in-app selector would
+ * have no effect (see https://tailwindcss.com/docs/dark-mode,
+ * "Toggling dark mode manually").
+ */
+@custom-variant dark (&:where(.dark, .dark *));
