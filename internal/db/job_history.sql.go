@@ -858,6 +858,78 @@ func (q *Queries) UpdateJobHistoryStatus(ctx context.Context, arg UpdateJobHisto
 	return i, err
 }
 
+const upgradeClosedJobRowConclusion = `-- name: UpgradeClosedJobRowConclusion :execrows
+UPDATE job_history
+SET completed_at = ?,
+    status = ?
+WHERE completed_at IS NOT NULL AND status = ? AND job_id = ?
+`
+
+type UpgradeClosedJobRowConclusionParams struct {
+	CompletedAt sql.NullTime  `json:"completed_at"`
+	Status      string        `json:"status"`
+	Status_2    string        `json:"status_2"`
+	JobID       sql.NullInt64 `json:"job_id"`
+}
+
+// Webhook completed event arriving after the death path already closed the
+// row: an ephemeral runner exits before the forge event lands, so the row
+// was closed as completed (exit 0, conclusion unknowable). The webhook
+// conclusion is authoritative, so upgrade the closed row (docs/21 section 5.5).
+// Rows closed as interrupted or timeout stay: the runner died or was killed
+// mid-job, so any forge conclusion describes a requeued job, not this row.
+func (q *Queries) UpgradeClosedJobRowConclusion(ctx context.Context, arg UpgradeClosedJobRowConclusionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upgradeClosedJobRowConclusion,
+		arg.CompletedAt,
+		arg.Status,
+		arg.Status_2,
+		arg.JobID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const upgradeLatestNullJobRowConclusion = `-- name: UpgradeLatestNullJobRowConclusion :execrows
+UPDATE job_history
+SET status = ?,
+    completed_at = ?,
+    job_id = ?
+WHERE id = (
+    SELECT j.id FROM job_history j
+    WHERE j.pool_id = ? AND j.runner_name = ? AND j.status = 'completed'
+      AND j.completed_at IS NOT NULL AND (j.job_id IS NULL OR j.job_id = 0)
+    ORDER BY j.completed_at DESC LIMIT 1
+)
+`
+
+type UpgradeLatestNullJobRowConclusionParams struct {
+	Status      string        `json:"status"`
+	CompletedAt sql.NullTime  `json:"completed_at"`
+	JobID       sql.NullInt64 `json:"job_id"`
+	PoolID      int64         `json:"pool_id"`
+	RunnerName  string        `json:"runner_name"`
+}
+
+// Same death-before-webhook race, poll-path variant: the transition row
+// closed without an external job id, so the by-id upgrade above cannot
+// match it. The completed event names the runner, so upgrade its newest
+// closed completed row and stamp the job id onto it.
+func (q *Queries) UpgradeLatestNullJobRowConclusion(ctx context.Context, arg UpgradeLatestNullJobRowConclusionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, upgradeLatestNullJobRowConclusion,
+		arg.Status,
+		arg.CompletedAt,
+		arg.JobID,
+		arg.PoolID,
+		arg.RunnerName,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const upsertWebhookQueuedJob = `-- name: UpsertWebhookQueuedJob :one
 INSERT INTO job_history (
     pool_id,

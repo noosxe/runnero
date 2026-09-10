@@ -483,6 +483,91 @@ func TestRecordWebhookCompletedCloseRules(t *testing.T) {
 	})
 }
 
+// TestRecordWebhookCompletedUpgradesDeathClosedRows covers the
+// death-before-webhook race (docs/21 section 5.5): an ephemeral runner's
+// container exits before the forge delivers the completed event, so the
+// death handler closes the row as 'completed' (conclusion unknowable). The
+// authoritative webhook conclusion must still land on the row.
+func TestRecordWebhookCompletedUpgradesDeathClosedRows(t *testing.T) {
+	ctx := context.Background()
+	queuedAt := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	startedAt := queuedAt.Add(30 * time.Second)
+	deathAt := startedAt.Add(2 * time.Minute)
+	webhookAt := deathAt.Add(5 * time.Second)
+	meta := WebhookJobMeta{RunID: 950, WorkflowName: "ci", HeadBranch: "main", HeadSHA: "jkl012"}
+
+	t.Run("queued row closed by death upgrades by external job id", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.RecordWebhookQueued(ctx, poolID, 800, meta, queuedAt); err != nil {
+			t.Fatalf("queued upsert failed: %v", err)
+		}
+		if err := database.RecordWebhookStarted(ctx, poolID, 800, "runnero-e-1", startedAt, queuedAt, meta); err != nil {
+			t.Fatalf("RecordWebhookStarted failed: %v", err)
+		}
+		// Death handler: closes with exit code 0 and no forge knowledge.
+		if err := database.CloseTransitionJob(ctx, poolID, "runnero-e-1", "completed", 0, "", deathAt); err != nil {
+			t.Fatalf("death-path close failed: %v", err)
+		}
+		if err := database.RecordWebhookCompleted(ctx, poolID, 800, "runnero-e-1", "success", webhookAt); err != nil {
+			t.Fatalf("RecordWebhookCompleted failed: %v", err)
+		}
+		history, err := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+		if err != nil || len(history) != 1 {
+			t.Fatalf("expected exactly one row, got %d (err=%v)", len(history), err)
+		}
+		got := history[0]
+		if got.Status != "success" || !got.JobID.Valid || got.JobID.Int64 != 800 {
+			t.Fatalf("expected upgraded success row for job 800, got: %+v", got)
+		}
+	})
+
+	t.Run("poll-path row without job id upgrades newest completed row", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		// Poll-opened transition row; death closes it with no job id.
+		if err := database.OpenTransitionJob(ctx, poolID, "runnero-p-1", startedAt); err != nil {
+			t.Fatalf("OpenTransitionJob failed: %v", err)
+		}
+		if err := database.CloseTransitionJob(ctx, poolID, "runnero-p-1", "completed", 0, "", deathAt); err != nil {
+			t.Fatalf("death-path close failed: %v", err)
+		}
+		if err := database.RecordWebhookCompleted(ctx, poolID, 801, "runnero-p-1", "failure", webhookAt); err != nil {
+			t.Fatalf("RecordWebhookCompleted failed: %v", err)
+		}
+		history, err := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+		if err != nil || len(history) != 1 {
+			t.Fatalf("expected exactly one row, got %d (err=%v)", len(history), err)
+		}
+		got := history[0]
+		if got.Status != "failure" || !got.JobID.Valid || got.JobID.Int64 != 801 {
+			t.Fatalf("expected upgraded failure row with job id 801, got: %+v", got)
+		}
+	})
+
+	t.Run("interrupted rows are never upgraded", func(t *testing.T) {
+		database, poolID, cleanup := newJobLifecycleDB(t)
+		defer cleanup()
+		if err := database.OpenTransitionJob(ctx, poolID, "runnero-i-1", startedAt); err != nil {
+			t.Fatalf("OpenTransitionJob failed: %v", err)
+		}
+		if err := database.CloseTransitionJob(ctx, poolID, "runnero-i-1", "interrupted", 0, "", deathAt); err != nil {
+			t.Fatalf("death-path close failed: %v", err)
+		}
+		if err := database.RecordWebhookCompleted(ctx, poolID, 802, "runnero-i-1", "success", webhookAt); err != nil {
+			t.Fatalf("RecordWebhookCompleted failed: %v", err)
+		}
+		history, err := database.ListJobHistory(ctx, ListJobHistoryParams{Limit: 10})
+		if err != nil || len(history) != 1 {
+			t.Fatalf("expected exactly one row, got %d (err=%v)", len(history), err)
+		}
+		got := history[0]
+		if got.Status != "interrupted" {
+			t.Fatalf("interrupted row must stay interrupted, got: %+v", got)
+		}
+	})
+}
+
 // TestCloseTransitionJobEnrichesJobID verifies the docs/21 section 5.3 close
 // enrichment: a non-zero job id is written onto the closing row, and a zero
 // job id leaves any existing value untouched (COALESCE).
