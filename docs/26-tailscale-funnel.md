@@ -128,6 +128,12 @@ is **outbound**: UDP (WireGuard, direct paths where NAT allows) and HTTPS 443
   The operator explicitly asked for Tailscale; silently degrading would hide
   breakage. (Compare: an unset webhook secret degrades to polling, because
   that mode is documented as the default.)
+  A failed boot also unwinds cleanly (RUN-160): the daemon's background
+  loops (pool controller /events stream, audit/reconcile cycles, backup,
+  retention, and cron schedulers) run on a daemon-owned context that every
+  early-error return cancels and waits for, so nothing outlives the boot
+  error. `TestDaemonTailscaleBootFailureAbortsBoot` asserts the event
+  stream is released via `fakedocker.EventsStreamsActive`.
 - Open the configured listeners, wrap each in an `http.Server`, serve in
   goroutines, and log the resulting URLs:
   - funnel: `https://<hostname>.<tailnet>.ts.net/hooks/{github,gitea,forgejo}`

@@ -223,7 +223,7 @@ func TestDaemonTailscaleBootFailureAbortsBoot(t *testing.T) {
 	t.Setenv("SUPERVISOR_TAILSCALE_AUTHKEY", "tskey-authority-0123456789abcdef")
 
 	validKeyEnv(t)
-	setFakeDocker(t)
+	fake := setFakeDocker(t)
 	t.Setenv("SUPERVISOR_DATA_DIR", t.TempDir())
 	t.Setenv("SUPERVISOR_PORT", strconv.Itoa(freePort(t)))
 	root := NewRootCommand()
@@ -231,18 +231,30 @@ func TestDaemonTailscaleBootFailureAbortsBoot(t *testing.T) {
 		t.Fatalf("loading configuration: %v", err)
 	}
 
-	// RUN-159: the daemon's background loops (pool controller /events stream,
-	// backup/retention schedulers) hang off this context. Cancel on cleanup so
-	// fakedocker's Close isn't blocked until its 5-minute events backstop —
-	// an uncancellable Background context made this test take exactly 300s,
-	// dominating the whole Go CI Test step on both architectures.
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	err := runDaemonContext(ctx)
+	// RUN-160: an uncancellable Background context is deliberate here. A
+	// failed boot must tear down its own background loops (the pool
+	// controller's /events stream in particular) before returning — the
+	// pre-RUN-160 daemon leaked them, and this test hung for exactly 300s in
+	// fakedocker's eventsBackstop, dominating the Go CI Test step (RUN-159).
+	err := runDaemonContext(context.Background())
 	if err == nil {
 		t.Fatal("daemon booted despite tailscale failure, want abort")
 	}
 	if !strings.Contains(err.Error(), "tailscale") {
 		t.Fatalf("boot error = %v, want it to name tailscale", err)
+	}
+
+	// RUN-160: the daemon's teardown must have released the /events stream by
+	// the time the boot error returns — otherwise fakedocker's Close below
+	// blocks until its 5-minute eventsBackstop (the old 300s CI hang).
+	deadline := time.Now().Add(5 * time.Second)
+	for fake.EventsStreamsActive() > 0 {
+		if time.Now().After(deadline) {
+			// Force-release the leaked stream so cleanup's fake.Close isn't
+			// itself blocked until the backstop — fail fast instead.
+			fake.CloseClientConnections()
+			t.Fatal("daemon leaked its /events stream after a failed boot")
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }

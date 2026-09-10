@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -66,6 +67,26 @@ func runDaemonContext(ctx context.Context) error {
 		"port", cfg.Port,
 	)
 
+	// RUN-160: long-lived components below run on a daemon-owned derivative of
+	// the caller's context. On the graceful path the caller's cancellation
+	// propagates here exactly as before; on any early-error return the gated
+	// teardown pass at the end of the boot sequence cancels it and waits for
+	// the loops, so no controller/scheduler goroutine outlives the returned
+	// error (before RUN-160 a failed boot leaked the /events stream and the
+	// audit/reconcile loops behind it).
+	daemonCtx, cancelDaemon := context.WithCancel(ctx)
+	defer cancelDaemon()
+
+	bootLoops := &sync.WaitGroup{}
+	serving := false
+	defer func() {
+		if serving {
+			return // the graceful shutdown block drained everything explicitly
+		}
+		cancelDaemon()
+		bootLoops.Wait()
+	}()
+
 	derivedKeys, err := keys.Derive(cfg.DBEncryptionKey)
 	if err != nil {
 		return fmt.Errorf("daemon: deriving runtime keys: %w", err)
@@ -90,10 +111,10 @@ func runDaemonContext(ctx context.Context) error {
 	}
 
 	backupMgr := db.NewBackupManager(database, cfg.DataDir, cfg.BackupIntervalHours, cfg.BackupRetentionCount)
-	go backupMgr.Start(ctx)
+	go backupMgr.Start(daemonCtx)
 
 	retentionScheduler := db.NewRetentionScheduler(database, nil)
-	go retentionScheduler.Start(ctx)
+	go retentionScheduler.Start(daemonCtx)
 
 	var dockerOpts []docker.Option
 	if cfg.DockerHost != "" {
@@ -120,10 +141,10 @@ func runDaemonContext(ctx context.Context) error {
 	}
 
 	cronScheduler := cron.NewScheduler(cron.Options{})
-	if err := cronScheduler.SyncFromDB(ctx, database, renovateExecutor.TaskFactory(), renovateExecutor.LastRunResolver()); err != nil {
+	if err := cronScheduler.SyncFromDB(daemonCtx, database, renovateExecutor.TaskFactory(), renovateExecutor.LastRunResolver()); err != nil {
 		logger.Error("failed to initialize cron schedules from database", "err", err)
 	}
-	if err := cronScheduler.Start(ctx); err != nil {
+	if err := cronScheduler.Start(daemonCtx); err != nil {
 		return fmt.Errorf("daemon: cron scheduler: %w", err)
 	}
 	defer cronScheduler.Stop()
@@ -146,15 +167,17 @@ func runDaemonContext(ctx context.Context) error {
 		logger.Warn("initial pool controller boot failed", "err", err)
 	}
 
+	bootLoops.Add(1)
 	go func() {
+		defer bootLoops.Done()
 		for {
-			if err := poolCtrl.Start(ctx); err != nil {
-				if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+			if err := poolCtrl.Start(daemonCtx); err != nil {
+				if errors.Is(err, context.Canceled) || daemonCtx.Err() != nil {
 					return
 				}
 				logger.Warn("pool controller error, retrying in 5s", "err", err)
 				select {
-				case <-ctx.Done():
+				case <-daemonCtx.Done():
 					return
 				case <-time.After(5 * time.Second):
 				}
@@ -253,8 +276,11 @@ func runDaemonContext(ctx context.Context) error {
 
 	select {
 	case err := <-serveErr:
+		// HTTP listener failed: the gated teardown pass below stops the loops
+		// before this error returns (RUN-160).
 		return fmt.Errorf("daemon: %w", err)
 	case <-ctx.Done():
+		serving = true // graceful block below owns the teardown from here
 	}
 
 	logger.Info("shutdown signal received, draining http server and pool controller")
