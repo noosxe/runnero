@@ -135,12 +135,14 @@ The table below defines the exact path filters evaluated across all workflows:
 | **Lint CI** (`lint.yml`) | `scripts`<br/>`docker` | `src/**`<br/>`tests/**`<br/>`Dockerfile`<br/>`Dockerfile.supervisor`<br/>`.dockerignore`<br/>`.github/workflows/lint.yml` | `scripts`: Triggers `shellcheck` and script unit tests on runner bash scripts.<br/>`docker`: Triggers `hadolint` on container files. |
 | **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition, runner scripts, or release workflow. `tests/**` is excluded: script-test changes are validated by `Lint CI` and never enter the image. |
 | **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image`<br/>(event-dependent) | **Pull requests** (`image-pr`): `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`.github/workflows/supervisor-build.yml`<br/>**`main` pushes & dispatch** (`image-push`): PR set plus `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum` | PRs only need to prove the image recipe still builds — Go/web correctness is already covered by Go CI and Web CI. Pushes to `main` and releases validate the full build context (the embedded binary and web UI). |
+| **E2E Suite** (`e2e.yml`) | `e2e` | `tests/e2e/**`<br/>`web/**`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Dockerfile.supervisor`<br/>`Makefile`<br/>`.github/workflows/e2e.yml` | Anything that can change the behavior of the supervisor, the embedded web UI, the Playwright specs, or the compose stack the suite boots (docs/13). Runs on the **self-hosted runner pool** (RUN-131) and additionally on a nightly schedule that bypasses path filtering entirely — the rot guardian that would have caught the suite's earlier drift. |
 
 ### Handling Cross-Cutting Changes
 - **Protobuf Schemas (`proto/**`)**: Modifying `proto/api.proto` triggers **both** `Go CI` and `Web CI` because code is generated into both `internal/pb/` and `web/src/lib/api/pb/`.
 - **Embedded Web Assets**: Modifying `web/**` triggers `Web CI` (lint/test/build). The `Supervisor Multi-Arch Build` picks it up on pushes to `main` (since `web/dist` is embedded into the supervisor binary) but **not** on pull requests, where frontend correctness is already validated by `Web CI`. It does **not** trigger `Go CI` unless Go sources or module files are also touched; inside `Go CI` itself, `web/dist` is built once by the `web-assets` job and shared with both matrix legs and the `lint` job.
 - **Runner Image vs. Script Tests**: `tests/**` changes no longer trigger the runner image build — they are validated by `Lint CI` (ShellCheck + script unit tests) and never enter the image context.
-- **Documentation Only (`docs/**`, `README.md`, `AGENTS.md`)**: All 5 workflows trigger their ~4-second `changes` gate job and immediately finish. All heavy matrix and container builds are cleanly skipped.
+- **Supervisor/UI changes vs. E2E Suite (`e2e.yml`)**: `cmd/**`, `internal/**`, `proto/**`, `web/**` all feed the supervisor-under-test that the E2E compose stack boots, so they trigger the suite alongside Go CI / Web CI. `tests/e2e/**` and `Dockerfile.supervisor` are also monitored directly. The suite runs on the self-hosted pool (RUN-131) with a repo-wide serialization group (`e2e-suite`) because the compose stack owns fixed container names on a shared Docker engine — see §5 Concurrency Control.
+- **Documentation Only (`docs/**`, `README.md`, `AGENTS.md`)**: All 6 workflows trigger their ~4-second `changes` gate job and immediately finish. All heavy matrix, container, and E2E suite runs are cleanly skipped.
 
 ---
 
@@ -152,6 +154,7 @@ The table below defines the exact path filters evaluated across all workflows:
 | **Push to `main` (`push`)** | Evaluates diff against previous commit (`github.event.before`); full-history checkout. | Runs `dorny/paths-filter@v4` against the prior SHA. | Run **only** for changed subsystems, avoiding duplicate builds on merge commits; the supervisor image build applies its broad `image-push` filter. |
 | **Git Tag Release (`refs/tags/v*`)** | Container release deployment. | Gatekeeper skipped (`if: ${{ !startsWith(...) }}`). | Run **unconditionally** to compile and publish immutable multi-arch images. |
 | **Manual Dispatch (`workflow_dispatch`)** | Operator manual verification. | Gatekeeper runs or passes through. | Run **unconditionally** upon manual trigger. |
+| **Nightly Schedule (`schedule`, `e2e.yml` only)** | Rot guardian for the Playwright suite (RUN-131). | Gatekeeper bypassed via the job-level `if`. | Run **unconditionally** — the nightly exercises the full suite even when path filtering would skip it, catching drift path filters cannot see (e.g. the pinned Playwright browser breaking against an updated base image). |
 
 ---
 
@@ -166,14 +169,15 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
 2. **Pinning Action Versions**:
    - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`, `golangci/golangci-lint-action@v9`). The golangci-lint **binary** version itself is pinned exactly (`v2.12.2`) to match the Nix dev shell so CI and local `make lint` can never disagree; keep the two in sync on upgrades.
 3. **Concurrency Control**:
-   - Every workflow specifies `concurrency: group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true`.
+   - Every workflow specifies `concurrency: group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true` — with one deliberate exception: **E2E Suite** (`e2e.yml`) uses a repo-wide group `e2e-suite` with `cancel-in-progress: false`. Its compose stack owns fixed container names (project `runnero-e2e`) on the shared self-hosted Docker engine, so concurrent suites would collide, and an in-flight nightly guardian must never be killed by a PR landing mid-run (RUN-131).
    - If a developer pushes a new commit to an active PR, running jobs are automatically cancelled, preventing wasted runner resources.
 4. **No Secret Leaks**:
    - Gating jobs run unauthenticated and access zero repository secrets.
    - PRs from forks cannot access packaging secrets or publish images.
+   - **Self-hosted isolation (`e2e.yml`)**: the suite executes on the self-hosted pool with full access to the shared Docker engine, so the `e2e` job carries an explicit fork guard — `pull_request` events from forked repositories never run on self-hosted infrastructure (RUN-131). Same-repository branch PRs and pushes are unaffected.
 
 5. **Runner Time Budgets**:
-   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate jobs and the fast shell/Docker lint jobs, 10 for the Go Lint job — golangci-lint compiles the module — and 10–15 for test jobs, 30 for image builds), so a single hung job can never burn the 6-hour default in runner time.
+   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate jobs and the fast shell/Docker lint jobs, 10 for the Go Lint job — golangci-lint compiles the module — and 10–15 for test jobs, 30 for image builds and the E2E suite, whose compose stack builds four images before running the Playwright specs), so a single hung job can never burn the 6-hour default in runner time.
 ---
 
 ## 6. Verification & Operational Guidelines
