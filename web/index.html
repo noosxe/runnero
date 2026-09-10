@@ -13,8 +13,7 @@
           var t = localStorage.getItem("runnero-theme");
           if (t !== "light" && t !== "dark") {
             t =
-              window.matchMedia &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches
+              window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
                 ? "dark"
                 : "light";
           }
