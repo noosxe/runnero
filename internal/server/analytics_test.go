@@ -13,6 +13,7 @@ import (
 	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
 	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
 	"github.com/noosxe/runnero/internal/server"
+	"slices"
 )
 
 type mockSystemStats struct {
@@ -394,5 +395,119 @@ func TestAnalyticsServiceWatchDashboard(t *testing.T) {
 	}
 	if err := stream.Err(); err != nil && !strings.Contains(err.Error(), "canceled") {
 		t.Errorf("unexpected error on stream cancel: %v", err)
+	}
+}
+
+// Regression: the app shell keeps the dashboard stream subscribed on every
+// route, so WatchDashboard and WatchPools both feed the same client-side query
+// cache once per second. When WatchDashboard serialized pools without the
+// pool_targets enrichment, the multi-target count badge on the Runner Pools
+// page appeared and disappeared on every stream tick.
+func TestWatchDashboardAndWatchPoolsAgreeOnPoolTargets(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	database, jwtSecret := setupTestDB(t)
+
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		AnalyticsDB:      database,
+		JWTSigningSecret: jwtSecret,
+	})
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	})); err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	rawCookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
+
+	authProf, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
+		Name:           "targets-auth",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "dummy-token", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthProfile failed: %v", err)
+	}
+	pool, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
+		Name:           "targets-pool",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/org/repo",
+		AuthProfileID:  authProf.ID,
+		Scope:          "repo",
+		MinIdleRunners: 1,
+		MaxConcurrency: 5,
+	})
+	if err != nil {
+		t.Fatalf("CreateRunnerPool failed: %v", err)
+	}
+
+	// Multi-target pool: both rows live in pool_targets (ListPoolTargetsByPoolId
+	// orders by target_url ASC, so the expected order is fixed).
+	wantTargets := []string{"https://github.com/org/other", "https://github.com/org/repo"}
+	for _, url := range wantTargets {
+		if _, err := database.AddPoolTarget(ctx, db.AddPoolTargetParams{
+			PoolID:    pool.ID,
+			TargetUrl: url,
+		}); err != nil {
+			t.Fatalf("AddPoolTarget(%q) failed: %v", url, err)
+		}
+	}
+
+	// WatchPools snapshot
+	poolClient := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
+	poolWatchReq := connect.NewRequest(&supervisorv1.WatchPoolsRequest{IntervalMs: 250})
+	poolWatchReq.Header().Set("Cookie", "session_token="+rawCookie)
+	poolStream, err := poolClient.WatchPools(ctx, poolWatchReq)
+	if err != nil {
+		t.Fatalf("WatchPools failed: %v", err)
+	}
+	defer func() { _ = poolStream.Close() }()
+	if !poolStream.Receive() {
+		t.Fatalf("expected initial WatchPools message, got none (err: %v)", poolStream.Err())
+	}
+
+	// WatchDashboard snapshot
+	analyticsClient := supervisorv1connect.NewAnalyticsServiceClient(ts.Client(), ts.URL)
+	dashWatchReq := connect.NewRequest(&supervisorv1.WatchDashboardRequest{IntervalMs: 250})
+	dashWatchReq.Header().Set("Cookie", "session_token="+rawCookie)
+	dashStream, err := analyticsClient.WatchDashboard(ctx, dashWatchReq)
+	if err != nil {
+		t.Fatalf("WatchDashboard failed: %v", err)
+	}
+	defer func() { _ = dashStream.Close() }()
+	if !dashStream.Receive() {
+		t.Fatalf("expected initial WatchDashboard message, got none (err: %v)", dashStream.Err())
+	}
+
+	if got := len(dashStream.Msg().Pools); got != 1 {
+		t.Fatalf("WatchDashboard: expected 1 pool, got %d", got)
+	}
+	if got := len(poolStream.Msg().Pools); got != 1 {
+		t.Fatalf("WatchPools: expected 1 pool, got %d", got)
+	}
+
+	dashTargets := dashStream.Msg().Pools[0].TargetUrls
+	poolTargets := poolStream.Msg().Pools[0].TargetUrls
+	if !slices.Equal(dashTargets, wantTargets) {
+		t.Errorf("WatchDashboard targets = %v, want %v", dashTargets, wantTargets)
+	}
+	if !slices.Equal(poolTargets, wantTargets) {
+		t.Errorf("WatchPools targets = %v, want %v", poolTargets, wantTargets)
 	}
 }

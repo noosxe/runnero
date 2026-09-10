@@ -313,15 +313,7 @@ func (s *PoolService) toProto(ctx context.Context, p db.RunnerPool) *supervisorv
 				Image:        cfg.Image,
 			}
 		}
-		if targets, err := s.db.ListPoolTargetsByPoolId(ctx, p.ID); err == nil && len(targets) > 0 {
-			urls := make([]string, 0, len(targets))
-			for _, t := range targets {
-				urls = append(urls, t.TargetUrl)
-			}
-			proto.TargetUrls = urls
-		} else if p.RepositoryUrl != "" {
-			proto.TargetUrls = []string{p.RepositoryUrl}
-		}
+		enrichPoolTargets(ctx, s.db, p, proto)
 	}
 	return proto
 }
@@ -338,6 +330,31 @@ func mapHealthStatusToProto(s string) supervisorv1.PoolHealthStatus {
 		return supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_PAUSED
 	default:
 		return supervisorv1.PoolHealthStatus_POOL_HEALTH_STATUS_HEALTHY
+	}
+}
+
+// poolTargetsReader is the minimal read access needed to serialize a pool's
+// target list.
+type poolTargetsReader interface {
+	ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error)
+}
+
+// enrichPoolTargets populates proto.TargetUrls from the pool_targets table,
+// falling back to the legacy single-target repository_url column for records
+// predating multi-target support. Every handler that serializes pools must run
+// them through this: web clients merge several streams (WatchPools,
+// WatchDashboard) into one query cache, so pools serialized with diverging
+// target data make UI elements derived from it (e.g. the target count badge)
+// flip-flop on every stream tick.
+func enrichPoolTargets(ctx context.Context, q poolTargetsReader, p db.RunnerPool, proto *supervisorv1.Pool) {
+	if targets, err := q.ListPoolTargetsByPoolId(ctx, p.ID); err == nil && len(targets) > 0 {
+		urls := make([]string, 0, len(targets))
+		for _, t := range targets {
+			urls = append(urls, t.TargetUrl)
+		}
+		proto.TargetUrls = urls
+	} else if p.RepositoryUrl != "" {
+		proto.TargetUrls = []string{p.RepositoryUrl}
 	}
 }
 

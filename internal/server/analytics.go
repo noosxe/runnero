@@ -26,6 +26,9 @@ type AnalyticsDatabase interface {
 	GetJobStatsSince(ctx context.Context, createdAt time.Time) (db.GetJobStatsSinceRow, error)
 	GetHourlyJobStatsSince(ctx context.Context, createdAt time.Time) ([]db.GetHourlyJobStatsSinceRow, error)
 	ListRunnerPools(ctx context.Context) ([]db.RunnerPool, error)
+	// Required by enrichPoolTargets: dashboard pool snapshots must carry the
+	// same full target list the pool service streams do.
+	ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error)
 }
 
 // SystemStatsProvider provides live active/idle runner counts across all pools.
@@ -356,7 +359,12 @@ func (s *AnalyticsService) WatchDashboard(ctx context.Context, req *connect.Requ
 		}
 		protoPools := make([]*supervisorv1.Pool, 0, len(dbPools))
 		for _, p := range dbPools {
-			protoPools = append(protoPools, ConvertDBPoolToProto(p, s.poolStats))
+			protoPool := ConvertDBPoolToProto(p, s.poolStats)
+			// Same target enrichment as the pool service streams: web clients
+			// merge both feeds into one cache, so diverging snapshots make
+			// target-derived UI flicker every tick.
+			enrichPoolTargets(ctx, s.db, p, protoPool)
+			protoPools = append(protoPools, protoPool)
 		}
 
 		jobs, err := s.db.ListJobHistory(ctx, db.ListJobHistoryParams{
