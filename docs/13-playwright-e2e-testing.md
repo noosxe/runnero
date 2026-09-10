@@ -85,6 +85,7 @@ The test harness directory structure is isolated from unit and integration tests
 tests/e2e/
 ├── docker-compose.e2e.yml     # Orchestrates test runner, supervisor, and mock servers
 ├── Dockerfile.playwright      # Playwright container image with Node 24 & browsers
+├── pnpm-lock.yaml             # Committed lockfile; installed with --frozen-lockfile (RUN-130)
 ├── playwright.config.ts       # Base URL, viewport, timeouts, traces, and reporter configs
 ├── fixtures.ts                # Shared fixtures & helpers: login(), authedPage,
 │                              # onboardedPage (RUN-135) — auth + onboarding state in one place
@@ -116,6 +117,20 @@ signature instead of relying on file execution order. The e2e Playwright
 image bakes `tests/e2e/` in at build time, so fixture changes require an
 image rebuild (`docker compose -f tests/e2e/docker-compose.e2e.yml build
 e2e-playwright`) before they are visible to `compose run`.
+
+The Playwright image installs dependencies reproducibly: `pnpm-lock.yaml` is
+committed and the build runs `pnpm install --frozen-lockfile`, so an image
+build fails instead of silently resolving newer packages than the lockfile
+recorded (RUN-130 — an unpinned `^1.55.0` bump once shipped a Playwright
+release needing browser revisions the pinned base image did not carry, and
+every test failed at browser launch). The `@playwright/test` version and the
+`mcr.microsoft.com/playwright:vX.Y.Z` base image tag must stay in lockstep;
+`tests/unit/playwright_lockstep_test.sh` (part of `make test-scripts` and the
+`lint.yml` script-tests CI job) fails the gate when package.json, the
+lockfile, and the Dockerfile base tag drift apart. When bumping the version,
+regenerate the lockfile with the image's own pnpm (`corepack prepare
+pnpm@<version> --activate && pnpm install --lockfile-only` inside a container
+from the base image) and update the base tag in the same commit.
 
 ### 3.2 Mock Git Provider Server (`mock/provider`)
 A lightweight, in-memory Go server responding to all Git provider endpoints configured in the supervisor:

@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1
+# LOCKSTEP: the base image tag must equal the @playwright/test version in
+# tests/e2e/package.json (and thus pnpm-lock.yaml): the image ships the exact
+# browser builds its matching @playwright/test release expects. A mismatch
+# fails every test at browser launch. tests/unit/playwright_lockstep_test.sh
+# enforces this (make test-scripts).
 FROM mcr.microsoft.com/playwright:v1.55.0-noble
 
 WORKDIR /e2e
@@ -10,8 +15,11 @@ ENV CI=true
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
-COPY tests/e2e/package.json ./
-RUN pnpm install
+# Dependency layer: package.json + pnpm-lock.yaml together, installed with
+# --frozen-lockfile so a build fails instead of silently resolving newer
+# versions than the lockfile recorded (RUN-130).
+COPY tests/e2e/package.json tests/e2e/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY tests/e2e/ ./
 

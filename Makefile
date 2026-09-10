@@ -65,6 +65,7 @@ build-image-runner:
 test-scripts:
 	bash tests/unit/entrypoint_test.sh
 	bash tests/unit/parity_packages_test.sh
+	bash tests/unit/playwright_lockstep_test.sh
 
 ## lint: static analysis via golangci-lint
 lint: build-web
