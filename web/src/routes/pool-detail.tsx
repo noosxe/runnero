@@ -45,6 +45,8 @@ import {
   Save,
   RefreshCw,
   DownloadCloud,
+  Copy,
+  Check,
 } from "lucide-react";
 
 function formatUptime(seconds: number | bigint): string {
@@ -75,6 +77,37 @@ export function PoolDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);
   const [runnerToTerminate, setRunnerToTerminate] = useState<RunnerInstance | null>(null);
+  const [labelsCopied, setLabelsCopied] = useState(false);
+
+  // GitHub Actions accepts a comma-separated label list on runs-on; copy the
+  // pool's labels in exactly that shape so they paste straight into a
+  // workflow file. Falls back to execCommand because the control plane is
+  // commonly served over plain HTTP on a LAN/tailnet, where the async
+  // Clipboard API is unavailable (not a secure context).
+  const copyRunnerLabels = () => {
+    if (!pool?.labels || pool.labels.length === 0) return;
+    const text = pool.labels.join(", ");
+    const done = () => {
+      setLabelsCopied(true);
+      window.setTimeout(() => setLabelsCopied(false), 2000);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => {});
+      return;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      if (document.execCommand("copy")) done();
+    } finally {
+      document.body.removeChild(ta);
+    }
+  };
 
   const terminateMutation = useTerminateRunner();
   const { data: updates } = useImageUpdates();
@@ -419,24 +452,26 @@ export function PoolDetailPage() {
             <h2 className="text-base font-bold text-slate-900 dark:text-white">
               Pool Parameters & Resource Limits
             </h2>
-            <button
-              type="button"
-              aria-label="Edit pool configuration"
-              onClick={() => setIsEditModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              <span>Edit Configuration</span>
-            </button>
-            <button
-              type="button"
-              aria-label="Delete pool"
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Delete Pool</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Edit pool configuration"
+                onClick={() => setIsEditModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                <span>Edit Configuration</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Delete pool"
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Delete Pool</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
@@ -576,8 +611,26 @@ export function PoolDetailPage() {
             </div>
 
             <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">Runner Labels</span>
-              <div className="mt-1 flex flex-wrap gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-400">Runner Labels</span>
+                {labelsCopied && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-3 w-3" />
+                    Copied
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={copyRunnerLabels}
+                disabled={!pool.labels || pool.labels.length === 0}
+                title={
+                  pool.labels && pool.labels.length > 0
+                    ? "Copy labels — pastes directly into a GitHub Actions runs-on list"
+                    : undefined
+                }
+                className="mt-1 flex w-full flex-wrap items-center gap-1 cursor-pointer text-left disabled:cursor-default"
+              >
                 {pool.labels && pool.labels.length > 0 ? (
                   pool.labels.map((l) => (
                     <span
@@ -590,7 +643,10 @@ export function PoolDetailPage() {
                 ) : (
                   <span className="font-mono text-slate-400">self-hosted, linux, arm64</span>
                 )}
-              </div>
+                {pool.labels && pool.labels.length > 0 && (
+                  <Copy className="h-3 w-3 shrink-0 text-slate-400" />
+                )}
+              </button>
             </div>
           </div>
         </div>
