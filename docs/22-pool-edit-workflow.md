@@ -82,8 +82,9 @@ edit UI.** This design supplies all three.
    runners; busy runners are never terminated by an edit.
 4. Rename requires **zero busy runners** at commit time; otherwise
    `CodeFailedPrecondition` with an actionable message.
-5. Duplicate pool name → `CodeAlreadyExists` (today: unhandled
-   `UNIQUE(name)` violation surfacing as `CodeInternal`).
+5. Duplicate pool name → `CodeAlreadyExists` (shipped: create maps the
+   `UNIQUE(name)` violation via `db.IsUniqueConstraintError` — RUN-163;
+   update since RUN-129).
 6. Unknown pool id → `CodeNotFound`; invalid payload → `CodeInvalidArgument`;
    referencing a missing auth profile → `CodeInvalidArgument` (existing FK
    mapping).
@@ -346,6 +347,8 @@ in edit mode:
 - **Gitea → Forgejo forge-migration flow** (provider switch with target host
   validation), should the scenario materialize.
 - ~~**Transactional pool+renovate+targets writes** (single sqlite tx).~~
-  *Implemented (RUN-129): `db.UpdatePool` wraps the pool row, renovate
-  upsert, and target rewrite in one transaction, and idle recycling moved
-  after the commit so a failed update does not churn runners.*
+  *Implemented (RUN-129: `db.UpdatePool`; RUN-163: `db.CreatePool`) — the
+  pool row, renovate config, and targets land in one transaction on both
+  paths, with no swallowed write errors. Create also validates the renovate
+  cron before any write (a rejection no longer leaves a config-less pool)
+  and maps duplicate names to `CodeAlreadyExists`.*

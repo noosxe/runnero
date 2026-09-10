@@ -25,7 +25,7 @@ type PoolDatabase interface {
 	ListRunnerPools(ctx context.Context) ([]db.RunnerPool, error)
 	GetRunnerPoolById(ctx context.Context, id int64) (db.RunnerPool, error)
 	GetRunnerPoolByName(ctx context.Context, name string) (db.RunnerPool, error)
-	CreateRunnerPool(ctx context.Context, arg db.CreateRunnerPoolParams) (db.RunnerPool, error)
+	CreatePool(ctx context.Context, req db.PoolCreate) (db.RunnerPool, error)
 	UpdatePool(ctx context.Context, req db.PoolUpdate) (db.RunnerPool, error)
 	DeleteRunnerPool(ctx context.Context, id int64) error
 	CreateAuditLog(ctx context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error)
@@ -534,30 +534,10 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 
 	labelsStr := strings.Join(pool.Labels, ",")
 
-	created, err := s.db.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
-		Name:                     strings.TrimSpace(pool.Name),
-		Provider:                 strings.ToLower(strings.TrimSpace(pool.Provider)),
-		RepositoryUrl:            strings.TrimSpace(pool.RepositoryUrl),
-		Scope:                    scope,
-		AuthProfileID:            pool.AuthProfileId,
-		MinIdleRunners:           int64(pool.MinIdleRunners),
-		MaxConcurrency:           int64(pool.MaxConcurrency),
-		Labels:                   labelsStr,
-		RunnerImage:              strings.TrimSpace(pool.RunnerImage),
-		AllowDocker:              pool.AllowDocker,
-		MaxRunnerLifetimeSeconds: int64(pool.MaxRunnerLifetimeSeconds),
-		CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
-		MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
-		PollFallback:             pool.PollFallback,
-		PollIntervalSeconds:      defaultPollInterval(pool.PollIntervalSeconds),
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "FOREIGN KEY") {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("auth_profile_id %d does not exist", pool.AuthProfileId))
-		}
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("creating runner pool: %w", err))
-	}
-
+	// Validate the renovate schedule BEFORE any write: rejecting it after the
+	// pool row landed used to leave a pool with no renovate config (partial
+	// create behind a user-visible error).
+	var renovate *db.CreateRenovateConfigParams
 	if pool.Renovate != nil {
 		if pool.Renovate.Enabled && strings.TrimSpace(pool.Renovate.CronSchedule) != "" {
 			if _, err := cron.ParseSchedule(strings.TrimSpace(pool.Renovate.CronSchedule)); err != nil {
@@ -569,27 +549,59 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 			img = "renovate/renovate:latest"
 		}
 		cronSched := strings.TrimSpace(pool.Renovate.CronSchedule)
-		_, _ = s.db.CreateRenovateConfig(ctx, db.CreateRenovateConfigParams{
-			PoolID:       created.ID,
+		renovate = &db.CreateRenovateConfigParams{
 			Enabled:      pool.Renovate.Enabled,
 			CronSchedule: sql.NullString{String: cronSched, Valid: cronSched != ""},
 			Image:        img,
-		})
+		}
 	}
 
-	// Persist target URLs into pool_targets
-	targetURLs := pool.TargetUrls
-	if len(targetURLs) == 0 && created.RepositoryUrl != "" {
-		targetURLs = []string{created.RepositoryUrl}
-	}
-	for _, t := range targetURLs {
-		t = strings.TrimSpace(t)
-		if t != "" {
-			_, _ = s.db.AddPoolTarget(ctx, db.AddPoolTargetParams{
-				PoolID:    created.ID,
-				TargetUrl: t,
-			})
+	// Seed target URLs, falling back to the repository URL when none were
+	// supplied; trimmed, non-empty entries only.
+	var targets []string
+	for _, t := range pool.TargetUrls {
+		if t = strings.TrimSpace(t); t != "" {
+			targets = append(targets, t)
 		}
+	}
+	if len(targets) == 0 {
+		if repo := strings.TrimSpace(pool.RepositoryUrl); repo != "" {
+			targets = []string{repo}
+		}
+	}
+
+	// The pool row, renovate config, and seed targets land in a single
+	// transaction (RUN-163): the previous sequential writes swallowed per-leg
+	// errors, so a failed insert silently produced a pool missing that leg.
+	created, err := s.db.CreatePool(ctx, db.PoolCreate{
+		Pool: db.CreateRunnerPoolParams{
+			Name:                     strings.TrimSpace(pool.Name),
+			Provider:                 strings.ToLower(strings.TrimSpace(pool.Provider)),
+			RepositoryUrl:            strings.TrimSpace(pool.RepositoryUrl),
+			Scope:                    scope,
+			AuthProfileID:            pool.AuthProfileId,
+			MinIdleRunners:           int64(pool.MinIdleRunners),
+			MaxConcurrency:           int64(pool.MaxConcurrency),
+			Labels:                   labelsStr,
+			RunnerImage:              strings.TrimSpace(pool.RunnerImage),
+			AllowDocker:              pool.AllowDocker,
+			MaxRunnerLifetimeSeconds: int64(pool.MaxRunnerLifetimeSeconds),
+			CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
+			MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
+			PollFallback:             pool.PollFallback,
+			PollIntervalSeconds:      defaultPollInterval(pool.PollIntervalSeconds),
+		},
+		Renovate: renovate,
+		Targets:  targets,
+	})
+	if err != nil {
+		if db.IsUniqueConstraintError(err) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("pool name %q already exists", strings.TrimSpace(pool.Name)))
+		}
+		if strings.Contains(err.Error(), "FOREIGN KEY") {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("auth_profile_id %d does not exist", pool.AuthProfileId))
+		}
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("creating runner pool: %w", err))
 	}
 
 	recordAuditLog(ctx, s.db, "pool.create", "runner_pool", &created.ID, map[string]any{

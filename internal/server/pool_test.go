@@ -263,6 +263,47 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		t.Fatalf("expected pool.create audit log, got: %+v", auditLogs)
 	}
 
+	// 3b. Duplicate name maps to CodeAlreadyExists (RUN-163, docs/22 §3.1):
+	// previously the UNIQUE violation surfaced as CodeInternal.
+	dupReq := connect.NewRequest(&supervisorv1.CreatePoolRequest{
+		Pool: &supervisorv1.Pool{
+			Name:          "github-arm64",
+			Provider:      "github",
+			RepositoryUrl: "https://github.com/org/repo",
+			Scope:         "repo",
+			AuthProfileId: authProfile.ID,
+		},
+	})
+	dupReq.Header().Set("Cookie", "session_token="+rawCookie)
+	_, err = client.CreatePool(ctx, dupReq)
+	if connect.CodeOf(err) != connect.CodeAlreadyExists {
+		t.Fatalf("duplicate pool name want CodeAlreadyExists, got: %v", err)
+	}
+
+	// 3c. Invalid renovate cron rejects BEFORE the write: the pool must not
+	// exist afterwards (previously the pool row landed, then the request 400'd).
+	badCronReq := connect.NewRequest(&supervisorv1.CreatePoolRequest{
+		Pool: &supervisorv1.Pool{
+			Name:          "bad-cron-pool",
+			Provider:      "github",
+			RepositoryUrl: "https://github.com/org/repo",
+			Scope:         "repo",
+			AuthProfileId: authProfile.ID,
+			Renovate: &supervisorv1.RenovateConfig{
+				Enabled:      true,
+				CronSchedule: "not-a-cron",
+			},
+		},
+	})
+	badCronReq.Header().Set("Cookie", "session_token="+rawCookie)
+	_, err = client.CreatePool(ctx, badCronReq)
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("invalid renovate cron want CodeInvalidArgument, got: %v", err)
+	}
+	if _, nameErr := database.GetRunnerPoolByName(ctx, "bad-cron-pool"); nameErr == nil {
+		t.Fatalf("pool persisted despite invalid renovate cron")
+	}
+
 	// 4. ListPools returns the created pool with stats
 	listReq := connect.NewRequest(&supervisorv1.ListPoolsRequest{})
 	listReq.Header().Set("Cookie", "session_token="+rawCookie)
