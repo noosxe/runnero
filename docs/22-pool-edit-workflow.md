@@ -136,10 +136,11 @@ request are ignored and the response is rebuilt from the persisted row.
 | `provider` | **Immutable** | Rejected with `CodeInvalidArgument` (§5.3). |
 
 **Rule:** if any spawn-identity field changed, the server asks the controller
-to recycle the pool's idle runners *before* the DB write (§6.2). Busy runners
-finish their job and exit — natural convergence, zero job disruption. If the
-DB write subsequently fails, recycled idle runners simply respawn on the next
-tick (self-healing; worst case is a briefly cold pool).
+to recycle the pool's idle runners *after* the update transaction commits
+(§6.2; the write itself is transactional since RUN-129). Busy runners
+finish their job and exit — natural convergence, zero job disruption.
+Recycling only ever follows a successful write: a failed update leaves the
+pool untouched and skips the recycle churn entirely.
 
 ### 5.3 Provider Immutability
 
@@ -344,5 +345,7 @@ in edit mode:
   finish their jobs under a lifetime backstop.*
 - **Gitea → Forgejo forge-migration flow** (provider switch with target host
   validation), should the scenario materialize.
-- **Transactional pool+renovate+targets writes** (single sqlite tx) — noted as
-  accepted limitation in §4; revisit if partial-write incidents occur.
+- ~~**Transactional pool+renovate+targets writes** (single sqlite tx).~~
+  *Implemented (RUN-129): `db.UpdatePool` wraps the pool row, renovate
+  upsert, and target rewrite in one transaction, and idle recycling moved
+  after the commit so a failed update does not churn runners.*
