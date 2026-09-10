@@ -1,0 +1,14 @@
+{
+  "name": "runnero",
+  "private": true,
+  "description": "Repo-root tooling (git hooks). Not an application package: the frontend lives in its own package.json.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.0",
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0"
+  }
+}

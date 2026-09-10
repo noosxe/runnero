@@ -1,0 +1,3 @@
+# Runs oxfmt (fix mode) + oxlint on staged files, per .lintstagedrc.json.
+# Extension-based globs: works no matter which directory the frontend lives in.
+pnpm exec lint-staged
