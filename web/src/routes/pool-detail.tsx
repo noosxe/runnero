@@ -149,12 +149,11 @@ export function PoolDetailPage() {
                 </span>
               </span>
             </div>
-            <div className="mt-1 flex items-center gap-2">
-              <p className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate max-w-md">
-                {poolTargetList(pool)[0]}
-              </p>
-              <TargetCountBadge pool={pool} />
-            </div>
+            {poolTargetList(pool).length > 1 && (
+              <div className="mt-1">
+                <TargetCountBadge pool={pool} />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
