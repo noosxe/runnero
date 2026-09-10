@@ -109,6 +109,18 @@ type Querier interface {
 	UpdateRenovateConfig(ctx context.Context, arg UpdateRenovateConfigParams) (RenovateConfig, error)
 	UpdateRenovateRunContainerID(ctx context.Context, arg UpdateRenovateRunContainerIDParams) error
 	UpdateRunnerPool(ctx context.Context, arg UpdateRunnerPoolParams) (RunnerPool, error)
+	// Webhook completed event arriving after the death path already closed the
+	// row: an ephemeral runner exits before the forge event lands, so the row
+	// was closed as completed (exit 0, conclusion unknowable). The webhook
+	// conclusion is authoritative, so upgrade the closed row (docs/21 section 5.5).
+	// Rows closed as interrupted or timeout stay: the runner died or was killed
+	// mid-job, so any forge conclusion describes a requeued job, not this row.
+	UpgradeClosedJobRowConclusion(ctx context.Context, arg UpgradeClosedJobRowConclusionParams) (int64, error)
+	// Same death-before-webhook race, poll-path variant: the transition row
+	// closed without an external job id, so the by-id upgrade above cannot
+	// match it. The completed event names the runner, so upgrade its newest
+	// closed completed row and stamp the job id onto it.
+	UpgradeLatestNullJobRowConclusion(ctx context.Context, arg UpgradeLatestNullJobRowConclusionParams) (int64, error)
 	// Webhook 'queued' upsert keyed by the external job id (docs/21 section 5.5).
 	// Conflicts only fill in missing metadata: status, runner assignment, and the
 	// original queued_at are never rewritten by a (re)delivery.

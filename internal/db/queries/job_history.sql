@@ -217,6 +217,34 @@ SET completed_at = ?,
     runner_name = CASE WHEN COALESCE(runner_name, '') = '' THEN ? ELSE runner_name END
 WHERE job_id = ? AND completed_at IS NULL;
 
+-- name: UpgradeClosedJobRowConclusion :execrows
+-- Webhook completed event arriving after the death path already closed the
+-- row: an ephemeral runner exits before the forge event lands, so the row
+-- was closed as completed (exit 0, conclusion unknowable). The webhook
+-- conclusion is authoritative, so upgrade the closed row (docs/21 section 5.5).
+-- Rows closed as interrupted or timeout stay: the runner died or was killed
+-- mid-job, so any forge conclusion describes a requeued job, not this row.
+UPDATE job_history
+SET completed_at = ?,
+    status = ?
+WHERE completed_at IS NOT NULL AND status = ? AND job_id = ?;
+
+
+-- name: UpgradeLatestNullJobRowConclusion :execrows
+-- Same death-before-webhook race, poll-path variant: the transition row
+-- closed without an external job id, so the by-id upgrade above cannot
+-- match it. The completed event names the runner, so upgrade its newest
+-- closed completed row and stamp the job id onto it.
+UPDATE job_history
+SET status = ?,
+    completed_at = ?,
+    job_id = ?
+WHERE id = (
+    SELECT j.id FROM job_history j
+    WHERE j.pool_id = ? AND j.runner_name = ? AND j.status = 'completed'
+      AND j.completed_at IS NOT NULL AND (j.job_id IS NULL OR j.job_id = 0)
+    ORDER BY j.completed_at DESC LIMIT 1
+);
 -- name: DeleteOpenTransitionRowsByRunner :execrows
 -- Duplicate cleanup after closing by external job id: a poll-opened transition
 -- row (empty job id) for the same runner would double-count the job.

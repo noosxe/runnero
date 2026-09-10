@@ -440,19 +440,55 @@ func (d *DB) RecordWebhookCompleted(ctx context.Context, poolID, jobID int64, ru
 				return fmt.Errorf("deleting duplicate transition row: %w", err)
 			}
 		}
-	} else if runnerName != "" {
-		// No row carries the external id: close the runner's open transition
-		// row and enrich it with the job identity (docs/21 §5.5).
-		if _, err := q.CloseOpenRowByRunnerEnrichJobID(ctx, CloseOpenRowByRunnerEnrichJobIDParams{
-			CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
-			Status:      status,
-			JobID:       sql.NullInt64{Int64: jobID, Valid: jobID != 0},
-			PoolID:      poolID,
-			RunnerName:  runnerName,
-		}); err != nil {
-			return fmt.Errorf("closing transition row with job id: %w", err)
+	} else {
+		// No row carries the external id. Fall back to the runner's open
+		// transition row: close it and enrich it with the job identity
+		// (docs/21 §5.5).
+		closed := int64(0)
+		if runnerName != "" {
+			closed, err = q.CloseOpenRowByRunnerEnrichJobID(ctx, CloseOpenRowByRunnerEnrichJobIDParams{
+				CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
+				Status:      status,
+				JobID:       sql.NullInt64{Int64: jobID, Valid: jobID != 0},
+				PoolID:      poolID,
+				RunnerName:  runnerName,
+			})
+			if err != nil {
+				return fmt.Errorf("closing transition row with job id: %w", err)
+			}
+		}
+		if closed == 0 {
+			// No open row anywhere: the runner's death handler already closed
+			// the row as 'completed' before the forge's event arrived (an
+			// ephemeral container exits within seconds; webhook delivery takes
+			// longer). The webhook conclusion is authoritative, so upgrade the
+			// closed row — by external id first (queued-path rows carry it).
+			upgraded := int64(0)
+			if jobID != 0 {
+				upgraded, err = q.UpgradeClosedJobRowConclusion(ctx, UpgradeClosedJobRowConclusionParams{
+					CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
+					Status:      status,
+					Status_2:    "completed",
+					JobID:       sql.NullInt64{Int64: jobID, Valid: jobID != 0},
+				})
+				if err != nil {
+					return fmt.Errorf("upgrading closed job row conclusion: %w", err)
+				}
+			}
+			if upgraded == 0 && runnerName != "" {
+				// Poll-path row (closed without an external id): upgrade the
+				// runner's newest closed completed row and stamp the job id.
+				if _, err := q.UpgradeLatestNullJobRowConclusion(ctx, UpgradeLatestNullJobRowConclusionParams{
+					Status:      status,
+					CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: !completedAt.IsZero()},
+					JobID:       sql.NullInt64{Int64: jobID, Valid: jobID != 0},
+					PoolID:      poolID,
+					RunnerName:  runnerName,
+				}); err != nil {
+					return fmt.Errorf("upgrading latest closed job row conclusion: %w", err)
+				}
+			}
 		}
 	}
-
 	return tx.Commit()
 }
