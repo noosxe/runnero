@@ -193,6 +193,13 @@ gains the same condition: `p.MinIdleRunners == 0 || pollsDemand`, so
 deficit-spawned runners on fallback pools are preserved through their startup
 grace instead of being drained as surplus.
 
+As-built refinement (standby backfill): `min_idle` counts **idle** standbys,
+so the effective target's base is now busy-inclusive — `min_idle + busy` —
+and the reconcile spawn loop backfills the slot a runner vacated when its
+job started (docs/03 §3b). The in_progress webhook provisions the same
+replacement synchronously for zero tick latency. Capacity accounting
+(`deficit`, caps, quota queue) is unchanged on top of that base.
+
 As-built refinement (RUN-151, RUN-156): the deficit is computed **per target** —
 `deficit_target = max(0, queued_target − idle_target)`, summed over targets —
 with idle runners attributed to the target they registered against (`TargetURL`).

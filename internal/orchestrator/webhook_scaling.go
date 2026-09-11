@@ -357,6 +357,10 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 		// produce duplicate records.
 		if p := c.resolveEventPool(ctx, providerName, event); p != nil {
 			c.demand.markStarted(p.ID, event.WorkflowJob.ID)
+			// Standby backfill (docs/03 §4): the runner just went busy, so its
+			// min_idle slot is free — provision the replacement now rather than
+			// letting the next queued job (or a reconcile tick) pay for latency.
+			c.replenishIdleStandby(ctx, p, event.WorkflowJob.RunnerName)
 			c.recordWebhookEvent(ctx, "in_progress", p, event)
 		}
 		return nil
@@ -379,6 +383,116 @@ func (c *PoolController) HandleWorkflowJob(ctx context.Context, providerName str
 }
 
 // resolveEventPool finds the pool a webhook event belongs to using the same
+
+// replenishIdleStandby backfills the warm standby slot a runner vacated when
+// its job started (docs/03 §3/§4): min_idle counts idle standbys ready for
+// dispatch, so the moment one is consumed the pool provisions a replacement —
+// subject to the same capacity constraints (per-pool max_concurrency, global
+// quota) as every other spawn. The reconcile loop performs the same top-up
+// (busy-inclusive effective target); this webhook hook removes the tick
+// latency so the next queued job finds a warm runner instead of waiting for
+// a cold spawn. Best-effort: failures are logged and left for the reconcile
+// loop to retry.
+func (c *PoolController) replenishIdleStandby(ctx context.Context, p *db.RunnerPool, runnerName string) {
+	if p == nil || p.MinIdleRunners <= 0 || c.reconciler == nil {
+		return
+	}
+
+	// Refill the slot on the target the busy runner was serving; legacy
+	// adoptions carry no target, so fall back to pool-wide idle accounting
+	// and the pool's default target.
+	backfillTarget := ""
+	for _, r := range c.reconciler.TrackedPoolRunners(p.ID) {
+		if r.Name == runnerName && r.TargetURL != "" {
+			backfillTarget = r.TargetURL
+			break
+		}
+	}
+	var backfillNormalized string
+	if backfillTarget != "" {
+		backfillNormalized = NormalizeRepositoryURL(backfillTarget)
+	}
+
+	// idleDeficit returns (idle, active) — per-target accounting when the
+	// vacated target is known, pool-wide otherwise.
+	idleDeficit := func() (idle, active int64) {
+		for _, r := range c.reconciler.TrackedPoolRunners(p.ID) {
+			if r.State != "running" {
+				continue
+			}
+			active++
+			if r.IsBusy {
+				continue
+			}
+			if backfillNormalized == "" {
+				idle++ // pool-wide accounting for unattributed runners
+				continue
+			}
+			if r.TargetURL != "" && NormalizeRepositoryURL(r.TargetURL) == backfillNormalized {
+				idle++
+			}
+		}
+		return idle, active
+	}
+
+	idle, active := idleDeficit()
+	if idle >= int64(p.MinIdleRunners) {
+		return // standby buffer already full
+	}
+	if p.MaxConcurrency > 0 && active >= p.MaxConcurrency {
+		c.logger.Info("pool at max_concurrency, deferring idle replenishment to reconcile",
+			"pool", p.Name,
+			"active", active,
+			"max_concurrency", p.MaxConcurrency,
+		)
+		return
+	}
+	if c.globalMaxRunners > 0 && c.TotalActiveRunners() >= c.globalMaxRunners {
+		c.logger.Warn("global runner quota saturated, queuing idle replenishment internally",
+			"pool", p.Name,
+			"global_active", c.TotalActiveRunners(),
+			"global_max", c.globalMaxRunners,
+		)
+		c.enqueueRequest(*p, backfillTarget)
+		return
+	}
+
+	c.provisionMu.Lock()
+	defer c.provisionMu.Unlock()
+
+	// Re-check under lock: another writer may have replenished meanwhile.
+	idle, active = idleDeficit()
+	if idle >= int64(p.MinIdleRunners) {
+		return
+	}
+	if p.MaxConcurrency > 0 && active >= p.MaxConcurrency {
+		return
+	}
+	if c.globalMaxRunners > 0 && c.TotalActiveRunners() >= c.globalMaxRunners {
+		c.enqueueRequest(*p, backfillTarget)
+		return
+	}
+
+	if err := c.spawnSingleRunner(ctx, *p, nil, false, backfillTarget); err != nil {
+		// Non-fatal: the reconcile loop's busy-inclusive target retries this
+		// on the next cycle, so the buffer self-heals.
+		c.logger.Warn("idle replenishment spawn failed",
+			"pool", p.Name,
+			"target", backfillTarget,
+			"err", err,
+		)
+		return
+	}
+
+	c.logger.Info("replenished idle standby after runner pickup",
+		"pool", p.Name,
+		"runner", runnerName,
+		"target", backfillTarget,
+		"idle_before", idle,
+		"min_idle", p.MinIdleRunners,
+	)
+}
+
 // repository/scope/label matching as the queued spawn path. Returns nil when
 // no pool matches — recording is scoped to configured pools only.
 func (c *PoolController) resolveEventPool(ctx context.Context, providerName string, event *webhook.WorkflowJobEvent) *db.RunnerPool {

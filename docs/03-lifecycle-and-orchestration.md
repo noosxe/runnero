@@ -91,6 +91,21 @@ assignment re-converge.
 
 This provides near-instant job pickup with no polling overhead.
 
+**Standby backfill on pickup (idle replenishment):** `min_idle` counts idle
+standbys ready for dispatch, so the moment a runner goes busy its standby
+slot is free — and it is refilled immediately, within the pool's capacity
+constraints (`max_concurrency`, global quota). The `in_progress` webhook
+provisions the replacement synchronously on the target the busy runner was
+serving (no reconcile latency); the reconcile loop enforces the same
+invariant as a fallback, since its effective target is busy-inclusive
+(`min_idle + busy`): pools that scale without webhooks, missed deliveries,
+and failed backfill spawns all self-heal on the next tick. The point is
+latency hiding: while job N runs, job N+1 arrives to a warm runner instead
+of waiting a full runner boot. When jobs complete and idle exceeds the
+target again, the excess-idle drain (below) prunes back down, so bursts
+settle instead of ratcheting. Scale-to-zero pools (`min_idle = 0`) never
+backfill.
+
 **Production wiring (RUN-153):** the endpoint is mounted only when at least one provider webhook secret is configured — `SUPERVISOR_WEBHOOK_GITHUB_SECRET`, `SUPERVISOR_WEBHOOK_GITEA_SECRET`, or `SUPERVISOR_WEBHOOK_FORGEJO_SECRET` (see the supervisor environment contract in the README). Every delivery is HMAC-verified against the configured secret; the provider `ping` handshake is acknowledged with `200`, missing or invalid signatures are rejected with `401`, a provider without its own secret answers `500 (webhook secret not configured)`, and unsupported providers answer `400`. Deployments without any secret keep the route unmounted (a `POST` answers `405`) and demand detection stays polling-only (docs/24). Secrets come from the environment, so rotation requires a supervisor restart.
 
 Alternatively — or additionally — the webhook URL may be the supervisor's embedded-Tailscale funnel URL (`https://<hostname>.<tailnet>.ts.net/hooks/{provider}`, RUN-155, docs/26): the supervisor's public Funnel listener serves exactly this route group with the same RUN-153 semantics over ts.net TLS, so webhook delivery works behind NAT with no inbound port publishing; the management UI is reachable tailnet-only on `:8443`.
