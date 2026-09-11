@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 import { Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -84,18 +86,14 @@ export function AppShell() {
               </div>
             )}
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
           >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
+            {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
+          </Button>
         </div>
 
         {/* Navigation Items */}
@@ -142,14 +140,15 @@ export function AppShell() {
                 <span className="block text-[10px] text-slate-400">Supervisor Admin</span>
               </div>
             )}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={handleLogout}
               title="Sign Out"
-              className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+              className="hover:text-destructive"
             >
-              <LogOut className="h-4 w-4" />
-            </button>
+              <LogOut />
+            </Button>
           </div>
         </div>
       </aside>
@@ -159,13 +158,14 @@ export function AppShell() {
         {/* Top Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80 md:px-8">
           <div className="flex items-center gap-4">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 md:hidden"
+              className="md:hidden"
             >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+              {mobileMenuOpen ? <X /> : <Menu />}
+            </Button>
 
             {/* Breadcrumbs */}
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -218,42 +218,36 @@ export function AppShell() {
 
             {/* Theme Switcher */}
             <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setTheme("light")}
                 title="Light Theme"
-                className={`rounded-lg p-1.5 transition-colors ${
-                  theme === "light"
-                    ? "bg-white text-blue-600 shadow-xs dark:bg-slate-800 dark:text-blue-400"
-                    : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
+                aria-pressed={theme === "light"}
+                className={cn(theme === "light" && "bg-background text-foreground shadow-2xs")}
               >
-                <Sun className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
+                <Sun />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setTheme("dark")}
                 title="Dark Theme"
-                className={`rounded-lg p-1.5 transition-colors ${
-                  theme === "dark"
-                    ? "bg-white text-blue-600 shadow-xs dark:bg-slate-800 dark:text-blue-400"
-                    : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
+                aria-pressed={theme === "dark"}
+                className={cn(theme === "dark" && "bg-background text-foreground shadow-2xs")}
               >
-                <Moon className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
+                <Moon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setTheme("system")}
                 title="System Theme"
-                className={`rounded-lg p-1.5 transition-colors ${
-                  theme === "system"
-                    ? "bg-white text-blue-600 shadow-xs dark:bg-slate-800 dark:text-blue-400"
-                    : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
+                aria-pressed={theme === "system"}
+                className={cn(theme === "system" && "bg-background text-foreground shadow-2xs")}
               >
-                <Monitor className="h-3.5 w-3.5" />
-              </button>
+                <Monitor />
+              </Button>
             </div>
           </div>
         </header>

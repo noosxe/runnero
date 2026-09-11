@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useLogin } from "../lib/api/query-hooks";
 import { useTheme } from "../hooks/use-theme";
@@ -31,42 +33,36 @@ export function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center p-4 bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-50">
       {/* Top Corner Theme Switcher */}
       <div className="absolute top-4 right-4 flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setTheme("light")}
           title="Light Theme"
-          className={`rounded-lg p-1.5 transition-colors ${
-            theme === "light"
-              ? "bg-slate-100 text-blue-600 dark:bg-slate-800 dark:text-blue-400"
-              : "text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          }`}
+          aria-pressed={theme === "light"}
+          className={cn(theme === "light" && "bg-muted text-primary")}
         >
-          <Sun className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
+          <Sun />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setTheme("dark")}
           title="Dark Theme"
-          className={`rounded-lg p-1.5 transition-colors ${
-            theme === "dark"
-              ? "bg-slate-100 text-blue-600 dark:bg-slate-800 dark:text-blue-400"
-              : "text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          }`}
+          aria-pressed={theme === "dark"}
+          className={cn(theme === "dark" && "bg-muted text-primary")}
         >
-          <Moon className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
+          <Moon />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setTheme("system")}
           title="System Theme"
-          className={`rounded-lg p-1.5 transition-colors ${
-            theme === "system"
-              ? "bg-slate-100 text-blue-600 dark:bg-slate-800 dark:text-blue-400"
-              : "text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          }`}
+          aria-pressed={theme === "system"}
+          className={cn(theme === "system" && "bg-muted text-primary")}
         >
-          <Monitor className="h-3.5 w-3.5" />
-        </button>
+          <Monitor />
+        </Button>
       </div>
 
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-xs dark:border-slate-800 dark:bg-slate-900">
@@ -117,25 +113,22 @@ export function LoginPage() {
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 required
               />
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-label="Toggle password visibility"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute inset-y-0 right-0"
                 tabIndex={-1}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+                {showPassword ? <EyeOff /> : <Eye />}
+              </Button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loginMutation.isPending}
-            className="w-full rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={loginMutation.isPending} className="w-full">
             {loginMutation.isPending ? "Signing in..." : "Sign In"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 import { useCreateAuthProfile, useUpdateAuthProfile } from "../../lib/api/query-hooks";
 import { fromWireAuthMethod, toWireAuthMethod } from "../../lib/utils/auth-methods";
 import type { AuthProfile } from "../../gen/api_pb";
@@ -148,14 +150,9 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
               {isEdit ? "Edit Git Auth Profile" : "Add Git Auth Profile"}
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+            <X />
+          </Button>
         </div>
 
         {error && (
@@ -175,18 +172,19 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
             </label>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {AUTH_METHODS.map((m) => (
-                <button
+                <Button
                   key={m.id}
                   type="button"
+                  variant="outline"
+                  aria-pressed={authMethod === m.id}
                   onClick={() => handleMethodChange(m.id)}
-                  className={`rounded-xl border p-2 text-center font-medium transition-all ${
-                    authMethod === m.id
-                      ? "border-blue-500 bg-blue-50/50 text-blue-700 font-semibold dark:border-blue-500 dark:bg-blue-950/30 dark:text-blue-300"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  }`}
+                  className={cn(
+                    "h-auto w-full py-2 text-center",
+                    authMethod === m.id && "border-primary bg-primary/5 text-primary font-semibold",
+                  )}
                 >
                   {m.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -272,20 +270,12 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           )}
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
+            <Button variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-blue-500 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" disabled={pending}>
               {pending ? "Saving..." : "Save Profile"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

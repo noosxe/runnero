@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useAuthProfiles, useDeleteAuthProfile } from "../lib/api/query-hooks";
 import type { AuthProfile } from "../gen/api_pb";
 import { AuthProfileModal } from "../components/profiles/auth-profile-modal";
@@ -47,14 +48,10 @@ export function ProfilesPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setModal({ mode: "create" })}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
+        <Button onClick={() => setModal({ mode: "create" })}>
+          <Plus data-icon="inline-start" />
           <span>Add Auth Profile</span>
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
@@ -70,14 +67,10 @@ export function ProfilesPage() {
             begin orchestrating runner pools.
           </p>
           <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => setModal({ mode: "create" })}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-500"
-            >
-              <Plus className="h-3.5 w-3.5" />
+            <Button size="xs" onClick={() => setModal({ mode: "create" })}>
+              <Plus data-icon="inline-start" />
               <span>Add First Profile</span>
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -146,23 +139,24 @@ export function ProfilesPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => setModal({ mode: "edit", profile: prof })}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil data-icon="inline-start" />
                     <span>Edit Profile</span>
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => handleDelete(prof.id, prof.name)}
                     disabled={deleteProfileMutation.isPending}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+                    className="text-destructive hover:text-destructive"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 data-icon="inline-start" />
                     <span>Delete Profile</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
