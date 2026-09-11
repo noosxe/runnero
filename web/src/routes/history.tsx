@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useJobHistory, usePools } from "../lib/api/query-hooks";
 import { Link } from "@tanstack/react-router";
 import {
@@ -135,15 +136,15 @@ export function HistoryPage() {
           </p>
         </div>
 
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleExportCSV}
           disabled={!history?.jobs || history.jobs.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
         >
-          <Download className="h-3.5 w-3.5 text-slate-400" />
+          <Download data-icon="inline-start" />
           <span>Export CSV</span>
-        </button>
+        </Button>
       </div>
 
       {/* Filters Toolbar */}
@@ -327,27 +328,27 @@ export function HistoryPage() {
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="xs"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1 || isFetching}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
-                <ChevronLeft className="h-3.5 w-3.5" /> Prev
-              </button>
+                <ChevronLeft data-icon="inline-start" /> Prev
+              </Button>
 
               <span className="px-2 font-mono text-slate-600 dark:text-slate-300">
                 {page} / {totalPages}
               </span>
 
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="xs"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages || isFetching}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
-                Next <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+                Next <ChevronRight data-icon="inline-end" />
+              </Button>
             </div>
           </div>
         </div>

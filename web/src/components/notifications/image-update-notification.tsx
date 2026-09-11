@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { ImageUpdate } from "../../gen/api_pb";
 import { usePullImage, useDismissImageUpdate } from "../../lib/api/query-hooks";
 import { AlertCircle, DownloadCloud, X, Loader2, Check } from "lucide-react";
@@ -76,29 +77,29 @@ export function ImageUpdateNotification({
                   <span>Image Pulled</span>
                 </span>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  size="xs"
                   onClick={() => handlePull(up.poolId)}
                   disabled={isPulling}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-500 dark:hover:bg-amber-600 transition-colors"
+                  className="bg-warning text-white hover:bg-warning/80"
                 >
                   {isPulling ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
                   ) : (
-                    <DownloadCloud className="h-3.5 w-3.5" />
+                    <DownloadCloud data-icon="inline-start" />
                   )}
                   <span>{isPulling ? "Pulling..." : "Pull Update"}</span>
-                </button>
+                </Button>
               )}
 
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => handleDismiss(up.id)}
-                className="rounded-xl p-1.5 text-amber-700 hover:bg-amber-200/50 dark:text-amber-400 dark:hover:bg-amber-900/50 transition-colors"
                 title="Dismiss update notification"
               >
-                <X className="h-4 w-4" />
-              </button>
+                <X />
+              </Button>
             </div>
           </div>
         );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { useDeletePool } from "../../lib/api/query-hooks";
@@ -137,26 +138,22 @@ export function PoolDeleteModal({
         )}
 
         <div className="mt-6 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
+          <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
             onClick={handleConfirm}
             disabled={deletePool.isPending}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 disabled:opacity-50"
           >
             {deletePool.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 data-icon="inline-start" className="animate-spin" />
             ) : (
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 data-icon="inline-start" />
             )}
             {mode === "drain" ? "Delete & Drain" : "Delete & Terminate"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
