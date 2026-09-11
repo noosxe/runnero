@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-
-function openSelect(trigger: HTMLElement) {
-  fireEvent.click(trigger);
-}
+import userEvent from "@testing-library/user-event";
 
 import { PoolsPage } from "./pools";
 
@@ -138,8 +135,10 @@ describe("PoolsPage", () => {
   it("filters pools by provider", async () => {
     render(<PoolsPage />);
 
-    openSelect(screen.getAllByRole("combobox")[0]);
-    fireEvent.click(await screen.findByRole("option", { name: "GitHub" }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "GitHub" }));
 
     expect(screen.getByText("arm64-prod-pool")).toBeInTheDocument();
     expect(screen.queryByText("gitea-org-pool")).not.toBeInTheDocument();
