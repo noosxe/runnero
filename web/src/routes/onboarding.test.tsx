@@ -182,7 +182,9 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     expect(screen.getByLabelText("Repository / Organization URL")).toBeInTheDocument();
 
     // Enable Renovate toggle
-    const renovateCheckbox = screen.getByLabelText("Enable Renovate Dependency Automation");
+    const renovateCheckbox = screen.getByRole("checkbox", {
+      name: "Enable Renovate Dependency Automation",
+    });
     fireEvent.click(renovateCheckbox);
     expect(screen.getByLabelText("Cron Schedule")).toBeInTheDocument();
 
@@ -255,9 +257,11 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     });
 
     // Verify Docker policy lock per docs/05 §4
-    const dockerCheckbox = screen.getByLabelText("Allow Docker in Container") as HTMLInputElement;
-    expect(dockerCheckbox.checked).toBe(true);
-    expect(dockerCheckbox.disabled).toBe(true);
+    const dockerCheckbox = screen.getByRole("checkbox", {
+      name: "Allow Docker in Container",
+    });
+    expect(dockerCheckbox).toHaveAttribute("aria-checked", "true");
+    expect(dockerCheckbox).toHaveAttribute("data-disabled");
     expect(screen.getByText(/Locked to Enabled for GITEA runners/i)).toBeInTheDocument();
   });
 

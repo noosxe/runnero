@@ -1,5 +1,24 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "cn";
 import { useNavigate } from "@tanstack/react-router";
 import { create } from "@bufbuild/protobuf";
@@ -495,7 +514,7 @@ export function OnboardingPage() {
         {currentStep === 1 &&
           (status?.adminCreated ? (
             session ? (
-              <div className="mt-6 space-y-4 text-xs">
+              <div className="mt-6 text-xs">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white">
                     Step 1 of 5: Master Administrator Configured
@@ -531,160 +550,136 @@ export function OnboardingPage() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleAdminLogin} className="mt-6 space-y-4 text-xs">
+              <form onSubmit={handleAdminLogin} className="mt-6 text-xs">
+                <FieldGroup>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Step 1 of 5: Master Administrator Authentication
+                    </h2>
+                    <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                      Administrator credentials are already configured. Please log in with your
+                      master credentials to continue onboarding.
+                    </p>
+                  </div>
+
+                  <Field>
+                    <FieldLabel htmlFor="admin-username">Admin Username</FieldLabel>
+                    <Input
+                      id="admin-username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="admin-password">Admin Password</FieldLabel>
+                    <InputGroup>
+                      <InputGroupInput
+                        id="admin-password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Toggle password visibility"
+                          onClick={() => setShowPassword(!showPassword)}
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOff /> : <Eye />}
+                        </Button>
+                      </InputGroupAddon>
+                    </InputGroup>
+                  </Field>
+
+                  <div className="pt-2">
+                    <Button type="submit" disabled={loginMutation.isPending} className="w-full">
+                      {loginMutation.isPending ? "Authenticating..." : "Log In to Continue Setup"}
+                      <ArrowRight data-icon="inline-end" />
+                    </Button>
+                  </div>
+                </FieldGroup>
+              </form>
+            )
+          ) : (
+            <form onSubmit={handleAdminSubmit} className="mt-6 text-xs">
+              <FieldGroup>
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Step 1 of 5: Master Administrator Authentication
+                    Step 1 of 5: Create Master Administrator
                   </h2>
                   <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                    Administrator credentials are already configured. Please log in with your master
-                    credentials to continue onboarding.
+                    Administrative credentials are protected with bcrypt password hashing and 24h
+                    JWT sessions.
                   </p>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="admin-username"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Admin Username
-                  </label>
-                  <input
+                <Field>
+                  <FieldLabel htmlFor="admin-username">Admin Username</FieldLabel>
+                  <Input
                     id="admin-username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     required
+                    autoFocus
                   />
-                </div>
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor="admin-password"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Admin Password
-                  </label>
-                  <div className="relative mt-1">
-                    <input
+                <Field>
+                  <FieldLabel htmlFor="admin-password">Password (min 10 characters)</FieldLabel>
+                  <InputGroup>
+                    <InputGroupInput
                       id="admin-password"
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       required
-                      autoFocus
                     />
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Toggle password visibility"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff /> : <Eye />}
-                    </Button>
-                  </div>
-                </div>
+                    <InputGroupAddon align="inline-end">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff /> : <Eye />}
+                      </Button>
+                    </InputGroupAddon>
+                  </InputGroup>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="admin-confirm-password">Confirm Password</FieldLabel>
+                  <Input
+                    id="admin-confirm-password"
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </Field>
 
                 <div className="pt-2">
-                  <Button type="submit" disabled={loginMutation.isPending} className="w-full">
-                    {loginMutation.isPending ? "Authenticating..." : "Log In to Continue Setup"}
+                  <Button type="submit" disabled={setupAdminMutation.isPending} className="w-full">
+                    {setupAdminMutation.isPending ? "Creating Admin..." : "Next: Git Provider"}
                     <ArrowRight data-icon="inline-end" />
                   </Button>
                 </div>
-              </form>
-            )
-          ) : (
-            <form onSubmit={handleAdminSubmit} className="mt-6 space-y-4 text-xs">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Step 1 of 5: Create Master Administrator
-                </h2>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                  Administrative credentials are protected with bcrypt password hashing and 24h JWT
-                  sessions.
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="admin-username"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Admin Username
-                </label>
-                <input
-                  id="admin-username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="admin-password"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Password (min 10 characters)
-                </label>
-                <div className="relative mt-1">
-                  <input
-                    id="admin-password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Toggle password visibility"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff /> : <Eye />}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="admin-confirm-password"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Confirm Password
-                </label>
-                <input
-                  id="admin-confirm-password"
-                  type={showPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                />
-              </div>
-
-              <div className="pt-2">
-                <Button type="submit" disabled={setupAdminMutation.isPending} className="w-full">
-                  {setupAdminMutation.isPending ? "Creating Admin..." : "Next: Git Provider"}
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
-              </div>
+              </FieldGroup>
             </form>
           ))}
 
         {/* Step 2: Git Provider Auth Profile */}
         {currentStep === 2 && githubAppInstallPrompt ? (
-          <div className="mt-6 space-y-4 text-xs">
+          <div className="mt-6 text-xs">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">
                 Step 2 of 5: Install GitHub App on Your Account
@@ -745,277 +740,227 @@ export function OnboardingPage() {
           </div>
         ) : (
           currentStep === 2 && (
-            <form onSubmit={handleProviderSubmit} className="mt-6 space-y-4 text-xs">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Step 2 of 5: Connect Git Provider
-                </h2>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                  Register authentication credentials to fetch runner registration tokens and
-                  orchestrate pools.
-                </p>
-              </div>
-
-              {/* Provider Type Selection */}
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Provider Method
-                </label>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[
-                    { id: "github_pat", label: "GitHub PAT" },
-                    { id: "github_app", label: "GitHub App" },
-                    { id: "gitea_pat", label: "Gitea PAT" },
-                    { id: "forgejo_pat", label: "Forgejo PAT" },
-                  ].map((m) => (
-                    <Button
-                      key={m.id}
-                      type="button"
-                      variant="outline"
-                      aria-pressed={authMethod === m.id}
-                      onClick={() => setAuthMethod(m.id as any)}
-                      className={cn(
-                        "h-auto w-full py-2.5",
-                        authMethod === m.id &&
-                          "border-primary bg-primary/5 text-primary font-semibold",
-                      )}
-                    >
-                      {m.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="profile-name"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Profile Name
-                </label>
-                <input
-                  id="profile-name"
-                  type="text"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                />
-              </div>
-
-              {authMethod === "github_app" ? (
-                <>
-                  <div>
-                    <label
-                      htmlFor="app-id"
-                      className="font-semibold text-slate-700 dark:text-slate-300"
-                    >
-                      GitHub App ID
-                    </label>
-                    <input
-                      id="app-id"
-                      type="number"
-                      value={appId}
-                      onChange={(e) => setAppId(e.target.value)}
-                      placeholder="e.g. 123456"
-                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="private-key"
-                      className="font-semibold text-slate-700 dark:text-slate-300"
-                    >
-                      Private Key PEM
-                    </label>
-                    <textarea
-                      id="private-key"
-                      rows={4}
-                      value={privateKeyPem}
-                      onChange={(e) => setPrivateKeyPem(e.target.value)}
-                      placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
-                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 font-mono text-[11px] text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      required
-                    />
-                  </div>
-                </>
-              ) : (
+            <form onSubmit={handleProviderSubmit} className="mt-6 text-xs">
+              <FieldGroup>
                 <div>
-                  <label
-                    htmlFor="provider-token"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Personal Access Token (PAT)
-                  </label>
-                  <div className="relative mt-1">
-                    <input
-                      id="provider-token"
-                      type={showToken ? "text" : "password"}
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      placeholder="ghp_..."
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      required
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Toggle token visibility"
-                      onClick={() => setShowToken(!showToken)}
-                      className="absolute inset-y-0 right-0"
-                      tabIndex={-1}
-                    >
-                      {showToken ? <EyeOff /> : <Eye />}
-                    </Button>
-                  </div>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Step 2 of 5: Connect Git Provider
+                  </h2>
+                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                    Register authentication credentials to fetch runner registration tokens and
+                    orchestrate pools.
+                  </p>
                 </div>
-              )}
 
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                  <ArrowLeft data-icon="inline-start" />
-                  Back
-                </Button>
-                <Button variant="outline" onClick={handleSkipProvider}>
-                  Skip this step
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createAuthProfileMutation.isPending}
-                  className="flex-1"
-                >
-                  {createAuthProfileMutation.isPending ? "Connecting..." : "Next: Safeguards"}
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
-              </div>
+                {/* Provider Type Selection */}
+                <Field>
+                  <FieldLabel>Provider Method</FieldLabel>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      { id: "github_pat", label: "GitHub PAT" },
+                      { id: "github_app", label: "GitHub App" },
+                      { id: "gitea_pat", label: "Gitea PAT" },
+                      { id: "forgejo_pat", label: "Forgejo PAT" },
+                    ].map((m) => (
+                      <Button
+                        key={m.id}
+                        type="button"
+                        variant="outline"
+                        aria-pressed={authMethod === m.id}
+                        onClick={() => setAuthMethod(m.id as any)}
+                        className={cn(
+                          "h-auto w-full py-2.5",
+                          authMethod === m.id &&
+                            "border-primary bg-primary/5 text-primary font-semibold",
+                        )}
+                      >
+                        {m.label}
+                      </Button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="profile-name">Profile Name</FieldLabel>
+                  <Input
+                    id="profile-name"
+                    type="text"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    required
+                  />
+                </Field>
+
+                {authMethod === "github_app" ? (
+                  <>
+                    <Field>
+                      <FieldLabel htmlFor="app-id">GitHub App ID</FieldLabel>
+                      <Input
+                        id="app-id"
+                        type="number"
+                        value={appId}
+                        onChange={(e) => setAppId(e.target.value)}
+                        placeholder="e.g. 123456"
+                        required
+                      />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="private-key">Private Key PEM</FieldLabel>
+                      <Textarea
+                        id="private-key"
+                        rows={4}
+                        value={privateKeyPem}
+                        onChange={(e) => setPrivateKeyPem(e.target.value)}
+                        placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
+                        className="font-mono text-[11px]"
+                        required
+                      />
+                    </Field>
+                  </>
+                ) : (
+                  <Field>
+                    <FieldLabel htmlFor="provider-token">Personal Access Token (PAT)</FieldLabel>
+                    <InputGroup>
+                      <InputGroupInput
+                        id="provider-token"
+                        type={showToken ? "text" : "password"}
+                        value={token}
+                        onChange={(e) => setToken(e.target.value)}
+                        placeholder="ghp_..."
+                        required
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Toggle token visibility"
+                          onClick={() => setShowToken(!showToken)}
+                          tabIndex={-1}
+                        >
+                          {showToken ? <EyeOff /> : <Eye />}
+                        </Button>
+                      </InputGroupAddon>
+                    </InputGroup>
+                  </Field>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                    <ArrowLeft data-icon="inline-start" />
+                    Back
+                  </Button>
+                  <Button variant="outline" onClick={handleSkipProvider}>
+                    Skip this step
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createAuthProfileMutation.isPending}
+                    className="flex-1"
+                  >
+                    {createAuthProfileMutation.isPending ? "Connecting..." : "Next: Safeguards"}
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                </div>
+              </FieldGroup>
             </form>
           )
         )}
 
         {/* Step 3: Global Scaling Safeguards */}
         {currentStep === 3 && (
-          <form onSubmit={handleSafeguardsSubmit} className="mt-6 space-y-4 text-xs">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                Step 3 of 5: Global Scaling Safeguards
-              </h2>
-              <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                Configure supervisor-level guardrails to prevent host resource starvation.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <form onSubmit={handleSafeguardsSubmit} className="mt-6 text-xs">
+            <FieldGroup>
               <div>
-                <label
-                  htmlFor="max-runners"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Total Allowed Runners
-                </label>
-                <p className="text-[10px] text-slate-400">
-                  Maximum concurrent runners across all pools
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Step 3 of 5: Global Scaling Safeguards
+                </h2>
+                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                  Configure supervisor-level guardrails to prevent host resource starvation.
                 </p>
-                <input
-                  id="max-runners"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={totalAllowedRunners}
-                  onChange={(e) => setTotalAllowedRunners(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                />
               </div>
 
-              <div>
-                <label
-                  htmlFor="idle-warm-pool"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Warm Idle Reserve Ceiling
-                </label>
-                <p className="text-[10px] text-slate-400">
-                  Max idle standby runners across all pools
-                </p>
-                <input
-                  id="idle-warm-pool"
-                  type="number"
-                  min={0}
-                  max={50}
-                  value={totalIdleWarmPool}
-                  onChange={(e) => setTotalIdleWarmPool(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="max-runners">Total Allowed Runners</FieldLabel>
+                  <FieldDescription>Maximum concurrent runners across all pools</FieldDescription>
+                  <Input
+                    id="max-runners"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={totalAllowedRunners}
+                    onChange={(e) => setTotalAllowedRunners(Number(e.target.value))}
+                    required
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="idle-warm-pool">Warm Idle Reserve Ceiling</FieldLabel>
+                  <FieldDescription>Max idle standby runners across all pools</FieldDescription>
+                  <Input
+                    id="idle-warm-pool"
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={totalIdleWarmPool}
+                    onChange={(e) => setTotalIdleWarmPool(Number(e.target.value))}
+                    required
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="shutdown-timeout">
+                    Graceful Shutdown Timeout (seconds)
+                  </FieldLabel>
+                  <FieldDescription>Runner drain deadline upon SIGTERM / SIGINT</FieldDescription>
+                  <Input
+                    id="shutdown-timeout"
+                    type="number"
+                    min={10}
+                    max={3600}
+                    value={shutdownTimeoutSeconds}
+                    onChange={(e) => setShutdownTimeoutSeconds(Number(e.target.value))}
+                    required
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="retention-days">Job History Retention (days)</FieldLabel>
+                  <FieldDescription>Historical execution log prune interval</FieldDescription>
+                  <Input
+                    id="retention-days"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={jobRetentionDays}
+                    onChange={(e) => setJobRetentionDays(Number(e.target.value))}
+                    required
+                  />
+                </Field>
               </div>
 
-              <div>
-                <label
-                  htmlFor="shutdown-timeout"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Graceful Shutdown Timeout (seconds)
-                </label>
-                <p className="text-[10px] text-slate-400">
-                  Runner drain deadline upon SIGTERM / SIGINT
-                </p>
-                <input
-                  id="shutdown-timeout"
-                  type="number"
-                  min={10}
-                  max={3600}
-                  value={shutdownTimeoutSeconds}
-                  onChange={(e) => setShutdownTimeoutSeconds(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                />
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                  <ArrowLeft data-icon="inline-start" />
+                  Back
+                </Button>
+                <Button variant="outline" onClick={handleSkipSafeguards}>
+                  Keep defaults & continue
+                </Button>
+                <Button type="submit" disabled={setAppSettingMutation.isPending} className="flex-1">
+                  {setAppSettingMutation.isPending ? "Saving Safeguards..." : "Next: Initial Pool"}
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
               </div>
-
-              <div>
-                <label
-                  htmlFor="retention-days"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Job History Retention (days)
-                </label>
-                <p className="text-[10px] text-slate-400">
-                  Historical execution log prune interval
-                </p>
-                <input
-                  id="retention-days"
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={jobRetentionDays}
-                  onChange={(e) => setJobRetentionDays(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setCurrentStep(2)}>
-                <ArrowLeft data-icon="inline-start" />
-                Back
-              </Button>
-              <Button variant="outline" onClick={handleSkipSafeguards}>
-                Keep defaults & continue
-              </Button>
-              <Button type="submit" disabled={setAppSettingMutation.isPending} className="flex-1">
-                {setAppSettingMutation.isPending ? "Saving Safeguards..." : "Next: Initial Pool"}
-                <ArrowRight data-icon="inline-end" />
-              </Button>
-            </div>
+            </FieldGroup>
           </form>
         )}
 
         {/* Step 4: Initial Runner Pool Setup & Overrides */}
         {currentStep === 4 &&
           (!createdAuthProfileId && !status?.authProfileExists ? (
-            <div className="mt-6 space-y-4 text-xs">
+            <div className="mt-6 text-xs">
               <div>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white">
                   Step 4 of 5: Initial Runner Pool Setup
@@ -1055,468 +1000,406 @@ export function OnboardingPage() {
               </div>
             </div>
           ) : (
-            <form onSubmit={handlePoolSubmit} className="mt-6 space-y-4 text-xs">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Step 4 of 5: Initial Runner Pool Setup
-                </h2>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                  Configure your first auto-scaling runner pool, concurrency targets, and container
-                  resource limits.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <form onSubmit={handlePoolSubmit} className="mt-6 text-xs">
+              <FieldGroup>
                 <div>
-                  <label
-                    htmlFor="pool-name"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Pool Name
-                  </label>
-                  <input
-                    id="pool-name"
-                    type="text"
-                    value={poolName}
-                    onChange={(e) => setPoolName(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="pool-scope"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Pool Scope
-                  </label>
-                  <select
-                    id="pool-scope"
-                    value={scope}
-                    onChange={(e) => setScope(e.target.value as "repo" | "org")}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  >
-                    <option value="repo">Repository Level (Single Repo)</option>
-                    <option value="org">Organization Level (Org-wide Runners)</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label
-                    htmlFor="repo-url"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Repository / Organization URL
-                  </label>
-                  <input
-                    id="repo-url"
-                    type="url"
-                    value={repositoryUrl}
-                    onChange={(e) => setRepositoryUrl(e.target.value)}
-                    placeholder="https://github.com/my-org/my-repo"
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="min-idle"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Min Idle Runners
-                  </label>
-                  <p className="text-[10px] text-slate-400">
-                    Warm standby containers ready for instant dispatch
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Step 4 of 5: Initial Runner Pool Setup
+                  </h2>
+                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                    Configure your first auto-scaling runner pool, concurrency targets, and
+                    container resource limits.
                   </p>
-                  <input
-                    id="min-idle"
-                    type="number"
-                    min={0}
-                    max={20}
-                    value={minIdleRunners}
-                    onChange={(e) => setMinIdleRunners(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="max-concurrency"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Max Concurrency
-                  </label>
-                  <p className="text-[10px] text-slate-400">
-                    Peak simultaneous runner containers for this pool
-                  </p>
-                  <input
-                    id="max-concurrency"
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={maxConcurrency}
-                    onChange={(e) => setMaxConcurrency(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="pool-name">Pool Name</FieldLabel>
+                    <Input
+                      id="pool-name"
+                      type="text"
+                      value={poolName}
+                      onChange={(e) => setPoolName(e.target.value)}
+                      required
+                    />
+                  </Field>
 
-                <div>
-                  <label
-                    htmlFor="runner-labels"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Runner Labels
-                  </label>
-                  <p className="text-[10px] text-slate-400">
-                    Comma-separated labels matched against workflow `runs-on`
-                  </p>
-                  <input
-                    id="runner-labels"
-                    type="text"
-                    value={labels}
-                    onChange={(e) => setCustomLabels(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="runner-image"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Runner Docker Image
-                  </label>
-                  <p className="text-[10px] text-slate-400">
-                    Base multi-arch image deployed for runner instances
-                  </p>
-                  <input
-                    id="runner-image"
-                    type="text"
-                    value={runnerImage}
-                    onChange={(e) => setRunnerImage(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="cpu-limit"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    CPU Limit
-                  </label>
-                  <input
-                    id="cpu-limit"
-                    type="text"
-                    value={cpuLimit}
-                    onChange={(e) => setCpuLimit(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="mem-limit"
-                    className="font-semibold text-slate-700 dark:text-slate-300"
-                  >
-                    Memory Limit
-                  </label>
-                  <input
-                    id="mem-limit"
-                    type="text"
-                    value={memoryLimit}
-                    onChange={(e) => setMemoryLimit(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Docker Policy (docs/05 §4 enforcement) */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/50">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <label
-                      htmlFor="allow-docker"
-                      className="font-semibold text-slate-800 dark:text-slate-200"
+                  <Field>
+                    <FieldLabel htmlFor="pool-scope">Pool Scope</FieldLabel>
+                    <Select
+                      value={scope}
+                      onValueChange={(v) => setScope(v as "repo" | "org")}
+                      items={[
+                        { value: "repo", label: "Repository Level (Single Repo)" },
+                        { value: "org", label: "Organization Level (Org-wide Runners)" },
+                      ]}
                     >
-                      Allow Docker in Container
-                    </label>
-                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      Exposes host Docker socket or runs DinD daemon inside worker containers.
-                    </p>
-                  </div>
-                  <input
-                    id="allow-docker"
-                    type="checkbox"
-                    checked={effectiveAllowDocker}
-                    disabled={isDockerLocked}
-                    onChange={(e) => setAllowDocker(e.target.checked)}
-                    className="h-4 w-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-75"
-                  />
+                      <SelectTrigger id="pool-scope">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="repo">Repository Level (Single Repo)</SelectItem>
+                          <SelectItem value="org">Organization Level (Org-wide Runners)</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  <Field className="sm:col-span-2">
+                    <FieldLabel htmlFor="repo-url">Repository / Organization URL</FieldLabel>
+                    <Input
+                      id="repo-url"
+                      type="url"
+                      value={repositoryUrl}
+                      onChange={(e) => setRepositoryUrl(e.target.value)}
+                      placeholder="https://github.com/my-org/my-repo"
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="min-idle">Min Idle Runners</FieldLabel>
+                    <FieldDescription>
+                      Warm standby containers ready for instant dispatch
+                    </FieldDescription>
+                    <Input
+                      id="min-idle"
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={minIdleRunners}
+                      onChange={(e) => setMinIdleRunners(Number(e.target.value))}
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="max-concurrency">Max Concurrency</FieldLabel>
+                    <FieldDescription>
+                      Peak simultaneous runner containers for this pool
+                    </FieldDescription>
+                    <Input
+                      id="max-concurrency"
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={maxConcurrency}
+                      onChange={(e) => setMaxConcurrency(Number(e.target.value))}
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="runner-labels">Runner Labels</FieldLabel>
+                    <FieldDescription>
+                      Comma-separated labels matched against workflow `runs-on`
+                    </FieldDescription>
+                    <Input
+                      id="runner-labels"
+                      type="text"
+                      value={labels}
+                      onChange={(e) => setCustomLabels(e.target.value)}
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="runner-image">Runner Docker Image</FieldLabel>
+                    <FieldDescription>
+                      Base multi-arch image deployed for runner instances
+                    </FieldDescription>
+                    <Input
+                      id="runner-image"
+                      type="text"
+                      value={runnerImage}
+                      onChange={(e) => setRunnerImage(e.target.value)}
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="cpu-limit">CPU Limit</FieldLabel>
+                    <Input
+                      id="cpu-limit"
+                      type="text"
+                      value={cpuLimit}
+                      onChange={(e) => setCpuLimit(e.target.value)}
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="mem-limit">Memory Limit</FieldLabel>
+                    <Input
+                      id="mem-limit"
+                      type="text"
+                      value={memoryLimit}
+                      onChange={(e) => setMemoryLimit(e.target.value)}
+                      required
+                    />
+                  </Field>
                 </div>
-                {isDockerLocked && (
-                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                    <Info className="h-3 w-3 shrink-0" />
-                    <span>
-                      Locked to Enabled for {deducedProvider.toUpperCase()} runners: workflow
-                      execution requires Docker containerization (docs/05 §4).
-                    </span>
-                  </div>
-                )}
-              </div>
 
-              {/* Renovate Bot Toggle */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/50">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <label
-                      htmlFor="enable-renovate"
-                      className="font-semibold text-slate-800 dark:text-slate-200"
-                    >
-                      Enable Renovate Dependency Automation
-                    </label>
-                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      Schedule automated dependency scanning and PR creation directly on this runner
-                      pool.
-                    </p>
-                  </div>
-                  <input
-                    id="enable-renovate"
-                    type="checkbox"
-                    checked={renovateEnabled}
-                    onChange={(e) => setRenovateEnabled(e.target.checked)}
-                    className="h-4 w-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
+                {/* Docker Policy (docs/05 §4 enforcement) */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/50">
+                  <Field orientation="horizontal">
+                    <FieldContent>
+                      <FieldLabel htmlFor="allow-docker">Allow Docker in Container</FieldLabel>
+                      <FieldDescription>
+                        Exposes host Docker socket or runs DinD daemon inside worker containers.
+                      </FieldDescription>
+                    </FieldContent>
+                    <Checkbox
+                      id="allow-docker"
+                      checked={effectiveAllowDocker}
+                      disabled={isDockerLocked}
+                      data-disabled={isDockerLocked || undefined}
+                      onCheckedChange={(v) => setAllowDocker(v === true)}
+                    />
+                  </Field>
+                  {isDockerLocked && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                      <Info className="h-3 w-3 shrink-0" />
+                      <span>
+                        Locked to Enabled for {deducedProvider.toUpperCase()} runners: workflow
+                        execution requires Docker containerization (docs/05 §4).
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {renovateEnabled && (
-                  <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200/60 pt-3 dark:border-slate-700/60 sm:grid-cols-2">
-                    <div>
-                      <label
-                        htmlFor="renovate-cron"
-                        className="font-semibold text-slate-700 dark:text-slate-300"
-                      >
-                        Cron Schedule
-                      </label>
-                      <input
-                        id="renovate-cron"
-                        type="text"
-                        value={renovateCron}
-                        onChange={(e) => setRenovateCron(e.target.value)}
-                        placeholder="0 2 * * *"
-                        className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="renovate-img"
-                        className="font-semibold text-slate-700 dark:text-slate-300"
-                      >
-                        Renovate Image
-                      </label>
-                      <input
-                        id="renovate-img"
-                        type="text"
-                        value={renovateImage}
-                        onChange={(e) => setRenovateImage(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+                {/* Renovate Bot Toggle */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/50">
+                  <Field orientation="horizontal">
+                    <FieldContent>
+                      <FieldLabel htmlFor="enable-renovate">
+                        Enable Renovate Dependency Automation
+                      </FieldLabel>
+                      <FieldDescription>
+                        Schedule automated dependency scanning and PR creation directly on this
+                        runner pool.
+                      </FieldDescription>
+                    </FieldContent>
+                    <Checkbox
+                      id="enable-renovate"
+                      checked={renovateEnabled}
+                      onCheckedChange={(v) => setRenovateEnabled(v === true)}
+                    />
+                  </Field>
 
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => setCurrentStep(3)}>
-                  <ArrowLeft data-icon="inline-start" />
-                  Back
-                </Button>
-                <Button variant="outline" onClick={handleSkipPool}>
-                  Skip this step
-                </Button>
-                <Button type="submit" className="flex-1">
-                  Next: Review & Launch
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
-              </div>
+                  {renovateEnabled && (
+                    <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200/60 pt-3 dark:border-slate-700/60 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="renovate-cron">Cron Schedule</FieldLabel>
+                        <Input
+                          id="renovate-cron"
+                          type="text"
+                          value={renovateCron}
+                          onChange={(e) => setRenovateCron(e.target.value)}
+                          placeholder="0 2 * * *"
+                          required
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="renovate-img">Renovate Image</FieldLabel>
+                        <Input
+                          id="renovate-img"
+                          type="text"
+                          value={renovateImage}
+                          onChange={(e) => setRenovateImage(e.target.value)}
+                          required
+                        />
+                      </Field>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                    <ArrowLeft data-icon="inline-start" />
+                    Back
+                  </Button>
+                  <Button variant="outline" onClick={handleSkipPool}>
+                    Skip this step
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    Next: Review & Launch
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                </div>
+              </FieldGroup>
             </form>
           ))}
 
         {/* Step 5: Review & Confirm Launch */}
         {currentStep === 5 && (
-          <form onSubmit={handleLaunchSubmit} className="mt-6 space-y-5 text-xs">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                Step 5 of 5: Review & Launch Supervisor
-              </h2>
-              <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                Verify system initialization settings before starting reconciliation control loops.
-              </p>
-            </div>
-
-            {/* Review Cards Grid */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {/* Card 1: Admin */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                  <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span>Master Administrator</span>
-                </div>
-                <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
-                  <div className="flex justify-between">
-                    <span>Username:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {username}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Session:</span>
-                    <span className="font-semibold text-emerald-600">Active</span>
-                  </div>
-                </div>
+          <form onSubmit={handleLaunchSubmit} className="mt-6 text-xs">
+            <FieldGroup>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Step 5 of 5: Review & Launch Supervisor
+                </h2>
+                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                  Verify system initialization settings before starting reconciliation control
+                  loops.
+                </p>
               </div>
 
-              {/* Card 2: Git Provider */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                  <KeyRound
-                    className={`h-4 w-4 ${isGitProfileSkipped ? "text-slate-400" : "text-blue-600 dark:text-blue-400"}`}
-                  />
-                  <span>Git Auth Profile</span>
-                </div>
-                {isGitProfileSkipped ? (
-                  <div className="mt-2 text-slate-500 italic dark:text-slate-400">
-                    Skipped &mdash; not configured
+              {/* Review Cards Grid */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* Card 1: Admin */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                    <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span>Master Administrator</span>
                   </div>
-                ) : (
                   <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
                     <div className="flex justify-between">
-                      <span>Profile Name:</span>
+                      <span>Username:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {profileName}
+                        {username}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Method:</span>
-                      <span className="font-semibold uppercase text-slate-800 dark:text-slate-200">
-                        {authMethod}
-                      </span>
+                      <span>Session:</span>
+                      <span className="font-semibold text-emerald-600">Active</span>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Card 3: Safeguards */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                  <Sliders className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span>Global Constraints</span>
+                {/* Card 2: Git Provider */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                    <KeyRound
+                      className={`h-4 w-4 ${isGitProfileSkipped ? "text-slate-400" : "text-blue-600 dark:text-blue-400"}`}
+                    />
+                    <span>Git Auth Profile</span>
+                  </div>
+                  {isGitProfileSkipped ? (
+                    <div className="mt-2 text-slate-500 italic dark:text-slate-400">
+                      Skipped &mdash; not configured
+                    </div>
+                  ) : (
+                    <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
+                      <div className="flex justify-between">
+                        <span>Profile Name:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {profileName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Method:</span>
+                        <span className="font-semibold uppercase text-slate-800 dark:text-slate-200">
+                          {authMethod}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
-                  <div className="flex justify-between">
-                    <span>Max Runners:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {totalAllowedRunners}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Warm Idle Pool:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {totalIdleWarmPool}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Shutdown Timeout:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {shutdownTimeoutSeconds}s
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 4: Initial Pool */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                  <Server
-                    className={`h-4 w-4 ${isPoolSkipped ? "text-slate-400" : "text-blue-600 dark:text-blue-400"}`}
-                  />
-                  <span>{isPoolSkipped ? "Initial Pool" : `Initial Pool: ${poolName}`}</span>
-                </div>
-                {isPoolSkipped ? (
-                  <div className="mt-2 text-slate-500 italic dark:text-slate-400">
-                    Skipped &mdash; no pool created
+                {/* Card 3: Safeguards */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                    <Sliders className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span>Global Constraints</span>
                   </div>
-                ) : (
                   <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
                     <div className="flex justify-between">
-                      <span>Target URL:</span>
-                      <span className="max-w-[120px] truncate font-semibold text-slate-800 dark:text-slate-200">
-                        {repositoryUrl}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Concurrency:</span>
+                      <span>Max Runners:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {minIdleRunners} idle / {maxConcurrency} max
+                        {totalAllowedRunners}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Docker Access:</span>
-                      <span className="font-semibold text-emerald-600">
-                        {effectiveAllowDocker ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Renovate:</span>
+                      <span>Warm Idle Pool:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {renovateEnabled ? renovateCron : "Disabled"}
+                        {totalIdleWarmPool}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Shutdown Timeout:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {shutdownTimeoutSeconds}s
                       </span>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
-              <div className="flex items-center gap-2 font-semibold">
-                <Rocket className="h-4 w-4" />
-                <span>{hasPoolToLaunch ? "Ready to Launch" : "Ready to Finish Setup"}</span>
+                {/* Card 4: Initial Pool */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                    <Server
+                      className={`h-4 w-4 ${isPoolSkipped ? "text-slate-400" : "text-blue-600 dark:text-blue-400"}`}
+                    />
+                    <span>{isPoolSkipped ? "Initial Pool" : `Initial Pool: ${poolName}`}</span>
+                  </div>
+                  {isPoolSkipped ? (
+                    <div className="mt-2 text-slate-500 italic dark:text-slate-400">
+                      Skipped &mdash; no pool created
+                    </div>
+                  ) : (
+                    <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
+                      <div className="flex justify-between">
+                        <span>Target URL:</span>
+                        <span className="max-w-[120px] truncate font-semibold text-slate-800 dark:text-slate-200">
+                          {repositoryUrl}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Concurrency:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {minIdleRunners} idle / {maxConcurrency} max
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Docker Access:</span>
+                        <span className="font-semibold text-emerald-600">
+                          {effectiveAllowDocker ? "Enabled" : "Disabled"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Renovate:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {renovateEnabled ? renovateCron : "Disabled"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
-                {hasPoolToLaunch
-                  ? "Upon confirmation, the supervisor reconciler will start immediately, register runner containers with your Git provider, and transition to the live dashboard."
-                  : "Upon confirmation, system initialization will be completed and you will transition to the dashboard where you can configure providers and pools at any time."}
-              </p>
-            </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setCurrentStep(4)}>
-                <ArrowLeft data-icon="inline-start" />
-                Back
-              </Button>
-              <Button
-                type="submit"
-                disabled={createPoolMutation.isPending || completeOnboardingMutation.isPending}
-                className="flex-1 bg-success text-white hover:bg-success/80"
-              >
-                <Rocket data-icon="inline-start" />
-                {createPoolMutation.isPending || completeOnboardingMutation.isPending
-                  ? "Completing Setup..."
-                  : hasPoolToLaunch
-                    ? "Confirm & Launch Supervisor"
-                    : "Finish & Open Dashboard"}
-              </Button>
-            </div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+                <div className="flex items-center gap-2 font-semibold">
+                  <Rocket className="h-4 w-4" />
+                  <span>{hasPoolToLaunch ? "Ready to Launch" : "Ready to Finish Setup"}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+                  {hasPoolToLaunch
+                    ? "Upon confirmation, the supervisor reconciler will start immediately, register runner containers with your Git provider, and transition to the live dashboard."
+                    : "Upon confirmation, system initialization will be completed and you will transition to the dashboard where you can configure providers and pools at any time."}
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setCurrentStep(4)}>
+                  <ArrowLeft data-icon="inline-start" />
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createPoolMutation.isPending || completeOnboardingMutation.isPending}
+                  className="flex-1 bg-success text-white hover:bg-success/80"
+                >
+                  <Rocket data-icon="inline-start" />
+                  {createPoolMutation.isPending || completeOnboardingMutation.isPending
+                    ? "Completing Setup..."
+                    : hasPoolToLaunch
+                      ? "Confirm & Launch Supervisor"
+                      : "Finish & Open Dashboard"}
+                </Button>
+              </div>
+            </FieldGroup>
           </form>
         )}
       </div>
