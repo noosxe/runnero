@@ -291,12 +291,14 @@ func TestPoolController_HandleWorkflowJob_Queued_WarmRunnerCoversDemand(t *testi
 	}
 }
 
-// TestPoolController_HandleWorkflowJob_Queued_DemandLifecycle verifies the
-// demand booking lifecycle through the public event surface: in_progress
-// releases a job's booking (its runner is now busy), completed releases a
-// never-started job's booking (cancelled while queued), and a stale booking
-// makes the next queued event spawn even though a warm runner exists.
-func TestPoolController_HandleWorkflowJob_Queued_DemandLifecycle(t *testing.T) {
+// TestPoolController_HandleWorkflowJob_InProgress_ReplenishesIdleStandby
+// verifies standby backfill through the public event surface (docs/03 §4):
+// the moment a runner goes busy its min_idle slot is free, so a replacement
+// is provisioned immediately — the next queued job is then covered warm
+// instead of paying for a cold spawn. A leaked in_progress booking would
+// make pending demand exceed the backfilled idle and flip the second queued
+// event into a spawn, so the "stays 2" assertion also pins booking release.
+func TestPoolController_HandleWorkflowJob_InProgress_ReplenishesIdleStandby(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
@@ -327,7 +329,20 @@ func TestPoolController_HandleWorkflowJob_Queued_DemandLifecycle(t *testing.T) {
 			return fmt.Sprintf("container-%d", spawnCount), nil
 		},
 		AuditRunnersFn: func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
-			return nil, nil
+			// Remote listing mirrors the spawned fleet (idle — both jobs have
+			// completed by the time Reconcile runs), so the ghost sweep leaves
+			// tracking alone and the drain path is what gets exercised.
+			listing := make([]orchestrator.RunnerStatus, 0, len(spawnedNames))
+			for i, name := range spawnedNames {
+				listing = append(listing, orchestrator.RunnerStatus{
+					PoolID:   168,
+					ID:       fmt.Sprintf("container-%d", i+1),
+					Name:     name,
+					PoolName: "lifecycle-pool",
+					State:    "running",
+				})
+			}
+			return listing, nil
 		},
 		PingFn: func(ctx context.Context) error {
 			return nil
@@ -346,80 +361,277 @@ func TestPoolController_HandleWorkflowJob_Queued_DemandLifecycle(t *testing.T) {
 		t.Fatalf("boot failed: %v", err)
 	}
 
-	queuedEvent := func(jobID int64) *webhook.WorkflowJobEvent {
+	event := func(action string, jobID int64, runnerName string) *webhook.WorkflowJobEvent {
 		return &webhook.WorkflowJobEvent{
-			Action: "queued",
+			Action: action,
 			Repository: webhook.RepositoryPayload{
 				FullName: "test-org/test-repo",
 				HTMLURL:  "https://github.com/test-org/test-repo",
 			},
 			WorkflowJob: webhook.WorkflowJobPayload{
-				ID:     jobID,
-				Labels: []string{"self-hosted", "linux"},
+				ID:         jobID,
+				Labels:     []string{"self-hosted", "linux"},
+				RunnerName: runnerName,
 			},
 		}
 	}
 
 	// 801 queued: covered by the warm runner, no spawn.
-	if err := controller.HandleWorkflowJob(ctx, "github", queuedEvent(801)); err != nil {
+	if err := controller.HandleWorkflowJob(ctx, "github", event("queued", 801, "")); err != nil {
 		t.Fatalf("queued 801 failed: %v", err)
 	}
 	if spawnCount != 1 {
 		t.Fatalf("expected warm runner to cover 801, spawnCount = %d", spawnCount)
 	}
 
-	// 801 goes in_progress on the warm runner: the booking is released and
-	// the warm runner turns busy.
-	inProgress := &webhook.WorkflowJobEvent{
-		Action: "in_progress",
-		Repository: webhook.RepositoryPayload{
-			FullName: "test-org/test-repo",
-			HTMLURL:  "https://github.com/test-org/test-repo",
-		},
-		WorkflowJob: webhook.WorkflowJobPayload{
-			ID:         801,
-			Labels:     []string{"self-hosted", "linux"},
-			RunnerName: spawnedNames[0],
-		},
-	}
-	if err := controller.HandleWorkflowJob(ctx, "github", inProgress); err != nil {
+	// 801 goes in_progress on the warm runner: the standby slot it vacated
+	// is backfilled immediately (spawn 2) and the booking is released.
+	if err := controller.HandleWorkflowJob(ctx, "github", event("in_progress", 801, spawnedNames[0])); err != nil {
 		t.Fatalf("in_progress 801 failed: %v", err)
 	}
+	if spawnCount != 2 {
+		t.Fatalf("expected in_progress to backfill the idle standby, spawnCount = %d", spawnCount)
+	}
+	if controller.TotalActiveRunners() != 2 {
+		t.Fatalf("expected 2 active runners after backfill, got %d", controller.TotalActiveRunners())
+	}
 
-	// 802 queued: the warm runner is busy (801 is in progress) and the 801
-	// booking is released, so pending is 1 (802) vs 0 idle -> one spawn.
-	// This step alone cannot distinguish a leaked 801 booking (it would also
-	// spawn once); the final assertion below is the discriminator.
-	if err := controller.HandleWorkflowJob(ctx, "github", queuedEvent(802)); err != nil {
+	// 802 queued: covered by the freshly backfilled standby — no cold spawn.
+	// This is the latency win: a leaked 801 booking would inflate pending
+	// demand to 2, exceed the 1 idle standby, and flip this into a spawn.
+	if err := controller.HandleWorkflowJob(ctx, "github", event("queued", 802, "")); err != nil {
 		t.Fatalf("queued 802 failed: %v", err)
 	}
 	if spawnCount != 2 {
-		t.Fatalf("expected one spawn for 802 (no idle left), spawnCount = %d", spawnCount)
+		t.Fatalf("expected 802 to be covered by the backfilled standby, spawnCount = %d", spawnCount)
 	}
 
-	// 801 completes: the warm runner frees up. 803 queued: pending is 2 (802
-	// in flight plus 803) and idle is 2 (warm plus the 802 runner) -> covered,
-	// no spawn. A leaked 801 booking would make pending 3 and spawn.
-	completed := &webhook.WorkflowJobEvent{
-		Action: "completed",
-		Repository: webhook.RepositoryPayload{
-			FullName: "test-org/test-repo",
-			HTMLURL:  "https://github.com/test-org/test-repo",
-		},
-		WorkflowJob: webhook.WorkflowJobPayload{
-			ID:         801,
-			Labels:     []string{"self-hosted", "linux"},
-			RunnerName: spawnedNames[0],
-		},
+	// 802 goes in_progress on the backfilled standby: backfill again (3).
+	if err := controller.HandleWorkflowJob(ctx, "github", event("in_progress", 802, spawnedNames[1])); err != nil {
+		t.Fatalf("in_progress 802 failed: %v", err)
 	}
-	if err := controller.HandleWorkflowJob(ctx, "github", completed); err != nil {
+	if spawnCount != 3 {
+		t.Fatalf("expected second pickup to backfill again, spawnCount = %d", spawnCount)
+	}
+
+	// 801 completes: the warm runner frees up. 803 queued: pending is 1
+	// (802 in flight plus 803 minus the released 801 = net new demand 1) vs
+	// 2 idle -> covered, no spawn.
+	if err := controller.HandleWorkflowJob(ctx, "github", event("completed", 801, spawnedNames[0])); err != nil {
 		t.Fatalf("completed 801 failed: %v", err)
 	}
-	if err := controller.HandleWorkflowJob(ctx, "github", queuedEvent(803)); err != nil {
+	if err := controller.HandleWorkflowJob(ctx, "github", event("queued", 803, "")); err != nil {
 		t.Fatalf("queued 803 failed: %v", err)
 	}
-	if spawnCount != 2 {
+	if spawnCount != 3 {
 		t.Fatalf("expected 803 to be covered by freed capacity, spawnCount = %d", spawnCount)
+	}
+
+	// 802 completes: reconcile finds 3 idle against target 1 and drains the
+	// excess back down — the backfill mirrors on the way out.
+	if err := controller.HandleWorkflowJob(ctx, "github", event("completed", 802, spawnedNames[1])); err != nil {
+		t.Fatalf("completed 802 failed: %v", err)
+	}
+	if err := controller.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile failed: %v", err)
+	}
+	if controller.TotalActiveRunners() != 1 {
+		t.Fatalf("expected excess idle to drain back to the standby target, got %d active", controller.TotalActiveRunners())
+	}
+}
+
+// TestPoolController_HandleWorkflowJob_InProgress_ReplenishRespectsMaxConcurrency
+// pins the capacity constraint on backfill: a pool at max_concurrency must
+// not provision a replacement standby while a runner occupies the last slot —
+// neither from the webhook hook nor from the reconcile top-up.
+func TestPoolController_HandleWorkflowJob_InProgress_ReplenishRespectsMaxConcurrency(t *testing.T) {
+	ctx := context.Background()
+
+	pool := db.RunnerPool{
+		ID:             170,
+		Name:           "capped-backfill-pool",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/test-org/test-repo",
+		Scope:          "repo",
+		AuthProfileID:  10,
+		MinIdleRunners: 1,
+		MaxConcurrency: 1,
+		Labels:         `["self-hosted","linux"]`,
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+	}
+
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{}
+	resolver := &mockGitProviderResolver{
+		providers: map[int64]provider.GitProvider{10: gitProv},
+	}
+
+	var spawnedNames []string
+	spawnCount := 0
+	mockEngine := &orchestrator.MockContainerProvider{
+		SpawnRunnerFn: func(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
+			spawnCount++
+			spawnedNames = append(spawnedNames, config.Name)
+			return fmt.Sprintf("container-%d", spawnCount), nil
+		},
+		AuditRunnersFn: func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+			// Remote listing mirrors the fleet; the boot runner is busy.
+			listing := make([]orchestrator.RunnerStatus, 0, len(spawnedNames))
+			for i, name := range spawnedNames {
+				listing = append(listing, orchestrator.RunnerStatus{
+					PoolID:   170,
+					ID:       fmt.Sprintf("container-%d", i+1),
+					Name:     name,
+					PoolName: "capped-backfill-pool",
+					State:    "running",
+					IsBusy:   i == 0,
+				})
+			}
+			return listing, nil
+		},
+		PingFn: func(ctx context.Context) error {
+			return nil
+		},
+	}
+
+	controller := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               repo,
+		ContainerEngine:  mockEngine,
+		ProviderResolver: resolver,
+		GlobalMaxRunners: 10,
+		Interval:         time.Hour,
+	})
+
+	if err := controller.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+
+	event := func(action string, jobID int64, runnerName string) *webhook.WorkflowJobEvent {
+		return &webhook.WorkflowJobEvent{
+			Action: action,
+			Repository: webhook.RepositoryPayload{
+				FullName: "test-org/test-repo",
+				HTMLURL:  "https://github.com/test-org/test-repo",
+			},
+			WorkflowJob: webhook.WorkflowJobPayload{
+				ID:         jobID,
+				Labels:     []string{"self-hosted", "linux"},
+				RunnerName: runnerName,
+			},
+		}
+	}
+
+	// 911 queued: covered by the warm runner (no spawn); it then goes busy.
+	if err := controller.HandleWorkflowJob(ctx, "github", event("queued", 911, "")); err != nil {
+		t.Fatalf("queued 911 failed: %v", err)
+	}
+	if err := controller.HandleWorkflowJob(ctx, "github", event("in_progress", 911, spawnedNames[0])); err != nil {
+		t.Fatalf("in_progress 911 failed: %v", err)
+	}
+	if spawnCount != 1 {
+		t.Fatalf("max_concurrency=1 must block standby backfill, spawnCount = %d", spawnCount)
+	}
+
+	// The reconcile top-up is bound by the same cap: busy-inclusive target is
+	// clamped to max_concurrency, so no spawn here either.
+	if err := controller.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile failed: %v", err)
+	}
+	if spawnCount != 1 {
+		t.Fatalf("reconcile must respect max_concurrency during backfill, spawnCount = %d", spawnCount)
+	}
+	if controller.TotalActiveRunners() != 1 {
+		t.Fatalf("expected the busy runner to remain the only active runner, got %d", controller.TotalActiveRunners())
+	}
+}
+
+// TestPoolController_ReconcileBackfillsBusyStandbySlot verifies the
+// reconcile-side half of standby backfill (docs/03 §3): a runner that went
+// busy without a webhook (poll fallback, missed delivery) frees its standby
+// slot all the same, and the next reconcile tick provisions the replacement.
+func TestPoolController_ReconcileBackfillsBusyStandbySlot(t *testing.T) {
+	ctx := context.Background()
+
+	pool := db.RunnerPool{
+		ID:             171,
+		Name:           "poll-backfill-pool",
+		Provider:       "github",
+		RepositoryUrl:  "https://github.com/test-org/test-repo",
+		Scope:          "repo",
+		AuthProfileID:  10,
+		MinIdleRunners: 1,
+		MaxConcurrency: 5,
+		Labels:         `["self-hosted","linux"]`,
+		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+	}
+
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	gitProv := &mockGitProvider{}
+	resolver := &mockGitProviderResolver{
+		providers: map[int64]provider.GitProvider{10: gitProv},
+	}
+
+	var spawnedNames []string
+	spawnCount := 0
+	mockEngine := &orchestrator.MockContainerProvider{
+		SpawnRunnerFn: func(ctx context.Context, config orchestrator.RunnerConfig) (string, error) {
+			spawnCount++
+			spawnedNames = append(spawnedNames, config.Name)
+			return fmt.Sprintf("container-%d", spawnCount), nil
+		},
+		AuditRunnersFn: func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+			// Remote listing mirrors the fleet; the boot runner is busy (the
+			// job was discovered by polling, no webhook delivered).
+			listing := make([]orchestrator.RunnerStatus, 0, len(spawnedNames))
+			for i, name := range spawnedNames {
+				listing = append(listing, orchestrator.RunnerStatus{
+					PoolID:   171,
+					ID:       fmt.Sprintf("container-%d", i+1),
+					Name:     name,
+					PoolName: "poll-backfill-pool",
+					State:    "running",
+					IsBusy:   i == 0,
+				})
+			}
+			return listing, nil
+		},
+		PingFn: func(ctx context.Context) error {
+			return nil
+		},
+	}
+
+	reconciler := orchestrator.NewReconciler(mockEngine)
+	controller := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:               repo,
+		ContainerEngine:  mockEngine,
+		ProviderResolver: resolver,
+		Reconciler:       reconciler,
+		GlobalMaxRunners: 10,
+		Interval:         time.Hour,
+	})
+
+	if err := controller.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+	if spawnCount != 1 {
+		t.Fatalf("expected 1 boot runner, got %d", spawnCount)
+	}
+
+	// The runner goes busy without any webhook (poll fallback discovered it).
+	runners := reconciler.TrackedPoolRunners(171)
+	if len(runners) != 1 {
+		t.Fatalf("expected 1 tracked runner, got %d", len(runners))
+	}
+	reconciler.MarkRunnerBusy(runners[0].Name, true)
+
+	if err := controller.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile failed: %v", err)
+	}
+	if spawnCount != 2 {
+		t.Fatalf("expected reconcile to backfill the standby slot of the busy runner, spawnCount = %d", spawnCount)
+	}
+	if active, idle := controller.PoolStats(171); active != 1 || idle != 1 {
+		t.Fatalf("expected 1 busy + 1 replenished idle, got (busy=%d, idle=%d)", active, idle)
 	}
 }
 

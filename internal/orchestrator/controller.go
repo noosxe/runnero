@@ -1433,7 +1433,16 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 		return nil
 	}
 
-	effectiveTarget := p.MinIdleRunners
+	// Standby backfill: min_idle counts IDLE standbys ready for dispatch
+	// (docs/03 §3), so a runner that went busy frees the standby slot it was
+	// occupying. The pool's total target therefore grows by the busy count:
+	// the freed idle position is replenished here (and instantly via the
+	// in_progress webhook hook) instead of the next queued job paying for a
+	// cold spawn. Capacity constraints below (max_concurrency, global quota)
+	// bound the backfill; the excess-idle drain reverses it when jobs
+	// complete and idle exceeds the target again.
+	busyCount := activeCount - int64(len(idleRunners))
+	effectiveTarget := p.MinIdleRunners + busyCount
 
 	// demandQueue holds demand-directed spawn targets (RUN-151): one entry per
 	// queued job that no idle runner on that same target can cover, in stable

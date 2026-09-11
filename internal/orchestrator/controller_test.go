@@ -1916,7 +1916,9 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	})
 
 	// Pre-existing fleet adopted at boot: one busy, two idle, one exited.
-	// Three running runners satisfy min_idle=3, so boot must not spawn.
+	// min_idle=3 counts idle standbys ready for dispatch, and the busy runner
+	// frees the standby slot it was occupying (docs/03 §3), so boot backfills
+	// exactly one standby on top of the two adopted idle runners.
 	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 		return []orchestrator.RunnerStatus{
 			{PoolID: 118, ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
@@ -1929,8 +1931,8 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	if err := ctrl.Boot(ctx); err != nil {
 		t.Fatalf("ctrl.Boot failed: %v", err)
 	}
-	if spawnCount != 0 {
-		t.Fatalf("boot must not spawn (warm pool satisfied by adopted runners), got %d spawns", spawnCount)
+	if spawnCount != 1 {
+		t.Fatalf("boot must backfill the standby slot held by the busy runner, got %d spawns", spawnCount)
 	}
 
 	// Recycle: idle runners deregistered, terminated, and untracked.
@@ -1969,8 +1971,9 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 		t.Error("recycling an unknown pool must not terminate anything")
 	}
 
-	// Reconcile afterwards respawns the warm pool: the busy runner survives,
-	// the exited runner is dropped by audit, and two idle runners respawn.
+	// Reconcile afterwards respawns the warm pool: the busy runner survives
+	// and holds its own slot, the exited runner is dropped by audit, and the
+	// three standby slots (min_idle=3) respawn as idle runners.
 	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 		return []orchestrator.RunnerStatus{
 			{PoolID: 118, ID: "r-busy", Name: "runnero-ci-pool-busy", PoolName: "ci-pool", State: "running", IsBusy: true},
@@ -1979,11 +1982,11 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 	if err := ctrl.Reconcile(ctx); err != nil {
 		t.Fatalf("ctrl.Reconcile failed: %v", err)
 	}
-	if spawnCount != 2 {
-		t.Errorf("reconcile must respawn to the warm-pool target (3 active target, 1 busy surviving), got %d spawns", spawnCount)
+	if spawnCount != 4 {
+		t.Errorf("reconcile must respawn to the busy-inclusive target (3 standby + 1 busy), got %d spawns", spawnCount)
 	}
-	if active, idle := ctrl.PoolStats(118); active != 1 || idle != 2 {
-		t.Errorf("after reconcile PoolStats = (busy=%d, idle=%d), want (1, 2)", active, idle)
+	if active, idle := ctrl.PoolStats(118); active != 1 || idle != 3 {
+		t.Errorf("after reconcile PoolStats = (busy=%d, idle=%d), want (1, 3)", active, idle)
 	}
 	if terminatedIDSet(mockEngine)["r-busy"] {
 		t.Error("busy runner must survive reconcile after recycle")
@@ -2044,18 +2047,29 @@ func TestPoolController_RenameDoesNotDisturbRunners(t *testing.T) {
 		Reconciler:       reconciler,
 	})
 
-	// A busy runner mid-job, tracked and live.
+	// A busy runner mid-job, tracked and live; spawned runners join the
+	// remote listing as idle so the audit merge keeps them tracked.
 	mockEngine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
-		return []orchestrator.RunnerStatus{
+		listing := []orchestrator.RunnerStatus{
 			{PoolID: 121, ID: "r-busy", Name: "runnero-ci-race-busy", PoolName: "ci-race", State: "running", IsBusy: true},
-		}, nil
+		}
+		for i := 1; i <= spawnCount; i++ {
+			listing = append(listing, orchestrator.RunnerStatus{
+				PoolID:   121,
+				ID:       fmt.Sprintf("spawned-runner-%d", i),
+				Name:     fmt.Sprintf("spawned-runner-%d", i),
+				PoolName: "ci-race",
+				State:    "running",
+			})
+		}
+		return listing, nil
 	}
 
 	if err := ctrl.Boot(ctx); err != nil {
 		t.Fatalf("Boot failed: %v", err)
 	}
-	if spawnCount != 0 {
-		t.Fatalf("warm pool satisfied by the busy runner; want 0 spawns, got %d", spawnCount)
+	if spawnCount != 1 {
+		t.Fatalf("boot must backfill the standby slot the busy runner vacated (min_idle=1), got %d spawns", spawnCount)
 	}
 
 	// The pool is renamed out from under the controller; same id, same config.
@@ -2070,14 +2084,24 @@ func TestPoolController_RenameDoesNotDisturbRunners(t *testing.T) {
 	if terminated := terminatedIDSet(mockEngine); terminated["r-busy"] {
 		t.Fatal("renaming a pool must never terminate its runners (busy runner was drained)")
 	}
-	if spawnCount != 0 {
-		t.Errorf("rename must not respawn runners, got %d spawns", spawnCount)
+	if spawnCount != 1 {
+		t.Errorf("rename must not disturb runners (boot backfill untouched), got %d spawns", spawnCount)
 	}
-	if active, idle := ctrl.PoolStats(121); active != 1 || idle != 0 {
-		t.Errorf("tracking must survive the rename, PoolStats=(%d, %d), want (1, 0)", active, idle)
+	if active, idle := ctrl.PoolStats(121); active != 1 || idle != 1 {
+		t.Errorf("tracking must survive the rename, PoolStats=(%d, %d), want (1, 1)", active, idle)
 	}
-	if runners := reconciler.TrackedPoolRunners(121); len(runners) != 1 || runners[0].ID != "r-busy" {
-		t.Errorf("runner must remain tracked under the pool id: %+v", runners)
+	runners := reconciler.TrackedPoolRunners(121)
+	if len(runners) != 2 {
+		t.Errorf("busy runner and backfilled standby must remain tracked under the pool id: %+v", runners)
+	}
+	var busyTracked bool
+	for _, r := range runners {
+		if r.ID == "r-busy" {
+			busyTracked = true
+		}
+	}
+	if !busyTracked {
+		t.Errorf("busy runner r-busy must remain tracked: %+v", runners)
 	}
 
 	// The next spawn after the rename carries the new name (readability only).
