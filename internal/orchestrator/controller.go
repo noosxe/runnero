@@ -2142,9 +2142,17 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) e
 	c.provisionMu.Lock()
 	defer c.provisionMu.Unlock()
 
+	// Summary log for auditability (RUN-164): the per-runner deregistration
+	// is silent on success, and a recycle without a summary is
+	// indistinguishable from an unknown removal path in production logs.
+	poolName := ""
+	recycled := 0
 	for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
 		if r.IsBusy || r.State != "running" {
 			continue
+		}
+		if poolName == "" {
+			poolName = r.PoolName
 		}
 		c.deregisterRunner(ctx, r)
 		if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
@@ -2152,6 +2160,10 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) e
 			continue
 		}
 		c.reconciler.UntrackRunner(poolID, r.ID)
+		recycled++
+	}
+	if recycled > 0 {
+		c.logger.Info("recycled idle runners after spawn-identity change", "pool", poolName, "pool_id", poolID, "recycled", recycled)
 	}
 	return nil
 }
