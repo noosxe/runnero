@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "cn";
 import {
   useSystemStats,
@@ -147,59 +148,67 @@ export function DashboardPage() {
 
       {/* Primary KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            <span>Active Runners</span>
-            <Activity className="h-4 w-4 text-emerald-500" />
-          </div>
-          <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-            {statsLoading ? "..." : `${stats?.totalActiveRunners ?? 0} active`}
-          </div>
-          <div className="mt-1 text-xs text-slate-400">
-            {stats?.totalIdleRunners ?? 0} warm idle standby
-          </div>
-        </div>
+        <Card size="sm">
+          <CardContent>
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span>Active Runners</span>
+              <Activity className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+              {statsLoading ? "..." : `${stats?.totalActiveRunners ?? 0} active`}
+            </div>
+            <div className="mt-1 text-xs text-slate-400">
+              {stats?.totalIdleRunners ?? 0} warm idle standby
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            <span>{timeframeHours}h Jobs Executed</span>
-            <Server className="h-4 w-4 text-blue-500" />
-          </div>
-          <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-            {statsLoading ? "..." : totalJobs}
-          </div>
-          <div className="mt-1 text-xs text-slate-400">
-            {avgQueueSeconds === null
-              ? "Queue timing requires webhooks"
-              : `Avg queue wait: ${avgQueueSeconds.toFixed(1)}s`}
-          </div>
-        </div>
+        <Card size="sm">
+          <CardContent>
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span>{timeframeHours}h Jobs Executed</span>
+              <Server className="h-4 w-4 text-blue-500" />
+            </div>
+            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+              {statsLoading ? "..." : totalJobs}
+            </div>
+            <div className="mt-1 text-xs text-slate-400">
+              {avgQueueSeconds === null
+                ? "Queue timing requires webhooks"
+                : `Avg queue wait: ${avgQueueSeconds.toFixed(1)}s`}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            <span>Success Rate</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          </div>
-          <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-            {statsLoading ? "..." : successRate === null ? "—" : `${successRate.toFixed(1)}%`}
-          </div>
-          <div className="mt-1 text-xs text-slate-400">
-            {knownOutcomeJobs === 0
-              ? "No concluded jobs in window"
-              : `${successfulJobs} passed / ${failedJobs} failed`}
-          </div>
-        </div>
+        <Card size="sm">
+          <CardContent>
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span>Success Rate</span>
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+              {statsLoading ? "..." : successRate === null ? "—" : `${successRate.toFixed(1)}%`}
+            </div>
+            <div className="mt-1 text-xs text-slate-400">
+              {knownOutcomeJobs === 0
+                ? "No concluded jobs in window"
+                : `${successfulJobs} passed / ${failedJobs} failed`}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            <span>Avg Runtime</span>
-            <Clock className="h-4 w-4 text-indigo-500" />
-          </div>
-          <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-            {statsLoading ? "..." : formatDuration(avgRuntimeSeconds)}
-          </div>
-          <div className="mt-1 text-xs text-slate-400">Job completion duration</div>
-        </div>
+        <Card size="sm">
+          <CardContent>
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span>Avg Runtime</span>
+              <Clock className="h-4 w-4 text-indigo-500" />
+            </div>
+            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+              {statsLoading ? "..." : formatDuration(avgRuntimeSeconds)}
+            </div>
+            <div className="mt-1 text-xs text-slate-400">Job completion duration</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Analytics Graphs Section */}
