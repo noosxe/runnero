@@ -62,6 +62,9 @@ vi.mock("@tanstack/react-router", () => ({
       {children}
     </a>
   ),
+  createLink:
+    (Comp: any) =>
+    ({ children, ...props }: any) => <Comp {...props}>{children}</Comp>,
 }));
 
 describe("RenovatePage", () => {

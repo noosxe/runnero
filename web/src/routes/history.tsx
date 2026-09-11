@@ -11,8 +11,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { LinkButton } from "../lib/link-button";
 import { useJobHistory, usePools } from "../lib/api/query-hooks";
-import { Link } from "@tanstack/react-router";
 import {
   History,
   CheckCircle2,
@@ -252,49 +267,48 @@ export function HistoryPage() {
           <span>Loading execution records...</span>
         </div>
       ) : !history?.jobs || history.jobs.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          <History className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            No execution records found
-          </p>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            {search || statusFilter !== "all" || selectedPool !== "0"
-              ? "No job history matched your current filters. Try resetting search or status filters."
-              : "Completed runner workflow jobs will appear here automatically."}
-          </p>
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <History />
+            </EmptyMedia>
+            <EmptyTitle>No execution records found</EmptyTitle>
+            <EmptyDescription>
+              {search || statusFilter !== "all" || selectedPool !== "0"
+                ? "No job history matched your current filters. Try resetting search or status filters."
+                : "Completed runner workflow jobs will appear here automatically."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-              <thead className="border-b border-slate-100 bg-slate-50 font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                <tr>
-                  <th className="px-5 py-3">ID</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Runner Name</th>
-                  <th className="px-5 py-3">Pool</th>
-                  <th className="px-5 py-3">Duration</th>
-                  <th className="px-5 py-3">Queue Wait</th>
-                  <th className="px-5 py-3">Started At</th>
-                  <th className="px-5 py-3">Completed At</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Runner Name</TableHead>
+                  <TableHead>Pool</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead>Queue Wait</TableHead>
+                  <TableHead>Started At</TableHead>
+                  <TableHead>Completed At</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {history.jobs.map((job) => {
                   const isSuccess = job.status === "success";
                   const isFailed = job.status === "failure" || job.status === "failed";
                   const isRunning = job.status === "running";
 
                   return (
-                    <tr
-                      key={job.id.toString()}
-                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
-                    >
-                      <td className="px-5 py-3.5 font-mono text-[11px] text-slate-400">
+                    <TableRow key={job.id.toString()}>
+                      <TableCell className="font-mono text-muted-foreground">
                         #{job.id.toString()}
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </TableCell>
+                      <TableCell>
                         <Badge
                           className={cn(
                             "uppercase tracking-wider",
@@ -308,50 +322,49 @@ export function HistoryPage() {
                           )}
                         >
                           {isSuccess ? (
-                            <CheckCircle2 className="h-3 w-3" />
+                            <CheckCircle2 className="size-3" />
                           ) : isFailed ? (
-                            <XCircle className="h-3 w-3" />
+                            <XCircle className="size-3" />
                           ) : (
-                            <Clock className="h-3 w-3" />
+                            <Clock className="size-3" />
                           )}
                           <span>{job.status}</span>
                         </Badge>
-                      </td>
-                      <td className="px-5 py-3.5 font-mono font-medium text-slate-900 dark:text-white">
-                        {job.runnerName}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      </TableCell>
+                      <TableCell className="font-mono font-medium">{job.runnerName}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
                           {job.poolName || `Pool #${job.poolId.toString()}`}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 font-mono">
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono">
                         {formatDuration(job.durationSeconds)}
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-slate-500">
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
                         {job.queueTimeSeconds > 0 ? `${job.queueTimeSeconds.toFixed(1)}s` : "—"}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-500 font-mono text-[11px]">
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
                         {formatTimestamp(job.startedAt)}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-500 font-mono text-[11px]">
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
                         {formatTimestamp(job.completedAt)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <Link
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <LinkButton
                           to="/history/$jobId"
                           params={{ jobId: job.id.toString() }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 shadow-2xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700 transition-colors"
+                          variant="outline"
+                          size="xs"
                         >
-                          <Terminal className="h-3 w-3" />
+                          <Terminal data-icon="inline-start" />
                           <span>Logs</span>
-                        </Link>
-                      </td>
-                    </tr>
+                        </LinkButton>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           {/* Pagination Footer */}
