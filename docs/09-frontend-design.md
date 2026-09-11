@@ -18,7 +18,8 @@ The Web Control Interface is an embedded Single Page Application (SPA) compiled 
 | **Testing** | **Vitest** + **Testing Library** | Fast in-memory unit tests with `jsdom` test runner. |
 | **Routing** | **TanStack Router** (`@tanstack/react-router`) | Type-safe search params, nested layouts, route loaders, and redirect guards. |
 | **State & API** | **TanStack Query** (`@tanstack/react-query`) + **Connect-Web** | Binary Protobuf transport client (`@connectrpc/connect-web`), zero JSON transport. |
-| **Styling** | **TailwindCSS** | Strictly utility-first CSS; zero custom `.css` stylesheets or manual selectors. |
+| **Styling** | **TailwindCSS** | Utility-first CSS; new/migrated code uses the preset's semantic tokens only (`bg-primary`, `text-muted-foreground`, …) — no raw palette classes (`slate-*`, `emerald-*`) and no manual `dark:` overrides. |
+| **UI Components** | **shadcn/ui** (Base UI base) | Vendored via the shadcn CLI only; preset `b7QqImqdoe` owns the visual language (docs/27). Generated files in `web/src/components/ui/` are read-only — customization via composition wrappers, CSS variables, or config. `web/src/index.css` and `src/components/ui/**` are excluded from oxlint/oxfmt (preset-owned, CLI-formatted). |
 | **Icons** | **Lucide React** (`lucide-react`) | Clean, consistent, lightweight SVG iconography. |
 
 ### 1.2 Binary Transport & Error Handling
@@ -34,31 +35,21 @@ Per docs/06 §1 and RUN-44:
   - `CodeInternal` / `CodeUnavailable`: Toast notification with action retry.
 
 ### 1.3 Theming & Design Tokens
-The interface supports both **Light** and **Dark** modes based on system preference (`prefers-color-scheme`) with an optional user toggle in the header:
+The interface supports both **Light** and **Dark** modes via an in-app toggle persisted to `localStorage` (`use-theme` toggles the `dark` class on `<html>`; wired to Tailwind through `@custom-variant dark`).
+
+Colors are **preset-owned**: the `b7QqImqdoe` preset (style `maia`, neutral base, blue primary, amber chart ramp, Inter / Source Sans 3) emits OKLCH semantic tokens into `web/src/index.css` (`:root` / `.dark` blocks mapped through `@theme inline`). Code must reference semantic tokens — never hard-coded palette values:
 
 ```text
-Light Mode:
-  Background:     #F8FAFC (slate-50)
-  Surface/Card:   #FFFFFF (white)
-  Border:         #E2E8F0 (slate-200)
-  Text Primary:   #0F172A (slate-900)
-  Text Secondary: #64748B (slate-500)
-  Primary Accent: #2563EB (blue-600)
+Semantic tokens (preset-owned, both modes):
+  background / foreground, card, popover, primary, secondary, muted,
+  accent, destructive, border, input, ring, sidebar-*, chart-1..5
 
-Dark Mode:
-  Background:     #0F172A (slate-900)
-  Surface/Card:   #1E293B (slate-800)
-  Border:         #334155 (slate-700)
-  Text Primary:   #F8FAFC (slate-50)
-  Text Secondary: #94A3B8 (slate-400)
-  Primary Accent: #3B82F6 (blue-500)
-
-Status Indicators:
-  Active / Success: #10B981 (emerald-500)
-  Idle / Standby:   #6366F1 (indigo-500)
-  Warning / Degraded: #F59E0B (amber-500)
-  Error / Failure:  #EF4444 (rose-500)
+App-specific additions (re-add if `apply --preset` rewrites index.css):
+  --success  oklch(0.627 0.17 149.2)   status pills, healthy states
+  --warning  oklch(0.666 0.179 58.318) degraded states (= preset's --chart-3 amber)
 ```
+
+The legacy hard-coded slate/emerald palette in earlier revisions of this section described pre-migration styles; it is superseded per-surface as the migration tasks (docs/27, RUN-168+) replace them.
 
 ---
 
