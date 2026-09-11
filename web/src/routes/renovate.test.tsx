@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { RenovatePage } from "./renovate";
+import { Toaster } from "@/components/ui/toast";
 
 const mockPools = [
   {
@@ -78,7 +79,12 @@ describe("RenovatePage", () => {
       runId: 105n,
     });
 
-    render(<RenovatePage />);
+    render(
+      <>
+        <RenovatePage />
+        <Toaster />
+      </>,
+    );
 
     expect(screen.getByText("Renovate Bot Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Configured Pools")).toBeInTheDocument();
@@ -94,5 +100,8 @@ describe("RenovatePage", () => {
     await waitFor(() => {
       expect(mockTriggerAsync).toHaveBeenCalledWith(1n);
     });
+
+    // Success surfaces through the toast system.
+    expect(await screen.findByText("Run #105 triggered")).toBeVisible();
   });
 });

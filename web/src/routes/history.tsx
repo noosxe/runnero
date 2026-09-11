@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -38,7 +39,6 @@ import {
   ChevronRight,
   Download,
   Terminal,
-  Loader2,
 } from "lucide-react";
 
 function formatDuration(seconds: number): string {
@@ -262,9 +262,10 @@ export function HistoryPage() {
 
       {/* History Table */}
       {isLoading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900">
-          <Loader2 className="mx-auto h-6 w-6 animate-spin text-blue-500 mb-2" />
-          <span>Loading execution records...</span>
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
         </div>
       ) : !history?.jobs || history.jobs.length === 0 ? (
         <Empty>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "cn";
 import {
   Empty,
@@ -171,8 +172,12 @@ export function DashboardPage() {
               <span>Active Runners</span>
               <Activity className="h-4 w-4 text-emerald-500" />
             </div>
-            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-              {statsLoading ? "..." : `${stats?.totalActiveRunners ?? 0} active`}
+            <div className="mt-2 font-mono text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              {statsLoading ? (
+                <Skeleton className="inline-block h-9 w-24 align-middle" />
+              ) : (
+                `${stats?.totalActiveRunners ?? 0} active`
+              )}
             </div>
             <div className="mt-1 text-xs text-slate-400">
               {stats?.totalIdleRunners ?? 0} warm idle standby
@@ -187,7 +192,11 @@ export function DashboardPage() {
               <Server className="h-4 w-4 text-blue-500" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-              {statsLoading ? "..." : totalJobs}
+              {statsLoading ? (
+                <Skeleton className="inline-block h-9 w-24 align-middle" />
+              ) : (
+                totalJobs
+              )}
             </div>
             <div className="mt-1 text-xs text-slate-400">
               {avgQueueSeconds === null
@@ -204,7 +213,13 @@ export function DashboardPage() {
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-              {statsLoading ? "..." : successRate === null ? "—" : `${successRate.toFixed(1)}%`}
+              {statsLoading ? (
+                <Skeleton className="inline-block h-9 w-24 align-middle" />
+              ) : successRate === null ? (
+                "—"
+              ) : (
+                `${successRate.toFixed(1)}%`
+              )}
             </div>
             <div className="mt-1 text-xs text-slate-400">
               {knownOutcomeJobs === 0
@@ -221,7 +236,11 @@ export function DashboardPage() {
               <Clock className="h-4 w-4 text-indigo-500" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-              {statsLoading ? "..." : formatDuration(avgRuntimeSeconds)}
+              {statsLoading ? (
+                <Skeleton className="inline-block h-9 w-24 align-middle" />
+              ) : (
+                formatDuration(avgRuntimeSeconds)
+              )}
             </div>
             <div className="mt-1 text-xs text-slate-400">Job completion duration</div>
           </CardContent>
@@ -270,7 +289,11 @@ export function DashboardPage() {
         </div>
 
         {poolsLoading ? (
-          <div className="text-sm text-slate-400">Loading pools...</div>
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
+          </div>
         ) : !pools || pools.length === 0 ? (
           <Empty>
             <EmptyHeader>

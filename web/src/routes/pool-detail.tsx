@@ -40,6 +40,10 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
 import { useParams, Link } from "@tanstack/react-router";
 import {
   usePools,
@@ -81,7 +85,6 @@ import {
   Play,
   CheckCircle2,
   XCircle,
-  Loader2,
   Save,
   RefreshCw,
   DownloadCloud,
@@ -374,8 +377,10 @@ export function PoolDetailPage() {
       {activeTab === "runners" && (
         <div className="space-y-4">
           {runnersLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900">
-              Auditing active container instances...
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
           ) : !runners || runners.length === 0 ? (
             <Empty>
@@ -566,7 +571,7 @@ export function PoolDetailPage() {
                     disabled={checkUpdateMutation.isPending}
                   >
                     {checkUpdateMutation.isPending ? (
-                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                      <Spinner data-icon="inline-start" />
                     ) : (
                       <RefreshCw data-icon="inline-start" />
                     )}
@@ -602,7 +607,7 @@ export function PoolDetailPage() {
                         className="bg-warning text-white hover:bg-warning/80"
                       >
                         {pullImageMutation.isPending ? (
-                          <Loader2 data-icon="inline-start" className="animate-spin" />
+                          <Spinner data-icon="inline-start" />
                         ) : (
                           <DownloadCloud data-icon="inline-start" />
                         )}
@@ -643,7 +648,7 @@ export function PoolDetailPage() {
                     className="bg-warning text-white hover:bg-warning/80"
                   >
                     {pullImageMutation.isPending ? (
-                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                      <Spinner data-icon="inline-start" />
                     ) : (
                       <DownloadCloud data-icon="inline-start" />
                     )}
@@ -842,31 +847,33 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
   const [enabled, setEnabled] = useState(pool.renovate?.enabled ?? false);
   const [cronSchedule, setCronSchedule] = useState(pool.renovate?.cronSchedule || "0 3 * * 1");
   const [image, setImage] = useState(pool.renovate?.image || "renovate/renovate:latest");
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [triggerMsg, setTriggerMsg] = useState<{ type: "success" | "error"; text: string } | null>(
-    null,
-  );
 
   const isRunning = status?.lastRun?.status === "running";
 
   const handleTrigger = async () => {
-    setTriggerMsg(null);
     try {
       const res = await triggerMutation.mutateAsync(pool.id);
       if (res.success) {
-        setTriggerMsg({ type: "success", text: `Triggered Renovate run #${res.runId}` });
+        toast.add({
+          title: `Triggered Renovate run #${res.runId}`,
+          description: `Renovate run queued for pool "${pool.name}".`,
+          type: "success",
+        });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to trigger Renovate run";
-      setTriggerMsg({ type: "error", text: msg });
+      toast.add({
+        title: "Trigger failed",
+        description: msg,
+        type: "error",
+      });
     }
   };
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError(null);
-    setSaveSuccess(false);
     try {
       await updatePoolMutation.mutateAsync({
         pool: {
@@ -879,8 +886,10 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
           },
         },
       });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      toast.add({
+        title: "Renovate settings saved",
+        type: "success",
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save Renovate settings";
       setSaveError(msg);
@@ -906,12 +915,12 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             >
               {triggerMutation.isPending ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner />
                   <span>Triggering...</span>
                 </>
               ) : isRunning ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner />
                   <span>Run in progress...</span>
                 </>
               ) : (
@@ -922,23 +931,6 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
               )}
             </Button>
           </div>
-
-          {triggerMsg && (
-            <div
-              className={`rounded-xl p-3 text-xs flex items-center gap-2 ${
-                triggerMsg.type === "success"
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                  : "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
-              }`}
-            >
-              {triggerMsg.type === "success" ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-              ) : (
-                <XCircle className="h-4 w-4 shrink-0" />
-              )}
-              <span>{triggerMsg.text}</span>
-            </div>
-          )}
 
           {/* Status Metrics Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
@@ -1056,15 +1048,9 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             </div>
 
             {saveError && (
-              <div className="rounded-xl bg-rose-50 p-2.5 text-xs text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                {saveError}
-              </div>
-            )}
-
-            {saveSuccess && (
-              <div className="rounded-xl bg-emerald-50 p-2.5 text-xs text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                Settings saved successfully!
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{saveError}</AlertDescription>
+              </Alert>
             )}
 
             <Button
@@ -1075,7 +1061,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             >
               {updatePoolMutation.isPending ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner />
                   <span>Saving...</span>
                 </>
               ) : (
@@ -1094,8 +1080,10 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Execution History</h3>
 
         {historyLoading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900">
-            Loading run history...
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
           </div>
         ) : !history?.runs || history.runs.length === 0 ? (
           <Empty>
