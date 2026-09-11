@@ -8,6 +8,28 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -65,6 +87,7 @@ import {
   DownloadCloud,
   Copy,
   Check,
+  Ellipsis,
 } from "lucide-react";
 
 function formatUptime(seconds: number | bigint): string {
@@ -355,49 +378,46 @@ export function PoolDetailPage() {
               Auditing active container instances...
             </div>
           ) : !runners || runners.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">
-              <Server className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                No active container instances
-              </p>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                No runners are currently executing or warming in this pool. Ephemeral instances will
-                automatically spawn when workflow jobs are queued.
-              </p>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Server />
+                </EmptyMedia>
+                <EmptyTitle>No active container instances</EmptyTitle>
+                <EmptyDescription>
+                  No runners are currently executing or warming in this pool. Ephemeral instances
+                  will automatically spawn when workflow jobs are queued.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-                  <thead className="border-b border-slate-100 bg-slate-50 font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                    <tr>
-                      <th className="px-5 py-3">Container ID</th>
-                      <th className="px-5 py-3">Runner Name</th>
-                      <th className="px-5 py-3">State</th>
-                      <th className="px-5 py-3">IP Address</th>
-                      <th className="px-5 py-3">Uptime</th>
-                      <th className="px-5 py-3">CPU / Mem Limit</th>
-                      <th className="px-5 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Container ID</TableHead>
+                      <TableHead>Runner Name</TableHead>
+                      <TableHead>State</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Uptime</TableHead>
+                      <TableHead>CPU / Mem Limit</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {runners.map((r) => {
                       const isBusy = r.status === "busy";
                       const isIdle = r.status === "idle";
                       const isDegraded = r.status === "degraded";
 
                       return (
-                        <tr
-                          key={r.containerId}
-                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
-                        >
-                          <td className="px-5 py-3.5 font-mono text-[11px] font-semibold text-slate-900 dark:text-white">
+                        <TableRow key={r.containerId}>
+                          <TableCell className="font-mono font-semibold">
                             {r.containerId.substring(0, 12)}
-                          </td>
-                          <td className="px-5 py-3.5 font-mono font-medium text-slate-800 dark:text-slate-200">
-                            {r.name}
-                          </td>
-                          <td className="px-5 py-3.5">
+                          </TableCell>
+                          <TableCell className="font-mono font-medium">{r.name}</TableCell>
+                          <TableCell>
                             <Badge
                               className={cn(
                                 "uppercase tracking-wider",
@@ -411,7 +431,7 @@ export function PoolDetailPage() {
                               )}
                             >
                               <span
-                                className={`h-1.5 w-1.5 rounded-full ${
+                                className={`size-1.5 rounded-full ${
                                   isBusy
                                     ? "bg-emerald-500 animate-pulse"
                                     : isIdle
@@ -423,45 +443,55 @@ export function PoolDetailPage() {
                               />
                               <span>{r.status}</span>
                             </Badge>
-                          </td>
-                          <td className="px-5 py-3.5 font-mono text-slate-500 dark:text-slate-400">
+                          </TableCell>
+                          <TableCell className="font-mono text-muted-foreground">
                             {r.ipAddress || "—"}
-                          </td>
-                          <td className="px-5 py-3.5 font-mono text-slate-600 dark:text-slate-300">
+                          </TableCell>
+                          <TableCell className="font-mono">
                             <span className="inline-flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-slate-400" />
+                              <Clock className="size-3 text-muted-foreground" />
                               {formatUptime(r.uptimeSeconds)}
                             </span>
-                          </td>
-                          <td className="px-5 py-3.5 text-slate-500">
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
                             {r.cpuLimit || pool.cpuLimit || "Unlimited"} /{" "}
                             {r.memoryLimit || pool.memoryLimit || "Unlimited"}
-                          </td>
-                          <td className="px-5 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                size="xs"
-                                onClick={() => setSelectedRunnerForLogs(r)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label="Runner actions"
+                                  />
+                                }
                               >
-                                <Terminal data-icon="inline-start" />
-                                <span>Logs</span>
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="xs"
-                                onClick={() => setRunnerToTerminate(r)}
-                              >
-                                <Trash2 data-icon="inline-start" />
-                                <span>Terminate</span>
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
+                                <Ellipsis />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuGroup>
+                                  <DropdownMenuItem onClick={() => setSelectedRunnerForLogs(r)}>
+                                    <Terminal />
+                                    Logs
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={() => setRunnerToTerminate(r)}
+                                  >
+                                    <Trash2 />
+                                    Terminate
+                                  </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
           )}
@@ -1068,38 +1098,37 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             Loading run history...
           </div>
         ) : !history?.runs || history.runs.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">
-            <Bot className="mx-auto h-7 w-7 text-slate-400 mb-2" />
-            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-              No Renovate runs recorded yet
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Trigger a manual run or wait for the scheduled cron run to execute.
-            </p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Bot />
+              </EmptyMedia>
+              <EmptyTitle>No Renovate runs recorded yet</EmptyTitle>
+              <EmptyDescription>
+                Trigger a manual run or wait for the scheduled cron run to execute.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-                <thead className="border-b border-slate-100 bg-slate-50 font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                  <tr>
-                    <th className="px-5 py-3">Run ID</th>
-                    <th className="px-5 py-3">Status</th>
-                    <th className="px-5 py-3">Started At</th>
-                    <th className="px-5 py-3">Completed At</th>
-                    <th className="px-5 py-3">Summary</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Run ID</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Started At</TableHead>
+                    <TableHead>Completed At</TableHead>
+                    <TableHead>Summary</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {history.runs.map((run) => (
-                    <tr
-                      key={run.id.toString()}
-                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
-                    >
-                      <td className="px-5 py-3.5 font-mono font-semibold text-slate-900 dark:text-white">
+                    <TableRow key={run.id.toString()}>
+                      <TableCell className="font-mono font-semibold">
                         #{run.id.toString()}
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </TableCell>
+                      <TableCell>
                         <Badge
                           className={cn(
                             "uppercase tracking-wider",
@@ -1111,7 +1140,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                           )}
                         >
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
+                            className={`size-1.5 rounded-full ${
                               run.status === "running"
                                 ? "bg-amber-500 animate-ping"
                                 : run.status === "success"
@@ -1121,20 +1150,20 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                           />
                           <span>{run.status}</span>
                         </Badge>
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-slate-500 dark:text-slate-400">
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
                         {run.startedAt ? new Date(run.startedAt).toLocaleString() : "—"}
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-slate-500 dark:text-slate-400">
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
                         {run.completedAt ? new Date(run.completedAt).toLocaleString() : "—"}
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-[11px] text-slate-600 dark:text-slate-300 max-w-md truncate">
+                      </TableCell>
+                      <TableCell className="max-w-md truncate font-mono text-muted-foreground">
                         {run.summary || "—"}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}

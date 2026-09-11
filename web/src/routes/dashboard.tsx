@@ -3,6 +3,23 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "cn";
 import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "@/components/ui/empty";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { LinkButton } from "../lib/link-button";
+import {
   useSystemStats,
   usePools,
   useJobHistory,
@@ -255,31 +272,29 @@ export function DashboardPage() {
         {poolsLoading ? (
           <div className="text-sm text-slate-400">Loading pools...</div>
         ) : !pools || pools.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-800">
-            <Server className="mx-auto mb-2 h-8 w-8 text-slate-400" />
-            <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
-              No runner pools configured yet
-            </p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">
-              {hasAuthProfiles
-                ? "Git credentials are connected. Create your first auto-scaling runner pool to begin processing CI workflow runs."
-                : "To start dispatching ephemeral runner containers, connect a Git provider authentication profile and create your first runner pool."}
-            </p>
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <Link
-                to={hasAuthProfiles ? "/pools" : "/profiles"}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-500"
-              >
-                <span>{hasAuthProfiles ? "Create First Pool" : "Connect Git Provider"}</span>
-              </Link>
-              <Link
-                to="/pools"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <span>Manage Pools</span>
-              </Link>
-            </div>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Server />
+              </EmptyMedia>
+              <EmptyTitle>No runner pools configured yet</EmptyTitle>
+              <EmptyDescription>
+                {hasAuthProfiles
+                  ? "Git credentials are connected. Create your first auto-scaling runner pool to begin processing CI workflow runs."
+                  : "To start dispatching ephemeral runner containers, connect a Git provider authentication profile and create your first runner pool."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <div className="flex items-center justify-center gap-3">
+                <LinkButton to={hasAuthProfiles ? "/pools" : "/profiles"} size="sm">
+                  {hasAuthProfiles ? "Create First Pool" : "Connect Git Provider"}
+                </LinkButton>
+                <LinkButton to="/pools" variant="outline" size="sm">
+                  Manage Pools
+                </LinkButton>
+              </div>
+            </EmptyContent>
+          </Empty>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pools.map((p) => (
@@ -356,41 +371,28 @@ export function DashboardPage() {
         </div>
 
         {!history?.jobs || history.jobs.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
-            No executions recorded in the last 24h.
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No executions recorded in the last 24h.</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
-                <tr>
-                  <th className="p-3.5 font-semibold uppercase tracking-wider text-[11px]">
-                    Status
-                  </th>
-                  <th className="p-3.5 font-semibold uppercase tracking-wider text-[11px]">
-                    Runner Name
-                  </th>
-                  <th className="p-3.5 font-semibold uppercase tracking-wider text-[11px]">
-                    Duration
-                  </th>
-                  <th className="p-3.5 font-semibold uppercase tracking-wider text-[11px]">
-                    Queue Wait
-                  </th>
-                  <th className="p-3.5 font-semibold uppercase tracking-wider text-[11px]">
-                    Completed At
-                  </th>
-                  <th className="p-3.5 font-semibold uppercase tracking-wider text-[11px] text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Runner Name</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead>Queue Wait</TableHead>
+                  <TableHead>Completed At</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {history.jobs.map((job) => (
-                  <tr
-                    key={job.id.toString()}
-                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
-                  >
-                    <td className="p-3.5">
+                  <TableRow key={job.id.toString()}>
+                    <TableCell>
                       <Badge
                         className={cn(
                           "uppercase tracking-wider",
@@ -400,39 +402,38 @@ export function DashboardPage() {
                         )}
                       >
                         {job.status === "success" ? (
-                          <CheckCircle2 className="h-3 w-3" />
+                          <CheckCircle2 className="size-3" />
                         ) : (
-                          <XCircle className="h-3 w-3" />
+                          <XCircle className="size-3" />
                         )}
                         {job.status}
                       </Badge>
-                    </td>
-                    <td className="p-3.5 font-mono font-medium text-slate-900 dark:text-slate-100">
-                      {job.runnerName}
-                    </td>
-                    <td className="p-3.5 font-mono text-slate-600 dark:text-slate-300">
+                    </TableCell>
+                    <TableCell className="font-mono font-medium">{job.runnerName}</TableCell>
+                    <TableCell className="font-mono">
                       {formatDuration(job.durationSeconds)}
-                    </td>
-                    <td className="p-3.5 font-mono text-slate-500">
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground">
                       {job.queueTimeSeconds > 0 ? `${job.queueTimeSeconds.toFixed(1)}s` : "—"}
-                    </td>
-                    <td className="p-3.5 font-mono text-slate-500 text-[11px]">
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground">
                       {formatTimestamp(job.completedAt)}
-                    </td>
-                    <td className="p-3.5 text-right">
-                      <Link
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <LinkButton
                         to="/history/$jobId"
                         params={{ jobId: job.id.toString() }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-blue-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700"
+                        variant="outline"
+                        size="xs"
                       >
-                        <Terminal className="h-3 w-3" />
+                        <Terminal data-icon="inline-start" />
                         <span>Logs</span>
-                      </Link>
-                    </td>
-                  </tr>
+                      </LinkButton>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

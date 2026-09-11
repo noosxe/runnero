@@ -3,6 +3,15 @@ import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import {
   useAppSettings,
   useSetAppSetting,
@@ -367,47 +376,47 @@ export function SettingsPage() {
               <ImageUpdateNotification updates={updates} poolNameLookup={poolNameLookup} />
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400 dark:border-slate-800">
-              No pending image updates. All runner pools are running the latest image digest.
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>
+                  No pending image updates. All runner pools are running the latest image digest.
+                </EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           )}
 
           {/* Pools Image Registry Overview */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 p-4 dark:border-slate-800">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+            <div className="border-b p-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Configured Pool Images
               </h3>
             </div>
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
-                <tr>
-                  <th className="p-3.5 font-semibold">Pool Name</th>
-                  <th className="p-3.5 font-semibold">Configured Image</th>
-                  <th className="p-3.5 font-semibold">Provider</th>
-                  <th className="p-3.5 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pool Name</TableHead>
+                  <TableHead>Configured Image</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {!pools || pools.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-4 text-center text-slate-400">
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                       No pools configured.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   pools.map((p) => (
-                    <tr key={p.id.toString()}>
-                      <td className="p-3.5 font-semibold text-slate-900 dark:text-white">
-                        {p.name}
-                      </td>
-                      <td className="p-3.5 font-mono text-slate-700 dark:text-slate-300">
-                        {p.runnerImage}
-                      </td>
-                      <td className="p-3.5 uppercase text-slate-500 font-mono text-[10px]">
+                    <TableRow key={p.id.toString()}>
+                      <TableCell className="font-semibold">{p.name}</TableCell>
+                      <TableCell className="font-mono">{p.runnerImage}</TableCell>
+                      <TableCell className="font-mono uppercase text-muted-foreground">
                         {p.provider}
-                      </td>
-                      <td className="p-3.5 text-right">
+                      </TableCell>
+                      <TableCell className="text-right">
                         <Button
                           variant="outline"
                           size="xs"
@@ -415,12 +424,12 @@ export function SettingsPage() {
                         >
                           Check Update
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

@@ -185,11 +185,13 @@ describe("PoolDetailPage", () => {
     expect(screen.getByText("2m 5s")).toBeInTheDocument();
   });
 
-  it("opens live runner logs viewer modal", () => {
+  it("opens live runner logs viewer modal", async () => {
     render(<PoolDetailPage />);
 
-    const logsButtons = screen.getAllByRole("button", { name: /logs/i });
-    fireEvent.click(logsButtons[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Runner actions" })[0]);
+
+    const logsItem = await screen.findByRole("menuitem", { name: /logs/i });
+    fireEvent.click(logsItem);
 
     expect(screen.getByText("Live Stream")).toBeInTheDocument();
     expect(screen.getByText("Runner connected to GitHub")).toBeInTheDocument();
@@ -199,8 +201,10 @@ describe("PoolDetailPage", () => {
     mockTerminateMutateAsync.mockResolvedValueOnce({});
     render(<PoolDetailPage />);
 
-    const termButtons = screen.getAllByRole("button", { name: /terminate/i });
-    fireEvent.click(termButtons[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Runner actions" })[0]);
+
+    const termItem = await screen.findByRole("menuitem", { name: /terminate/i });
+    fireEvent.click(termItem);
 
     expect(screen.getByText("Terminate Runner Instance?")).toBeInTheDocument();
 

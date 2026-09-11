@@ -2,6 +2,23 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "@/components/ui/empty";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { LinkButton } from "../lib/link-button";
 import { Link } from "@tanstack/react-router";
 import { usePools, useRenovateStatus, useTriggerRenovateRun } from "../lib/api/query-hooks";
 import type { Pool } from "../gen/api_pb";
@@ -90,40 +107,41 @@ export function RenovatePage() {
             Loading runner pools...
           </div>
         ) : !pools || pools.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">
-            <Bot className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-              No runner pools found
-            </p>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Create your first runner pool to enable automated Renovate dependency updates.
-            </p>
-            <Link
-              to="/onboarding"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
-            >
-              + Create Runner Pool
-            </Link>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Bot />
+              </EmptyMedia>
+              <EmptyTitle>No runner pools found</EmptyTitle>
+              <EmptyDescription>
+                Create your first runner pool to enable automated Renovate dependency updates.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <LinkButton to="/onboarding" size="sm">
+                Create Runner Pool
+              </LinkButton>
+            </EmptyContent>
+          </Empty>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-                <thead className="border-b border-slate-100 bg-slate-50 font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                  <tr>
-                    <th className="px-5 py-3.5">Pool / Repository</th>
-                    <th className="px-5 py-3.5">Renovate Status</th>
-                    <th className="px-5 py-3.5">Schedule</th>
-                    <th className="px-5 py-3.5">Last Run Result</th>
-                    <th className="px-5 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pool / Repository</TableHead>
+                    <TableHead>Renovate Status</TableHead>
+                    <TableHead>Schedule</TableHead>
+                    <TableHead>Last Run Result</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {pools.map((pool) => (
                     <PoolRenovateRow key={pool.id.toString()} pool={pool} />
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
@@ -159,22 +177,22 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
   };
 
   return (
-    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-      <td className="px-5 py-4">
+    <TableRow>
+      <TableCell>
         <Link
           to="/pools/$poolId"
           params={{ poolId: pool.id.toString() }}
-          className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
+          className="font-semibold text-primary hover:underline"
         >
           {pool.name}
         </Link>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-mono text-slate-400 max-w-xs">
+        <div className="mt-0.5 flex max-w-xs items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
           <span className="truncate">{poolTargetList(pool)[0]}</span>
           <TargetCountBadge pool={pool} />
         </div>
-      </td>
+      </TableCell>
 
-      <td className="px-5 py-4">
+      <TableCell>
         <Badge
           className={cn(
             "uppercase tracking-wider",
@@ -184,31 +202,31 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
           )}
         >
           <span
-            className={`h-1.5 w-1.5 rounded-full ${isEnabled ? "bg-emerald-500" : "bg-slate-400"}`}
+            className={`size-1.5 rounded-full ${isEnabled ? "bg-emerald-500" : "bg-slate-400"}`}
           />
           <span>{isEnabled ? "Enabled" : "Disabled"}</span>
         </Badge>
-      </td>
+      </TableCell>
 
-      <td className="px-5 py-4">
+      <TableCell>
         {isEnabled ? (
-          <div className="space-y-0.5">
-            <span className="font-mono text-xs font-medium text-slate-800 dark:text-slate-200">
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-xs font-medium">
               {pool.renovate?.cronSchedule || "0 3 * * 1"}
             </span>
-            <div className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Clock className="size-3" />
               <span>Next: {status?.nextScheduledRun || "Scheduled"}</span>
             </div>
           </div>
         ) : (
-          <span className="text-slate-400 text-xs italic">Not configured</span>
+          <span className="text-xs italic text-muted-foreground">Not configured</span>
         )}
-      </td>
+      </TableCell>
 
-      <td className="px-5 py-4">
+      <TableCell>
         {status?.lastRun ? (
-          <div className="space-y-0.5">
+          <div className="flex flex-col gap-0.5">
             <Badge
               className={cn(
                 "uppercase tracking-wider",
@@ -220,7 +238,7 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
               )}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${
+                className={`size-1.5 rounded-full ${
                   isRunning
                     ? "bg-amber-500 animate-ping"
                     : status.lastRun.status === "success"
@@ -231,22 +249,20 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
               <span>{status.lastRun.status}</span>
             </Badge>
             {status.lastRun.completedAt && (
-              <div className="text-[10px] text-slate-400 font-mono">
+              <div className="font-mono text-[10px] text-muted-foreground">
                 {new Date(status.lastRun.completedAt).toLocaleDateString()}
               </div>
             )}
           </div>
         ) : (
-          <span className="text-slate-400 text-xs">No runs yet</span>
+          <span className="text-xs text-muted-foreground">No runs yet</span>
         )}
-      </td>
+      </TableCell>
 
-      <td className="px-5 py-4 text-right">
+      <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
           {triggerMsg && (
-            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 animate-pulse">
-              {triggerMsg}
-            </span>
+            <span className="animate-pulse text-[11px] font-medium text-success">{triggerMsg}</span>
           )}
           <Button
             variant="outline"
@@ -261,16 +277,17 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
             )}
             <span>{isRunning ? "Running..." : "Trigger"}</span>
           </Button>
-          <Link
+          <LinkButton
             to="/pools/$poolId"
             params={{ poolId: pool.id.toString() }}
-            className="inline-flex items-center gap-1 rounded-lg border border-transparent px-2 py-1 text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            variant="ghost"
+            size="xs"
           >
             <span>Manage</span>
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </Link>
+            <ArrowUpRight data-icon="inline-end" />
+          </LinkButton>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
