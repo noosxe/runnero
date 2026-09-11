@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle, PieChart, Timer } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Card,
   CardAction,
@@ -79,16 +80,32 @@ export function SuccessFailureWidget({
         {/* Stacked Ratio Progress Bar */}
         <div className="mt-5 space-y-1.5">
           <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div
-              style={{ width: `${successPct}%` }}
-              className="bg-success transition-all duration-500"
-              title={`Success: ${successfulJobs} (${successPct.toFixed(1)}%)`}
-            />
-            <div
-              style={{ width: `${failurePct}%` }}
-              className="bg-destructive transition-all duration-500"
-              title={`Failed: ${failedJobs} (${failurePct.toFixed(1)}%)`}
-            />
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <div
+                    style={{ width: `${successPct}%` }}
+                    className="h-full bg-success transition-all duration-500"
+                  />
+                }
+              />
+              <TooltipContent>
+                Success: {successfulJobs} ({successPct.toFixed(1)}%)
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <div
+                    style={{ width: `${failurePct}%` }}
+                    className="h-full bg-destructive transition-all duration-500"
+                  />
+                }
+              />
+              <TooltipContent>
+                Failed: {failedJobs} ({failurePct.toFixed(1)}%)
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">

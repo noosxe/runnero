@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -641,33 +642,40 @@ export function PoolDetailPage() {
                   </span>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                onClick={copyRunnerLabels}
-                disabled={!pool.labels || pool.labels.length === 0}
-                title={
-                  pool.labels && pool.labels.length > 0
-                    ? "Copy labels — pastes directly into a GitHub Actions runs-on list"
-                    : undefined
-                }
-                className="mt-1 h-auto w-full flex-wrap justify-start gap-1 text-left font-normal"
-              >
-                {pool.labels && pool.labels.length > 0 ? (
-                  pool.labels.map((l) => (
-                    <span
-                      key={l}
-                      className="rounded-md bg-slate-200 px-2 py-0.5 text-[11px] font-mono text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                    >
-                      {l}
-                    </span>
-                  ))
-                ) : (
-                  <span className="font-mono text-slate-400">self-hosted, linux, arm64</span>
-                )}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      aria-label="Copy labels"
+                      onClick={copyRunnerLabels}
+                      disabled={!pool.labels || pool.labels.length === 0}
+                      className="mt-1 h-auto w-full flex-wrap justify-start gap-1 text-left font-normal"
+                    />
+                  }
+                >
+                  {pool.labels && pool.labels.length > 0 ? (
+                    pool.labels.map((l) => (
+                      <span
+                        key={l}
+                        className="rounded-md bg-slate-200 px-2 py-0.5 text-[11px] font-mono text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      >
+                        {l}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="font-mono text-slate-400">self-hosted, linux, arm64</span>
+                  )}
+                  {pool.labels && pool.labels.length > 0 && (
+                    <Copy className="h-3 w-3 shrink-0 text-slate-400" />
+                  )}
+                </TooltipTrigger>
                 {pool.labels && pool.labels.length > 0 && (
-                  <Copy className="h-3 w-3 shrink-0 text-slate-400" />
+                  <TooltipContent>
+                    Copy labels — pastes directly into a GitHub Actions runs-on list
+                  </TooltipContent>
                 )}
-              </Button>
+              </Tooltip>
             </div>
           </div>
         </div>

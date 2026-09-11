@@ -332,7 +332,7 @@ describe("PoolDetailPage", () => {
     const configTabBtn = screen.getByRole("button", { name: /pool configuration/i });
     fireEvent.click(configTabBtn);
 
-    fireEvent.click(screen.getByTitle(/Copy labels/i));
+    fireEvent.click(screen.getByRole("button", { name: "Copy labels" }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("self-hosted, linux");

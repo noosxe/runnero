@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "cn";
 import { Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
@@ -87,14 +88,23 @@ export function AppShell() {
               </div>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                />
+              }
+            >
+              {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
+            </TooltipTrigger>
+            <TooltipContent>
+              {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Navigation Items */}
@@ -104,28 +114,34 @@ export function AppShell() {
             const isActive =
               item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
             return (
-              <Link
-                key={item.to}
-                to={item.to}
-                title={sidebarCollapsed ? item.label : undefined}
-                className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-blue-50 font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    className={`h-4 w-4 shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : ""}`}
-                  />
-                  {!sidebarCollapsed && <span>{item.label}</span>}
-                </div>
-                {!sidebarCollapsed && item.badgeKey === "pools" && totalRunners > 0 && (
-                  <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-bold">
-                    {totalRunners}
-                  </Badge>
-                )}
-              </Link>
+              <Tooltip key={item.to}>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      to={item.to}
+                      aria-label={item.label}
+                      className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-blue-50 font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200"
+                      }`}
+                    />
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon
+                      className={`h-4 w-4 shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : ""}`}
+                    />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </div>
+                  {!sidebarCollapsed && item.badgeKey === "pools" && totalRunners > 0 && (
+                    <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-bold">
+                      {totalRunners}
+                    </Badge>
+                  )}
+                </TooltipTrigger>
+                {sidebarCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+              </Tooltip>
             );
           })}
         </nav>
@@ -141,15 +157,22 @@ export function AppShell() {
                 <span className="block text-[10px] text-slate-400">Supervisor Admin</span>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleLogout}
-              title="Sign Out"
-              className="hover:text-destructive"
-            >
-              <LogOut />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Sign Out"
+                    onClick={handleLogout}
+                    className="hover:text-destructive"
+                  />
+                }
+              >
+                <LogOut />
+              </TooltipTrigger>
+              <TooltipContent>Sign Out</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </aside>
@@ -193,7 +216,6 @@ export function AppShell() {
                   ? "border-success/30 bg-success/10 text-success"
                   : "border-warning/30 bg-warning/10 text-warning",
               )}
-              title={isConnected ? "Realtime stream active" : "Reconnecting to realtime stream..."}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
@@ -220,36 +242,61 @@ export function AppShell() {
 
             {/* Theme Switcher */}
             <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setTheme("light")}
-                title="Light Theme"
-                aria-pressed={theme === "light"}
-                className={cn(theme === "light" && "bg-background text-foreground shadow-2xs")}
-              >
-                <Sun />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setTheme("dark")}
-                title="Dark Theme"
-                aria-pressed={theme === "dark"}
-                className={cn(theme === "dark" && "bg-background text-foreground shadow-2xs")}
-              >
-                <Moon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setTheme("system")}
-                title="System Theme"
-                aria-pressed={theme === "system"}
-                className={cn(theme === "system" && "bg-background text-foreground shadow-2xs")}
-              >
-                <Monitor />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Light Theme"
+                      onClick={() => setTheme("light")}
+                      aria-pressed={theme === "light"}
+                      className={cn(
+                        theme === "light" && "bg-background text-foreground shadow-2xs",
+                      )}
+                    />
+                  }
+                >
+                  <Sun />
+                </TooltipTrigger>
+                <TooltipContent>Light Theme</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Dark Theme"
+                      onClick={() => setTheme("dark")}
+                      aria-pressed={theme === "dark"}
+                      className={cn(theme === "dark" && "bg-background text-foreground shadow-2xs")}
+                    />
+                  }
+                >
+                  <Moon />
+                </TooltipTrigger>
+                <TooltipContent>Dark Theme</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="System Theme"
+                      onClick={() => setTheme("system")}
+                      aria-pressed={theme === "system"}
+                      className={cn(
+                        theme === "system" && "bg-background text-foreground shadow-2xs",
+                      )}
+                    />
+                  }
+                >
+                  <Monitor />
+                </TooltipTrigger>
+                <TooltipContent>System Theme</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </header>

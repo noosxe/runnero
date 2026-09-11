@@ -1,6 +1,7 @@
 import { CheckCircle2, AlertTriangle, AlertOctagon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface CapacityHealthProps {
   avgQueueSeconds: number;
@@ -47,20 +48,29 @@ export function CapacityHealthBadge({ avgQueueSeconds }: CapacityHealthProps) {
   const info = getCapacityStatus(avgQueueSeconds);
 
   return (
-    <Badge
-      variant="outline"
-      className={cn("h-auto gap-1.5 px-3 py-1 text-xs font-semibold shadow-2xs", info.badgeClass)}
-      title={info.description}
-    >
-      <span className={`h-2 w-2 rounded-full ${info.dotClass} animate-pulse`} />
-      {info.status === "optimal" ? (
-        <CheckCircle2 />
-      ) : info.status === "moderate" ? (
-        <AlertTriangle />
-      ) : (
-        <AlertOctagon />
-      )}
-      <span>{info.label}</span>
-    </Badge>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Badge
+            variant="outline"
+            className={cn(
+              "h-auto gap-1.5 px-3 py-1 text-xs font-semibold shadow-2xs",
+              info.badgeClass,
+            )}
+          />
+        }
+      >
+        <span className={`h-2 w-2 rounded-full ${info.dotClass} animate-pulse`} />
+        {info.status === "optimal" ? (
+          <CheckCircle2 />
+        ) : info.status === "moderate" ? (
+          <AlertTriangle />
+        ) : (
+          <AlertOctagon />
+        )}
+        <span>{info.label}</span>
+      </TooltipTrigger>
+      <TooltipContent>{info.description}</TooltipContent>
+    </Tooltip>
   );
 }
