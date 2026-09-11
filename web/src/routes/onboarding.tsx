@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 import { useNavigate } from "@tanstack/react-router";
 import { create } from "@bufbuild/protobuf";
 import { PoolSchema } from "../gen/api_pb";
@@ -389,42 +391,33 @@ export function OnboardingPage() {
     <div className="relative flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-50">
       {/* Theme Switcher */}
       <div className="absolute top-4 right-4 flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setTheme("light")}
-          title="Light Theme"
-          className={`rounded-lg p-1.5 transition-colors ${
-            theme === "light"
-              ? "bg-slate-100 text-blue-600 dark:bg-slate-800 dark:text-blue-400"
-              : "text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          }`}
+          aria-pressed={theme === "light"}
+          className={cn(theme === "light" && "bg-muted text-primary")}
         >
-          <Sun className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
+          <Sun />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setTheme("dark")}
-          title="Dark Theme"
-          className={`rounded-lg p-1.5 transition-colors ${
-            theme === "dark"
-              ? "bg-slate-100 text-blue-600 dark:bg-slate-800 dark:text-blue-400"
-              : "text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          }`}
+          aria-pressed={theme === "dark"}
+          className={cn(theme === "dark" && "bg-muted text-primary")}
         >
-          <Moon className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
+          <Moon />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setTheme("system")}
-          title="System Theme"
-          className={`rounded-lg p-1.5 transition-colors ${
-            theme === "system"
-              ? "bg-slate-100 text-blue-600 dark:bg-slate-800 dark:text-blue-400"
-              : "text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          }`}
+          aria-pressed={theme === "system"}
+          className={cn(theme === "system" && "bg-muted text-primary")}
         >
-          <Monitor className="h-3.5 w-3.5" />
-        </button>
+          <Monitor />
+        </Button>
       </div>
 
       {/* Main Wizard Container */}
@@ -432,15 +425,16 @@ export function OnboardingPage() {
         {/* Header */}
         <div className="relative text-center">
           {(status?.adminCreated || currentStep > 1) && (
-            <button
-              type="button"
+            <Button
+              variant="link"
+              size="sm"
               onClick={handleSkipToDashboard}
               disabled={completeOnboardingMutation.isPending}
-              className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition-colors hover:text-slate-800 disabled:opacity-50 sm:absolute sm:right-0 sm:top-0 sm:mb-0 dark:text-slate-400 dark:hover:text-slate-200"
+              className="mb-3 sm:absolute sm:right-0 sm:top-0 sm:mb-0"
             >
-              <span>Skip to Dashboard</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+              Skip to Dashboard
+              <ArrowRight data-icon="inline-end" />
+            </Button>
           )}
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
             <ShieldCheck className="h-6 w-6" />
@@ -525,16 +519,15 @@ export function OnboardingPage() {
                 </div>
 
                 <div className="pt-2">
-                  <button
-                    type="button"
+                  <Button
                     onClick={() =>
                       setCurrentStep(!status.authProfileExists ? 2 : !status.poolExists ? 4 : 5)
                     }
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700"
+                    className="w-full"
                   >
-                    <span>Next: Git Provider</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                    Next: Git Provider
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -583,29 +576,24 @@ export function OnboardingPage() {
                       required
                       autoFocus
                     />
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       aria-label="Toggle password visibility"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="absolute inset-y-0 right-0"
                       tabIndex={-1}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                      {showPassword ? <EyeOff /> : <Eye />}
+                    </Button>
                   </div>
                 </div>
 
                 <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={loginMutation.isPending}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    <span>
-                      {loginMutation.isPending ? "Authenticating..." : "Log In to Continue Setup"}
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                  <Button type="submit" disabled={loginMutation.isPending} className="w-full">
+                    {loginMutation.isPending ? "Authenticating..." : "Log In to Continue Setup"}
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
                 </div>
               </form>
             )
@@ -655,15 +643,16 @@ export function OnboardingPage() {
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     required
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="Toggle password visibility"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="absolute inset-y-0 right-0"
                     tabIndex={-1}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </Button>
                 </div>
               </div>
 
@@ -685,16 +674,10 @@ export function OnboardingPage() {
               </div>
 
               <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={setupAdminMutation.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                >
-                  <span>
-                    {setupAdminMutation.isPending ? "Creating Admin..." : "Next: Git Provider"}
-                  </span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
+                <Button type="submit" disabled={setupAdminMutation.isPending} className="w-full">
+                  {setupAdminMutation.isPending ? "Creating Admin..." : "Next: Git Provider"}
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
               </div>
             </form>
           ))}
@@ -726,40 +709,38 @@ export function OnboardingPage() {
                     your GitHub user account or organization.
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <a
-                      href={githubAppInstallPrompt.installUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
+                    <Button
+                      render={
+                        <a
+                          href={githubAppInstallPrompt.installUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        />
+                      }
                     >
-                      <ExternalLink className="h-4 w-4" />
-                      <span>Install GitHub App on GitHub</span>
-                    </a>
+                      <ExternalLink data-icon="inline-start" />
+                      Install GitHub App on GitHub
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setGithubAppInstallPrompt(null)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Edit Credentials</span>
-              </button>
-              <button
-                type="button"
+              <Button variant="outline" onClick={() => setGithubAppInstallPrompt(null)}>
+                <ArrowLeft data-icon="inline-start" />
+                Edit Credentials
+              </Button>
+              <Button
+                className="flex-1"
                 onClick={() => {
                   setGithubAppInstallPrompt(null);
                   setCurrentStep(3);
                 }}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-xs hover:bg-blue-700"
               >
-                <span>Continue: Safeguards</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
+                Continue: Safeguards
+                <ArrowRight data-icon="inline-end" />
+              </Button>
             </div>
           </div>
         ) : (
@@ -787,18 +768,20 @@ export function OnboardingPage() {
                     { id: "gitea_pat", label: "Gitea PAT" },
                     { id: "forgejo_pat", label: "Forgejo PAT" },
                   ].map((m) => (
-                    <button
+                    <Button
                       key={m.id}
                       type="button"
+                      variant="outline"
+                      aria-pressed={authMethod === m.id}
                       onClick={() => setAuthMethod(m.id as any)}
-                      className={`rounded-xl border p-2.5 text-center font-medium transition-all ${
-                        authMethod === m.id
-                          ? "border-blue-500 bg-blue-50/50 text-blue-700 font-semibold dark:border-blue-500 dark:bg-blue-950/30 dark:text-blue-300"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                      }`}
+                      className={cn(
+                        "h-auto w-full py-2.5",
+                        authMethod === m.id &&
+                          "border-primary bg-primary/5 text-primary font-semibold",
+                      )}
                     >
                       {m.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -876,45 +859,36 @@ export function OnboardingPage() {
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       required
                     />
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       aria-label="Toggle token visibility"
                       onClick={() => setShowToken(!showToken)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="absolute inset-y-0 right-0"
                       tabIndex={-1}
                     >
-                      {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                      {showToken ? <EyeOff /> : <Eye />}
+                    </Button>
                   </div>
                 </div>
               )}
 
               <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(1)}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSkipProvider}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
-                >
+                <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                  <ArrowLeft data-icon="inline-start" />
+                  Back
+                </Button>
+                <Button variant="outline" onClick={handleSkipProvider}>
                   Skip this step
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={createAuthProfileMutation.isPending}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1"
                 >
-                  <span>
-                    {createAuthProfileMutation.isPending ? "Connecting..." : "Next: Safeguards"}
-                  </span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
+                  {createAuthProfileMutation.isPending ? "Connecting..." : "Next: Safeguards"}
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
               </div>
             </form>
           )
@@ -1023,31 +997,17 @@ export function OnboardingPage() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(2)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleSkipSafeguards}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
-              >
+              <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                <ArrowLeft data-icon="inline-start" />
+                Back
+              </Button>
+              <Button variant="outline" onClick={handleSkipSafeguards}>
                 Keep defaults & continue
-              </button>
-              <button
-                type="submit"
-                disabled={setAppSettingMutation.isPending}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-              >
-                <span>
-                  {setAppSettingMutation.isPending ? "Saving Safeguards..." : "Next: Initial Pool"}
-                </span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
+              </Button>
+              <Button type="submit" disabled={setAppSettingMutation.isPending} className="flex-1">
+                {setAppSettingMutation.isPending ? "Saving Safeguards..." : "Next: Initial Pool"}
+                <ArrowRight data-icon="inline-end" />
+              </Button>
             </div>
           </form>
         )}
@@ -1084,22 +1044,14 @@ export function OnboardingPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(2)}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Configure Git Profile</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSkipPool}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700"
-                >
-                  <span>Skip Pool Setup & Review</span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
+                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                  <ArrowLeft data-icon="inline-start" />
+                  Configure Git Profile
+                </Button>
+                <Button className="flex-1" onClick={handleSkipPool}>
+                  Skip Pool Setup & Review
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
               </div>
             </div>
           ) : (
@@ -1385,28 +1337,17 @@ export function OnboardingPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(3)}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSkipPool}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
-                >
+                <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                  <ArrowLeft data-icon="inline-start" />
+                  Back
+                </Button>
+                <Button variant="outline" onClick={handleSkipPool}>
                   Skip this step
-                </button>
-                <button
-                  type="submit"
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700"
-                >
-                  <span>Next: Review & Launch</span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Next: Review & Launch
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
               </div>
             </form>
           ))}
@@ -1559,28 +1500,22 @@ export function OnboardingPage() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(4)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back</span>
-              </button>
-              <button
+              <Button variant="outline" onClick={() => setCurrentStep(4)}>
+                <ArrowLeft data-icon="inline-start" />
+                Back
+              </Button>
+              <Button
                 type="submit"
                 disabled={createPoolMutation.isPending || completeOnboardingMutation.isPending}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                className="flex-1 bg-success text-white hover:bg-success/80"
               >
-                <Rocket className="h-4 w-4" />
-                <span>
-                  {createPoolMutation.isPending || completeOnboardingMutation.isPending
-                    ? "Completing Setup..."
-                    : hasPoolToLaunch
-                      ? "Confirm & Launch Supervisor"
-                      : "Finish & Open Dashboard"}
-                </span>
-              </button>
+                <Rocket data-icon="inline-start" />
+                {createPoolMutation.isPending || completeOnboardingMutation.isPending
+                  ? "Completing Setup..."
+                  : hasPoolToLaunch
+                    ? "Confirm & Launch Supervisor"
+                    : "Finish & Open Dashboard"}
+              </Button>
             </div>
           </form>
         )}
