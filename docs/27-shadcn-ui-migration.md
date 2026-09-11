@@ -222,7 +222,7 @@ on every re-application. Our own wrappers and routes remain fully gated.
 | native `<table>` blocks, ad-hoc empty states | Table, Empty (DropdownMenu for dense runner-row actions) | 6 tables / 7 empty states / 5 routes | RUN-174 |
 | hand-rolled app shell (collapsing sidebar bug) | Sidebar (icon-collapsible, persisted in localStorage), Sheet (mobile drawer), Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |
 | inline notification banner, ad-hoc loaders | Alert (pool status banner, image-update notices, renovate save errors), toast (Base UI; settings/renovate/pool-detail transient feedback), Skeleton (route + widget loading states), Spinner (in-button pending) | 4 alert sites / 4 toast sites / 9 skeleton sites / 12 spinner sites; Progress component available but no genuine-percent site exists yet | RUN-176 |
-| hand-rolled SVG line chart | Chart (recharts) | 1 chart | RUN-177 |
+| hand-rolled SVG line chart | Chart (recharts; ChartContainer/Area/ChartTooltip, threshold ReferenceLines, `--chart-*` tokens only) | 1 chart (queue-latency); capacity-health/success-failure widgets are future candidates | RUN-177 |
 
 ## 6. Migration plan
 
