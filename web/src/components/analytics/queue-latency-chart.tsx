@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 import type { LatencyBucket } from "../../gen/api_pb";
 import { CapacityHealthBadge } from "./capacity-health-badge";
 import { TrendingUp, Clock, Info } from "lucide-react";
@@ -110,28 +112,24 @@ export function QueueLatencyChart({
 
           {/* Timeframe Selector */}
           <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold dark:border-slate-800 dark:bg-slate-800">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => onTimeframeChange(24)}
-              className={`rounded-lg px-2.5 py-1 transition-colors ${
-                timeframeHours === 24
-                  ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white"
-                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
-              }`}
+              aria-pressed={timeframeHours === 24}
+              className={cn(timeframeHours === 24 && "bg-background text-foreground shadow-2xs")}
             >
               24h
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => onTimeframeChange(168)}
-              className={`rounded-lg px-2.5 py-1 transition-colors ${
-                timeframeHours === 168
-                  ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white"
-                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
-              }`}
+              aria-pressed={timeframeHours === 168}
+              className={cn(timeframeHours === 168 && "bg-background text-foreground shadow-2xs")}
             >
               7d
-            </button>
+            </Button>
           </div>
         </div>
       </div>

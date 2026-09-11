@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { usePools, useRenovateStatus, useTriggerRenovateRun } from "../lib/api/query-hooks";
 import type { Pool } from "../gen/api_pb";
@@ -243,19 +244,19 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
               {triggerMsg}
             </span>
           )}
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="xs"
             onClick={handleTrigger}
             disabled={triggerMutation.isPending || isRunning}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
             {triggerMutation.isPending || isRunning ? (
-              <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+              <Loader2 data-icon="inline-start" className="animate-spin" />
             ) : (
-              <Play className="h-3 w-3 fill-current text-blue-500" />
+              <Play data-icon="inline-start" className="fill-current" />
             )}
             <span>{isRunning ? "Running..." : "Trigger"}</span>
-          </button>
+          </Button>
           <Link
             to="/pools/$poolId"
             params={{ poolId: pool.id.toString() }}
