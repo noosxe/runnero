@@ -96,6 +96,8 @@ primitives:
 - Icons in Buttons carry `data-icon="inline-start|inline-end"` and no size
   classes; pending actions compose `Spinner` + `disabled` (Button has no
   `isPending`).
+- Custom triggers use Base UI's `render` prop (the skill's base-vs-radix
+  rule) — no Radix-style `asChild` in this codebase.
 - Overlays own their stacking — no manual `z-*` on Dialog/Sheet/
   DropdownMenu/Tooltip; Dialog and Sheet always render a `DialogTitle`
   (`sr-only` when visually hidden).
@@ -136,21 +138,22 @@ for the record (never manually):
 | radius | default |
 | menu | subtle accent, default color |
 
-Preset codes do **not** encode the primitive base (`radix` vs Base UI's
-`base`) — that is chosen once at init (interactive prompt / `--base`).
-Recommendation stands: **radix**, the mature, best-documented surface
-(`asChild` composition, sonner toast integration); switching bases later
-means reinstalling every component. Re-application later (e.g. after style
-drift) uses `apply --preset b7QqImqdoe`, which overwrites preset-driven
-config, fonts, CSS variables and detected components.
+Preset codes do **not** encode the primitive base — that is chosen once at
+init (interactive prompt / `--base`). **Decision: Base UI** (the `base`
+library) — shadcn's current default direction. Its components expose
+`render`-prop composition (instead of Radix's `asChild`) and the `toast`
+component replaces sonner (§4.2, RUN-176). Switching bases later means
+reinstalling every component. Re-application of the preset (e.g. after
+style drift) uses `apply --preset b7QqImqdoe`, which overwrites
+preset-driven config, fonts, CSS variables and detected components.
 
 ### 4.2 Dependencies
 
 `init` adds `class-variance-authority` (plus `clsx`/`tailwind-merge`, already
-present); each component adds its Radix primitives (`@radix-ui/react-dialog`,
-`@radix-ui/react-select`, …) via pnpm with lockfile pinning. lucide-react is
-already the icon set shadcn uses. All of it is tree-shakeable ESM — unused
-variants do not ship.
+present); each component adds its Base UI primitives
+(`@base-ui-components/react`) via pnpm with lockfile pinning. lucide-react
+is already the icon set shadcn uses. All of it is tree-shakeable ESM —
+unused variants do not ship.
 
 ### 4.3 Tokens (preset-owned)
 
@@ -195,7 +198,7 @@ wrappers and routes remain fully gated.
 | native `title=""` tooltips, ad-hoc actions | Tooltip, DropdownMenu | 13 tooltips | RUN-173 |
 | 18 native `<table>` blocks, ad-hoc empty states | Table, Empty | 8 files | RUN-174 |
 | hand-rolled app shell (collapsing sidebar bug) | Sidebar, Sheet, Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |
-| inline notification banner, ad-hoc loaders | Alert (persistent), Sonner (transient), Skeleton, Progress, Spinner | — | RUN-176 |
+| inline notification banner, ad-hoc loaders | Alert (persistent), toast (transient, Base UI), Skeleton, Progress, Spinner | — | RUN-176 |
 | hand-rolled SVG line chart | Charts (recharts) — optional | 1 chart | RUN-177 |
 
 ## 6. Migration plan
@@ -203,17 +206,17 @@ wrappers and routes remain fully gated.
 One PR per issue, ordered by dependency and risk; RUN-167 blocks all others.
 Each PR is a self-contained adopt-and-replace pass with green gates.
 
-1. **RUN-167 — Foundation:** init with preset `b7QqImqdoe` (radix base),
+1. **RUN-167 — Foundation:** init with preset `b7QqImqdoe` (Base UI base),
    alias, `cn()`, preset tokens, lint exclusions; verified with a throwaway
    `button` spawn.
 2. **RUN-170 — Button** (highest duplication, mechanical replace).
 3. **RUN-169 — Badge & Card**; **RUN-171 — Form primitives** (Select is the
-   one behavioral change: Radix listbox replaces native `<select>`).
+   one behavioral change: Base UI listbox replaces native `<select>`).
 4. **RUN-172 — Dialog & AlertDialog** (biggest a11y win).
 5. **RUN-173 — Tooltip & DropdownMenu**; **RUN-174 — Table**.
 6. **RUN-175 — AppShell rebuild on Sidebar/Sheet**; supersedes and closes the
    collapsed-sidebar bug; collapsed state persists like `use-theme` does.
-7. **RUN-176 — Sonner/Skeleton/Progress**; **RUN-177 — Charts decision**
+7. **RUN-176 — Toast/Alert/Skeleton/Progress**; **RUN-177 — Charts decision**
    (adopt only if the recharts bundle cost is accepted for one chart).
 8. **RUN-178 — Cleanup & close:** grep sweeps prove no bespoke duplicates
    remain; docs/09 + this doc reflect shipped state; README roadmap entry
@@ -232,7 +235,7 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 
 - **Supply chain:** `pnpm dlx shadcn@latest` executes the official shadcn CLI
   at dev time. Components are vendored into the repo at generation time and
-  reviewed in the PR diff — there is no runtime registry dependency. Radix
+  reviewed in the PR diff — there is no runtime registry dependency. Base UI
   runtime packages are pinned by `pnpm-lock.yaml` and kept current by
   Renovate. All commands run inside the Nix dev shell.
 - Preset codes are opaque strings resolved by the official CLI (`init
@@ -242,7 +245,7 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 - **No new attack surface:** the app already executes only in the operator's
   browser against the supervisor's authenticated ConnectRPC API (docs/05,
   docs/08). No credentials, tokens, or container-runtime semantics are touched.
-- Radix brings focus-trap/portal behavior the hand-rolled shells lack,
+- Base UI brings focus-trap/portal behavior the hand-rolled shells lack,
   removing the current risk of modals leaking focus/scroll behind them.
 
 ## 9. Risks
@@ -251,6 +254,6 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 | :--- | :--- |
 | Generated code drifts from our lint/format rules | Excluded from oxlint/oxfmt; never edited (§3, §4.5) |
 | Select behavioral change breaks flows | RUN-171 is isolated; controlled state kept; owner walks wizard + onboarding |
-| Base choice (radix vs Base UI) is load-bearing and not encoded in the preset | Decided once at init (§4.1, radix recommended); switching later means reinstalling every component |
+| Base UI is newer than Radix (smaller ecosystem track record) | Decided (§4.1); the skill's base-vs-radix rules plus per-base `shadcn docs` URLs resolve API differences (`render` vs `asChild`, toast) |
 | recharts bundle cost for one chart | RUN-177 is an explicit decision task, default is "keep custom SVG" |
 | Visual regressions across 10 routes | One surface class per PR; E2E + owner visual checks per PR |
