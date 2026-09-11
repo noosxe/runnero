@@ -1,4 +1,15 @@
 import { useState, useMemo, type FormEvent } from "react";
+import { FieldLabel } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { create } from "@bufbuild/protobuf";
@@ -466,19 +477,15 @@ export function PoolWizardModal({
         {currentStep === 1 && (
           <div className="mt-5 space-y-4">
             <div>
-              <label
-                htmlFor="wizard-pool-name"
-                className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-              >
+              <FieldLabel htmlFor="wizard-pool-name" className="dark:block mb-1">
                 Pool Name (Slug)
-              </label>
-              <input
+              </FieldLabel>
+              <Input
                 id="wizard-pool-name"
                 type="text"
                 placeholder="e.g. arm64-ci-pool"
                 value={poolName}
                 onChange={(e) => setPoolName(e.target.value.toLowerCase())}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
               <p className="mt-1 text-[11px] text-slate-500">
                 Lowercase letters, digits, and hyphens only. Used as container identifier prefix.
@@ -491,27 +498,33 @@ export function PoolWizardModal({
             </div>
 
             <div>
-              <label
-                htmlFor="wizard-auth-profile"
-                className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-              >
+              <FieldLabel htmlFor="wizard-auth-profile" className="dark:block mb-1">
                 Git Authentication Profile
-              </label>
-              <select
-                id="wizard-auth-profile"
+              </FieldLabel>
+              <Select
                 value={authProfileId}
-                onChange={(e) => {
-                  setAuthProfileId(e.target.value);
+                onValueChange={(v) => {
+                  setAuthProfileId(v as string);
                   setSelectedTargetUrls([]);
                 }}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                items={(selectableAuthProfiles ?? []).map((prof) => ({
+                  value: prof.id.toString(),
+                  label: `${prof.name} (${prof.authMethod})`,
+                }))}
               >
-                {selectableAuthProfiles?.map((prof) => (
-                  <option key={prof.id.toString()} value={prof.id.toString()}>
-                    {prof.name} ({prof.authMethod})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="wizard-auth-profile">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {(selectableAuthProfiles ?? []).map((prof) => (
+                      <SelectItem key={prof.id.toString()} value={prof.id.toString()}>
+                        {prof.name} ({prof.authMethod})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               {isEdit && (
                 <p className="mt-1 text-[11px] text-slate-500">
                   Profile family is locked to the pool's {deducedProvider} provider; recreate the
@@ -568,24 +581,27 @@ export function PoolWizardModal({
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-center">
               <div>
-                <label
-                  htmlFor="wizard-scope"
-                  className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-                >
+                <FieldLabel htmlFor="wizard-scope" className="dark:block mb-1">
                   Pool Scope
-                </label>
-                <select
-                  id="wizard-scope"
+                </FieldLabel>
+                <Select
                   value={scope}
-                  onChange={(e) => {
-                    setScope(e.target.value as "repo" | "org");
-                    setSelectedTargetUrls([]);
-                  }}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  onValueChange={(v) => setScope(v as "repo" | "org")}
+                  items={[
+                    { value: "repo", label: "Repositories (Multi-Repo)" },
+                    { value: "org", label: "Organizations (Multi-Org)" },
+                  ]}
                 >
-                  <option value="repo">Repositories (Multi-Repo)</option>
-                  <option value="org">Organizations (Multi-Org)</option>
-                </select>
+                  <SelectTrigger id="wizard-scope">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="repo">Repositories (Multi-Repo)</SelectItem>
+                      <SelectItem value="org">Organizations (Multi-Org)</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex items-center gap-2 justify-end pt-5">
@@ -603,12 +619,12 @@ export function PoolWizardModal({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                <input
+                <Input
                   type="text"
                   placeholder={`Search discovered ${scope === "repo" ? "repositories" : "organizations"}...`}
                   value={targetSearch}
                   onChange={(e) => setTargetSearch(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  className="pl-8"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -811,20 +827,16 @@ export function PoolWizardModal({
           <div className="mt-5 space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label
-                  htmlFor="wizard-min-idle"
-                  className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-                >
+                <FieldLabel htmlFor="wizard-min-idle" className="dark:block mb-1">
                   Min Idle Warm Runners
-                </label>
-                <input
+                </FieldLabel>
+                <Input
                   id="wizard-min-idle"
                   type="number"
                   min={0}
                   max={20}
                   value={minIdleRunners}
                   onChange={(e) => setMinIdleRunners(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
                 <p className="mt-1 text-[11px] text-slate-500">
                   Set to 0 for scale-to-zero mode (ephemeral on-demand only).
@@ -832,20 +844,16 @@ export function PoolWizardModal({
               </div>
 
               <div>
-                <label
-                  htmlFor="wizard-max-concurrency"
-                  className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-                >
+                <FieldLabel htmlFor="wizard-max-concurrency" className="dark:block mb-1">
                   Max Concurrency
-                </label>
-                <input
+                </FieldLabel>
+                <Input
                   id="wizard-max-concurrency"
                   type="number"
                   min={1}
                   max={50}
                   value={maxConcurrency}
                   onChange={(e) => setMaxConcurrency(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
                 <p className="mt-1 text-[11px] text-slate-500">
                   Total maximum simultaneous runner containers allowed across all targets.
@@ -853,18 +861,14 @@ export function PoolWizardModal({
               </div>
 
               <div className="sm:col-span-2">
-                <label
-                  htmlFor="wizard-labels"
-                  className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-                >
+                <FieldLabel htmlFor="wizard-labels" className="dark:block mb-1">
                   Runner Labels
-                </label>
-                <input
+                </FieldLabel>
+                <Input
                   id="wizard-labels"
                   type="text"
                   value={labels}
                   onChange={(e) => setCustomLabels(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
                 <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
                   <span>Comma-separated list matched in workflow runs.</span>
@@ -877,66 +881,52 @@ export function PoolWizardModal({
               </div>
 
               <div>
-                <label
-                  htmlFor="wizard-runner-image"
-                  className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-                >
+                <FieldLabel htmlFor="wizard-runner-image" className="dark:block mb-1">
                   Runner Image
-                </label>
-                <input
+                </FieldLabel>
+                <Input
                   id="wizard-runner-image"
                   type="text"
                   value={runnerImage}
                   onChange={(e) => setRunnerImage(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="wizard-cpu"
-                  className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-                >
+                <FieldLabel htmlFor="wizard-cpu" className="dark:block mb-1">
                   CPU Limit
-                </label>
-                <input
+                </FieldLabel>
+                <Input
                   id="wizard-cpu"
                   type="text"
                   value={cpuLimit}
                   onChange={(e) => setCpuLimit(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="wizard-mem"
-                  className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
-                >
+                <FieldLabel htmlFor="wizard-mem" className="dark:block mb-1">
                   Memory Limit
-                </label>
-                <input
+                </FieldLabel>
+                <Input
                   id="wizard-mem"
                   type="text"
                   value={memoryLimit}
                   onChange={(e) => setMemoryLimit(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
             </div>
 
             {/* Docker Socket Privilege */}
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
-                <input
-                  type="checkbox"
+              <FieldLabel className="flex items-center gap-2">
+                <Checkbox
                   checked={isDockerLocked ? true : allowDocker}
                   disabled={isDockerLocked}
-                  onChange={(e) => setAllowDocker(e.target.checked)}
-                  className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500"
+                  onCheckedChange={(v) => setAllowDocker(v === true)}
                 />
                 <span>Enable Docker-in-Docker socket access</span>
-              </label>
+              </FieldLabel>
               {isDockerLocked && (
                 <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
                   Mandatory for {deducedProvider} pools (runner daemon communicates via Docker
@@ -947,18 +937,16 @@ export function PoolWizardModal({
 
             {/* Demand Polling Fallback (docs/24 §5.9) */}
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
-                <input
-                  type="checkbox"
+              <FieldLabel className="flex items-center gap-2">
+                <Checkbox
                   checked={
                     deducedProvider === "github" ? pollFallback : deducedProvider === "forgejo"
                   }
                   disabled={deducedProvider !== "github"}
-                  onChange={(e) => setPollFallback(e.target.checked)}
-                  className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500"
+                  onCheckedChange={(v) => setPollFallback(v === true)}
                 />
                 <span>Scale without webhooks (poll for queued jobs)</span>
-              </label>
+              </FieldLabel>
               <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                 {deducedProvider === "gitea" &&
                   "Not available for Gitea pools: Gitea has no repo-scoped queued-jobs API."}
@@ -971,43 +959,35 @@ export function PoolWizardModal({
 
             {/* Renovate Bot Section */}
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-950/40 space-y-3">
-              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-900 dark:text-white">
-                <input
-                  type="checkbox"
+              <FieldLabel className="flex items-center gap-2 dark:text-white">
+                <Checkbox
                   checked={renovateEnabled}
-                  onChange={(e) => setRenovateEnabled(e.target.checked)}
-                  className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500"
+                  onCheckedChange={(v) => setRenovateEnabled(v === true)}
                 />
                 <span className="flex items-center gap-1.5">
                   <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   Enable Automated Renovate Dependency Scans
                 </span>
-              </label>
+              </FieldLabel>
 
               {renovateEnabled && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                   <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      Cron Schedule
-                    </label>
-                    <input
+                    <FieldLabel className="dark:block mb-1">Cron Schedule</FieldLabel>
+                    <Input
                       type="text"
                       value={renovateCron}
                       onChange={(e) => setRenovateCron(e.target.value)}
                       placeholder="0 2 * * *"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      Renovate Image
-                    </label>
-                    <input
+                    <FieldLabel className="dark:block mb-1">Renovate Image</FieldLabel>
+                    <Input
                       type="text"
                       value={renovateImage}
                       onChange={(e) => setRenovateImage(e.target.value)}
                       placeholder="renovate/renovate:latest"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     />
                   </div>
                 </div>

@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -969,12 +972,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
           <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
             <div>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
+                <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
                 <span className="font-semibold text-slate-800 dark:text-slate-200">
                   Enable Managed Renovate
                 </span>
@@ -985,15 +983,13 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Cron Schedule
-              </label>
-              <input
+              <FieldLabel className="block dark:mb-1">Cron Schedule</FieldLabel>
+              <Input
                 type="text"
                 value={cronSchedule}
                 onChange={(e) => setCronSchedule(e.target.value)}
                 placeholder="0 3 * * 1"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                className="font-mono text-xs"
               />
               <p className="mt-1 text-[11px] text-slate-400">
                 Standard 5-part cron syntax (e.g., <code className="font-mono">0 3 * * 1</code> for
@@ -1002,15 +998,13 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Task Container Image
-              </label>
-              <input
+              <FieldLabel className="block dark:mb-1">Task Container Image</FieldLabel>
+              <Input
                 type="text"
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
                 placeholder="renovate/renovate:latest"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                className="font-mono text-xs"
               />
             </div>
 

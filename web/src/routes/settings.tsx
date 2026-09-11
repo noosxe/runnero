@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -180,15 +182,15 @@ export function SettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Total Allowed Runners */}
                 <div className="space-y-1.5">
-                  <label
+                  <FieldLabel
                     htmlFor="total_allowed_runners"
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                   >
                     <Layers className="h-3.5 w-3.5 text-blue-500" />
                     <span>Global Runner Quota</span>
-                  </label>
+                  </FieldLabel>
                   <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <input
+                    <Input
                       id="total_allowed_runners"
                       type="number"
                       min="1"
@@ -211,15 +213,15 @@ export function SettingsPage() {
 
                 {/* Warm Idle Pool Limit */}
                 <div className="space-y-1.5">
-                  <label
+                  <FieldLabel
                     htmlFor="total_idle_warm_pool"
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                   >
                     <Clock className="h-3.5 w-3.5 text-indigo-500" />
                     <span>Warm Idle Pool Limit</span>
-                  </label>
+                  </FieldLabel>
                   <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <input
+                    <Input
                       id="total_idle_warm_pool"
                       type="number"
                       min="0"
@@ -242,15 +244,15 @@ export function SettingsPage() {
 
                 {/* Graceful Shutdown Timeout */}
                 <div className="space-y-1.5">
-                  <label
+                  <FieldLabel
                     htmlFor="graceful_shutdown_timeout"
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                   >
                     <Clock className="h-3.5 w-3.5 text-amber-500" />
                     <span>Graceful Drain Timeout</span>
-                  </label>
+                  </FieldLabel>
                   <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <input
+                    <Input
                       id="graceful_shutdown_timeout"
                       type="number"
                       min="30"
@@ -273,15 +275,15 @@ export function SettingsPage() {
 
                 {/* History Retention Period */}
                 <div className="space-y-1.5">
-                  <label
+                  <FieldLabel
                     htmlFor="job_retention_days"
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                   >
                     <Calendar className="h-3.5 w-3.5 text-emerald-500" />
                     <span>History Retention Period</span>
-                  </label>
+                  </FieldLabel>
                   <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <input
+                    <Input
                       id="job_retention_days"
                       type="number"
                       min="1"

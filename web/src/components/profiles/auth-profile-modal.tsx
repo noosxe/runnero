@@ -1,4 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
 import { useCreateAuthProfile, useUpdateAuthProfile } from "../../lib/api/query-hooks";
@@ -167,9 +170,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="font-semibold text-slate-700 dark:text-slate-300">
-              Provider Method
-            </label>
+            <FieldLabel className="dark:">Provider Method</FieldLabel>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {AUTH_METHODS.map((m) => (
                 <Button
@@ -190,19 +191,16 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           </div>
 
           <div>
-            <label
-              htmlFor="modal-profile-name"
-              className="font-semibold text-slate-700 dark:text-slate-300"
-            >
+            <FieldLabel htmlFor="modal-profile-name" className="dark:">
               Profile Name
-            </label>
-            <input
+            </FieldLabel>
+            <Input
               id="modal-profile-name"
               type="text"
               placeholder="e.g. github-production"
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+
               required
             />
           </div>
@@ -210,38 +208,32 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           {authMethod === "github_app" ? (
             <>
               <div>
-                <label
-                  htmlFor="modal-app-id"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
+                <FieldLabel htmlFor="modal-app-id" className="dark:">
                   GitHub App ID
-                </label>
-                <input
+                </FieldLabel>
+                <Input
                   id="modal-app-id"
                   type="number"
                   placeholder="e.g. 123456"
                   value={appId}
                   onChange={(e) => setAppId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+
                   required
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="modal-private-key"
-                  className="font-semibold text-slate-700 dark:text-slate-300"
-                >
+                <FieldLabel htmlFor="modal-private-key" className="dark:">
                   Private Key (.pem)
-                </label>
-                <textarea
+                </FieldLabel>
+                <Textarea
                   id="modal-private-key"
                   rows={4}
                   placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
                   value={privateKeyPem}
                   onChange={(e) => setPrivateKeyPem(e.target.value)}
                   aria-required={!privateKeyOptional}
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-[11px] text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  className="font-mono text-[11px]"
                   required={!privateKeyOptional}
                 />
                 <p className="mt-1 text-[11px] text-slate-400">{secretHelperText()}</p>
@@ -249,20 +241,17 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
             </>
           ) : (
             <div>
-              <label
-                htmlFor="modal-token"
-                className="font-semibold text-slate-700 dark:text-slate-300"
-              >
+              <FieldLabel htmlFor="modal-token" className="dark:">
                 Personal Access Token (PAT)
-              </label>
-              <input
+              </FieldLabel>
+              <Input
                 id="modal-token"
                 type="password"
                 placeholder="ghp_... or gitea_pat_..."
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 aria-required={!tokenOptional}
-                className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+
                 required={!tokenOptional}
               />
               <p className="mt-1 text-[11px] text-slate-400">{secretHelperText()}</p>
