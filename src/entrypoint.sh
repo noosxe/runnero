@@ -7,6 +7,58 @@ if [ -d "/home/runner/go" ]; then
 	chmod -R +w /home/runner/go 2>/dev/null || true
 fi
 
+# ------------------------------------------------------------------------------
+# Docker socket group access (docs/18 §3.7, RUN-162)
+# ------------------------------------------------------------------------------
+# Pools with docker access bind-mount the host docker.sock into the container
+# (internal/orchestrator/docker). The socket's owning GID is host-specific and
+# can never match a static group baked into the image, so the runner user would
+# need sudo for every docker call. Instead, detect the mounted socket's GID at
+# container start, grant the runner user membership of a matching group, and
+# re-exec this entrypoint so the supplementary group is effective before the
+# runner agent — and with it every job shell — starts. The socket inode itself
+# is never chmod'ed: the host owns it, containers must not mutate host state.
+#
+# Group membership is only evaluated when a process is created, and a non-root
+# process cannot join new groups — so the fix runs as a two-stage re-exec:
+#
+#   1. entrypoint (image user): resolve/create the group, then re-enter
+#      through sudo as root. (`sudo -u runner` would be a credential no-op:
+#      sudo skips re-initialising groups when the target uid equals ours.)
+#   2. root stage: apply the membership, then drop back to the runner user
+#      via setpriv --init-groups, which builds the full group vector from
+#      /etc/group. RUNNER_SOCK_GROUPS_SYNCED guards against re-entry.
+#
+# The runner configuration environment survives the sudo re-entry via the
+# sudoers env_keep whitelist (docs/18 §3.7).
+DOCKER_SOCK="${RUNNER_DOCKER_SOCK:-/var/run/docker.sock}"
+if [ -S "${DOCKER_SOCK}" ] && command -v sudo >/dev/null 2>&1 && [ "${RUNNER_SOCK_GROUPS_SYNCED:-}" != "1" ]; then
+	SOCK_GID="$(stat -c '%g' "${DOCKER_SOCK}")"
+	SOCK_GROUP="$(getent group "${SOCK_GID}" 2>/dev/null | cut -d: -f1 || true)"
+	if [ -z "${SOCK_GROUP}" ]; then
+		sudo -n groupadd -g "${SOCK_GID}" docker-sock 2>/dev/null ||
+			sudo -n groupmod -g "${SOCK_GID}" docker-sock 2>/dev/null || true
+		SOCK_GROUP="$(getent group "${SOCK_GID}" 2>/dev/null | cut -d: -f1 || true)"
+	fi
+	if [ "$(id -u)" = "0" ]; then
+		# Root stage: apply the membership and drop privileges with a freshly
+		# initialised group vector. Root never proceeds to the runner itself.
+		if [ -n "${SOCK_GROUP}" ]; then
+			usermod -aG "${SOCK_GROUP}" runner 2>/dev/null || true
+		else
+			echo "WARNING: could not resolve a group for docker.sock GID ${SOCK_GID}; docker jobs on this pool will need sudo." >&2
+		fi
+		export RUNNER_SOCK_GROUPS_SYNCED=1
+		exec setpriv --reuid=1001 --regid=1001 --init-groups -- "$0"
+	fi
+	if [ -n "${SOCK_GROUP}" ]; then
+		echo "Granting runner user docker.sock access via group '${SOCK_GROUP}' (GID ${SOCK_GID})..."
+		# Re-enter as root to apply the membership (stage 2 above).
+		exec sudo -n -- "$0"
+	fi
+	echo "WARNING: could not resolve a group for docker.sock GID ${SOCK_GID}; docker jobs on this pool will need sudo." >&2
+fi
+
 # Determine provider mode from environment variables (docs/04 §2)
 PROVIDER_MODE="github"
 if [ -n "${FORGEJO_INSTANCE_URL:-}" ] || [ "${RUNNER_PROVIDER:-}" = "forgejo" ]; then
