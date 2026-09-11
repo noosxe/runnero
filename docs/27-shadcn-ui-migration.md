@@ -36,6 +36,9 @@ feature with no shared contract.
 
 - Adopt **shadcn/ui** as the single source of UI primitives, with the
   owner-selected preset `b7QqImqdoe` (§4.1) as the design language.
+- Prefer ready-made registry components over custom UI wherever an equivalent
+  exists; custom UI survives only where nothing fits (the log viewer, see
+  Non-goals).
 - Get accessibility for free: focus management, Escape handling, ARIA wiring
   on dialogs, menus, tooltips and form controls.
 - Kill the duplication: one Button, one Dialog, one Select, one Table, one
@@ -44,10 +47,15 @@ feature with no shared contract.
 
 ### Non-goals
 
-- No visual redesign — tokens are mapped to the current look (§4.3).
+- No redesign beyond the owner-selected preset (`b7QqImqdoe`, §4.3) — the
+  preset defines the new visual language.
 - No form library (react-hook-form / zod) — forms keep their controlled state.
 - No backend, RPC (docs/08) or routing changes — this is strictly the
   presentation layer.
+- The log viewer's core stays bespoke (`components/terminal/log-terminal.tsx`:
+  streaming, autoscroll, search over `LogChunk` streams) — no registry
+  equivalent exists. Only its toolbar chrome adopts shadcn primitives in the
+  normal sweeps (§5, RUN-178).
 
 ## 3. Workflow rules (binding)
 
@@ -199,7 +207,7 @@ wrappers and routes remain fully gated.
 | 18 native `<table>` blocks, ad-hoc empty states | Table, Empty | 8 files | RUN-174 |
 | hand-rolled app shell (collapsing sidebar bug) | Sidebar, Sheet, Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |
 | inline notification banner, ad-hoc loaders | Alert (persistent), toast (transient, Base UI), Skeleton, Progress, Spinner | — | RUN-176 |
-| hand-rolled SVG line chart | Charts (recharts) — optional | 1 chart | RUN-177 |
+| hand-rolled SVG line chart | Chart (recharts) | 1 chart | RUN-177 |
 
 ## 6. Migration plan
 
@@ -216,8 +224,8 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 5. **RUN-173 — Tooltip & DropdownMenu**; **RUN-174 — Table**.
 6. **RUN-175 — AppShell rebuild on Sidebar/Sheet**; supersedes and closes the
    collapsed-sidebar bug; collapsed state persists like `use-theme` does.
-7. **RUN-176 — Toast/Alert/Skeleton/Progress**; **RUN-177 — Charts decision**
-   (adopt only if the recharts bundle cost is accepted for one chart).
+7. **RUN-176 — Toast/Alert/Skeleton/Progress**; **RUN-177 — Charts** (recharts
+   adopted for the queue-latency chart).
 8. **RUN-178 — Cleanup & close:** grep sweeps prove no bespoke duplicates
    remain; docs/09 + this doc reflect shipped state; README roadmap entry
    moves to Features.
@@ -255,5 +263,5 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 | Generated code drifts from our lint/format rules | Excluded from oxlint/oxfmt; never edited (§3, §4.5) |
 | Select behavioral change breaks flows | RUN-171 is isolated; controlled state kept; owner walks wizard + onboarding |
 | Base UI is newer than Radix (smaller ecosystem track record) | Decided (§4.1); the skill's base-vs-radix rules plus per-base `shadcn docs` URLs resolve API differences (`render` vs `asChild`, toast) |
-| recharts bundle cost for one chart | RUN-177 is an explicit decision task, default is "keep custom SVG" |
+| recharts adds ~100 kB gzipped for the queue-latency chart | Accepted (RUN-177): Charts consume the preset's `--chart-*` tokens, so future analytics widgets reuse the same foundation |
 | Visual regressions across 10 routes | One surface class per PR; E2E + owner visual checks per PR |
