@@ -5,7 +5,7 @@
 | Status | Design Phase (docs-only PR) |
 | Linear | [shadcn/ui Migration](https://linear.app/runnero/project/aio-supervisor-5f33f8096608) milestone — RUN-167 … RUN-178 |
 | Related | docs/09 (frontend design spec — updated by each phase) · `.pi/skills/shadcn` (bundled skill — source of the CLI workflow and conventions in §3) |
-| Touches | `web/` (`components.json`, `src/index.css`, font wiring, `src/lib/utils.ts`, `tsconfig.app.json`, `vite.config.ts`, oxlint/oxfmt config, all `routes/` + `components/`), `README.md`, docs/09 |
+| Touches | `web/` (`components.json`, `src/index.css`, font wiring, `tsconfig.json`, `tsconfig.app.json`, `vite.config.ts`, oxlint/oxfmt config, all `routes/` + `components/`), `README.md`, docs/09 |
 
 ## 1. Problem
 
@@ -120,15 +120,19 @@ primitives:
 
 ### 4.1 Initialization (RUN-167)
 
-`pnpm dlx shadcn@latest init --preset b7QqImqdoe` in `web/` writes
-`components.json` and the preset's theme variables into the global CSS file
-(`src/index.css`), wires the preset fonts, and creates `src/lib/utils.ts`
-(`cn()` — finally activating `clsx` + `tailwind-merge`).
+`pnpm dlx shadcn@latest init --base base --preset b7QqImqdoe` in `web/` writes
+`components.json` (style `base-maia`), the preset's theme variables into the
+global CSS file (`src/index.css`), and wires the preset fonts as **self-hosted
+`@fontsource-variable/*` npm packages** (no font CDN — CSP-safe, offline-safe).
+The `cn()` helper comes from the npm `cn` package that components import
+directly — no `src/lib/utils.ts` is created (the classic v3 layout is gone).
 
-The shadcn CLI requires the `@/` path alias, which the project does not have
-yet: `tsconfig.app.json` gets `"@/*": ["./src/*"]` and `vite.config.ts` a
-matching `resolve.alias`. Repo config files are not generated code; touching
-them is allowed (and required) by rule (2).
+The shadcn CLI requires the `@/` path alias, which the project did not have:
+`"paths": {"@/*": ["./src/*"]}` goes into **both** `tsconfig.json` (root — the
+CLI reads it for path resolution; TS 7 removed `baseUrl`) and
+`tsconfig.app.json` (tsc), plus a matching `resolve.alias` in `vite.config.ts`.
+Repo config files are not generated code; touching them is allowed (and
+required) by rule (2).
 
 **Preset decision (made).** The owner generated preset `b7QqImqdoe` at
 [ui.shadcn.com/create](https://ui.shadcn.com/create?preset=b7QqImqdoe); the
@@ -157,9 +161,10 @@ preset-driven config, fonts, CSS variables and detected components.
 
 ### 4.2 Dependencies
 
-`init` adds `class-variance-authority` (plus `clsx`/`tailwind-merge`, already
-present); each component adds its Base UI primitives
-(`@base-ui-components/react`) via pnpm with lockfile pinning. lucide-react
+`init` adds `class-variance-authority`, the `cn` helper package, `tw-animate-css`,
+the self-hosted font packages, and the Base UI primitives
+(`@base-ui/react` — note the package name, not the older
+`@base-ui-components/react`) via pnpm with lockfile pinning. lucide-react
 is already the icon set shadcn uses. All of it is tree-shakeable ESM —
 unused variants do not ship.
 
@@ -192,8 +197,10 @@ controlled bindings where the app already controls state.
 
 ### 4.5 Lint / format boundaries
 
-`components/ui/**` is added to the oxlint and oxfmt ignore lists. Our own
-wrappers and routes remain fully gated.
+`components/ui/**` **and `src/index.css`** are added to the oxlint and oxfmt
+ignore lists (`web/.oxlintrc.json`, `web/.oxfmtrc.json`) — the preset writes
+both in its own formatting, and `apply --preset` would fight `oxfmt --check`
+on every re-application. Our own wrappers and routes remain fully gated.
 
 ## 5. Component mapping
 
