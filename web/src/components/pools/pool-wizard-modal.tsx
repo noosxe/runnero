@@ -1,4 +1,5 @@
 import { useState, useMemo, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
 import { create } from "@bufbuild/protobuf";
 import { PoolSchema, type Pool } from "../../gen/api_pb";
 import { useCreatePool, useUpdatePool, useDiscoverTargets } from "../../lib/api/query-hooks";
@@ -408,13 +409,9 @@ export function PoolWizardModal({
               {isEdit ? "Edit Runner Pool" : "Create Runner Pool Wizard"}
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose}>
+            <X />
+          </Button>
         </div>
 
         {/* Step Progress Stepper */}
@@ -529,22 +526,16 @@ export function PoolWizardModal({
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
+              <Button variant="outline" onClick={onClose}>
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 onClick={handleNextFromStep1}
                 disabled={!poolName.trim() || !isNameSlugValid || !selectedAuthProfile}
-                className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-blue-500 disabled:opacity-50"
               >
                 <span>Continue to Scope & Targets</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
+                <ChevronRight data-icon="inline-end" />
+              </Button>
             </div>
           </div>
         )}
@@ -564,14 +555,14 @@ export function PoolWizardModal({
                       className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-0.5 pl-2 pr-1 text-[11px] font-mono text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                     >
                       <span className="max-w-48 truncate">{url}</span>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
                         aria-label={`Remove target ${url}`}
                         onClick={() => handleToggleTarget(url)}
-                        className="rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800 dark:hover:text-rose-400"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
+                        <X />
+                      </Button>
                     </span>
                   ))}
                 </div>
@@ -635,22 +626,22 @@ export function PoolWizardModal({
                     <span>Manage Access in GitHub</span>
                   </a>
                 )}
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="xs"
                   onClick={handleSelectAllFiltered}
                   disabled={filteredDiscoveredTargets.length === 0}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
                 >
                   Select All Filtered
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
                   onClick={handleClearSelection}
                   disabled={selectedTargetUrls.length === 0}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
                 >
                   Clear
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -676,13 +667,9 @@ export function PoolWizardModal({
                       ? discoveryError.message
                       : "Upstream API error"}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => refetchDiscovery()}
-                    className="mt-3 rounded-lg bg-blue-600 px-3 py-1 font-semibold text-white hover:bg-blue-500"
-                  >
+                  <Button size="xs" onClick={() => refetchDiscovery()} className="mt-3">
                     Retry Discovery
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -809,23 +796,14 @@ export function PoolWizardModal({
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(1)}
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <ChevronLeft className="h-4 w-4" />
+              <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                <ChevronLeft data-icon="inline-start" />
                 <span>Back</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleNextFromStep2}
-                disabled={selectedTargetUrls.length === 0}
-                className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-blue-500 disabled:opacity-50"
-              >
+              </Button>
+              <Button onClick={handleNextFromStep2} disabled={selectedTargetUrls.length === 0}>
                 <span>Continue to Specifications</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
+                <ChevronRight data-icon="inline-end" />
+              </Button>
             </div>
           </div>
         )}
@@ -893,13 +871,9 @@ export function PoolWizardModal({
                 <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
                   <span>Comma-separated list matched in workflow runs.</span>
                   {customLabels !== null && (
-                    <button
-                      type="button"
-                      onClick={() => setCustomLabels(null)}
-                      className="text-blue-600 hover:underline dark:text-blue-400"
-                    >
+                    <Button variant="link" size="xs" onClick={() => setCustomLabels(null)}>
                       Reset to suggested ({suggestedLabels})
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -1043,22 +1017,14 @@ export function PoolWizardModal({
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(2)}
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <ChevronLeft className="h-4 w-4" />
+              <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                <ChevronLeft data-icon="inline-start" />
                 <span>Back</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleNextFromStep3}
-                className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white shadow-xs hover:bg-blue-500"
-              >
+              </Button>
+              <Button onClick={handleNextFromStep3}>
                 <span>Review & Confirm</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
+                <ChevronRight data-icon="inline-end" />
+              </Button>
             </div>
           </div>
         )}
@@ -1193,40 +1159,35 @@ export function PoolWizardModal({
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(3)}
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <ChevronLeft className="h-4 w-4" />
+              <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                <ChevronLeft data-icon="inline-start" />
                 <span>Back</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={createPoolMutation.isPending || updatePoolMutation.isPending}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2 font-semibold text-white shadow-xs hover:bg-blue-500 disabled:opacity-50"
               >
                 {isEdit ? (
                   updatePoolMutation.isPending ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
                       <span>Saving Changes...</span>
                     </>
                   ) : (
                     <>
-                      <Pencil className="h-4 w-4" />
+                      <Pencil data-icon="inline-start" />
                       <span>Save Changes</span>
                     </>
                   )
                 ) : createPoolMutation.isPending ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
                     <span>Creating Runner Pool...</span>
                   </>
                 ) : (
                   <span>Create Runner Pool</span>
                 )}
-              </button>
+              </Button>
             </div>
           </form>
         )}

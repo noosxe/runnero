@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useParams, Link } from "@tanstack/react-router";
 import {
   usePools,
@@ -419,22 +420,22 @@ export function PoolDetailPage() {
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <button
-                                type="button"
+                              <Button
+                                variant="outline"
+                                size="xs"
                                 onClick={() => setSelectedRunnerForLogs(r)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
                               >
-                                <Terminal className="h-3.5 w-3.5 text-slate-400" />
+                                <Terminal data-icon="inline-start" />
                                 <span>Logs</span>
-                              </button>
-                              <button
-                                type="button"
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="xs"
                                 onClick={() => setRunnerToTerminate(r)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/80 transition-colors"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 data-icon="inline-start" />
                                 <span>Terminate</span>
-                              </button>
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -456,24 +457,23 @@ export function PoolDetailPage() {
               Pool Parameters & Resource Limits
             </h2>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
+              <Button
+                size="xs"
                 aria-label="Edit pool configuration"
                 onClick={() => setIsEditModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil data-icon="inline-start" />
                 <span>Edit Configuration</span>
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="destructive"
+                size="xs"
                 aria-label="Delete pool"
                 onClick={() => setIsDeleteModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 transition-colors"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 data-icon="inline-start" />
                 <span>Delete Pool</span>
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -510,21 +510,21 @@ export function PoolDetailPage() {
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Runner Container Image</span>
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => checkUpdateMutation.mutate(poolIdBigInt)}
                     disabled={checkUpdateMutation.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
                   >
                     {checkUpdateMutation.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
                     ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
+                      <RefreshCw data-icon="inline-start" />
                     )}
                     <span>
                       {checkUpdateMutation.isPending ? "Checking..." : "Check for Updates"}
                     </span>
-                  </button>
+                  </Button>
                 </div>
                 <div className="mt-1 font-mono font-semibold text-slate-900 dark:text-white break-all">
                   {pool.runnerImage || "ghcr.io/noosxe/runnero:latest"}
@@ -546,19 +546,19 @@ export function PoolDetailPage() {
                           </code>
                         </span>
                       </div>
-                      <button
-                        type="button"
+                      <Button
+                        size="xs"
                         onClick={() => pullImageMutation.mutate(poolIdBigInt)}
                         disabled={pullImageMutation.isPending}
-                        className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-500 dark:hover:bg-amber-600 transition-colors"
+                        className="bg-warning text-white hover:bg-warning/80"
                       >
                         {pullImageMutation.isPending ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Loader2 data-icon="inline-start" className="animate-spin" />
                         ) : (
-                          <DownloadCloud className="h-3 w-3" />
+                          <DownloadCloud data-icon="inline-start" />
                         )}
                         <span>{pullImageMutation.isPending ? "Pulling..." : "Pull Update"}</span>
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
@@ -587,19 +587,19 @@ export function PoolDetailPage() {
                       </code>
                     </span>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    size="xs"
                     onClick={() => pullImageMutation.mutate(poolIdBigInt)}
                     disabled={pullImageMutation.isPending}
-                    className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-500 dark:hover:bg-amber-600 transition-colors"
+                    className="bg-warning text-white hover:bg-warning/80"
                   >
                     {pullImageMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
                     ) : (
-                      <DownloadCloud className="h-3 w-3" />
+                      <DownloadCloud data-icon="inline-start" />
                     )}
                     <span>{pullImageMutation.isPending ? "Pulling..." : "Pull Update"}</span>
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -623,8 +623,8 @@ export function PoolDetailPage() {
                   </span>
                 )}
               </div>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={copyRunnerLabels}
                 disabled={!pool.labels || pool.labels.length === 0}
                 title={
@@ -632,7 +632,7 @@ export function PoolDetailPage() {
                     ? "Copy labels — pastes directly into a GitHub Actions runs-on list"
                     : undefined
                 }
-                className="mt-1 flex w-full flex-wrap items-center gap-1 cursor-pointer text-left disabled:cursor-default"
+                className="mt-1 h-auto w-full flex-wrap justify-start gap-1 text-left font-normal"
               >
                 {pool.labels && pool.labels.length > 0 ? (
                   pool.labels.map((l) => (
@@ -649,7 +649,7 @@ export function PoolDetailPage() {
                 {pool.labels && pool.labels.length > 0 && (
                   <Copy className="h-3 w-3 shrink-0 text-slate-400" />
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -709,21 +709,17 @@ export function PoolDetailPage() {
             </p>
 
             <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setRunnerToTerminate(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
+              <Button variant="outline" size="sm" onClick={() => setRunnerToTerminate(null)}>
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={handleConfirmTerminate}
                 disabled={terminateMutation.isPending}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 disabled:opacity-50"
               >
                 {terminateMutation.isPending ? "Terminating..." : "Terminate Instance"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -753,14 +749,15 @@ function RunnerLogViewerModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
       <div className="relative flex h-[82vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
         {/* Close button overlay */}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={onClose}
           aria-label="Close runner logs modal"
-          className="absolute right-3.5 top-3 z-20 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="absolute right-3.5 top-3 z-20"
         >
-          <X className="h-4 w-4" />
-        </button>
+          <X />
+        </Button>
 
         <div className="flex-1 overflow-hidden">
           <LogTerminal
@@ -848,11 +845,10 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                 Renovate Status & Automation
               </h2>
             </div>
-            <button
-              type="button"
+            <Button
+              size="xs"
               onClick={handleTrigger}
               disabled={triggerMutation.isPending || isRunning}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 disabled:opacity-50 transition-colors"
             >
               {triggerMutation.isPending ? (
                 <>
@@ -866,11 +862,11 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                 </>
               ) : (
                 <>
-                  <Play className="h-3.5 w-3.5 fill-current" />
+                  <Play data-icon="inline-start" className="fill-current" />
                   <span>Trigger Renovate Run</span>
                 </>
               )}
-            </button>
+            </Button>
           </div>
 
           {triggerMsg && (
@@ -1025,10 +1021,11 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
               </div>
             )}
 
-            <button
+            <Button
               type="submit"
+              size="sm"
               disabled={updatePoolMutation.isPending}
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white disabled:opacity-50 transition-colors"
+              className="w-full"
             >
               {updatePoolMutation.isPending ? (
                 <>
@@ -1037,11 +1034,11 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                 </>
               ) : (
                 <>
-                  <Save className="h-3.5 w-3.5" />
+                  <Save data-icon="inline-start" />
                   <span>Save Bot Settings</span>
                 </>
               )}
-            </button>
+            </Button>
           </form>
         </div>
       </div>
