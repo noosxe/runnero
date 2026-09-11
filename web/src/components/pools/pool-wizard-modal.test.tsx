@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-
-function openSelect(trigger: HTMLElement) {
-  fireEvent.click(trigger);
-}
+import userEvent from "@testing-library/user-event";
 
 import { PoolWizardModal } from "./pool-wizard-modal";
 import type { Pool } from "../../gen/api_pb";
@@ -204,8 +201,9 @@ describe("PoolWizardModal", () => {
     render(<PoolWizardModal isOpen={true} onClose={vi.fn()} authProfiles={defaultAuthProfiles} />);
 
     // Switch to internal-forgejo
-    openSelect(screen.getAllByRole("combobox", { name: /Git Authentication Profile/i })[0]);
-    fireEvent.click(await screen.findByRole("option", { name: /internal-forgejo/ }));
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("combobox", { name: /Git Authentication Profile/i })[0]);
+    await user.click(await screen.findByRole("option", { name: /internal-forgejo/ }));
     expect(screen.getByText("forgejo")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Pool Name \(Slug\)/i), {
@@ -219,9 +217,9 @@ describe("PoolWizardModal", () => {
     // Check Docker checkbox is disabled and locked
     const dockerCheckbox = screen.getByRole("checkbox", {
       name: /Enable Docker-in-Docker socket access/i,
-    }) as HTMLInputElement;
-    expect(dockerCheckbox.checked).toBe(true);
-    expect(dockerCheckbox.disabled).toBe(true);
+    });
+    expect(dockerCheckbox).toHaveAttribute("aria-checked", "true");
+    expect(dockerCheckbox).toHaveAttribute("data-disabled");
   });
 
   it("renders guided GitHub App installation callout when 0 targets discovered and installUrl is present", () => {
@@ -364,9 +362,11 @@ describe("PoolWizardModal (edit mode)", () => {
       />,
     );
 
-    openSelect(screen.getAllByRole("combobox", { name: /Git Authentication Profile/i })[0]);
-    const options = (await screen.findAllByRole("option")).map((o) => o.getAttribute("value"));
-    expect(options).toEqual(["20"]); // only the forgejo profile is selectable
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("combobox", { name: /Git Authentication Profile/i })[0]);
+    const options = await screen.findAllByRole("option");
+    expect(options).toHaveLength(1); // only the forgejo profile is selectable
+    expect(options[0]).toHaveTextContent(/internal-forgejo/);
     expect(
       screen.getByText(/Profile family is locked to the pool's forgejo provider/i),
     ).toBeInTheDocument();

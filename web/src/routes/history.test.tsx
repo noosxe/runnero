@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-
-function openSelect(trigger: HTMLElement) {
-  fireEvent.click(trigger);
-}
+import userEvent from "@testing-library/user-event";
 
 import { HistoryPage } from "./history";
 
@@ -110,13 +107,14 @@ describe("HistoryPage", () => {
     const selects = screen.getAllByRole("combobox");
     const poolSelect = selects[0];
     const statusSelect = selects[1];
+    const user = userEvent.setup();
 
-    openSelect(poolSelect);
-    fireEvent.click(await screen.findByRole("option", { name: "arm64-prod-pool" }));
+    await user.click(poolSelect);
+    await user.click(await screen.findByRole("option", { name: "arm64-prod-pool" }));
     await waitFor(() => expect(mockJobHistoryParams.poolId).toBe(10n));
 
-    openSelect(statusSelect);
-    fireEvent.click(await screen.findByRole("option", { name: "Success" }));
+    await user.click(statusSelect);
+    await user.click(await screen.findByRole("option", { name: "Success" }));
     await waitFor(() => expect(mockJobHistoryParams.status).toBe("success"));
   });
 
