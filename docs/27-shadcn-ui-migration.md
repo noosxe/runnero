@@ -5,7 +5,7 @@
 | Status | Design Phase (docs-only PR) |
 | Linear | [shadcn/ui Migration](https://linear.app/runnero/project/aio-supervisor-5f33f8096608) milestone — RUN-167 … RUN-178 |
 | Related | docs/09 (frontend design spec — updated by each phase) · `.pi/skills/shadcn` (bundled skill — source of the CLI workflow and conventions in §3) |
-| Touches | `web/` (`components.json`, `src/index.css`, `src/lib/utils.ts`, `tsconfig.app.json`, `vite.config.ts`, oxlint/oxfmt config, all `routes/` + `components/`), `README.md`, docs/09 |
+| Touches | `web/` (`components.json`, `src/index.css`, font wiring, `src/lib/utils.ts`, `tsconfig.app.json`, `vite.config.ts`, oxlint/oxfmt config, all `routes/` + `components/`), `README.md`, docs/09 |
 
 ## 1. Problem
 
@@ -34,8 +34,8 @@ feature with no shared contract.
 
 ## 2. Goals
 
-- Adopt **shadcn/ui** as the single source of UI primitives, keeping the
-  existing slate/blue visual language.
+- Adopt **shadcn/ui** as the single source of UI primitives, with the
+  owner-selected preset `b7QqImqdoe` (§4.1) as the design language.
 - Get accessibility for free: focus management, Escape handling, ARIA wiring
   on dialogs, menus, tooltips and form controls.
 - Kill the duplication: one Button, one Dialog, one Select, one Table, one
@@ -110,25 +110,39 @@ primitives:
 
 ### 4.1 Initialization (RUN-167)
 
-`pnpm dlx shadcn@latest init --preset <preset>` in `web/` writes
-`components.json` and the theme variables into the global CSS file
-(`src/index.css`), and creates `src/lib/utils.ts` (`cn()` — finally
-activating `clsx` + `tailwind-merge`).
+`pnpm dlx shadcn@latest init --preset b7QqImqdoe` in `web/` writes
+`components.json` and the preset's theme variables into the global CSS file
+(`src/index.css`), wires the preset fonts, and creates `src/lib/utils.ts`
+(`cn()` — finally activating `clsx` + `tailwind-merge`).
 
 The shadcn CLI requires the `@/` path alias, which the project does not have
 yet: `tsconfig.app.json` gets `"@/*": ["./src/*"]` and `vite.config.ts` a
 matching `resolve.alias`. Repo config files are not generated code; touching
 them is allowed (and required) by rule (2).
 
-**Preset decision (recorded at RUN-167 start).** Current shadcn presets
-combine a primitive **base** (`radix` or Base UI's `base`) with a visual
-**style** (`nova`, `vega`, …). Recommendation: **radix base** — the mature,
-best-documented surface (`asChild` composition, sonner toast integration)
-for a brownfield React 19 app. Base UI is the newer greenfield default,
-and switching bases later means reinstalling every component. Style
-`nova` with the slate/blue token map (§4.3); the owner may pass any preset
-code from ui.shadcn.com instead — token values are overridden right after
-init either way.
+**Preset decision (made).** The owner generated preset `b7QqImqdoe` at
+[ui.shadcn.com/create](https://ui.shadcn.com/create?preset=b7QqImqdoe); the
+code is opaque and passed to the CLI verbatim. Decoded via `preset decode`
+for the record (never manually):
+
+| Field | Value |
+| :--- | :--- |
+| style | `maia` |
+| base color | `neutral` |
+| theme | `blue` |
+| chart color | `amber` |
+| icons | `lucide` (matches the project) |
+| fonts | Inter (body) · Source Sans 3 (headings) |
+| radius | default |
+| menu | subtle accent, default color |
+
+Preset codes do **not** encode the primitive base (`radix` vs Base UI's
+`base`) — that is chosen once at init (interactive prompt / `--base`).
+Recommendation stands: **radix**, the mature, best-documented surface
+(`asChild` composition, sonner toast integration); switching bases later
+means reinstalling every component. Re-application later (e.g. after style
+drift) uses `apply --preset b7QqImqdoe`, which overwrites preset-driven
+config, fonts, CSS variables and detected components.
 
 ### 4.2 Dependencies
 
@@ -138,17 +152,14 @@ present); each component adds its Radix primitives (`@radix-ui/react-dialog`,
 already the icon set shadcn uses. All of it is tree-shakeable ESM — unused
 variants do not ship.
 
-### 4.3 Token mapping
+### 4.3 Tokens (preset-owned)
 
-shadcn themes through CSS variables; we map them onto the current palette in
-`src/index.css` instead of adopting shadcn's default zinc/neutral:
-
-| shadcn token | Runnero value |
-| :--- | :--- |
-| `--primary` / `--primary-foreground` | blue-600 / white |
-| base palette | slate (50–950, matching current surfaces) |
-| `--radius` | `0.75rem` — shadcn derives its radii from this (`rounded-lg` = `var(--radius)`), keeping the familiar 12px |
-| destructive | rose-600 |
+The preset owns the design tokens: `init` emits the full OKLCH variable set
+(`@theme inline` in `src/index.css`) — neutral surfaces, blue primary, amber
+chart ramp, default radius — plus the font wiring (Inter / Source Sans 3).
+We do **not** override token values with a hand-rolled palette; the preset is
+the single source of visual truth, and the semantic utilities (`bg-primary`,
+`text-muted-foreground`, …) pick it up automatically.
 
 Dark mode needs no JS change: shadcn's `.dark` class strategy is already the
 project's mechanism (`@custom-variant dark (&:where(.dark, .dark *))` in
@@ -156,12 +167,11 @@ project's mechanism (`@custom-variant dark (&:where(.dark, .dark *))` in
 
 Two additions per the shadcn skill's conventions:
 
-- Init emits OKLCH variables in an `@theme inline` block; we override the
-  token values with the Tailwind-palette equivalents of the current brand
-  (slate surfaces, blue-600 primary, rose-600 destructive) right after init.
+- Custom app colors that the preset does not define are added as theme
+  variables in the same `@theme inline` block — never raw palette classes.
 - The health pills' raw `emerald-*`/`amber-*` classes become proper theme
-  variables (`--success`, `--warning`, registered in `@theme inline`), so
-  migrated status badges use semantic tokens like everything else.
+  variables (`--success`, `--warning`, harmonized with the preset's amber
+  ramp), so migrated status badges use semantic tokens like everything else.
 
 ### 4.4 State and data flow
 
@@ -193,8 +203,9 @@ wrappers and routes remain fully gated.
 One PR per issue, ordered by dependency and risk; RUN-167 blocks all others.
 Each PR is a self-contained adopt-and-replace pass with green gates.
 
-1. **RUN-167 — Foundation:** preset/base decision, init, alias, `cn()`, token
-   mapping, lint exclusions; verified with a throwaway `button` spawn.
+1. **RUN-167 — Foundation:** init with preset `b7QqImqdoe` (radix base),
+   alias, `cn()`, preset tokens, lint exclusions; verified with a throwaway
+   `button` spawn.
 2. **RUN-170 — Button** (highest duplication, mechanical replace).
 3. **RUN-169 — Badge & Card**; **RUN-171 — Form primitives** (Select is the
    one behavioral change: Radix listbox replaces native `<select>`).
@@ -224,6 +235,10 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
   reviewed in the PR diff — there is no runtime registry dependency. Radix
   runtime packages are pinned by `pnpm-lock.yaml` and kept current by
   Renovate. All commands run inside the Nix dev shell.
+- Preset codes are opaque strings resolved by the official CLI (`init
+  --preset`, `apply`); inspection only via `preset decode` — never
+  hand-built or hand-decoded. The owner generated `b7QqImqdoe` at
+  ui.shadcn.com/create.
 - **No new attack surface:** the app already executes only in the operator's
   browser against the supervisor's authenticated ConnectRPC API (docs/05,
   docs/08). No credentials, tokens, or container-runtime semantics are touched.
@@ -236,6 +251,6 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 | :--- | :--- |
 | Generated code drifts from our lint/format rules | Excluded from oxlint/oxfmt; never edited (§3, §4.5) |
 | Select behavioral change breaks flows | RUN-171 is isolated; controlled state kept; owner walks wizard + onboarding |
-| Base choice is load-bearing (`asChild` vs `render` APIs, toast library) | Decided once at init (§4.1, radix recommended); switching later means reinstalling every component |
+| Base choice (radix vs Base UI) is load-bearing and not encoded in the preset | Decided once at init (§4.1, radix recommended); switching later means reinstalling every component |
 | recharts bundle cost for one chart | RUN-177 is an explicit decision task, default is "keep custom SVG" |
 | Visual regressions across 10 routes | One surface class per PR; E2E + owner visual checks per PR |
