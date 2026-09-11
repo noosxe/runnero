@@ -10,7 +10,9 @@ Architecture details live in `docs/02-architecture-design.md`.
 ## Ground rules
 
 - **`main` is protected.** All changes go through PRs; the product owner
-  reviews, human-tests, and merges. Never push to `main`, never commit
+  reviews, human-tests, and merges. PRs always land via **rebase merge** —
+  the PR's individual commits are appended to `main` as-is: linear history,
+  no merge bubbles, no squashing. Never push to `main`, never commit
   directly to it. Branch names are prefixed by the nature of the change:
   `feature/`, `bug/`, `docs/`, `refactor/`, `test/`, `ci/`
   (e.g. `bug/fix-memory-leak`).
@@ -177,8 +179,8 @@ Runners execute untrusted workflow code; security is the absolute priority.
 1. Hard-reset local `main` to `origin/main`
    (`git fetch && git reset --hard origin/main`).
 2. Delete merged branches: remote branches are usually auto-deleted; local
-   branches need manual `-d` (use `-D` after a rebase-merge, the squashed
-   commit SHA will not match).
+   branches need manual `-d` (use `-D`: a rebase merge rewrites the commit
+   SHAs, so the local branch no longer matches).
 3. Do not re-run the local test suite — cleanup is housekeeping only:
    CI on `main` has already run the gates, and re-running everything locally
    wastes time. Run targeted checks only if something looks off, or the full
