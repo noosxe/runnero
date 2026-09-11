@@ -390,6 +390,10 @@ if [ "$1" = "group" ] && [ -f "${SOCK_GROUP_MARKER:-/nonexistent}" ]; then
 	echo "docker-sock:x:999:"
 	exit 0
 fi
+if [ "$1" = "passwd" ] && [ "$2" = "runner" ]; then
+	echo "runner:x:1001:1001::/home/runner:/bin/bash"
+	exit 0
+fi
 exit 2
 EOF
 chmod +x "${MOCK_BIN_SOCK}/getent"
@@ -487,7 +491,7 @@ chmod +x "${MOCK_BIN_ROOT}/usermod"
 
 cat << 'EOF' > "${MOCK_BIN_ROOT}/setpriv"
 #!/usr/bin/env bash
-echo "setpriv $* SYNCED=${RUNNER_SOCK_GROUPS_SYNCED:-unset}" >> "${ROOT_LOG}"
+echo "setpriv $* SYNCED=${RUNNER_SOCK_GROUPS_SYNCED:-unset} HOME=${HOME:-unset} USER=${USER:-unset}" >> "${ROOT_LOG}"
 exit 0
 EOF
 chmod +x "${MOCK_BIN_ROOT}/setpriv"
@@ -509,7 +513,7 @@ rm -f "${ROOT_LOG}"
 )
 
 if grep -q -- "usermod -aG docker-sock runner" "${ROOT_LOG}" && \
-   grep -q -- "setpriv --reuid=1001 --regid=1001 --init-groups -- ${ENTRYPOINT} SYNCED=1" "${ROOT_LOG}"; then
+   grep -q -- "setpriv --reuid=1001 --regid=1001 --init-groups -- ${ENTRYPOINT} SYNCED=1 HOME=/home/runner USER=runner" "${ROOT_LOG}"; then
 	echo "PASSED"
 else
 	echo "FAILED: root stage must apply membership and drop via setpriv, got:"

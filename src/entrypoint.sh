@@ -49,6 +49,14 @@ if [ -S "${DOCKER_SOCK}" ] && command -v sudo >/dev/null 2>&1 && [ "${RUNNER_SOC
 			echo "WARNING: could not resolve a group for docker.sock GID ${SOCK_GID}; docker jobs on this pool will need sudo." >&2
 		fi
 		export RUNNER_SOCK_GROUPS_SYNCED=1
+		# The sudo re-entry rewrote identity env to root's (HOME=/root, USER=root,
+		# ...) and setpriv preserves the environment as-is — without restoring the
+		# runner user's identity here, the agent and every job shell would inherit
+		# root's HOME (seen in CI as checkout failing on /root/.gitconfig).
+		R_PASSWD="$(getent passwd runner 2>/dev/null || true)"
+		R_HOME="$(echo "${R_PASSWD}" | cut -d: -f6)"
+		R_SHELL="$(echo "${R_PASSWD}" | cut -d: -f7)"
+		export HOME="${R_HOME:-/home/runner}" USER="runner" LOGNAME="runner" SHELL="${R_SHELL:-/bin/bash}"
 		exec setpriv --reuid=1001 --regid=1001 --init-groups -- "$0"
 	fi
 	if [ -n "${SOCK_GROUP}" ]; then

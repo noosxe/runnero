@@ -181,6 +181,10 @@ two-stage re-exec:
    membership (`usermod -aG`) and drop back to the runner user via
    `setpriv --reuid --regid --init-groups`, which builds the full group
    vector from `/etc/group`. Every job shell inherits the socket GID.
+   The root stage also restores the runner user's identity environment
+   (`HOME`/`USER`/`LOGNAME`/`SHELL`): the sudo re-entry rewrites them to
+   root's, and setpriv preserves the environment as-is — without this the
+   agent and its job shells would inherit `HOME=/root`.
 4. `RUNNER_SOCK_GROUPS_SYNCED` guards against re-entry; the
    runner-configuration environment survives the sudo re-entry via the
    sudoers `env_keep` whitelist (§3.3).
