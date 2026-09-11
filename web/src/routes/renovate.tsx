@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -21,9 +20,12 @@ import {
 import { LinkButton } from "../lib/link-button";
 import { Link } from "@tanstack/react-router";
 import { usePools, useRenovateStatus, useTriggerRenovateRun } from "../lib/api/query-hooks";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
 import type { Pool } from "../gen/api_pb";
 import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
-import { Bot, Play, ArrowUpRight, Clock, Layers, Calendar, Loader2 } from "lucide-react";
+import { Bot, Play, ArrowUpRight, Clock, Layers, Calendar } from "lucide-react";
 
 export function RenovatePage() {
   const { data: pools, isLoading } = usePools();
@@ -103,8 +105,10 @@ export function RenovatePage() {
         </h2>
 
         {isLoading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900">
-            Loading runner pools...
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
           </div>
         ) : !pools || pools.length === 0 ? (
           <Empty>
@@ -156,23 +160,27 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
     refetchInterval: 10000,
   });
   const triggerMutation = useTriggerRenovateRun();
-  const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
 
   const isEnabled = pool.renovate?.enabled ?? false;
   const isRunning = status?.lastRun?.status === "running";
 
   const handleTrigger = async () => {
-    setTriggerMsg(null);
     try {
       const res = await triggerMutation.mutateAsync(pool.id);
       if (res.success) {
-        setTriggerMsg(`Run #${res.runId} triggered`);
-        setTimeout(() => setTriggerMsg(null), 3000);
+        toast.add({
+          title: `Run #${res.runId} triggered`,
+          description: `Renovate run queued for pool "${pool.name}".`,
+          type: "success",
+        });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Trigger failed";
-      setTriggerMsg(msg);
-      setTimeout(() => setTriggerMsg(null), 4000);
+      toast.add({
+        title: "Trigger failed",
+        description: msg,
+        type: "error",
+      });
     }
   };
 
@@ -261,9 +269,6 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
 
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
-          {triggerMsg && (
-            <span className="animate-pulse text-[11px] font-medium text-success">{triggerMsg}</span>
-          )}
           <Button
             variant="outline"
             size="xs"
@@ -271,7 +276,7 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
             disabled={triggerMutation.isPending || isRunning}
           >
             {triggerMutation.isPending || isRunning ? (
-              <Loader2 data-icon="inline-start" className="animate-spin" />
+              <Spinner data-icon="inline-start" />
             ) : (
               <Play data-icon="inline-start" className="fill-current" />
             )}

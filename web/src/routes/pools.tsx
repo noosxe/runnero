@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -233,8 +234,10 @@ export function PoolsPage() {
 
       {/* Pools Grid */}
       {isLoading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-400 dark:border-slate-800 dark:bg-slate-900">
-          Loading runner pools...
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-44 w-full" />
+          ))}
         </div>
       ) : filteredPools.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">

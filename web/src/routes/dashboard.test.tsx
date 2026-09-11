@@ -187,8 +187,10 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage />);
 
-    expect(screen.getByText("Loading pools...")).toBeInTheDocument();
-    expect(screen.getAllByText("...").length).toBeGreaterThan(0);
+    // Stat values and the pools grid render Skeleton placeholders while loading.
+    const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
+    // 4 stat values + 3 pools grid rows = 7 skeletons.
+    expect(skeletons.length).toBe(7);
   });
 
   it("renders pending image update notification when updates exist", () => {

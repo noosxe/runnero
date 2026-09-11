@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import { useDeletePool } from "../../lib/api/query-hooks";
 import { cn } from "cn";
 
@@ -161,7 +162,7 @@ export function PoolDeleteModal({
             disabled={deletePool.isPending}
           >
             {deletePool.isPending ? (
-              <Loader2 data-icon="inline-start" className="animate-spin" />
+              <Spinner data-icon="inline-start" />
             ) : (
               <Trash2 data-icon="inline-start" />
             )}

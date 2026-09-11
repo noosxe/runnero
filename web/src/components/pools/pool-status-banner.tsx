@@ -1,6 +1,7 @@
 import { PoolHealthStatus, type Pool } from "../../gen/api_pb";
 import { PoolHealthBadge } from "./pool-health-badge";
-import { Activity, Clock } from "lucide-react";
+import { Activity, CircleCheck, Clock, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export interface PoolStatusBannerProps {
   pool: Pool;
@@ -28,44 +29,40 @@ export function PoolStatusBanner({ pool, className = "" }: PoolStatusBannerProps
   const isDegraded = pool.healthStatus === PoolHealthStatus.DEGRADED;
   const isProvisioning = pool.healthStatus === PoolHealthStatus.PROVISIONING;
 
+  const description =
+    pool.currentIntent ||
+    (isDegraded
+      ? "Reconciliation encountered errors. See diagnostics below."
+      : "Warm pool target satisfied and monitoring for incoming workflow jobs.");
+
   return (
-    <div
-      className={`rounded-2xl border p-4 transition-all ${
-        isDegraded
-          ? "border-rose-200 bg-rose-50/50 dark:border-rose-900/40 dark:bg-rose-950/20"
-          : isProvisioning
-            ? "border-blue-200 bg-blue-50/40 dark:border-blue-900/40 dark:bg-blue-950/20"
-            : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-      } ${className}`}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Operational State
-            </span>
-            <PoolHealthBadge status={pool.healthStatus} size="sm" />
-          </div>
-
-          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-            {pool.currentIntent ||
-              (isDegraded
-                ? "Reconciliation encountered errors. See diagnostics below."
-                : "Warm pool target satisfied and monitoring for incoming workflow jobs.")}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5 text-slate-400" />
+    <Alert variant={isDegraded ? "destructive" : "default"} className={className}>
+      {isDegraded ? (
+        <TriangleAlert />
+      ) : isProvisioning ? (
+        <LoaderCircle className="animate-spin" />
+      ) : (
+        <CircleCheck />
+      )}
+      <AlertTitle className="flex items-center gap-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Operational State
+        </span>
+        <PoolHealthBadge status={pool.healthStatus} size="sm" />
+      </AlertTitle>
+      <AlertDescription>
+        <span className="block text-sm font-medium">{description}</span>
+        <span className="mt-1 flex flex-wrap items-center gap-3 text-xs">
+          <span className="flex items-center gap-1">
+            <Clock className="size-3.5 text-muted-foreground" />
             <span>Reconciled {formatRelativeTime(pool.lastReconciledAt)}</span>
-          </div>
-          <div className="hidden sm:flex items-center gap-1 border-l border-slate-200 pl-3 dark:border-slate-800">
-            <Activity className="h-3.5 w-3.5 text-slate-400" />
+          </span>
+          <span className="flex items-center gap-1 border-l border-border pl-3">
+            <Activity className="size-3.5 text-muted-foreground" />
             <span>Loop: ~10s cadence</span>
-          </div>
-        </div>
-      </div>
-    </div>
+          </span>
+        </span>
+      </AlertDescription>
+    </Alert>
   );
 }

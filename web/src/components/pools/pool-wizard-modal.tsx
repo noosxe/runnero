@@ -11,6 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +32,6 @@ import {
   ExternalLink,
   AlertCircle,
   Info,
-  Loader2,
   Lock,
   Globe,
   Building,
@@ -667,11 +668,10 @@ export function PoolWizardModal({
             {/* Discovered Items Container */}
             <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2 dark:border-slate-800 dark:bg-slate-950/40 space-y-1.5">
               {isDiscovering && (
-                <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-                  <span>
-                    Discovering accessible {scope === "repo" ? "repositories" : "organizations"}...
-                  </span>
+                <div className="flex flex-col gap-1.5 p-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-8 w-full" />
+                  ))}
                 </div>
               )}
 
@@ -1160,7 +1160,7 @@ export function PoolWizardModal({
                 {isEdit ? (
                   updatePoolMutation.isPending ? (
                     <>
-                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                      <Spinner data-icon="inline-start" />
                       <span>Saving Changes...</span>
                     </>
                   ) : (
@@ -1171,7 +1171,7 @@ export function PoolWizardModal({
                   )
                 ) : createPoolMutation.isPending ? (
                   <>
-                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                    <Spinner data-icon="inline-start" />
                     <span>Creating Runner Pool...</span>
                   </>
                 ) : (

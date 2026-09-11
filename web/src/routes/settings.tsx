@@ -4,6 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
 import {
   Table,
   TableHeader,
@@ -20,18 +23,7 @@ import {
   useCheckImageUpdate,
 } from "../lib/api/query-hooks";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import {
-  Sliders,
-  RefreshCw,
-  Database,
-  Check,
-  Save,
-  Loader2,
-  Calendar,
-  Layers,
-  Clock,
-  Archive,
-} from "lucide-react";
+import { Sliders, Calendar, RefreshCw, Database, Save, Layers, Clock, Archive } from "lucide-react";
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<"constraints" | "images" | "backups">("constraints");
@@ -44,7 +36,6 @@ export function SettingsPage() {
 
   // Form State for Global Constraints
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
 
@@ -66,7 +57,6 @@ export function SettingsPage() {
   const handleSaveConstraints = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setSaveSuccess(false);
     try {
       await Promise.all([
         setSettingMutation.mutateAsync({
@@ -86,8 +76,11 @@ export function SettingsPage() {
           value: jobRetentionDays,
         }),
       ]);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3500);
+      toast.add({
+        title: "Settings saved",
+        description: "Global constraints successfully persisted.",
+        type: "success",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -185,7 +178,15 @@ export function SettingsPage() {
           </div>
 
           {settingsLoading ? (
-            <div className="py-8 text-center text-xs text-slate-400">Loading settings...</div>
+            <div className="mt-6 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              ))}
+              <Skeleton className="h-9 w-32" />
+            </div>
           ) : (
             <form onSubmit={handleSaveConstraints} className="mt-6 space-y-6 max-w-2xl">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -318,19 +319,12 @@ export function SettingsPage() {
               <div className="flex items-center gap-3 pt-2">
                 <Button type="submit" size="sm" disabled={isSaving}>
                   {isSaving ? (
-                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                    <Spinner data-icon="inline-start" />
                   ) : (
                     <Save data-icon="inline-start" />
                   )}
                   <span>{isSaving ? "Saving..." : "Save Changes"}</span>
                 </Button>
-
-                {saveSuccess && (
-                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                    <Check className="h-4 w-4" />
-                    <span>Settings successfully persisted!</span>
-                  </div>
-                )}
               </div>
             </form>
           )}
@@ -359,7 +353,7 @@ export function SettingsPage() {
               disabled={isCheckingUpdates || !pools || pools.length === 0}
             >
               {isCheckingUpdates ? (
-                <Loader2 data-icon="inline-start" className="animate-spin" />
+                <Spinner data-icon="inline-start" />
               ) : (
                 <RefreshCw data-icon="inline-start" />
               )}

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
 import type { ImageUpdate } from "../../gen/api_pb";
 import { usePullImage, useDismissImageUpdate } from "../../lib/api/query-hooks";
-import { AlertCircle, DownloadCloud, X, Loader2, Check } from "lucide-react";
+import { ArrowUpCircle, Check, DownloadCloud, X } from "lucide-react";
 
 export interface ImageUpdateNotificationProps {
   updates: ImageUpdate[];
@@ -43,73 +45,60 @@ export function ImageUpdateNotification({
         const isPulled = pulledIds.has(up.poolId);
 
         return (
-          <div
-            key={up.id.toString()}
-            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-xs dark:border-amber-900/60 dark:bg-amber-950/30"
-          >
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400 shrink-0">
-                <AlertCircle className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
-                    Runner Image Update Available
+          <Alert key={up.id.toString()} className="border-warning/30 bg-warning/5">
+            <ArrowUpCircle className="text-warning" />
+            <AlertTitle className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Runner Image Update Available
+              </span>
+              <span className="rounded-md bg-warning/20 px-2 py-0.5 font-mono text-[10px] font-semibold">
+                {poolName}
+              </span>
+            </AlertTitle>
+            <AlertDescription>
+              <p className="font-mono text-xs">
+                Current: <span className="font-semibold">{up.currentImage}</span> &rarr; Latest:{" "}
+                <span className="font-semibold">{up.latestDigest}</span>
+              </p>
+              <p className="mt-0.5 text-[11px]">
+                New containers in this pool will use the updated image without interrupting active
+                runners.
+              </p>
+              <div className="mt-2 flex items-center justify-end gap-2">
+                {isPulled ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
+                    <Check className="size-4" />
+                    <span>Image Pulled</span>
                   </span>
-                  <span className="rounded-md bg-amber-200/60 dark:bg-amber-900/60 px-2 py-0.5 text-[10px] font-mono font-semibold text-amber-900 dark:text-amber-200">
-                    {poolName}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300/90 font-mono">
-                  Current: <span className="font-semibold">{up.currentImage}</span> &rarr; Latest:{" "}
-                  <span className="font-semibold">{up.latestDigest}</span>
-                </p>
-                <p className="mt-0.5 text-[11px] text-amber-750/80 dark:text-amber-400/80">
-                  New containers in this pool will use the updated image without interrupting active
-                  runners.
-                </p>
+                ) : (
+                  <Button size="xs" onClick={() => handlePull(up.poolId)} disabled={isPulling}>
+                    {isPulling ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <DownloadCloud data-icon="inline-start" />
+                    )}
+                    <span>{isPulling ? "Pulling..." : "Pull Update"}</span>
+                  </Button>
+                )}
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Dismiss update notification"
+                        onClick={() => handleDismiss(up.id)}
+                      />
+                    }
+                  >
+                    <X />
+                  </TooltipTrigger>
+                  <TooltipContent>Dismiss update notification</TooltipContent>
+                </Tooltip>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-              {isPulled ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  <Check className="h-4 w-4" />
-                  <span>Image Pulled</span>
-                </span>
-              ) : (
-                <Button
-                  size="xs"
-                  onClick={() => handlePull(up.poolId)}
-                  disabled={isPulling}
-                  className="bg-warning text-white hover:bg-warning/80"
-                >
-                  {isPulling ? (
-                    <Loader2 data-icon="inline-start" className="animate-spin" />
-                  ) : (
-                    <DownloadCloud data-icon="inline-start" />
-                  )}
-                  <span>{isPulling ? "Pulling..." : "Pull Update"}</span>
-                </Button>
-              )}
-
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Dismiss update notification"
-                      onClick={() => handleDismiss(up.id)}
-                    />
-                  }
-                >
-                  <X />
-                </TooltipTrigger>
-                <TooltipContent>Dismiss update notification</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         );
       })}
     </div>

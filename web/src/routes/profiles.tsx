@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthProfiles, useDeleteAuthProfile } from "../lib/api/query-hooks";
 import type { AuthProfile } from "../gen/api_pb";
 import { AuthProfileModal } from "../components/profiles/auth-profile-modal";
@@ -55,7 +56,11 @@ export function ProfilesPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-sm text-slate-400">Loading auth profiles...</div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
       ) : !profiles || profiles.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">
           <KeyRound className="mx-auto h-8 w-8 text-slate-400 mb-2" />

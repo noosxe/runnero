@@ -1,6 +1,7 @@
 import { PoolHealthStatus } from "../../gen/api_pb";
-import { CheckCircle2, AlertTriangle, Loader2, Pause } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Pause } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "cn";
 
 export interface PoolHealthBadgeProps {
@@ -25,7 +26,7 @@ export function PoolHealthBadge({ status, size = "md", className = "" }: PoolHea
     case PoolHealthStatus.PROVISIONING:
       return (
         <Badge className={cn("border-primary/30 bg-primary/10 text-primary", sizeClass, className)}>
-          <Loader2 data-icon="inline-start" className="animate-spin" />
+          <Spinner data-icon="inline-start" />
           <span>Provisioning</span>
         </Badge>
       );
