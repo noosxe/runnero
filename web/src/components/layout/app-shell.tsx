@@ -196,19 +196,19 @@ function NavSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <ShieldCheck className="size-5" />
+            <SidebarMenuButton size="lg" render={<div />}>
+              <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <ShieldCheck className="size-4" />
               </div>
-              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                <span className="block truncate text-base font-bold tracking-tight text-foreground">
+              <div className="grid flex-1 text-left leading-tight">
+                <span className="truncate text-base font-bold tracking-tight text-foreground">
                   Runnero
                 </span>
-                <span className="block text-[11px] font-medium uppercase tracking-wider text-primary">
+                <span className="truncate text-[11px] font-medium uppercase tracking-wider text-primary">
                   Supervisor
                 </span>
               </div>
-            </div>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
