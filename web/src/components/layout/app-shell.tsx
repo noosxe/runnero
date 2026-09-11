@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -12,6 +11,14 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -20,13 +27,13 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "cn";
 import { Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
@@ -78,10 +85,10 @@ function ShellMain() {
   return (
     <SidebarInset>
       {/* Top Header */}
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur-md md:px-8">
-        <div className="flex items-center gap-3">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="data-[orientation=vertical]:h-4" />
+      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-8">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
 
           {/* Breadcrumbs */}
           <Breadcrumb>
@@ -231,15 +238,10 @@ function NavSidebar() {
                     >
                       <Icon />
                       <span>{item.label}</span>
-                      {item.badgeKey === "pools" && totalRunners > 0 && (
-                        <Badge
-                          variant="secondary"
-                          className="ml-auto h-4 px-1.5 text-[10px] font-bold"
-                        >
-                          {totalRunners}
-                        </Badge>
-                      )}
                     </SidebarMenuButton>
+                    {item.badgeKey === "pools" && totalRunners > 0 && (
+                      <SidebarMenuBadge>{totalRunners}</SidebarMenuBadge>
+                    )}
                   </SidebarMenuItem>
                 );
               })}
@@ -252,33 +254,35 @@ function NavSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-2 py-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
-              <Avatar className="size-8">
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                <span className="block truncate text-xs font-semibold text-foreground">
-                  {displayName}
-                </span>
-                <span className="block text-[10px] text-muted-foreground">Supervisor Admin</span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Sign Out"
-                      onClick={handleLogout}
-                      className="hover:text-destructive group-data-[collapsible=icon]:hidden"
-                    />
-                  }
-                >
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
+                <Avatar className="size-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold text-foreground">{displayName}</span>
+                  <span className="truncate text-xs text-muted-foreground">Supervisor Admin</span>
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="end" className="min-w-56">
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <Avatar className="size-8 rounded-lg">
+                    <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{displayName}</span>
+                    <span className="truncate text-xs font-normal text-muted-foreground">
+                      Supervisor Admin
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                   <LogOut />
-                </TooltipTrigger>
-                <TooltipContent>Sign Out</TooltipContent>
-              </Tooltip>
-            </div>
+                  <span>Sign Out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
