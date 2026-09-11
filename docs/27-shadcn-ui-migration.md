@@ -87,6 +87,14 @@ feature with no shared contract.
    - upstream updates go through the skill's smart-merge flow (`--dry-run`
      → per-file `--diff` → merge); **`--overwrite` only with the owner's
      explicit approval**.
+5. **No bespoke survivors.** Anything that cannot be expressed with the
+   adopted component language gets *redesigned*, not left as a one-off:
+   surfaces that predate the migration and don't match it (structural
+   panels, link-cards, empty states, hand-rolled shells) are either
+   migrated onto the mapped component or tracked on a Linear issue for
+   redesign. Custom styling may bridge the gap temporarily, but a
+   non-conforming surface is never "done" — it is always either
+   migrated or ticketed.
 
 ### 3.1 Adoption conventions (binding in migrated code)
 
