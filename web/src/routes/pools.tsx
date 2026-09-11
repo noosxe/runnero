@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { usePools, useAuthProfiles, useSession } from "../lib/api/query-hooks";
 import { useWatchPools } from "../lib/api/streaming-hooks";
@@ -74,12 +76,13 @@ export function PoolsPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               Runner Pools
             </h1>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium border ${
+            <Badge
+              className={cn(
+                "border",
                 isConnected
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60"
-                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border-amber-200 dark:border-amber-800/60"
-              }`}
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-warning/30 bg-warning/10 text-warning",
+              )}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
@@ -89,7 +92,7 @@ export function PoolsPage() {
               <span className="font-mono text-[10px]">
                 {isConnected ? "Live Stream" : "Connecting"}
               </span>
-            </span>
+            </Badge>
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Manage ephemeral worker pools, runtime scaling targets, and provider bindings.

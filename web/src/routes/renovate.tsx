@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { usePools, useRenovateStatus, useTriggerRenovateRun } from "../lib/api/query-hooks";
@@ -20,10 +22,10 @@ export function RenovatePage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Renovate Bot Dashboard
           </h1>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900">
-            <Bot className="h-3 w-3" />
+          <Badge className="border-primary/30 bg-primary/10 text-primary font-medium">
+            <Bot />
             <span className="font-mono text-[10px]">Managed Automation</span>
-          </span>
+          </Badge>
         </div>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Automated dependency updates, scheduled scans, and on-demand maintenance runs across
@@ -173,18 +175,19 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
       </td>
 
       <td className="px-5 py-4">
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+        <Badge
+          className={cn(
+            "uppercase tracking-wider",
             isEnabled
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
-              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-          }`}
+              ? "border-success/30 bg-success/10 text-success"
+              : "bg-muted text-muted-foreground",
+          )}
         >
           <span
             className={`h-1.5 w-1.5 rounded-full ${isEnabled ? "bg-emerald-500" : "bg-slate-400"}`}
           />
           <span>{isEnabled ? "Enabled" : "Disabled"}</span>
-        </span>
+        </Badge>
       </td>
 
       <td className="px-5 py-4">
@@ -206,14 +209,15 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
       <td className="px-5 py-4">
         {status?.lastRun ? (
           <div className="space-y-0.5">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+            <Badge
+              className={cn(
+                "uppercase tracking-wider",
                 isRunning
-                  ? "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-900"
+                  ? "border-warning/30 bg-warning/10 text-warning"
                   : status.lastRun.status === "success"
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
-                    : "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900"
-              }`}
+                    ? "border-success/30 bg-success/10 text-success"
+                    : "border-destructive/30 bg-destructive/10 text-destructive",
+              )}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
@@ -225,7 +229,7 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
                 }`}
               />
               <span>{status.lastRun.status}</span>
-            </span>
+            </Badge>
             {status.lastRun.completedAt && (
               <div className="text-[10px] text-slate-400 font-mono">
                 {new Date(status.lastRun.completedAt).toLocaleDateString()}

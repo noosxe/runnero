@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "cn";
 import {
   useSystemStats,
   usePools,
@@ -380,12 +382,13 @@ export function DashboardPage() {
                     className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
                   >
                     <td className="p-3.5">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      <Badge
+                        className={cn(
+                          "uppercase tracking-wider",
                           job.status === "success"
-                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
-                            : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900"
-                        }`}
+                            ? "border-success/30 bg-success/10 text-success"
+                            : "border-destructive/30 bg-destructive/10 text-destructive",
+                        )}
                       >
                         {job.status === "success" ? (
                           <CheckCircle2 className="h-3 w-3" />
@@ -393,7 +396,7 @@ export function DashboardPage() {
                           <XCircle className="h-3 w-3" />
                         )}
                         {job.status}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="p-3.5 font-mono font-medium text-slate-900 dark:text-slate-100">
                       {job.runnerName}

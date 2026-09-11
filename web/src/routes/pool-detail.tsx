@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { useParams, Link } from "@tanstack/react-router";
 import {
@@ -169,12 +171,13 @@ export function PoolDetailPage() {
                 {pool.name}
               </h1>
               <PoolHealthBadge status={pool.healthStatus} size="md" />
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium border ${
+              <Badge
+                className={cn(
+                  "border",
                   isStreamActive
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60"
-                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border-amber-200 dark:border-amber-800/60"
-                }`}
+                    ? "border-success/30 bg-success/10 text-success"
+                    : "border-warning/30 bg-warning/10 text-warning",
+                )}
               >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
@@ -184,7 +187,7 @@ export function PoolDetailPage() {
                 <span className="font-mono text-[10px]">
                   {isStreamActive ? "Live Orchestrator Stream" : "Connecting"}
                 </span>
-              </span>
+              </Badge>
             </div>
             {poolTargetList(pool).length > 1 && (
               <div className="mt-1">
@@ -380,16 +383,17 @@ export function PoolDetailPage() {
                             {r.name}
                           </td>
                           <td className="px-5 py-3.5">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            <Badge
+                              className={cn(
+                                "uppercase tracking-wider",
                                 isBusy
-                                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
+                                  ? "border-success/30 bg-success/10 text-success"
                                   : isIdle
-                                    ? "bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-400 border border-sky-200 dark:border-sky-900"
+                                    ? "border-primary/30 bg-primary/10 text-primary"
                                     : isDegraded
-                                      ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900"
-                                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                              }`}
+                                      ? "border-destructive/30 bg-destructive/10 text-destructive"
+                                      : "bg-muted text-muted-foreground",
+                              )}
                             >
                               <span
                                 className={`h-1.5 w-1.5 rounded-full ${
@@ -403,7 +407,7 @@ export function PoolDetailPage() {
                                 }`}
                               />
                               <span>{r.status}</span>
-                            </span>
+                            </Badge>
                           </td>
                           <td className="px-5 py-3.5 font-mono text-slate-500 dark:text-slate-400">
                             {r.ipAddress || "—"}
@@ -891,18 +895,19 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
               <span className="text-[11px] font-medium text-slate-400">Bot State</span>
               <div className="mt-1 flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                <Badge
+                  className={cn(
+                    "uppercase tracking-wider",
                     isRunning
-                      ? "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-900"
+                      ? "border-warning/30 bg-warning/10 text-warning"
                       : status?.lastRun?.status === "success"
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
+                        ? "border-success/30 bg-success/10 text-success"
                         : status?.lastRun?.status === "failure"
-                          ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900"
+                          ? "border-destructive/30 bg-destructive/10 text-destructive"
                           : pool.renovate?.enabled
-                            ? "bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-400 border border-sky-200 dark:border-sky-900"
-                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                  }`}
+                            ? "border-primary/30 bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground",
+                  )}
                 >
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
@@ -923,7 +928,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                       : status?.lastRun?.status ||
                         (pool.renovate?.enabled ? "Scheduled" : "Disabled")}
                   </span>
-                </span>
+                </Badge>
               </div>
             </div>
 
@@ -1084,14 +1089,15 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                         #{run.id.toString()}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        <Badge
+                          className={cn(
+                            "uppercase tracking-wider",
                             run.status === "running"
-                              ? "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-900"
+                              ? "border-warning/30 bg-warning/10 text-warning"
                               : run.status === "success"
-                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
-                                : "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900"
-                          }`}
+                                ? "border-success/30 bg-success/10 text-success"
+                                : "border-destructive/30 bg-destructive/10 text-destructive",
+                          )}
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
@@ -1103,7 +1109,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                             }`}
                           />
                           <span>{run.status}</span>
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-5 py-3.5 font-mono text-slate-500 dark:text-slate-400">
                         {run.startedAt ? new Date(run.startedAt).toLocaleString() : "—"}

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "cn";
 import { useJobHistory, usePools } from "../lib/api/query-hooks";
 import { Link } from "@tanstack/react-router";
 import {
@@ -253,16 +255,17 @@ export function HistoryPage() {
                         #{job.id.toString()}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        <Badge
+                          className={cn(
+                            "uppercase tracking-wider",
                             isSuccess
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
+                              ? "border-success/30 bg-success/10 text-success"
                               : isFailed
-                                ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-900"
+                                ? "border-destructive/30 bg-destructive/10 text-destructive"
                                 : isRunning
-                                  ? "bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-400 border border-sky-200 dark:border-sky-900"
-                                  : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                          }`}
+                                  ? "border-primary/30 bg-primary/10 text-primary"
+                                  : "bg-muted text-muted-foreground",
+                          )}
                         >
                           {isSuccess ? (
                             <CheckCircle2 className="h-3 w-3" />
@@ -272,7 +275,7 @@ export function HistoryPage() {
                             <Clock className="h-3 w-3" />
                           )}
                           <span>{job.status}</span>
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-5 py-3.5 font-mono font-medium text-slate-900 dark:text-white">
                         {job.runnerName}
