@@ -107,15 +107,15 @@ describe("LoginPage", () => {
   it("handles theme switcher buttons", () => {
     render(<LoginPage />);
 
-    const darkBtn = screen.getByTitle("Dark Theme");
+    const darkBtn = screen.getByRole("button", { name: "Dark Theme" });
     fireEvent.click(darkBtn);
     expect(mockSetTheme).toHaveBeenCalledWith("dark");
 
-    const systemBtn = screen.getByTitle("System Theme");
+    const systemBtn = screen.getByRole("button", { name: "System Theme" });
     fireEvent.click(systemBtn);
     expect(mockSetTheme).toHaveBeenCalledWith("system");
 
-    const lightBtn = screen.getByTitle("Light Theme");
+    const lightBtn = screen.getByRole("button", { name: "Light Theme" });
     fireEvent.click(lightBtn);
     expect(mockSetTheme).toHaveBeenCalledWith("light");
   });

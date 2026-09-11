@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "cn";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useLogin } from "../lib/api/query-hooks";
@@ -35,36 +36,57 @@ export function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center p-4 bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-50">
       {/* Top Corner Theme Switcher */}
       <div className="absolute top-4 right-4 flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setTheme("light")}
-          title="Light Theme"
-          aria-pressed={theme === "light"}
-          className={cn(theme === "light" && "bg-muted text-primary")}
-        >
-          <Sun />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setTheme("dark")}
-          title="Dark Theme"
-          aria-pressed={theme === "dark"}
-          className={cn(theme === "dark" && "bg-muted text-primary")}
-        >
-          <Moon />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setTheme("system")}
-          title="System Theme"
-          aria-pressed={theme === "system"}
-          className={cn(theme === "system" && "bg-muted text-primary")}
-        >
-          <Monitor />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Light Theme"
+                onClick={() => setTheme("light")}
+                aria-pressed={theme === "light"}
+                className={cn(theme === "light" && "bg-muted text-primary")}
+              />
+            }
+          >
+            <Sun />
+          </TooltipTrigger>
+          <TooltipContent>Light Theme</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Dark Theme"
+                onClick={() => setTheme("dark")}
+                aria-pressed={theme === "dark"}
+                className={cn(theme === "dark" && "bg-muted text-primary")}
+              />
+            }
+          >
+            <Moon />
+          </TooltipTrigger>
+          <TooltipContent>Dark Theme</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="System Theme"
+                onClick={() => setTheme("system")}
+                aria-pressed={theme === "system"}
+                className={cn(theme === "system" && "bg-muted text-primary")}
+              />
+            }
+          >
+            <Monitor />
+          </TooltipTrigger>
+          <TooltipContent>System Theme</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-xs dark:border-slate-800 dark:bg-slate-900">

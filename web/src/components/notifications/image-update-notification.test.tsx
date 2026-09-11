@@ -48,7 +48,7 @@ describe("ImageUpdateNotification", () => {
     });
     expect(mockPullMutate).toHaveBeenCalledWith(1n);
 
-    const dismissBtn = screen.getByTitle("Dismiss update notification");
+    const dismissBtn = screen.getByRole("button", { name: "Dismiss update notification" });
     await act(async () => {
       fireEvent.click(dismissBtn);
     });

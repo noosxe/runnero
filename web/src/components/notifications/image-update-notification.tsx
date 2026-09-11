@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ImageUpdate } from "../../gen/api_pb";
 import { usePullImage, useDismissImageUpdate } from "../../lib/api/query-hooks";
 import { AlertCircle, DownloadCloud, X, Loader2, Check } from "lucide-react";
@@ -92,14 +93,21 @@ export function ImageUpdateNotification({
                 </Button>
               )}
 
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => handleDismiss(up.id)}
-                title="Dismiss update notification"
-              >
-                <X />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Dismiss update notification"
+                      onClick={() => handleDismiss(up.id)}
+                    />
+                  }
+                >
+                  <X />
+                </TooltipTrigger>
+                <TooltipContent>Dismiss update notification</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         );

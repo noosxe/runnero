@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { create } from "@bufbuild/protobuf";
 import { PoolSchema, type Pool } from "../../gen/api_pb";
@@ -627,16 +628,22 @@ export function PoolWizardModal({
               </div>
               <div className="flex items-center gap-2">
                 {manageAccessUrl && (
-                  <a
-                    href={manageAccessUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 shadow-xs"
-                    title="Manage repository access in GitHub"
-                  >
-                    <ExternalLink className="h-3 w-3 text-slate-400" />
-                    <span>Manage Access in GitHub</span>
-                  </a>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <a
+                          href={manageAccessUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 shadow-xs"
+                        />
+                      }
+                    >
+                      <ExternalLink className="h-3 w-3 text-slate-400" />
+                      <span>Manage Access in GitHub</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Manage repository access in GitHub</TooltipContent>
+                  </Tooltip>
                 )}
                 <Button
                   variant="outline"
@@ -792,16 +799,23 @@ export function PoolWizardModal({
                         )}
                       </div>
 
-                      <a
-                        href={target.htmlUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-slate-400 hover:text-blue-600 p-1 shrink-0"
-                        title="Open in upstream git provider"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <a
+                              href={target.htmlUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Open in upstream git provider"
+                              className="text-slate-400 hover:text-blue-600 p-1 shrink-0"
+                            />
+                          }
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent>Open in upstream git provider</TooltipContent>
+                      </Tooltip>
                     </div>
                   );
                 })}

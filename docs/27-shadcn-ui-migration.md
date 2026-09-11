@@ -218,7 +218,7 @@ on every re-application. Our own wrappers and routes remain fully gated.
 | 45 `rounded-full` pills, stat cards | Badge, Card | 45 pills | RUN-169 |
 | raw inputs / selects / textareas / checkboxes | Field primitives (Field/FieldGroup/FieldSet), Input, Textarea, Select, Checkbox, NativeSelect, InputGroup, ToggleGroup | 66 fields | RUN-171 |
 | 5 copy-pasted modal shells | Dialog, AlertDialog | 5 overlays (chart cursor tooltip follows in RUN-177) | RUN-172 |
-| native `title=""` tooltips, ad-hoc actions | Tooltip, DropdownMenu | 13 tooltips | RUN-173 |
+| native `title=""` tooltips, ad-hoc actions | Tooltip (DropdownMenu deferred to RUN-174 row actions) | 15 tooltips | RUN-173 |
 | 18 native `<table>` blocks, ad-hoc empty states | Table, Empty | 8 files | RUN-174 |
 | hand-rolled app shell (collapsing sidebar bug) | Sidebar, Sheet, Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |
 | inline notification banner, ad-hoc loaders | Alert (persistent), toast (transient, Base UI), Skeleton, Progress, Spinner | — | RUN-176 |
@@ -236,7 +236,7 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 3. **RUN-169 — Badge & Card**; **RUN-171 — Form primitives** (Select is the
    one behavioral change: Base UI listbox replaces native `<select>`).
 4. **RUN-172 — Dialog & AlertDialog** (biggest a11y win).
-5. **RUN-173 — Tooltip & DropdownMenu**; **RUN-174 — Table**.
+5. **RUN-173 — Tooltip** (DropdownMenu deferred to RUN-174, where dense Table rows get icon-only row actions); **RUN-174 — Table**.
 6. **RUN-175 — AppShell rebuild on Sidebar/Sheet**; supersedes and closes the
    collapsed-sidebar bug; collapsed state persists like `use-theme` does.
 7. **RUN-176 — Toast/Alert/Skeleton/Progress**; **RUN-177 — Charts** (recharts
