@@ -365,6 +365,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **shadcn/ui Component Migration** *[Design Phase]*: Replace the hand-rolled Tailwind UI primitives (25 button variants, 5 copy-pasted modal shells, native selects/tables/tooltips) with shadcn/ui components spawned via the shadcn CLI — design in [docs/27-shadcn-ui-migration.md](docs/27-shadcn-ui-migration.md).
 ---
 
 ## 📄 License
