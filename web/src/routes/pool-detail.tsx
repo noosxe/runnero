@@ -5,6 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useParams, Link } from "@tanstack/react-router";
 import {
   usePools,
@@ -40,7 +52,6 @@ import {
   Clock,
   Terminal,
   Trash2,
-  X,
   AlertTriangle,
   Pencil,
   Bot,
@@ -695,42 +706,41 @@ export function PoolDetailPage() {
       )}
 
       {/* Confirmation Modal: Terminate Runner */}
-      {runnerToTerminate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
-              <AlertTriangle className="h-6 w-6" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Terminate Runner Instance?
-              </h3>
-            </div>
-
-            <p className="mt-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+      <AlertDialog
+        open={!!runnerToTerminate}
+        onOpenChange={(open) => {
+          if (!open) setRunnerToTerminate(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogMedia className="bg-destructive/10 text-destructive">
+            <AlertTriangle />
+          </AlertDialogMedia>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Terminate Runner Instance?</AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to manually terminate runner{" "}
-              <strong className="font-mono text-slate-900 dark:text-white">
-                {runnerToTerminate.name}
-              </strong>{" "}
+              <strong className="font-mono text-foreground">{runnerToTerminate?.name}</strong>{" "}
               (container ID:{" "}
-              <span className="font-mono">{runnerToTerminate.containerId.substring(0, 12)}</span>
-              )? If this runner is currently executing a workflow, the job will fail immediately.
-            </p>
-
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <Button variant="outline" size="sm" onClick={() => setRunnerToTerminate(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleConfirmTerminate}
-                disabled={terminateMutation.isPending}
-              >
-                {terminateMutation.isPending ? "Terminating..." : "Terminate Instance"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+              <span className="font-mono">{runnerToTerminate?.containerId.substring(0, 12)}</span>)?
+              If this runner is currently executing a workflow, the job will fail immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" disabled={terminateMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmTerminate}
+              disabled={terminateMutation.isPending || !runnerToTerminate}
+            >
+              {terminateMutation.isPending ? "Terminating..." : "Terminate Instance"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Live Runner Log Modal */}
       {selectedRunnerForLogs && (
@@ -753,20 +763,19 @@ function RunnerLogViewerModal({
   const { logs, isConnected, isConnecting, clearLogs } = useStreamRunnerLogs(runner.name);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-      <div className="relative flex h-[82vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
-        {/* Close button overlay */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClose}
-          aria-label="Close runner logs modal"
-          className="absolute right-3.5 top-3 z-20"
-        >
-          <X />
-        </Button>
-
-        <div className="flex-1 overflow-hidden">
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton
+        aria-label={`Live logs for ${runner.name}`}
+        className="flex h-[82vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+      >
+        <DialogTitle className="sr-only">Live logs for {runner.name}</DialogTitle>
+        <div className="relative flex-1 overflow-hidden">
           <LogTerminal
             logs={logs}
             mode="live"
@@ -779,8 +788,8 @@ function RunnerLogViewerModal({
             headerRightInset
           />
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

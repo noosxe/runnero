@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { create } from "@bufbuild/protobuf";
 import { PoolSchema, type Pool } from "../../gen/api_pb";
@@ -408,23 +409,20 @@ export function PoolWizardModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900 text-xs my-8">
-        {/* Wizard Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Server className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              {isEdit ? "Edit Runner Pool" : "Create Runner Pool Wizard"}
-            </h3>
-          </div>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}>
-            <X />
-          </Button>
-        </div>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-4 overflow-y-auto p-6 text-xs sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Server className="size-5 text-primary" />
+            {isEdit ? "Edit Runner Pool" : "Create Runner Pool Wizard"}
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Step Progress Stepper */}
         <div className="mt-4 flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
@@ -1169,7 +1167,7 @@ export function PoolWizardModal({
             </div>
           </form>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

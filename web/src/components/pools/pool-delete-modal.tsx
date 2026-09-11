@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { useDeletePool } from "../../lib/api/query-hooks";
+import { cn } from "cn";
 
 export type PoolDeleteMode = "drain" | "terminate";
 
@@ -44,8 +55,6 @@ export function PoolDeleteModal({
   const [mode, setMode] = useState<PoolDeleteMode>(busyCount > 0 ? "drain" : "terminate");
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
   const backstopLabel = maxRunnerLifetimeSeconds
     ? `${maxRunnerLifetimeSeconds}s`
     : "6h (default backstop)";
@@ -61,29 +70,35 @@ export function PoolDeleteModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
-          <AlertTriangle className="h-6 w-6" />
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Pool?</h3>
-        </div>
+    <AlertDialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <AlertDialogContent size="sm">
+        <AlertDialogMedia className="bg-destructive/10 text-destructive">
+          <AlertTriangle />
+        </AlertDialogMedia>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Pool?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently removes pool{" "}
+            <strong className="font-mono text-foreground">{poolName}</strong> and its configuration.
+            Currently tracked: <strong className="text-foreground">{idleCount} idle</strong> ·{" "}
+            <strong className="text-foreground">{busyCount} busy</strong>. Idle runners are removed
+            immediately either way — choose what happens to busy runners.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-        <p className="mt-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          This permanently removes pool{" "}
-          <strong className="font-mono text-slate-900 dark:text-white">{poolName}</strong> and its
-          configuration. Currently tracked:{" "}
-          <strong className="text-slate-900 dark:text-white">{idleCount} idle</strong> ·{" "}
-          <strong className="text-slate-900 dark:text-white">{busyCount} busy</strong>. Idle runners
-          are removed immediately either way — choose what happens to busy runners.
-        </p>
-
-        <div className="mt-4 space-y-2" role="radiogroup" aria-label="Drain mode">
+        <div className="grid gap-2" role="radiogroup" aria-label="Drain mode">
           <label
-            className={`flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 text-xs transition-colors ${
+            className={cn(
+              "flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 text-xs transition-colors",
               mode === "drain"
-                ? "border-blue-400 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40"
-                : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-            }`}
+                ? "border-primary/50 bg-primary/5"
+                : "border-border hover:bg-muted/50",
+            )}
           >
             <Input
               type="radio"
@@ -94,10 +109,8 @@ export function PoolDeleteModal({
               className="mt-0.5"
             />
             <span>
-              <span className="block font-semibold text-slate-900 dark:text-white">
-                Drain gracefully
-              </span>
-              <span className="mt-0.5 block text-slate-500 dark:text-slate-400">
+              <span className="block font-semibold text-foreground">Drain gracefully</span>
+              <span className="mt-0.5 block text-muted-foreground">
                 {busyCount} busy runner{busyCount === 1 ? "" : "s"} finish
                 {busyCount === 1 ? "es" : ""} the current job before teardown. Hung jobs are
                 force-terminated after {backstopLabel}.
@@ -106,11 +119,12 @@ export function PoolDeleteModal({
           </label>
 
           <label
-            className={`flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 text-xs transition-colors ${
+            className={cn(
+              "flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 text-xs transition-colors",
               mode === "terminate"
-                ? "border-rose-400 bg-rose-50 dark:border-rose-700 dark:bg-rose-950/40"
-                : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-            }`}
+                ? "border-destructive/50 bg-destructive/5"
+                : "border-border hover:bg-muted/50",
+            )}
           >
             <Input
               type="radio"
@@ -121,10 +135,8 @@ export function PoolDeleteModal({
               className="mt-0.5"
             />
             <span>
-              <span className="block font-semibold text-slate-900 dark:text-white">
-                Terminate everything now
-              </span>
-              <span className="mt-0.5 block text-slate-500 dark:text-slate-400">
+              <span className="block font-semibold text-foreground">Terminate everything now</span>
+              <span className="mt-0.5 block text-muted-foreground">
                 All runners are terminated immediately. Running jobs fail and are recorded as
                 interrupted.
               </span>
@@ -133,16 +145,16 @@ export function PoolDeleteModal({
         </div>
 
         {error && (
-          <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
+          <p className="rounded-xl bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
             {error}
           </p>
         )}
 
-        <div className="mt-6 flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <AlertDialogFooter>
+          <AlertDialogCancel size="sm" disabled={deletePool.isPending}>
             Cancel
-          </Button>
-          <Button
+          </AlertDialogCancel>
+          <AlertDialogAction
             variant="destructive"
             size="sm"
             onClick={handleConfirm}
@@ -154,9 +166,9 @@ export function PoolDeleteModal({
               <Trash2 data-icon="inline-start" />
             )}
             {mode === "drain" ? "Delete & Drain" : "Delete & Terminate"}
-          </Button>
-        </div>
-      </div>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
