@@ -98,17 +98,17 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Run E2E Suite
-        # sudo: the host docker.sock is bind-mounted by the pool config
-        # (AllowDocker), but its owning GID is host-specific and can never
-        # match a static group in the runner image, so the `runner` user
-        # (uid 1001) cannot reach the socket directly. The image grants
-        # passwordless sudo for exactly this class of gap (docs/18, GitHub
-        # hosted-runner parity). Compose runs sibling containers on the host
-        # engine; nothing outside the engine's normal API surface is touched.
-        run: sudo make test-e2e
+        # The job runs on a runnero pool with docker access (AllowDocker): the
+        # host docker.sock is bind-mounted into the runner container and the
+        # image entrypoint grants the `runner` user membership of a group
+        # matching the socket's actual GID (docs/18 §3.7, RUN-162), so compose
+        # runs exactly like on GitHub-hosted runners — no sudo. Compose runs
+        # sibling containers on the host engine; nothing outside the engine's
+        # normal API surface is touched.
+        run: make test-e2e
 
       # Resource ownership (AGENTS.md): the shared Docker host must not keep
       # the compose stack, its networks, or its scratch volumes after the run.
       - name: Tear Down E2E Stack
         if: always()
-        run: sudo make clean-e2e
+        run: make clean-e2e

@@ -117,7 +117,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo \
   that makes `sudo` refuse to run (a classic bricked-image failure).
 - The `runner` account keeps `UID 1001`; nothing about the non-root execution
   model of the supervisor process changes — elevation exists for **workflow
-  steps only**.
+  steps only**, plus the entrypoint's one-shot socket-group bootstrap (§3.7).
+- A second drop-in, `/etc/sudoers.d/91-runner-envkeep`, whitelists the
+  container's runner-configuration environment (`RUNNER_*`, `GITEA_*`,
+  `FORGEJO_*`, `GITHUB_*`) from sudo's `env_reset`, so the entrypoint's
+  sudo re-entry (§3.7) preserves `RUNNER_TOKEN` and provider URLs.
 
 ### 3.4 Toolchain environment (Tier 4)
 
@@ -153,6 +157,52 @@ Estimated +250–400 MB uncompressed (~+100–150 MB compressed across both arch
 dominated by `gcc`/`g++`/`libicu-dev`/`tk` dep trees. Acceptable: parity value
 far exceeds size; Tier-3 exclusion is what keeps the image two orders of
 magnitude smaller than hosted images.
+
+### 3.7 Docker socket access without sudo (as-built, RUN-162)
+
+Pools with docker access bind-mount the host `docker.sock` into runner
+containers (`internal/orchestrator/docker`). The socket's owning GID is
+host-specific and can never match a static group baked into the image, so the
+`runner` user cannot reach the Docker API directly — jobs would need `sudo`
+for every `docker` call, unlike GitHub-hosted runners where the runner user is
+a member of the host's `docker` group.
+
+The entrypoint closes this gap at container start, before the runner agent
+starts (group membership is only evaluated at process creation, and a
+non-root process cannot join new groups — `sudo -u runner` from the runner
+user is a credential no-op and never re-initialises groups). The fix is a
+two-stage re-exec:
+
+1. If `/var/run/docker.sock` is present, read its owning GID (`stat -c %g`).
+2. Reuse an existing image group with that GID, or create `docker-sock` with
+   it (`groupadd`, falling back to `groupmod` if the name is taken). This is
+   container-local `/etc/group` state; the host is never mutated.
+3. Re-enter the entrypoint through `sudo -n --` as root, then apply the
+   membership (`usermod -aG`) and drop back to the runner user via
+   `setpriv --reuid --regid --init-groups`, which builds the full group
+   vector from `/etc/group`. Every job shell inherits the socket GID.
+4. `RUNNER_SOCK_GROUPS_SYNCED` guards against re-entry; the
+   runner-configuration environment survives the sudo re-entry via the
+   sudoers `env_keep` whitelist (§3.3).
+
+Hard rules:
+
+- **Never `chmod` the socket** — the host owns that inode; containers must not
+  mutate host state (least-privilege, docs/05).
+- Failures degrade with a loud WARNING (docker jobs then need sudo), never a
+  broken container: pools without docker access never touch this path.
+
+The E2E workflow (`.github/workflows/e2e.yml`) runs on a docker-enabled pool
+and therefore executes `make test-e2e` **without sudo**, exactly like CI jobs
+on GitHub-hosted runners. Note the deployment coupling: this only holds once
+the pool's configured runner image contains the updated entrypoint — refresh
+the pool image before (or right after) merging, or the first E2E run will
+fail its compose steps.
+
+Verified against a real host docker.sock (RUN-162): stage one created
+container-local `docker-sock` with the socket's host GID, the final process
+ran as `runner` with that supplementary group and read/write access to the
+socket, and the runner configuration environment survived the re-entry.
 
 ## 4. Security Review
 

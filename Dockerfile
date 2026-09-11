@@ -129,11 +129,18 @@ RUN groupadd -g 1001 runner \
 
 # Grant the runner user passwordless sudo, matching GitHub-hosted runners
 # (docs/18 Tier 2 / §3.3). Sudo itself is installed by the parity manifest;
-# visudo validates the drop-in so a malformed file can never ship.
+# visudo validates the drop-ins so a malformed file can never ship.
+#
+# The env_keep whitelist keeps the container's runner configuration
+# environment intact across the entrypoint's sudo re-exec (docs/18 §3.7,
+# RUN-162): sudo's env_reset would otherwise strip RUNNER_TOKEN and the
+# provider URLs, breaking docker-enabled pools.
 RUN usermod -aG sudo runner \
     && echo 'runner ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-runner \
-    && chmod 0440 /etc/sudoers.d/90-runner \
-    && visudo -cf /etc/sudoers.d/90-runner > /dev/null
+    && echo 'Defaults env_keep += "RUNNER_* GITEA_* FORGEJO_* GITHUB_*"' > /etc/sudoers.d/91-runner-envkeep \
+    && chmod 0440 /etc/sudoers.d/90-runner /etc/sudoers.d/91-runner-envkeep \
+    && visudo -cf /etc/sudoers.d/90-runner > /dev/null \
+    && visudo -cf /etc/sudoers.d/91-runner-envkeep > /dev/null
 
 # Hosted-standard on-demand toolchain cache for actions/setup-* (docs/18 Tier 4)
 RUN mkdir -p /opt/hostedtoolcache \
