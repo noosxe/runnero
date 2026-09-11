@@ -220,7 +220,7 @@ on every re-application. Our own wrappers and routes remain fully gated.
 | 5 copy-pasted modal shells | Dialog, AlertDialog | 5 overlays (chart cursor tooltip follows in RUN-177) | RUN-172 |
 | native `title=""` tooltips, ad-hoc actions | Tooltip (DropdownMenu deferred to RUN-174 row actions) | 15 tooltips | RUN-173 |
 | native `<table>` blocks, ad-hoc empty states | Table, Empty (DropdownMenu for dense runner-row actions) | 6 tables / 7 empty states / 5 routes | RUN-174 |
-| hand-rolled app shell (collapsing sidebar bug) | Sidebar, Sheet, Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |
+| hand-rolled app shell (collapsing sidebar bug) | Sidebar (icon-collapsible, persisted in localStorage), Sheet (mobile drawer), Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |
 | inline notification banner, ad-hoc loaders | Alert (persistent), toast (transient, Base UI), Skeleton, Progress, Spinner | — | RUN-176 |
 | hand-rolled SVG line chart | Chart (recharts) | 1 chart | RUN-177 |
 
