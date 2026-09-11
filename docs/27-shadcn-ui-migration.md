@@ -217,7 +217,7 @@ on every re-application. Our own wrappers and routes remain fully gated.
 | 25 button class signatures | Button | 103 instances | RUN-170 |
 | 45 `rounded-full` pills, stat cards | Badge, Card | 45 pills | RUN-169 |
 | raw inputs / selects / textareas / checkboxes | Field primitives (Field/FieldGroup/FieldSet), Input, Textarea, Select, Checkbox, NativeSelect, InputGroup, ToggleGroup | 66 fields | RUN-171 |
-| 5 copy-pasted modal shells | Dialog, AlertDialog | 6 overlays | RUN-172 |
+| 5 copy-pasted modal shells | Dialog, AlertDialog | 5 overlays (chart cursor tooltip follows in RUN-177) | RUN-172 |
 | native `title=""` tooltips, ad-hoc actions | Tooltip, DropdownMenu | 13 tooltips | RUN-173 |
 | 18 native `<table>` blocks, ad-hoc empty states | Table, Empty | 8 files | RUN-174 |
 | hand-rolled app shell (collapsing sidebar bug) | Sidebar, Sheet, Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |

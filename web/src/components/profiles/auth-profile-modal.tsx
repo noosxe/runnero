@@ -3,11 +3,12 @@ import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "cn";
 import { useCreateAuthProfile, useUpdateAuthProfile } from "../../lib/api/query-hooks";
 import { fromWireAuthMethod, toWireAuthMethod } from "../../lib/utils/auth-methods";
 import type { AuthProfile } from "../../gen/api_pb";
-import { KeyRound, X, AlertCircle } from "lucide-react";
+import { KeyRound, AlertCircle } from "lucide-react";
 
 /**
  * Shared create/edit modal for Git auth profiles (docs/17 §6.2).
@@ -144,33 +145,33 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900 text-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <KeyRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              {isEdit ? "Edit Git Auth Profile" : "Add Git Auth Profile"}
-            </h3>
-          </div>
-          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
-            <X />
-          </Button>
-        </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="gap-4 p-6 text-xs sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="size-5 text-primary" />
+            {isEdit ? "Edit Git Auth Profile" : "Add Git Auth Profile"}
+          </DialogTitle>
+        </DialogHeader>
 
         {error && (
           <div
             role="alert"
-            className="mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
+            className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-destructive"
           >
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="grid gap-4">
           <div>
-            <FieldLabel className="dark:">Provider Method</FieldLabel>
+            <FieldLabel>Provider Method</FieldLabel>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {AUTH_METHODS.map((m) => (
                 <Button
@@ -191,9 +192,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           </div>
 
           <div>
-            <FieldLabel htmlFor="modal-profile-name" className="dark:">
-              Profile Name
-            </FieldLabel>
+            <FieldLabel htmlFor="modal-profile-name">Profile Name</FieldLabel>
             <Input
               id="modal-profile-name"
               type="text"
@@ -208,9 +207,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           {authMethod === "github_app" ? (
             <>
               <div>
-                <FieldLabel htmlFor="modal-app-id" className="dark:">
-                  GitHub App ID
-                </FieldLabel>
+                <FieldLabel htmlFor="modal-app-id">GitHub App ID</FieldLabel>
                 <Input
                   id="modal-app-id"
                   type="number"
@@ -223,9 +220,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
               </div>
 
               <div>
-                <FieldLabel htmlFor="modal-private-key" className="dark:">
-                  Private Key (.pem)
-                </FieldLabel>
+                <FieldLabel htmlFor="modal-private-key">Private Key (.pem)</FieldLabel>
                 <Textarea
                   id="modal-private-key"
                   rows={4}
@@ -241,9 +236,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
             </>
           ) : (
             <div>
-              <FieldLabel htmlFor="modal-token" className="dark:">
-                Personal Access Token (PAT)
-              </FieldLabel>
+              <FieldLabel htmlFor="modal-token">Personal Access Token (PAT)</FieldLabel>
               <Input
                 id="modal-token"
                 type="password"
@@ -258,7 +251,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -267,7 +260,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
