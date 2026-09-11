@@ -1,5 +1,6 @@
 import { useState, useMemo, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { create } from "@bufbuild/protobuf";
 import { PoolSchema, type Pool } from "../../gen/api_pb";
 import { useCreatePool, useUpdatePool, useDiscoverTargets } from "../../lib/api/query-hooks";
@@ -550,10 +551,7 @@ export function PoolWizardModal({
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedTargetUrls.map((url) => (
-                    <span
-                      key={url}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-0.5 pl-2 pr-1 text-[11px] font-mono text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                    >
+                    <Badge key={url} variant="outline" className="gap-1 py-0.5 pl-2 pr-1 font-mono">
                       <span className="max-w-48 truncate">{url}</span>
                       <Button
                         variant="ghost"
@@ -563,7 +561,7 @@ export function PoolWizardModal({
                       >
                         <X />
                       </Button>
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </div>
@@ -591,13 +589,13 @@ export function PoolWizardModal({
               </div>
 
               <div className="flex items-center gap-2 justify-end pt-5">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-                  <Layers className="h-3.5 w-3.5" />
+                <Badge className="h-auto border-primary/30 bg-primary/10 px-2.5 py-1 text-primary font-semibold">
+                  <Layers />
                   <span>
                     {selectedTargetUrls.length}{" "}
                     {scope === "repo" ? "Repositories" : "Organizations"} Selected
                   </span>
-                </span>
+                </Badge>
               </div>
             </div>
 

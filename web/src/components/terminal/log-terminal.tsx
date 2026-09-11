@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 import type { LogChunk } from "../../gen/api_pb";
 import {
@@ -153,16 +154,17 @@ export function LogTerminal({
 
           {/* Status Indicator */}
           {mode === "live" ? (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border ${
+            <Badge
+              className={cn(
+                "border",
                 isPaused
-                  ? "bg-amber-950/60 text-amber-400 border-amber-800"
+                  ? "border-warning/30 bg-warning/10 text-warning"
                   : isConnected
-                    ? "bg-emerald-950/60 text-emerald-400 border-emerald-800"
+                    ? "border-success/30 bg-success/10 text-success"
                     : isConnecting
-                      ? "bg-sky-950/60 text-sky-400 border-sky-800"
-                      : "bg-rose-950/60 text-rose-400 border-rose-800"
-              }`}
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : "border-destructive/30 bg-destructive/10 text-destructive",
+              )}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
@@ -182,12 +184,12 @@ export function LogTerminal({
                       ? "Connecting..."
                       : "Offline"}
               </span>
-            </span>
+            </Badge>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+            <Badge variant="secondary" className="gap-1">
               <Clock className="h-3 w-3 text-slate-400" />
               <span>Historical Archive</span>
-            </span>
+            </Badge>
           )}
         </div>
 

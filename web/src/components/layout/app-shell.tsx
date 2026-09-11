@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
 import { Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
@@ -120,9 +121,9 @@ export function AppShell() {
                   {!sidebarCollapsed && <span>{item.label}</span>}
                 </div>
                 {!sidebarCollapsed && item.badgeKey === "pools" && totalRunners > 0 && (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-bold">
                     {totalRunners}
-                  </span>
+                  </Badge>
                 )}
               </Link>
             );
@@ -177,20 +178,21 @@ export function AppShell() {
             </div>
 
             {/* Health Status Pill */}
-            <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <Badge className="hidden sm:flex border-success/30 bg-success/10 text-success font-semibold">
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
               <span>Healthy</span>
-            </div>
+            </Badge>
           </div>
 
           <div className="flex items-center gap-3">
             {/* Realtime Stream Status Pill */}
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
+            <Badge
+              className={cn(
+                "border",
                 isConnected
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60"
-                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60"
-              }`}
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-warning/30 bg-warning/10 text-warning",
+              )}
               title={isConnected ? "Realtime stream active" : "Reconnecting to realtime stream..."}
             >
               <span
@@ -201,19 +203,19 @@ export function AppShell() {
               <span className="hidden sm:inline font-mono">
                 {isConnected ? "Live" : "Connecting"}
               </span>
-            </span>
+            </Badge>
 
             {/* Active / Idle Runners Counter */}
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span className="hidden sm:inline font-medium text-slate-900 dark:text-white">
                 Runners:
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <Activity className="h-3 w-3 text-emerald-500" />
+              <Badge variant="secondary" className="h-auto gap-1 py-1">
+                <Activity className="text-success" />
                 <span>{activeRunners} active</span>
-                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-muted-foreground">/</span>
                 <span>{idleRunners} idle</span>
-              </span>
+              </Badge>
             </div>
 
             {/* Theme Switcher */}

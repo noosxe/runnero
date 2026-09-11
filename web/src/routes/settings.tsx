@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   useAppSettings,
   useSetAppSetting,
@@ -140,9 +141,9 @@ export function SettingsPage() {
           <RefreshCw className="h-4 w-4" />
           <span>Runner Image Updates</span>
           {updates && updates.length > 0 && (
-            <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-bold text-white">
+            <Badge className="h-4 bg-warning px-1.5 text-[10px] font-bold text-white">
               {updates.length}
-            </span>
+            </Badge>
           )}
         </button>
 
