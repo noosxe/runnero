@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
 import {
   useAppSettings,
   useSetAppSetting,
@@ -303,18 +304,14 @@ export function SettingsPage() {
 
               {/* Submit Actions */}
               <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                >
+                <Button type="submit" size="sm" disabled={isSaving}>
                   {isSaving ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
                   ) : (
-                    <Save className="h-3.5 w-3.5" />
+                    <Save data-icon="inline-start" />
                   )}
                   <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                </button>
+                </Button>
 
                 {saveSuccess && (
                   <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -343,19 +340,19 @@ export function SettingsPage() {
               </p>
             </div>
 
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleCheckUpdatesAll}
               disabled={isCheckingUpdates || !pools || pools.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
             >
               {isCheckingUpdates ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                <Loader2 data-icon="inline-start" className="animate-spin" />
               ) : (
-                <RefreshCw className="h-3.5 w-3.5 text-blue-500" />
+                <RefreshCw data-icon="inline-start" />
               )}
               <span>{isCheckingUpdates ? "Checking Updates..." : "Check All Pools Now"}</span>
-            </button>
+            </Button>
           </div>
 
           {/* Pending Notifications */}
@@ -408,13 +405,13 @@ export function SettingsPage() {
                         {p.provider}
                       </td>
                       <td className="p-3.5 text-right">
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="xs"
                           onClick={() => checkUpdateMutation.mutate(p.id)}
-                          className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                         >
                           Check Update
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))

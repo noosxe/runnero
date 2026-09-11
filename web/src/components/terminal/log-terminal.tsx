@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 import type { LogChunk } from "../../gen/api_pb";
 import {
   Play,
@@ -192,62 +194,68 @@ export function LogTerminal({
         {/* Action Controls */}
         <div className={`flex items-center gap-1.5 ${headerRightInset ? "mr-9" : ""}`}>
           {mode === "live" && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="xs"
               onClick={togglePause}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                isPaused
-                  ? "border-amber-700 bg-amber-950/50 text-amber-300 hover:bg-amber-900/50"
-                  : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
+              aria-pressed={isPaused}
+              className={cn(
+                isPaused && "border-warning/60 bg-warning/10 text-warning hover:bg-warning/20",
+              )}
             >
-              {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              {isPaused ? <Play data-icon="inline-start" /> : <Pause data-icon="inline-start" />}
               <span>{isPaused ? "Resume" : "Pause"}</span>
-            </button>
+            </Button>
           )}
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="xs"
             onClick={() => setAutoScroll((prev) => !prev)}
-            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-              autoScroll
-                ? "border-blue-700 bg-blue-950/50 text-blue-300 hover:bg-blue-900/50"
-                : "border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700"
-            }`}
+            aria-pressed={autoScroll}
+            className={cn(autoScroll && "border-primary/60 bg-primary/10 text-primary")}
           >
-            <ArrowDown className={`h-3 w-3 ${autoScroll ? "text-blue-400" : "text-slate-500"}`} />
+            <ArrowDown
+              data-icon="inline-start"
+              className={autoScroll ? "text-primary" : "text-muted-foreground"}
+            />
             <span>Auto-scroll: {autoScroll ? "ON" : "OFF"}</span>
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="xs"
             onClick={handleCopyAll}
             disabled={displayedLogs.length === 0}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-colors"
           >
-            {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? (
+              <Check data-icon="inline-start" className="text-success" />
+            ) : (
+              <Copy data-icon="inline-start" />
+            )}
             <span>{copied ? "Copied" : "Copy"}</span>
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="xs"
             onClick={handleDownload}
             disabled={displayedLogs.length === 0}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition-colors"
           >
-            <Download className="h-3 w-3" />
+            <Download data-icon="inline-start" />
             <span>Export</span>
-          </button>
+          </Button>
 
           {onClear && mode === "live" && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="xs"
               onClick={onClear}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:bg-slate-700 hover:text-rose-400 transition-colors"
+              className="text-muted-foreground hover:text-destructive"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 data-icon="inline-start" />
               <span>Clear</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -270,39 +278,37 @@ export function LogTerminal({
         <div className="flex items-center gap-3">
           {/* Stream Filter Switcher */}
           <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950 p-0.5">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => setStreamFilter("all")}
-              className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                streamFilter === "all"
-                  ? "bg-slate-800 text-white"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
+              aria-pressed={streamFilter === "all"}
+              className={cn(streamFilter === "all" && "bg-muted text-foreground")}
             >
               All
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => setStreamFilter("stdout")}
-              className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                streamFilter === "stdout"
-                  ? "bg-cyan-950 text-cyan-300 border border-cyan-800"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
+              aria-pressed={streamFilter === "stdout"}
+              className={cn(
+                streamFilter === "stdout" && "bg-cyan-950 text-cyan-300 border border-cyan-800",
+              )}
             >
               stdout
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => setStreamFilter("stderr")}
-              className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                streamFilter === "stderr"
-                  ? "bg-rose-950 text-rose-300 border border-rose-800"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
+              aria-pressed={streamFilter === "stderr"}
+              className={cn(
+                streamFilter === "stderr" && "bg-rose-950 text-rose-300 border border-rose-800",
+              )}
             >
               stderr
-            </button>
+            </Button>
           </div>
 
           <span className="text-[10px] text-slate-500">
@@ -383,14 +389,14 @@ export function LogTerminal({
 
         {/* Floating scroll to bottom button when user scrolled up */}
         {!autoScroll && filteredLogs.length > 10 && (
-          <button
-            type="button"
+          <Button
+            size="xs"
             onClick={scrollToBottom}
-            className="absolute bottom-4 right-6 inline-flex items-center gap-1.5 rounded-full border border-blue-600 bg-blue-950/90 px-3 py-1 text-[11px] font-semibold text-blue-200 shadow-lg hover:bg-blue-900 backdrop-blur-xs transition-colors"
+            className="absolute bottom-4 right-6 rounded-full shadow-lg"
           >
-            <ArrowDown className="h-3 w-3" />
+            <ArrowDown data-icon="inline-start" />
             <span>Resume Auto-scroll</span>
-          </button>
+          </Button>
         )}
       </div>
     </div>
