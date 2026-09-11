@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -86,31 +88,27 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4 text-xs">
           <div>
-            <label htmlFor="username" className="font-semibold text-slate-700 dark:text-slate-300">
-              Username
-            </label>
-            <input
+            <FieldLabel htmlFor="username">Username</FieldLabel>
+            <Input
               id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+
               required
               autoFocus
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="font-semibold text-slate-700 dark:text-slate-300">
-              Password
-            </label>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
             <div className="relative mt-1">
-              <input
+              <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+
                 required
               />
               <Button

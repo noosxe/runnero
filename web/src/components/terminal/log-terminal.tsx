@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
@@ -267,12 +268,12 @@ export function LogTerminal({
         <div className="flex items-center gap-2 flex-1 max-w-sm">
           <div className="relative w-full">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-            <input
+            <Input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter log output..."
-              className="w-full rounded-lg border border-slate-800 bg-slate-950 py-1 pl-8 pr-3 text-[11px] text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-hidden"
+              className="pl-8 font-mono text-[11px]"
             />
           </div>
         </div>

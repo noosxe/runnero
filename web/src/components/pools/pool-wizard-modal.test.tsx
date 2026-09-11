@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+
+function openSelect(trigger: HTMLElement) {
+  fireEvent.click(trigger);
+}
+
 import { PoolWizardModal } from "./pool-wizard-modal";
 import type { Pool } from "../../gen/api_pb";
 
@@ -195,12 +200,12 @@ describe("PoolWizardModal", () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
-  it("locks docker-in-docker when provider is Forgejo or Gitea", () => {
+  it("locks docker-in-docker when provider is Forgejo or Gitea", async () => {
     render(<PoolWizardModal isOpen={true} onClose={vi.fn()} authProfiles={defaultAuthProfiles} />);
 
     // Switch to internal-forgejo
-    const profileSelect = screen.getByLabelText(/Git Authentication Profile/i);
-    fireEvent.change(profileSelect, { target: { value: "20" } });
+    openSelect(screen.getAllByRole("combobox", { name: /Git Authentication Profile/i })[0]);
+    fireEvent.click(await screen.findByRole("option", { name: /internal-forgejo/ }));
     expect(screen.getByText("forgejo")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Pool Name \(Slug\)/i), {
@@ -348,7 +353,7 @@ describe("PoolWizardModal (edit mode)", () => {
     );
   });
 
-  it("locks the auth profile selector to the pool's provider family", () => {
+  it("locks the auth profile selector to the pool's provider family", async () => {
     render(
       <PoolWizardModal
         isOpen={true}
@@ -359,10 +364,9 @@ describe("PoolWizardModal (edit mode)", () => {
       />,
     );
 
-    const profileSelect = screen.getByLabelText(/Git Authentication Profile/i) as HTMLSelectElement;
-    const options = Array.from(profileSelect.options).map((o) => o.value);
+    openSelect(screen.getAllByRole("combobox", { name: /Git Authentication Profile/i })[0]);
+    const options = (await screen.findAllByRole("option")).map((o) => o.getAttribute("value"));
     expect(options).toEqual(["20"]); // only the forgejo profile is selectable
-    expect(profileSelect.value).toBe("20");
     expect(
       screen.getByText(/Profile family is locked to the pool's forgejo provider/i),
     ).toBeInTheDocument();

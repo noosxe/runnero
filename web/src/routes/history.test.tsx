@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+
+function openSelect(trigger: HTMLElement) {
+  fireEvent.click(trigger);
+}
+
 import { HistoryPage } from "./history";
 
 const mockPools = [
@@ -99,18 +104,20 @@ describe("HistoryPage", () => {
     expect(mockJobHistoryParams.offset).toBe(0);
   });
 
-  it("handles pool and status dropdown filtering", () => {
+  it("handles pool and status dropdown filtering", async () => {
     render(<HistoryPage />);
 
     const selects = screen.getAllByRole("combobox");
     const poolSelect = selects[0];
     const statusSelect = selects[1];
 
-    fireEvent.change(poolSelect, { target: { value: "10" } });
-    expect(mockJobHistoryParams.poolId).toBe(10n);
+    openSelect(poolSelect);
+    fireEvent.click(await screen.findByRole("option", { name: "arm64-prod-pool" }));
+    await waitFor(() => expect(mockJobHistoryParams.poolId).toBe(10n));
 
-    fireEvent.change(statusSelect, { target: { value: "success" } });
-    expect(mockJobHistoryParams.status).toBe("success");
+    openSelect(statusSelect);
+    fireEvent.click(await screen.findByRole("option", { name: "Success" }));
+    await waitFor(() => expect(mockJobHistoryParams.status).toBe("success"));
   });
 
   it("handles CSV export click", () => {

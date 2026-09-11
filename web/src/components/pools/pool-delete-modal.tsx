@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
@@ -84,7 +85,7 @@ export function PoolDeleteModal({
                 : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
             }`}
           >
-            <input
+            <Input
               type="radio"
               name="pool-delete-mode"
               value="drain"
@@ -111,7 +112,7 @@ export function PoolDeleteModal({
                 : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
             }`}
           >
-            <input
+            <Input
               type="radio"
               name="pool-delete-mode"
               value="terminate"

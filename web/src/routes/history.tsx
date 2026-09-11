@@ -1,4 +1,13 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
@@ -153,55 +162,86 @@ export function HistoryPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
+          <Input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by runner name..."
-            className="w-full rounded-xl border-0 bg-slate-50 py-2 pl-9 pr-4 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-white dark:focus:bg-slate-900"
+            className="pl-9"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Pool Filter */}
-          <select
+          <Select
             value={selectedPool}
-            onChange={(e) => handlePoolChange(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            onValueChange={(v) => handlePoolChange(v as string)}
+            items={[
+              { value: "0", label: "All Pools" },
+              ...(pools ?? []).map((p) => ({ value: p.id.toString(), label: p.name })),
+            ]}
           >
-            <option value="0">All Pools</option>
-            {pools?.map((p) => (
-              <option key={p.id.toString()} value={p.id.toString()}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="0">All Pools</SelectItem>
+                {(pools ?? []).map((p) => (
+                  <SelectItem key={p.id.toString()} value={p.id.toString()}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
           {/* Status Filter */}
-          <select
+          <Select
             value={statusFilter}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            onValueChange={(v) => handleStatusChange(v as string)}
+            items={[
+              { value: "all", label: "All Statuses" },
+              { value: "success", label: "Success" },
+              { value: "failure", label: "Failed" },
+              { value: "running", label: "Running" },
+            ]}
           >
-            <option value="all">All Statuses</option>
-            <option value="success">Success</option>
-            <option value="failure">Failed</option>
-            <option value="running">Running</option>
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="success">Success</SelectItem>
+                <SelectItem value="failure">Failed</SelectItem>
+                <SelectItem value="running">Running</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
           {/* Page Size Select */}
-          <select
+          <Select
             value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
+            onValueChange={(v) => {
+              setPageSize(Number(v));
               setPage(1);
             }}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            items={[10, 25, 50].map((n) => ({ value: n, label: `${n} / page` }))}
           >
-            <option value={10}>10 / page</option>
-            <option value={25}>25 / page</option>
-            <option value={50}>50 / page</option>
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {[10, 25, 50].map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {n} / page
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

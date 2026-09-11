@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+
+function openSelect(trigger: HTMLElement) {
+  fireEvent.click(trigger);
+}
+
 import { PoolsPage } from "./pools";
 
 const mockPools = [
@@ -130,11 +135,11 @@ describe("PoolsPage", () => {
     expect(screen.getByText("gitea-org-pool")).toBeInTheDocument();
   });
 
-  it("filters pools by provider", () => {
+  it("filters pools by provider", async () => {
     render(<PoolsPage />);
 
-    const select = screen.getAllByRole("combobox")[0];
-    fireEvent.change(select, { target: { value: "github" } });
+    openSelect(screen.getAllByRole("combobox")[0]);
+    fireEvent.click(await screen.findByRole("option", { name: "GitHub" }));
 
     expect(screen.getByText("arm64-prod-pool")).toBeInTheDocument();
     expect(screen.queryByText("gitea-org-pool")).not.toBeInTheDocument();

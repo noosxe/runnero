@@ -1,4 +1,13 @@
 import { useState, useMemo } from "react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -139,49 +148,86 @@ export function PoolsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search pools by name or target URL..."
-            className="w-full rounded-xl border-0 bg-slate-50 py-2 pl-9 pr-4 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-white dark:focus:bg-slate-900"
+            className="pl-9"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={providerFilter}
-            onChange={(e) => setProviderFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            onValueChange={(v) => setProviderFilter(v as string)}
+            items={[
+              { value: "all", label: "All Providers" },
+              { value: "github", label: "GitHub" },
+              { value: "gitea", label: "Gitea" },
+              { value: "forgejo", label: "Forgejo" },
+            ]}
           >
-            <option value="all">All Providers</option>
-            <option value="github">GitHub</option>
-            <option value="gitea">Gitea</option>
-            <option value="forgejo">Forgejo</option>
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all">All Providers</SelectItem>
+                <SelectItem value="github">GitHub</SelectItem>
+                <SelectItem value="gitea">Gitea</SelectItem>
+                <SelectItem value="forgejo">Forgejo</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
-          <select
+          <Select
             value={scopeFilter}
-            onChange={(e) => setScopeFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            onValueChange={(v) => setScopeFilter(v as string)}
+            items={[
+              { value: "all", label: "All Scopes" },
+              { value: "repo", label: "Repository" },
+              { value: "org", label: "Organization" },
+              { value: "global", label: "Global" },
+            ]}
           >
-            <option value="all">All Scopes</option>
-            <option value="repo">Repository</option>
-            <option value="org">Organization</option>
-            <option value="global">Global</option>
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all">All Scopes</SelectItem>
+                <SelectItem value="repo">Repository</SelectItem>
+                <SelectItem value="org">Organization</SelectItem>
+                <SelectItem value="global">Global</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
-          <select
+          <Select
             value={healthFilter}
-            onChange={(e) => setHealthFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            onValueChange={(v) => setHealthFilter(v as string)}
+            items={[
+              { value: "all", label: "All Health States" },
+              { value: "healthy", label: "Healthy" },
+              { value: "provisioning", label: "Provisioning" },
+              { value: "degraded", label: "Degraded" },
+              { value: "paused", label: "Paused" },
+            ]}
           >
-            <option value="all">All Health States</option>
-            <option value="healthy">Healthy</option>
-            <option value="provisioning">Provisioning</option>
-            <option value="degraded">Degraded</option>
-            <option value="paused">Paused</option>
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="all">All Health States</SelectItem>
+                <SelectItem value="healthy">Healthy</SelectItem>
+                <SelectItem value="provisioning">Provisioning</SelectItem>
+                <SelectItem value="degraded">Degraded</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
