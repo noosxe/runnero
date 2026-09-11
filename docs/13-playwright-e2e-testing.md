@@ -196,12 +196,24 @@ nix develop --command make clean-e2e
 ```
 
 ### 5.2 Makefile Target Integration
+
+The suite depends on genuinely fresh supervisor state: the supervisor keeps
+its database in an anonymous volume (`VOLUME /data`), so a stack left behind
+by a killed run (CI cancellation, RUN-181-class events) would otherwise serve
+the next run stale state — observed as flow-01 failing because the wizard
+rendered its "administrator already configured" branch against a leftover
+mid-onboarding database (RUN-166). `test-e2e` therefore pre-cleans with
+errors surfaced (no `|| true`) and boots with `--force-recreate
+--renew-anon-volumes`, making freshness independent of prior teardown.
 ```makefile
 .PHONY: test-e2e test-e2e-ui clean-e2e
 
 test-e2e: ## Run Playwright E2E tests in dockerized test harness
+	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans
 	docker compose -f tests/e2e/docker-compose.e2e.yml up \
 		--build \
+		--force-recreate \
+		--renew-anon-volumes \
 		--abort-on-container-exit \
 		--exit-code-from e2e-playwright
 
