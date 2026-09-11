@@ -89,9 +89,18 @@ clean: clean-e2e
 
 ## test-e2e: run containerized Playwright E2E tests
 test-e2e:
-	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans 2>/dev/null || true
+	# Fresh state must not depend on the previous run's teardown: the supervisor
+	# keeps its database in an anonymous volume (VOLUME /data), so a stack left
+	# behind by a killed run would serve the next run stale state (RUN-166:
+	# flow-01 saw adminCreated=true from a leftover mid-onboarding DB and the
+	# wizard rendered its login branch instead of step 1). Surface down errors
+	# instead of swallowing them, and recreate containers with renewed
+	# anonymous volumes so every boot starts empty even if cleanup leaked.
+	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans
 	docker compose -f tests/e2e/docker-compose.e2e.yml up \
 		--build \
+		--force-recreate \
+		--renew-anon-volumes \
 		--abort-on-container-exit \
 		--exit-code-from e2e-playwright
 
