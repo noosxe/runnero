@@ -946,7 +946,9 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 			}
 			if !r.IsBusy {
 				c.logger.Info("terminating idle runner during graceful shutdown", "pool", r.PoolName, "id", r.ID, "name", r.Name)
-				c.deregisterRunner(ctx, r)
+				// Shutdown is explicitly best-effort (docs/25): a busy veto here
+				// must not block teardown, the ghost sweep reconciles leftovers.
+				_ = c.deregisterRunner(ctx, r)
 				_ = c.engine.TerminateRunner(ctx, r.ID)
 			} else {
 				activeRunners = append(activeRunners, r)
@@ -1052,7 +1054,7 @@ func (c *PoolController) forceTerminateRemaining(ctx context.Context) {
 	for poolName, poolMap := range c.reconciler.tracked {
 		for id, r := range poolMap {
 			if r.State == "running" {
-				c.deregisterRunner(ctx, r)
+				_ = c.deregisterRunner(ctx, r)
 				_ = c.engine.TerminateRunner(ctx, id)
 				delete(poolMap, id)
 			}
@@ -1063,19 +1065,24 @@ func (c *PoolController) forceTerminateRemaining(ctx context.Context) {
 	}
 }
 
-func (c *PoolController) deregisterRunner(ctx context.Context, r RunnerStatus) {
+// deregisterRunner best-effort deregisters the runner via the provider API.
+// It returns the provider error so callers can distinguish a busy veto
+// (provider.ErrRunnerBusy, RUN-182) from success; nil also means "no veto
+// evidence" (no resolver, pool lookup failure, unsupported provider) — in
+// those cases callers keep the legacy best-effort termination behavior.
+func (c *PoolController) deregisterRunner(ctx context.Context, r RunnerStatus) error {
 	if c.providerResolver == nil {
-		return
+		return nil
 	}
 	pools, err := c.loadPools(ctx)
 	if err != nil {
-		return
+		return nil
 	}
 	for _, p := range pools {
 		if p.Name == r.PoolName {
 			gitProv, err := c.providerResolver.ResolveProvider(ctx, p.AuthProfileID)
 			if err != nil {
-				return
+				return nil
 			}
 			if dereg, ok := gitProv.(provider.RunnerDeregistrar); ok {
 				runnerName := r.Name
@@ -1088,13 +1095,36 @@ func (c *PoolController) deregisterRunner(ctx context.Context, r RunnerStatus) {
 				}
 				if err := dereg.DeregisterRunner(ctx, provider.RegistrationScope(p.Scope), targetURL, runnerName); err != nil {
 					c.logger.Warn("failed to deregister runner via provider API", "runner", runnerName, "target", targetURL, "err", err)
+					return err
 				} else {
 					c.logger.Info("successfully deregistered runner via provider API", "runner", runnerName, "target", targetURL)
 				}
 			}
-			return
+			return nil
 		}
 	}
+	return nil
+}
+
+// drainIdleRunner terminates an idle runner as part of scale-down. The
+// provider gets the final word: if it refuses deregistration because the
+// runner is mid-job (provider.ErrRunnerBusy, RUN-182 — possible whenever
+// local idle state is stale, e.g. right after a supervisor restart), the
+// runner is preserved and locally re-marked busy so classification converges.
+// Returns true when the runner was actually drained.
+func (c *PoolController) drainIdleRunner(ctx context.Context, p db.RunnerPool, r RunnerStatus) bool {
+	if err := c.deregisterRunner(ctx, r); errors.Is(err, provider.ErrRunnerBusy) {
+		c.logger.Warn("provider vetoed idle drain: runner is mid-job, preserving it",
+			"pool", p.Name, "pool_id", p.ID, "runner", r.ID, "name", r.Name)
+		if c.reconciler != nil && r.Name != "" {
+			c.reconciler.MarkRunnerBusy(r.Name, true)
+			c.recordJobTransition(ctx, p, r.Name, true)
+		}
+		return false
+	}
+	_ = c.engine.TerminateRunner(ctx, r.ID)
+	c.reconciler.UntrackRunner(p.ID, r.ID)
+	return true
 }
 
 func (c *PoolController) loadPools(ctx context.Context) ([]db.RunnerPool, error) {
@@ -1535,14 +1565,13 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 		drained := int64(0)
 		var remainingIdle []RunnerStatus
 		for _, r := range idleRunners {
-			if drained < excess {
-				c.deregisterRunner(ctx, r)
-				_ = c.engine.TerminateRunner(ctx, r.ID)
-				c.reconciler.UntrackRunner(p.ID, r.ID)
+			if drained < excess && c.drainIdleRunner(ctx, p, r) {
 				drained++
-			} else {
-				remainingIdle = append(remainingIdle, r)
+				continue
 			}
+			// Not drained (excess satisfied or provider veto): the runner stays
+			// alive and keeps its idle slot in this cycle's math (RUN-182).
+			remainingIdle = append(remainingIdle, r)
 		}
 		activeCount -= drained
 		idleRunners = remainingIdle
@@ -1571,10 +1600,9 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 					"stale_standby", isStaleStandby,
 					"stale_on_demand", isStaleOnDemand,
 				)
-				c.deregisterRunner(ctx, r)
-				_ = c.engine.TerminateRunner(ctx, r.ID)
-				c.reconciler.UntrackRunner(p.ID, r.ID)
-				activeCount--
+				if c.drainIdleRunner(ctx, p, r) {
+					activeCount--
+				}
 			}
 		}
 	} else if int64(len(idleRunners)) > effectiveTarget {
@@ -1597,9 +1625,9 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 			if r.OnDemand && !r.SpawnedAt.IsZero() && now.Sub(r.SpawnedAt) < gracePeriod {
 				continue
 			}
-			c.deregisterRunner(ctx, r)
-			_ = c.engine.TerminateRunner(ctx, r.ID)
-			c.reconciler.UntrackRunner(p.ID, r.ID)
+			if !c.drainIdleRunner(ctx, p, r) {
+				continue
+			}
 			drained++
 			activeCount--
 		}
@@ -2088,7 +2116,9 @@ func (c *PoolController) drainPool(ctx context.Context, poolID int64, poolName s
 			busyLeft++
 			continue
 		}
-		c.deregisterRunner(ctx, r)
+		// Pool deletion is destructive by definition (docs/25 §4.2): a busy veto
+		// must not block hard cleanup, the removed-pool fallback reconciles.
+		_ = c.deregisterRunner(ctx, r)
 		_ = c.engine.TerminateRunner(ctx, r.ID)
 		c.reconciler.UntrackRunner(poolID, r.ID)
 	}
@@ -2154,7 +2184,16 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) e
 		if poolName == "" {
 			poolName = r.PoolName
 		}
-		c.deregisterRunner(ctx, r)
+		// RUN-182: stale local idle state must not kill a runner the provider
+		// still considers mid-job — preserve it and converge the classification.
+		if errors.Is(c.deregisterRunner(ctx, r), provider.ErrRunnerBusy) {
+			c.logger.Warn("recycle: provider vetoed idle recycle, runner is mid-job",
+				"pool", r.PoolName, "pool_id", poolID, "runner", r.ID, "name", r.Name)
+			if r.Name != "" {
+				c.reconciler.MarkRunnerBusy(r.Name, true)
+			}
+			continue
+		}
 		if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
 			c.logger.Warn("recycle: failed terminating idle runner", "pool", r.PoolName, "pool_id", poolID, "runner", r.ID, "err", err)
 			continue

@@ -55,19 +55,20 @@ func (m *mockGitProviderResolver) ResolveProvider(ctx context.Context, authProfi
 }
 
 type mockGitProvider struct {
-	tokensIssued  []string
-	deregistered  []string
-	validateErr   error
-	tokenErr      error
-	scalingMode   provider.ScalingMode
-	queuedJobs    int
-	pollErr       error
-	pollCalls     int
-	remoteRunners []provider.RemoteRunnerStatus
-	listErr       error
-	listCalls     int
-	deregErr      error
-	deregCalls    int
+	tokensIssued   []string
+	deregistered   []string
+	validateErr    error
+	tokenErr       error
+	scalingMode    provider.ScalingMode
+	queuedJobs     int
+	pollErr        error
+	pollCalls      int
+	remoteRunners  []provider.RemoteRunnerStatus
+	listErr        error
+	listCalls      int
+	deregErr       error
+	deregErrByName map[string]error
+	deregCalls     int
 }
 
 func (m *mockGitProvider) ListRunners(ctx context.Context, scope provider.RegistrationScope, targetURL string) ([]provider.RemoteRunnerStatus, error) {
@@ -89,6 +90,11 @@ func (m *mockGitProvider) GetRegistrationToken(ctx context.Context, scope provid
 
 func (m *mockGitProvider) DeregisterRunner(ctx context.Context, scope provider.RegistrationScope, targetURL, runnerName string) error {
 	m.deregCalls++
+	if m.deregErrByName != nil {
+		if err, ok := m.deregErrByName[runnerName]; ok {
+			return err
+		}
+	}
 	if m.deregErr != nil {
 		return m.deregErr
 	}

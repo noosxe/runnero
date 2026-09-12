@@ -69,6 +69,12 @@ var ErrPollingUnsupported = errors.New("provider does not support demand polling
 // (GitHub per docs/24 §4) when asked for an org- or global-scoped target.
 var ErrPollingScopeUnsupported = errors.New("provider does not support demand polling for this target scope")
 
+// ErrRunnerBusy is returned by DeregisterRunner when the provider refuses to
+// delete a runner registration because the runner is currently executing a job
+// (GitHub: HTTP 422 "currently running a job and cannot be deleted"). Callers
+// draining idle runners must treat it as a veto and preserve the runner (RUN-182).
+var ErrRunnerBusy = errors.New("runner is currently running a job")
+
 // GitProvider is the unified interface decoupling the supervisor from VCS APIs (docs/02 §3.2).
 type GitProvider interface {
 	// GetRegistrationToken retrieves a short-lived runner registration token for the target URL and scope.
