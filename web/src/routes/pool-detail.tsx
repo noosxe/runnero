@@ -528,185 +528,187 @@ export function PoolDetailPage() {
             </CardAction>
           </CardHeader>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
-            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
-              <span className="text-muted-foreground">Target Repositories</span>
-              <div className="mt-1 space-y-1">
-                {poolTargetList(pool).map((url) => (
-                  <div key={url} className="font-mono font-semibold text-foreground break-all">
-                    {url}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
-              <span className="text-muted-foreground">Git Provider</span>
-              <div className="mt-1 font-semibold text-foreground uppercase">{pool.provider}</div>
-            </div>
-
-            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
-              <span className="text-muted-foreground">Registration Scope</span>
-              <div className="mt-1 font-semibold text-foreground uppercase">
-                {pool.scope || "repo"}
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-muted/50 p-4 border border-border/60 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Runner Container Image</span>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => checkUpdateMutation.mutate(poolIdBigInt)}
-                    disabled={checkUpdateMutation.isPending}
-                  >
-                    {checkUpdateMutation.isPending ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : (
-                      <RefreshCw data-icon="inline-start" />
-                    )}
-                    <span>
-                      {checkUpdateMutation.isPending ? "Checking..." : "Check for Updates"}
-                    </span>
-                  </Button>
-                </div>
-                <div className="mt-1 font-mono font-semibold text-foreground break-all">
-                  {pool.runnerImage || "ghcr.io/noosxe/runnero:latest"}
-                </div>
-              </div>
-
-              {checkUpdateMutation.isSuccess && (
-                <div className="mt-3 text-xs">
-                  {checkUpdateMutation.data.updateAvailable ? (
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-warning font-medium">
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        <span>
-                          Update available:{" "}
-                          <code className="font-mono text-[11px]">
-                            {checkUpdateMutation.data.update?.latestDigest
-                              ? `${checkUpdateMutation.data.update.latestDigest.slice(0, 19)}...`
-                              : "Newer version in registry"}
-                          </code>
-                        </span>
-                      </div>
-                      <Button
-                        size="xs"
-                        onClick={() => pullImageMutation.mutate(poolIdBigInt)}
-                        disabled={pullImageMutation.isPending}
-                        className="bg-warning text-white hover:bg-warning/80"
-                      >
-                        {pullImageMutation.isPending ? (
-                          <Spinner data-icon="inline-start" />
-                        ) : (
-                          <DownloadCloud data-icon="inline-start" />
-                        )}
-                        <span>{pullImageMutation.isPending ? "Pulling..." : "Pull Update"}</span>
-                      </Button>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
+              <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+                <span className="text-muted-foreground">Target Repositories</span>
+                <div className="mt-1 space-y-1">
+                  {poolTargetList(pool).map((url) => (
+                    <div key={url} className="font-mono font-semibold text-foreground break-all">
+                      {url}
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-success font-medium">
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                      <span>Image is up-to-date with registry</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
-              )}
-
-              {checkUpdateMutation.isError && (
-                <div className="mt-3 flex items-center gap-1.5 text-xs text-destructive font-medium">
-                  <XCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>Check failed: {checkUpdateMutation.error.message}</span>
-                </div>
-              )}
-
-              {!checkUpdateMutation.isSuccess && !checkUpdateMutation.isError && poolUpdate && (
-                <div className="mt-3 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-warning font-medium">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    <span>
-                      Update available:{" "}
-                      <code className="font-mono text-[11px]">
-                        {poolUpdate.latestDigest.slice(0, 19)}...
-                      </code>
-                    </span>
-                  </div>
-                  <Button
-                    size="xs"
-                    onClick={() => pullImageMutation.mutate(poolIdBigInt)}
-                    disabled={pullImageMutation.isPending}
-                    className="bg-warning text-white hover:bg-warning/80"
-                  >
-                    {pullImageMutation.isPending ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : (
-                      <DownloadCloud data-icon="inline-start" />
-                    )}
-                    <span>{pullImageMutation.isPending ? "Pulling..." : "Pull Update"}</span>
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
-              <span className="text-muted-foreground">Max Job Lifetime Limit</span>
-              <div className="mt-1 font-semibold text-foreground">
-                {pool.maxRunnerLifetimeSeconds
-                  ? `${pool.maxRunnerLifetimeSeconds} seconds`
-                  : "7200s (2 hours)"}
               </div>
-            </div>
 
-            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">Runner Labels</span>
-                {labelsCopied && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success">
-                    <Check className="h-3 w-3" />
-                    Copied
-                  </span>
-                )}
+              <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+                <span className="text-muted-foreground">Git Provider</span>
+                <div className="mt-1 font-semibold text-foreground uppercase">{pool.provider}</div>
               </div>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
+
+              <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+                <span className="text-muted-foreground">Registration Scope</span>
+                <div className="mt-1 font-semibold text-foreground uppercase">
+                  {pool.scope || "repo"}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-muted/50 p-4 border border-border/60 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Runner Container Image</span>
                     <Button
-                      variant="ghost"
-                      aria-label="Copy labels"
-                      onClick={copyRunnerLabels}
-                      disabled={!pool.labels || pool.labels.length === 0}
-                      className="mt-1 h-auto w-full flex-wrap justify-start gap-1 text-left font-normal"
-                    />
-                  }
-                >
-                  {pool.labels && pool.labels.length > 0 ? (
-                    pool.labels.map((l) => (
-                      <span
-                        key={l}
-                        className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono text-foreground/80"
-                      >
-                        {l}
+                      variant="outline"
+                      size="xs"
+                      onClick={() => checkUpdateMutation.mutate(poolIdBigInt)}
+                      disabled={checkUpdateMutation.isPending}
+                    >
+                      {checkUpdateMutation.isPending ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : (
+                        <RefreshCw data-icon="inline-start" />
+                      )}
+                      <span>
+                        {checkUpdateMutation.isPending ? "Checking..." : "Check for Updates"}
                       </span>
-                    ))
-                  ) : (
-                    <span className="font-mono text-muted-foreground">
-                      self-hosted, linux, arm64
+                    </Button>
+                  </div>
+                  <div className="mt-1 font-mono font-semibold text-foreground break-all">
+                    {pool.runnerImage || "ghcr.io/noosxe/runnero:latest"}
+                  </div>
+                </div>
+
+                {checkUpdateMutation.isSuccess && (
+                  <div className="mt-3 text-xs">
+                    {checkUpdateMutation.data.updateAvailable ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-warning font-medium">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            Update available:{" "}
+                            <code className="font-mono text-[11px]">
+                              {checkUpdateMutation.data.update?.latestDigest
+                                ? `${checkUpdateMutation.data.update.latestDigest.slice(0, 19)}...`
+                                : "Newer version in registry"}
+                            </code>
+                          </span>
+                        </div>
+                        <Button
+                          size="xs"
+                          onClick={() => pullImageMutation.mutate(poolIdBigInt)}
+                          disabled={pullImageMutation.isPending}
+                          className="bg-warning text-white hover:bg-warning/80"
+                        >
+                          {pullImageMutation.isPending ? (
+                            <Spinner data-icon="inline-start" />
+                          ) : (
+                            <DownloadCloud data-icon="inline-start" />
+                          )}
+                          <span>{pullImageMutation.isPending ? "Pulling..." : "Pull Update"}</span>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-success font-medium">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                        <span>Image is up-to-date with registry</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {checkUpdateMutation.isError && (
+                  <div className="mt-3 flex items-center gap-1.5 text-xs text-destructive font-medium">
+                    <XCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>Check failed: {checkUpdateMutation.error.message}</span>
+                  </div>
+                )}
+
+                {!checkUpdateMutation.isSuccess && !checkUpdateMutation.isError && poolUpdate && (
+                  <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-warning font-medium">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Update available:{" "}
+                        <code className="font-mono text-[11px]">
+                          {poolUpdate.latestDigest.slice(0, 19)}...
+                        </code>
+                      </span>
+                    </div>
+                    <Button
+                      size="xs"
+                      onClick={() => pullImageMutation.mutate(poolIdBigInt)}
+                      disabled={pullImageMutation.isPending}
+                      className="bg-warning text-white hover:bg-warning/80"
+                    >
+                      {pullImageMutation.isPending ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : (
+                        <DownloadCloud data-icon="inline-start" />
+                      )}
+                      <span>{pullImageMutation.isPending ? "Pulling..." : "Pull Update"}</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+                <span className="text-muted-foreground">Max Job Lifetime Limit</span>
+                <div className="mt-1 font-semibold text-foreground">
+                  {pool.maxRunnerLifetimeSeconds
+                    ? `${pool.maxRunnerLifetimeSeconds} seconds`
+                    : "7200s (2 hours)"}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Runner Labels</span>
+                  {labelsCopied && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success">
+                      <Check className="h-3 w-3" />
+                      Copied
                     </span>
                   )}
+                </div>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        aria-label="Copy labels"
+                        onClick={copyRunnerLabels}
+                        disabled={!pool.labels || pool.labels.length === 0}
+                        className="mt-1 h-auto w-full flex-wrap justify-start gap-1 text-left font-normal"
+                      />
+                    }
+                  >
+                    {pool.labels && pool.labels.length > 0 ? (
+                      pool.labels.map((l) => (
+                        <span
+                          key={l}
+                          className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono text-foreground/80"
+                        >
+                          {l}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="font-mono text-muted-foreground">
+                        self-hosted, linux, arm64
+                      </span>
+                    )}
+                    {pool.labels && pool.labels.length > 0 && (
+                      <Copy className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    )}
+                  </TooltipTrigger>
                   {pool.labels && pool.labels.length > 0 && (
-                    <Copy className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <TooltipContent>
+                      Copy labels — pastes directly into a GitHub Actions runs-on list
+                    </TooltipContent>
                   )}
-                </TooltipTrigger>
-                {pool.labels && pool.labels.length > 0 && (
-                  <TooltipContent>
-                    Copy labels — pastes directly into a GitHub Actions runs-on list
-                  </TooltipContent>
-                )}
-              </Tooltip>
+                </Tooltip>
+              </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
       )}
 
@@ -926,76 +928,80 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             </CardAction>
           </CardHeader>
 
-          {/* Status Metrics Strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
-              <span className="text-[11px] font-medium text-muted-foreground">Bot State</span>
-              <div className="mt-1 flex items-center gap-2">
-                <Badge
-                  className={cn(
-                    "uppercase tracking-wider",
-                    isRunning
-                      ? "border-warning/30 bg-warning/10 text-warning"
-                      : status?.lastRun?.status === "success"
-                        ? "border-success/30 bg-success/10 text-success"
-                        : status?.lastRun?.status === "failure"
-                          ? "border-destructive/30 bg-destructive/10 text-destructive"
-                          : pool.renovate?.enabled
-                            ? "border-primary/30 bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
+          <CardContent>
+            {/* Status Metrics Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
+                <span className="text-[11px] font-medium text-muted-foreground">Bot State</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <Badge
+                    className={cn(
+                      "uppercase tracking-wider",
                       isRunning
-                        ? "bg-warning animate-ping"
+                        ? "border-warning/30 bg-warning/10 text-warning"
                         : status?.lastRun?.status === "success"
-                          ? "bg-success"
+                          ? "border-success/30 bg-success/10 text-success"
                           : status?.lastRun?.status === "failure"
-                            ? "bg-destructive"
+                            ? "border-destructive/30 bg-destructive/10 text-destructive"
                             : pool.renovate?.enabled
-                              ? "bg-primary"
-                              : "bg-muted-foreground"
-                    }`}
-                  />
-                  <span>
-                    {isRunning
-                      ? "Running"
-                      : status?.lastRun?.status ||
-                        (pool.renovate?.enabled ? "Scheduled" : "Disabled")}
-                  </span>
-                </Badge>
+                              ? "border-primary/30 bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        isRunning
+                          ? "bg-warning animate-ping"
+                          : status?.lastRun?.status === "success"
+                            ? "bg-success"
+                            : status?.lastRun?.status === "failure"
+                              ? "bg-destructive"
+                              : pool.renovate?.enabled
+                                ? "bg-primary"
+                                : "bg-muted-foreground"
+                      }`}
+                    />
+                    <span>
+                      {isRunning
+                        ? "Running"
+                        : status?.lastRun?.status ||
+                          (pool.renovate?.enabled ? "Scheduled" : "Disabled")}
+                    </span>
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Next Scheduled Run
+                </span>
+                <div className="mt-1 font-mono text-xs font-semibold text-foreground truncate">
+                  {status?.nextScheduledRun ||
+                    (pool.renovate?.enabled ? pool.renovate.cronSchedule : "Disabled")}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Last Execution
+                </span>
+                <div className="mt-1 text-xs font-medium text-foreground">
+                  {status?.lastRun?.startedAt
+                    ? new Date(status.lastRun.startedAt).toLocaleString()
+                    : "No runs yet"}
+                </div>
               </div>
             </div>
 
-            <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Next Scheduled Run
-              </span>
-              <div className="mt-1 font-mono text-xs font-semibold text-foreground truncate">
-                {status?.nextScheduledRun ||
-                  (pool.renovate?.enabled ? pool.renovate.cronSchedule : "Disabled")}
+            {status?.lastRun?.summary && (
+              <div className="mt-2 rounded-xl bg-muted/50 p-3 text-xs font-mono text-foreground/80 border border-border/60 whitespace-pre-wrap">
+                <div className="text-[10px] uppercase tracking-wider font-sans font-semibold text-muted-foreground mb-1">
+                  Latest Run Summary
+                </div>
+                {status.lastRun.summary}
               </div>
-            </div>
-
-            <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
-              <span className="text-[11px] font-medium text-muted-foreground">Last Execution</span>
-              <div className="mt-1 text-xs font-medium text-foreground">
-                {status?.lastRun?.startedAt
-                  ? new Date(status.lastRun.startedAt).toLocaleString()
-                  : "No runs yet"}
-              </div>
-            </div>
-          </div>
-
-          {status?.lastRun?.summary && (
-            <div className="mt-2 rounded-xl bg-muted/50 p-3 text-xs font-mono text-foreground/80 border border-border/60 whitespace-pre-wrap">
-              <div className="text-[10px] uppercase tracking-wider font-sans font-semibold text-muted-foreground mb-1">
-                Latest Run Summary
-              </div>
-              {status.lastRun.summary}
-            </div>
-          )}
+            )}
+          </CardContent>
         </Card>
 
         {/* Configuration Form */}
@@ -1004,68 +1010,70 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             <CardTitle>Bot Settings</CardTitle>
           </CardHeader>
 
-          <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
-                <span className="font-semibold text-foreground">Enable Managed Renovate</span>
-              </label>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Automatically scans and updates dependencies according to the schedule.
-              </p>
-            </div>
+          <CardContent>
+            <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
+                  <span className="font-semibold text-foreground">Enable Managed Renovate</span>
+                </label>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Automatically scans and updates dependencies according to the schedule.
+                </p>
+              </div>
 
-            <div>
-              <FieldLabel className="block dark:mb-1">Cron Schedule</FieldLabel>
-              <Input
-                type="text"
-                value={cronSchedule}
-                onChange={(e) => setCronSchedule(e.target.value)}
-                placeholder="0 3 * * 1"
-                className="font-mono text-xs"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Standard 5-part cron syntax (e.g., <code className="font-mono">0 3 * * 1</code> for
-                weekly Monday 3 AM).
-              </p>
-            </div>
+              <div>
+                <FieldLabel className="block dark:mb-1">Cron Schedule</FieldLabel>
+                <Input
+                  type="text"
+                  value={cronSchedule}
+                  onChange={(e) => setCronSchedule(e.target.value)}
+                  placeholder="0 3 * * 1"
+                  className="font-mono text-xs"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Standard 5-part cron syntax (e.g., <code className="font-mono">0 3 * * 1</code>{" "}
+                  for weekly Monday 3 AM).
+                </p>
+              </div>
 
-            <div>
-              <FieldLabel className="block dark:mb-1">Task Container Image</FieldLabel>
-              <Input
-                type="text"
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                placeholder="renovate/renovate:latest"
-                className="font-mono text-xs"
-              />
-            </div>
+              <div>
+                <FieldLabel className="block dark:mb-1">Task Container Image</FieldLabel>
+                <Input
+                  type="text"
+                  value={image}
+                  onChange={(e) => setImage(e.target.value)}
+                  placeholder="renovate/renovate:latest"
+                  className="font-mono text-xs"
+                />
+              </div>
 
-            {saveError && (
-              <Alert variant="destructive">
-                <AlertDescription>{saveError}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              type="submit"
-              size="sm"
-              disabled={updatePoolMutation.isPending}
-              className="w-full"
-            >
-              {updatePoolMutation.isPending ? (
-                <>
-                  <Spinner />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Save data-icon="inline-start" />
-                  <span>Save Bot Settings</span>
-                </>
+              {saveError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{saveError}</AlertDescription>
+                </Alert>
               )}
-            </Button>
-          </form>
+
+              <Button
+                type="submit"
+                size="sm"
+                disabled={updatePoolMutation.isPending}
+                className="w-full"
+              >
+                {updatePoolMutation.isPending ? (
+                  <>
+                    <Spinner />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save data-icon="inline-start" />
+                    <span>Save Bot Settings</span>
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
         </Card>
       </div>
 
