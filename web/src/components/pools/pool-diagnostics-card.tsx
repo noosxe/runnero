@@ -1,6 +1,8 @@
+import { cn } from "cn";
 import { PoolHealthStatus, type Pool } from "../../gen/api_pb";
 import { AlertTriangle, ArrowRight, KeyRound, ShieldAlert, Wrench } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { Card, CardContent } from "@/components/ui/card";
 
 export interface PoolDiagnosticsCardProps {
   pool: Pool;
@@ -83,7 +85,7 @@ function formatTimestamp(isoString?: string): string {
   }
 }
 
-export function PoolDiagnosticsCard({ pool, className = "" }: PoolDiagnosticsCardProps) {
+export function PoolDiagnosticsCard({ pool, className }: PoolDiagnosticsCardProps) {
   // Only render if pool is degraded or has an active reconciliation error
   if (pool.healthStatus !== PoolHealthStatus.DEGRADED && !pool.lastError) {
     return null;
@@ -93,37 +95,31 @@ export function PoolDiagnosticsCard({ pool, className = "" }: PoolDiagnosticsCar
   const formattedTime = formatTimestamp(pool.lastErrorTimestamp);
 
   return (
-    <div
-      className={`rounded-2xl border border-rose-300 bg-rose-50/70 p-5 shadow-xs dark:border-rose-900/60 dark:bg-rose-950/30 ${className}`}
-    >
-      <div className="flex items-start gap-3.5">
-        <div className="mt-0.5 rounded-xl bg-rose-100 p-2 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
+    <Card className={cn("gap-0 ring-destructive/25 bg-destructive/5", className)}>
+      <CardContent className="flex items-start gap-3.5">
+        <div className="mt-0.5 rounded-xl bg-destructive/10 p-2 text-destructive">
           <AlertTriangle className="h-5 w-5" />
         </div>
 
         <div className="flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-bold text-rose-900 dark:text-rose-200">
-              Reconciliation Failure Alert
-            </h3>
+            <h3 className="text-sm font-bold text-destructive">Reconciliation Failure Alert</h3>
             {pool.lastErrorCode && (
-              <span className="inline-flex items-center rounded-md bg-rose-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-rose-800 dark:bg-rose-900/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+              <span className="inline-flex items-center rounded-md border border-destructive/20 bg-destructive/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-destructive">
                 {pool.lastErrorCode}
               </span>
             )}
             {formattedTime && (
-              <span className="text-xs text-rose-600/80 dark:text-rose-400/80">
-                • Occurred at {formattedTime}
-              </span>
+              <span className="text-xs text-destructive/80">• Occurred at {formattedTime}</span>
             )}
           </div>
 
-          <div className="rounded-xl border border-rose-200/80 bg-white/80 p-3 text-xs font-mono text-rose-800 dark:border-rose-900/40 dark:bg-slate-900/80 dark:text-rose-300 break-words">
+          <div className="rounded-xl border border-destructive/20 bg-background/80 p-3 text-xs font-mono text-foreground/90 break-words">
             {pool.lastError || "Unknown reconciliation error encountered"}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-1">
-            <div className="flex items-start gap-1.5 text-xs text-rose-700 dark:text-rose-300/90">
+          <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-1.5 text-xs text-destructive/90">
               <Wrench className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{remediation.suggestion}</span>
             </div>
@@ -131,7 +127,7 @@ export function PoolDiagnosticsCard({ pool, className = "" }: PoolDiagnosticsCar
             {remediation.actionHref && (
               <Link
                 to={remediation.actionHref}
-                className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-500 dark:bg-rose-500 dark:hover:bg-rose-600"
+                className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-destructive px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-destructive/90"
               >
                 {remediation.actionHref === "/profiles" ? (
                   <KeyRound className="h-3.5 w-3.5" />
@@ -144,7 +140,7 @@ export function PoolDiagnosticsCard({ pool, className = "" }: PoolDiagnosticsCar
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

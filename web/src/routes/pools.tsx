@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { usePools, useAuthProfiles, useSession } from "../lib/api/query-hooks";
@@ -277,15 +278,12 @@ export function PoolsPage() {
             const utilization = Math.min(100, Math.round((p.activeRunners / maxConcurrency) * 100));
 
             return (
-              <div
-                key={p.id.toString()}
-                className="group relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-xs transition-all hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-              >
-                <div>
+              <Card key={p.id.toString()} className="group relative">
+                <CardContent>
                   {/* Pool Header */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
                         {p.name}
                       </h3>
                       {poolTargetList(p).length > 1 && (
@@ -294,8 +292,8 @@ export function PoolsPage() {
                         </div>
                       )}
                       {p.currentIntent && (
-                        <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 italic flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 inline-block shrink-0" />
+                        <p className="mt-1.5 text-xs text-muted-foreground italic flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block shrink-0" />
                           <span className="truncate">{p.currentIntent}</span>
                         </p>
                       )}
@@ -303,33 +301,33 @@ export function PoolsPage() {
 
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <PoolHealthBadge status={p.healthStatus} size="sm" />
-                      <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 uppercase tracking-wider dark:bg-blue-950/50 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary uppercase tracking-wider">
                         {p.provider}
                       </span>
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 uppercase tracking-wider dark:bg-slate-800 dark:text-slate-300">
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         {p.scope || "repo"}
                       </span>
                     </div>
                   </div>
 
                   {p.healthStatus === PoolHealthStatus.DEGRADED && (
-                    <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-xs text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                    <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-foreground/90">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 min-w-0">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-rose-900 dark:text-rose-200">
+                              <span className="font-semibold text-destructive">
                                 Reconciliation Error
                               </span>
                               {p.lastErrorCode && (
-                                <span className="font-mono text-[10px] bg-rose-100 dark:bg-rose-900/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800">
+                                <span className="font-mono text-[10px] bg-destructive/10 px-1.5 py-0.5 rounded border border-destructive/20">
                                   {p.lastErrorCode}
                                 </span>
                               )}
                             </div>
                             {p.lastError && (
-                              <p className="mt-1 font-mono text-[11px] break-words line-clamp-2 text-rose-700 dark:text-rose-300">
+                              <p className="mt-1 font-mono text-[11px] break-words line-clamp-2 text-destructive/90">
                                 {p.lastError}
                               </p>
                             )}
@@ -338,7 +336,7 @@ export function PoolsPage() {
                         {p.lastErrorCode?.includes("AUTH") && (
                           <Link
                             to="/profiles"
-                            className="shrink-0 text-[11px] font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100 underline decoration-rose-400"
+                            className="shrink-0 text-[11px] font-semibold text-destructive hover:text-destructive/80 underline decoration-destructive/40"
                           >
                             Fix Auth &rarr;
                           </Link>
@@ -349,23 +347,23 @@ export function PoolsPage() {
 
                   {/* Utilization Progress Bar */}
                   <div className="mt-5">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <Activity className="h-3.5 w-3.5 text-emerald-500" />
+                        <Activity className="h-3.5 w-3.5 text-success" />
                         <span>Capacity Utilization</span>
                       </span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="font-semibold text-foreground">
                         {p.activeRunners} / {p.maxConcurrency} ({utilization}%)
                       </span>
                     </div>
-                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
                       <div
                         className={`h-full transition-all duration-500 rounded-full ${
                           utilization > 85
-                            ? "bg-rose-500"
+                            ? "bg-destructive"
                             : utilization > 60
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
+                              ? "bg-warning"
+                              : "bg-success"
                         }`}
                         style={{ width: `${utilization}%` }}
                       />
@@ -373,16 +371,16 @@ export function PoolsPage() {
                   </div>
 
                   {/* Metrics Grid */}
-                  <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-center text-xs dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800/80">
+                  <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3 text-center text-xs border border-border/60">
                     <div>
-                      <span className="text-slate-400">Active</span>
-                      <div className="mt-0.5 text-base font-bold text-slate-900 dark:text-white">
+                      <span className="text-muted-foreground">Active</span>
+                      <div className="mt-0.5 text-base font-bold text-foreground">
                         {p.activeRunners}
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-400">Idle Warm Target</span>
-                      <div className="mt-0.5 text-base font-bold text-slate-900 dark:text-white">
+                      <span className="text-muted-foreground">Idle Warm Target</span>
+                      <div className="mt-0.5 text-base font-bold text-foreground">
                         {p.minIdleRunners}
                         {p.healthStatus === PoolHealthStatus.DEGRADED && p.minIdleRunners > 0 && (
                           <span className="ml-1 text-[10px] font-normal text-rose-600 dark:text-rose-400">
@@ -397,37 +395,37 @@ export function PoolsPage() {
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-400">Max Limit</span>
-                      <div className="mt-0.5 text-base font-bold text-slate-900 dark:text-white">
+                      <span className="text-muted-foreground">Max Limit</span>
+                      <div className="mt-0.5 text-base font-bold text-foreground">
                         {p.maxConcurrency}
                       </div>
                     </div>
                   </div>
 
                   {/* Badges / Specs Strip */}
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      <Cpu className="h-3 w-3 text-slate-400" />
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground/80">
+                      <Cpu className="h-3 w-3 text-muted-foreground" />
                       {p.cpuLimit || "2"} CPU
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      <HardDrive className="h-3 w-3 text-slate-400" />
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground/80">
+                      <HardDrive className="h-3 w-3 text-muted-foreground" />
                       {p.memoryLimit || "4G"} Mem
                     </span>
                     {p.allowDocker && (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900">
+                      <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-0.5 font-medium text-success">
                         <Shield className="h-3 w-3" />
                         Docker Enabled
                       </span>
                     )}
                   </div>
-                </div>
+                </CardContent>
 
                 {/* Footer Link */}
-                <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
-                  <span className="text-xs text-slate-400">
+                <CardFooter className="border-t justify-between">
+                  <span className="text-xs text-muted-foreground">
                     Image:{" "}
-                    <span className="font-mono text-slate-600 dark:text-slate-300">
+                    <span className="font-mono text-foreground/80">
                       {p.runnerImage ? p.runnerImage.split("/").pop() : "runnero:latest"}
                     </span>
                   </span>
@@ -445,14 +443,14 @@ export function PoolsPage() {
                     <Link
                       to="/pools/$poolId"
                       params={{ poolId: p.id.toString() }}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/90 transition-colors"
                     >
                       <span>View Pool Details</span>
                       <ArrowUpRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
-                </div>
-              </div>
+                </CardFooter>
+              </Card>
             );
           })}
         </div>

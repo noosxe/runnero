@@ -427,7 +427,7 @@ export function PoolWizardModal({
         </DialogHeader>
 
         {/* Step Progress Stepper */}
-        <div className="mt-4 flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+        <div className="mt-4 flex items-center justify-between border-b border-border/60 pb-4">
           {[
             { step: 1, label: "Identity & Auth" },
             { step: 2, label: "Scope & Discovery" },
@@ -441,10 +441,10 @@ export function PoolWizardModal({
                 <div
                   className={`flex h-6 w-6 items-center justify-center rounded-full font-bold transition-colors ${
                     isCompleted
-                      ? "bg-emerald-600 text-white"
+                      ? "bg-success text-white"
                       : isActive
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-100 text-slate-400 dark:bg-slate-800"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {isCompleted ? <Check className="h-3.5 w-3.5" /> : s.step}
@@ -452,10 +452,10 @@ export function PoolWizardModal({
                 <span
                   className={`font-semibold hidden sm:inline ${
                     isActive
-                      ? "text-blue-600 dark:text-blue-400"
+                      ? "text-primary"
                       : isCompleted
-                        ? "text-slate-900 dark:text-white"
-                        : "text-slate-400"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
                   }`}
                 >
                   {s.label}
@@ -694,8 +694,8 @@ export function PoolWizardModal({
 
               {!isDiscovering && !discoveryError && discoveredTargets.length === 0 && (
                 <div className="py-8 px-4 text-center">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/60 mb-2.5">
-                    <FolderGit2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 mb-2.5">
+                    <FolderGit2 className="h-5 w-5 text-primary" />
                   </div>
                   <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
                     {installUrl
@@ -711,9 +711,9 @@ export function PoolWizardModal({
                     <div className="mt-3.5">
                       <a
                         href={installUrl}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 shadow-xs transition-colors"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         <span>Install GitHub App on Your Account</span>
