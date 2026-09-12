@@ -284,4 +284,21 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
 | Select behavioral change breaks flows | RUN-171 is isolated; controlled state kept; owner walks wizard + onboarding |
 | Base UI is newer than Radix (smaller ecosystem track record) | Decided (§4.1); the skill's base-vs-radix rules plus per-base `shadcn docs` URLs resolve API differences (`render` vs `asChild`, toast) |
 | recharts adds ~100 kB gzipped for the queue-latency chart | Accepted (RUN-177): Charts consume the preset's `--chart-*` tokens, so future analytics widgets reuse the same foundation |
+
+## 10. Close-out sweep (RUN-178, milestone close)
+
+Grep sweeps over `web/src` (excluding `components/ui/` and tests), run at close:
+
+| Axis | Result |
+| :--- | :--- |
+| Ad-hoc modal overlays (`fixed inset-0` outside `ui/`) | **0** — Dialog/AlertDialog/Sheet cover all overlays |
+| Native `title` tooltips outside `ui/` | **0** — Tooltip covers row/app actions |
+| Bare `<select>` outside `ui/` | **0** — Select / Native Select per mapping |
+| Bare `<table>` outside `ui/` | **0** — Table primitives only |
+| Dashed empty-state panels outside `ui/` | **0** — `empty` adopted everywhere (RUN-180) |
+| Structural card shells (`rounded-2xl border border-slate-200 …`) | **0 on migrated routes**; residual hand-rolled signatures remain on surfaces no adoption phase covered (onboarding, login, history-detail, renovate/settings panels, pool poll status, dashboard/pools warning strips) — ticketed on Linear |
+| Raw palette classes outside `ui/` | **~805 occurrences / 18 files** (largest: wizard ~76, onboarding ~79, settings ~50, dashboard ~31, log-terminal ~28 — the latter inside the deliberate custom core) — ticketed on Linear as a post-milestone tokenization pass |
+| `cn()` usage | confirmed — `clsx` + `tailwind-merge` compose all conditional classes |
+
+Interpretation: every component axis the milestone planned (§5) has **no bespoke duplicates left**; what remains is legacy *interior styling* on surfaces the per-surface phases never touched — styling debt, not missing primitives. Per §3 rule 5 these are ticketed rather than folded into the close-out PR. The milestone is closed with that debt explicit.
 | Visual regressions across 10 routes | One surface class per PR; E2E + owner visual checks per PR |

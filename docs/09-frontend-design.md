@@ -49,7 +49,10 @@ App-specific additions (re-add if `apply --preset` rewrites index.css):
   --warning  oklch(0.666 0.179 58.318) degraded states (= preset's --chart-3 amber)
 ```
 
-The legacy hard-coded slate/emerald palette in earlier revisions of this section described pre-migration styles; it is superseded per-surface as the migration tasks (docs/27, RUN-168+) replace them.
+
+### 1.3.1 Component System (shadcn/ui) — as built
+
+The component language is **shadcn/ui** (Base UI primitives), installed only via `pnpm dlx shadcn@latest add <component>` in `web/` and vendored into `web/src/components/ui/` — those files are never edited by hand; customization happens through composition, CSS variables, and config. App code references the primitives from there (`Button`, `Card`, `Dialog`, `Table`, `Empty`, `Chart`, …) and styles exclusively with the semantic tokens above; raw palette classes (`bg-blue-600`) are legacy and are being tokenized surface-by-surface (tracked on Linear, see the docs/27 close-out sweep for the residual counts). Binding rules, the adoption map, and per-phase history live in `docs/27-shadcn-ui-migration.md` — the source of truth for the component system. The streaming log viewer core (`components/terminal/log-terminal.tsx`) is deliberately custom (streaming, autoscroll, search — no registry equivalent); only its toolbar chrome is on shadcn primitives.
 
 ---
 
