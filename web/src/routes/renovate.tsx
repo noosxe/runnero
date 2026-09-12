@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,48 +55,40 @@ export function RenovatePage() {
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <Card size="sm" className="p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Configured Pools
-            </span>
-            <Layers className="h-4 w-4 text-slate-400" />
+            <span className="text-xs font-medium text-muted-foreground">Configured Pools</span>
+            <Layers className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{totalPools}</span>
-            <span className="text-xs text-slate-400">total pools</span>
+            <span className="text-2xl font-bold text-foreground">{totalPools}</span>
+            <span className="text-xs text-muted-foreground">total pools</span>
           </div>
-        </div>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <Card size="sm" className="p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Renovate Active
-            </span>
-            <Bot className="h-4 w-4 text-emerald-500" />
+            <span className="text-xs font-medium text-muted-foreground">Renovate Active</span>
+            <Bot className="h-4 w-4 text-success" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {enabledPools}
-            </span>
-            <span className="text-xs text-slate-400">of {totalPools} pools scheduled</span>
+            <span className="text-2xl font-bold text-success">{enabledPools}</span>
+            <span className="text-xs text-muted-foreground">of {totalPools} pools scheduled</span>
           </div>
-        </div>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <Card size="sm" className="p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Automation Coverage
-            </span>
-            <Calendar className="h-4 w-4 text-blue-500" />
+            <span className="text-xs font-medium text-muted-foreground">Automation Coverage</span>
+            <Calendar className="h-4 w-4 text-primary" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">
+            <span className="text-2xl font-bold text-foreground">
               {totalPools > 0 ? Math.round((enabledPools / totalPools) * 100) : 0}%
             </span>
-            <span className="text-xs text-slate-400">pools covered</span>
+            <span className="text-xs text-muted-foreground">pools covered</span>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Pools Renovate List */}
@@ -128,7 +121,7 @@ export function RenovatePage() {
             </EmptyContent>
           </Empty>
         ) : (
-          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+          <Card className="py-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -147,7 +140,7 @@ export function RenovatePage() {
                 </TableBody>
               </Table>
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { cn } from "cn";
@@ -134,30 +135,30 @@ export function PoolsPage() {
 
       {/* Missing Auth Profile Warning Banner */}
       {!hasAuthProfiles && !authProfilesLoading && (
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="flex-1 space-y-1">
-            <p className="font-semibold text-slate-900 dark:text-white">
-              Git Authentication Profile Required
-            </p>
-            <p className="text-[11px] text-amber-700 dark:text-amber-400">
-              Runner pools require upstream credentials to register ephemeral runners with GitHub,
-              Gitea, or Forgejo. Connect an auth profile first or run through the setup wizard.
-            </p>
-          </div>
-          <Link
-            to="/profiles"
-            className="shrink-0 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
-          >
-            Configure Profile &rarr;
-          </Link>
-        </div>
+        <Alert className="border-warning/30 bg-warning/10">
+          <Info className="text-warning" />
+          <AlertTitle className="font-semibold text-warning">
+            Git Authentication Profile Required
+          </AlertTitle>
+          <AlertDescription className="text-foreground/80">
+            Runner pools require upstream credentials to register ephemeral runners with GitHub,
+            Gitea, or Forgejo. Connect an auth profile first or run through the setup wizard.
+          </AlertDescription>
+          <AlertAction>
+            <Link
+              to="/profiles"
+              className="shrink-0 rounded-xl bg-warning px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-warning/90"
+            >
+              Configure Profile &rarr;
+            </Link>
+          </AlertAction>
+        </Alert>
       )}
 
       {/* Filters Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+      <Card size="sm" className="gap-3 p-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             value={search}
@@ -239,7 +240,7 @@ export function PoolsPage() {
             </SelectContent>
           </Select>
         </div>
-      </div>
+      </Card>
 
       {/* Pools Grid */}
       {isLoading ? (

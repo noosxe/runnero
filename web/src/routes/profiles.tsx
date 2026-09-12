@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -91,32 +92,29 @@ export function ProfilesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {profiles.map((prof) => (
-            <div
-              key={prof.id.toString()}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between"
-            >
+            <Card key={prof.id.toString()} size="sm" className="flex flex-col justify-between p-4">
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-white">{prof.name}</span>
-                  <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  <span className="font-bold text-foreground">{prof.name}</span>
+                  <span className="rounded-md bg-muted/50 px-2.5 py-1 text-xs font-semibold uppercase text-foreground/80">
                     {prof.authMethod}
                   </span>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                    <ShieldCheck className="h-4 w-4 text-success" />
                     <span>Encrypted AES-256 (Write-Only)</span>
                   </div>
 
                   {(prof.hasPrivateKey || prof.hasToken) && (
-                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    <span className="rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-foreground/80">
                       {prof.hasPrivateKey ? "Private Key: Configured" : "Token: Configured"}
                     </span>
                   )}
 
                   {prof.authMethod === "github_app" &&
                     (prof.installationsCount > 0 ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                      <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
                         <CheckCircle2 className="h-3 w-3" />
                         <span>
                           Installed on {prof.installationsCount}{" "}
@@ -124,7 +122,7 @@ export function ProfilesPage() {
                         </span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                      <span className="inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
                         <AlertCircle className="h-3 w-3" />
                         <span>Not Installed</span>
                       </span>
@@ -132,7 +130,7 @@ export function ProfilesPage() {
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+              <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-3">
                 <div>
                   {prof.authMethod === "github_app" && prof.installUrl && (
                     <a
@@ -141,8 +139,8 @@ export function ProfilesPage() {
                       rel="noopener noreferrer"
                       className={`inline-flex items-center gap-1 text-xs font-semibold ${
                         prof.installationsCount === 0
-                          ? "text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                          : "text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                          ? "text-primary hover:text-primary/80"
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -174,7 +172,7 @@ export function ProfilesPage() {
                   </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

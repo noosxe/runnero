@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "cn";
@@ -134,34 +135,34 @@ export function DashboardPage() {
 
       {/* Degraded Pool Warning Banner */}
       {degradedPools.length > 0 && (
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-xs text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200 shadow-xs">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
-          <div className="flex-1 min-w-0 space-y-1">
-            <p className="font-semibold text-rose-900 dark:text-rose-100">
-              {degradedPools.length === 1
-                ? `Runner Pool "${degradedPools[0].name}" is Degraded`
-                : `${degradedPools.length} Runner Pools are Degraded`}
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertTitle className="font-semibold">
+            {degradedPools.length === 1
+              ? `Runner Pool "${degradedPools[0].name}" is Degraded`
+              : `${degradedPools.length} Runner Pools are Degraded`}
+          </AlertTitle>
+          <AlertDescription className="text-xs">
+            Runner provisioning or reconciliation encountered errors. Inspect diagnostics to resolve
+            configuration or credential issues.
+          </AlertDescription>
+          {degradedPools.length === 1 && degradedPools[0].lastError && (
+            <p className="mt-1 truncate font-mono text-[11px] text-destructive/90">
+              {degradedPools[0].lastError}
             </p>
-            <p className="text-[11px] text-rose-700 dark:text-rose-300">
-              Runner provisioning or reconciliation encountered errors. Inspect diagnostics to
-              resolve configuration or credential issues.
-            </p>
-            {degradedPools.length === 1 && degradedPools[0].lastError && (
-              <p className="mt-1 font-mono text-[11px] text-rose-800 dark:text-rose-300 truncate">
-                {degradedPools[0].lastError}
-              </p>
-            )}
-          </div>
-          <Link
-            to={degradedPools.length === 1 ? "/pools/$poolId" : "/pools"}
-            params={
-              degradedPools.length === 1 ? { poolId: degradedPools[0].id.toString() } : undefined
-            }
-            className="shrink-0 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600"
-          >
-            Inspect Diagnostics &rarr;
-          </Link>
-        </div>
+          )}
+          <AlertAction>
+            <Link
+              to={degradedPools.length === 1 ? "/pools/$poolId" : "/pools"}
+              params={
+                degradedPools.length === 1 ? { poolId: degradedPools[0].id.toString() } : undefined
+              }
+              className="shrink-0 rounded-xl bg-destructive px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-destructive/90"
+            >
+              Inspect Diagnostics &rarr;
+            </Link>
+          </AlertAction>
+        </Alert>
       )}
 
       {/* Primary KPI Cards */}
@@ -402,7 +403,7 @@ export function DashboardPage() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+          <Card className="py-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -459,7 +460,7 @@ export function DashboardPage() {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         )}
       </div>
     </div>

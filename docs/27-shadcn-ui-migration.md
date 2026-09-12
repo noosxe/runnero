@@ -224,6 +224,7 @@ on every re-application. Our own wrappers and routes remain fully gated.
 | inline notification banner, ad-hoc loaders | Alert (pool status banner, image-update notices, renovate save errors), toast (Base UI; settings/renovate/pool-detail transient feedback), Skeleton (route + widget loading states), Spinner (in-button pending) | 4 alert sites / 4 toast sites / 9 skeleton sites / 12 spinner sites; Progress component available but no genuine-percent site exists yet | RUN-176 |
 | hand-rolled SVG line chart | Chart (recharts; ChartContainer/Area/ChartTooltip, threshold ReferenceLines, `--chart-*` tokens only) | 1 chart (queue-latency); capacity-health/success-failure widgets are future candidates | RUN-177 |
 | last hand-rolled dashed empty panels (pools list/filter, profiles) | Empty (icon media, header, content CTA) | 2 panels / 2 routes | RUN-180 |
+| hand-rolled card shells on unmigrated surfaces (onboarding wizard shell + GitHub-App callout, login card, history-detail summary, renovate/settings KPI & tab panels, pool-poll-status, queue-latency chart shell, dashboard/pools warning strips → Alert, history/renovate/settings/dashboard flush table cards) | Card (`size="sm"` p-4 panels, `py-0` + overflow-hidden tables, `gap-0` free-form shells), Alert (destructive/warning strips), semantic tokens throughout each converted panel | ~20 shells / 10 files | RUN-185 |
 
 ## 6. Migration plan
 
@@ -296,7 +297,7 @@ Grep sweeps over `web/src` (excluding `components/ui/` and tests), run at close:
 | Bare `<select>` outside `ui/` | **0** — Select / Native Select per mapping |
 | Bare `<table>` outside `ui/` | **0** — Table primitives only |
 | Dashed empty-state panels outside `ui/` | **0** — `empty` adopted everywhere (RUN-180) |
-| Structural card shells (`rounded-2xl border border-slate-200 …`) | **0 on migrated routes**; residual hand-rolled signatures remain on surfaces no adoption phase covered (onboarding, login, history-detail, renovate/settings panels, pool poll status, dashboard/pools warning strips) — ticketed on Linear |
+| Structural card shells (`rounded-2xl border border-slate-200 …`) | **0 outside `ui/`** — every structural shell is the Card primitive or an Alert strip (RUN-185 converted the post-close residuals; log-viewer core exempt by carve-out) |
 | Raw palette classes outside `ui/` | **~805 occurrences / 18 files** (largest: wizard ~76, onboarding ~79, settings ~50, dashboard ~31, log-terminal ~28 — the latter inside the deliberate custom core) — ticketed on Linear as a post-milestone tokenization pass |
 | `cn()` usage | confirmed — `clsx` + `tailwind-merge` compose all conditional classes |
 

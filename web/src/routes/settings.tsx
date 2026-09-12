@@ -4,6 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
@@ -167,18 +175,18 @@ export function SettingsPage() {
 
       {/* Tab: Global Constraints */}
       {activeTab === "constraints" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-100 pb-4 dark:border-slate-800">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base font-bold">
               System Concurrency & Resource Limits
-            </h2>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            </CardTitle>
+            <CardDescription className="text-xs">
               Host-wide guardrails enforced across all runner pools to prevent resource exhaustion.
-            </p>
-          </div>
+            </CardDescription>
+          </CardHeader>
 
           {settingsLoading ? (
-            <div className="mt-6 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
+            <CardContent className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="space-y-1.5">
                   <Skeleton className="h-3 w-24" />
@@ -186,181 +194,185 @@ export function SettingsPage() {
                 </div>
               ))}
               <Skeleton className="h-9 w-32" />
-            </div>
+            </CardContent>
           ) : (
-            <form onSubmit={handleSaveConstraints} className="mt-6 space-y-6 max-w-2xl">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Total Allowed Runners */}
-                <div className="space-y-1.5">
-                  <FieldLabel
-                    htmlFor="total_allowed_runners"
-                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
-                  >
-                    <Layers className="h-3.5 w-3.5 text-blue-500" />
-                    <span>Global Runner Quota</span>
-                  </FieldLabel>
-                  <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <Input
-                      id="total_allowed_runners"
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={totalAllowedRunners}
-                      onChange={(e) =>
-                        setLocalOverrides((prev) => ({
-                          ...prev,
-                          total_allowed_runners: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
-                    />
-                    <span className="flex items-center px-3 text-xs text-slate-400">runners</span>
+            <CardContent className="max-w-2xl">
+              <form onSubmit={handleSaveConstraints} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Total Allowed Runners */}
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      htmlFor="total_allowed_runners"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                    >
+                      <Layers className="h-3.5 w-3.5 text-blue-500" />
+                      <span>Global Runner Quota</span>
+                    </FieldLabel>
+                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                      <Input
+                        id="total_allowed_runners"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={totalAllowedRunners}
+                        onChange={(e) =>
+                          setLocalOverrides((prev) => ({
+                            ...prev,
+                            total_allowed_runners: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                      />
+                      <span className="flex items-center px-3 text-xs text-slate-400">runners</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Maximum concurrent active containers across all pools combined.
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Maximum concurrent active containers across all pools combined.
-                  </p>
+
+                  {/* Warm Idle Pool Limit */}
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      htmlFor="total_idle_warm_pool"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                    >
+                      <Clock className="h-3.5 w-3.5 text-indigo-500" />
+                      <span>Warm Idle Pool Limit</span>
+                    </FieldLabel>
+                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                      <Input
+                        id="total_idle_warm_pool"
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={totalIdleWarmPool}
+                        onChange={(e) =>
+                          setLocalOverrides((prev) => ({
+                            ...prev,
+                            total_idle_warm_pool: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                      />
+                      <span className="flex items-center px-3 text-xs text-slate-400">runners</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Maximum standby idle runners kept warm for instant job dispatch.
+                    </p>
+                  </div>
+
+                  {/* Graceful Shutdown Timeout */}
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      htmlFor="graceful_shutdown_timeout"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                    >
+                      <Clock className="h-3.5 w-3.5 text-amber-500" />
+                      <span>Graceful Drain Timeout</span>
+                    </FieldLabel>
+                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                      <Input
+                        id="graceful_shutdown_timeout"
+                        type="number"
+                        min="30"
+                        max="3600"
+                        value={gracefulShutdownTimeout}
+                        onChange={(e) =>
+                          setLocalOverrides((prev) => ({
+                            ...prev,
+                            graceful_shutdown_timeout: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                      />
+                      <span className="flex items-center px-3 text-xs text-slate-400">seconds</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Maximum time to await active workflow completion before SIGKILL.
+                    </p>
+                  </div>
+
+                  {/* History Retention Period */}
+                  <div className="space-y-1.5">
+                    <FieldLabel
+                      htmlFor="job_retention_days"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>History Retention Period</span>
+                    </FieldLabel>
+                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                      <Input
+                        id="job_retention_days"
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={jobRetentionDays}
+                        onChange={(e) =>
+                          setLocalOverrides((prev) => ({
+                            ...prev,
+                            job_retention_days: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                      />
+                      <span className="flex items-center px-3 text-xs text-slate-400">days</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Automated background pruning threshold for finished jobs and log files.
+                    </p>
+                  </div>
                 </div>
 
-                {/* Warm Idle Pool Limit */}
-                <div className="space-y-1.5">
-                  <FieldLabel
-                    htmlFor="total_idle_warm_pool"
-                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
-                  >
-                    <Clock className="h-3.5 w-3.5 text-indigo-500" />
-                    <span>Warm Idle Pool Limit</span>
-                  </FieldLabel>
-                  <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <Input
-                      id="total_idle_warm_pool"
-                      type="number"
-                      min="0"
-                      max="20"
-                      value={totalIdleWarmPool}
-                      onChange={(e) =>
-                        setLocalOverrides((prev) => ({
-                          ...prev,
-                          total_idle_warm_pool: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
-                    />
-                    <span className="flex items-center px-3 text-xs text-slate-400">runners</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Maximum standby idle runners kept warm for instant job dispatch.
-                  </p>
+                {/* Submit Actions */}
+                <div className="flex items-center gap-3 pt-2">
+                  <Button type="submit" size="sm" disabled={isSaving}>
+                    {isSaving ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <Save data-icon="inline-start" />
+                    )}
+                    <span>{isSaving ? "Saving..." : "Save Changes"}</span>
+                  </Button>
                 </div>
-
-                {/* Graceful Shutdown Timeout */}
-                <div className="space-y-1.5">
-                  <FieldLabel
-                    htmlFor="graceful_shutdown_timeout"
-                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
-                  >
-                    <Clock className="h-3.5 w-3.5 text-amber-500" />
-                    <span>Graceful Drain Timeout</span>
-                  </FieldLabel>
-                  <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <Input
-                      id="graceful_shutdown_timeout"
-                      type="number"
-                      min="30"
-                      max="3600"
-                      value={gracefulShutdownTimeout}
-                      onChange={(e) =>
-                        setLocalOverrides((prev) => ({
-                          ...prev,
-                          graceful_shutdown_timeout: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
-                    />
-                    <span className="flex items-center px-3 text-xs text-slate-400">seconds</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Maximum time to await active workflow completion before SIGKILL.
-                  </p>
-                </div>
-
-                {/* History Retention Period */}
-                <div className="space-y-1.5">
-                  <FieldLabel
-                    htmlFor="job_retention_days"
-                    className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
-                  >
-                    <Calendar className="h-3.5 w-3.5 text-emerald-500" />
-                    <span>History Retention Period</span>
-                  </FieldLabel>
-                  <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                    <Input
-                      id="job_retention_days"
-                      type="number"
-                      min="1"
-                      max="365"
-                      value={jobRetentionDays}
-                      onChange={(e) =>
-                        setLocalOverrides((prev) => ({
-                          ...prev,
-                          job_retention_days: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
-                    />
-                    <span className="flex items-center px-3 text-xs text-slate-400">days</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Automated background pruning threshold for finished jobs and log files.
-                  </p>
-                </div>
-              </div>
-
-              {/* Submit Actions */}
-              <div className="flex items-center gap-3 pt-2">
-                <Button type="submit" size="sm" disabled={isSaving}>
-                  {isSaving ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : (
-                    <Save data-icon="inline-start" />
-                  )}
-                  <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                </Button>
-              </div>
-            </form>
+              </form>
+            </CardContent>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Tab: Runner Image Updates */}
       {activeTab === "images" && (
         <div className="space-y-6">
           {/* Action Strip */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Runner Image Update Management
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Periodically verifies upstream container image digests (GHCR, Docker Hub) and pulls
-                updates gracefully.
-              </p>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCheckUpdatesAll}
-              disabled={isCheckingUpdates || !pools || pools.length === 0}
-            >
-              {isCheckingUpdates ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <RefreshCw data-icon="inline-start" />
-              )}
-              <span>{isCheckingUpdates ? "Checking Updates..." : "Check All Pools Now"}</span>
-            </Button>
-          </div>
-
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle className="text-base font-bold">
+                  Runner Image Update Management
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Periodically verifies upstream container image digests (GHCR, Docker Hub) and
+                  pulls updates gracefully.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardAction>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCheckUpdatesAll}
+                disabled={isCheckingUpdates || !pools || pools.length === 0}
+              >
+                {isCheckingUpdates ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <RefreshCw data-icon="inline-start" />
+                )}
+                <span>{isCheckingUpdates ? "Checking Updates..." : "Check All Pools Now"}</span>
+              </Button>
+            </CardAction>
+          </Card>
           {/* Pending Notifications */}
           {updates && updates.length > 0 ? (
             <div className="space-y-2">
@@ -380,8 +392,8 @@ export function SettingsPage() {
           )}
 
           {/* Pools Image Registry Overview */}
-          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
-            <div className="border-b p-4">
+          <Card className="py-0">
+            <div className="border-b border-border/60 p-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Configured Pool Images
               </h3>
@@ -424,47 +436,47 @@ export function SettingsPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Tab: Database & Retention */}
       {activeTab === "backups" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-6">
-          <div className="border-b border-slate-100 pb-4 dark:border-slate-800">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+        <Card className="px-(--card-spacing)">
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="text-base font-bold">
               Database Retention & Periodic Cleanup
-            </h2>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            </CardTitle>
+            <CardDescription className="text-xs">
               Automatic pruning of historical job records and compressed JSONL log files.
-            </p>
-          </div>
+            </CardDescription>
+          </CardHeader>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
-                <Archive className="h-4 w-4 text-blue-500" />
+            <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <Archive className="h-4 w-4 text-primary" />
                 <span>Pruning Interval</span>
               </div>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Retention window active:{" "}
-                <strong className="text-slate-900 dark:text-white">{jobRetentionDays} days</strong>.
-                Records older than this threshold are pruned hourly.
+                <strong className="text-foreground">{jobRetentionDays} days</strong>. Records older
+                than this threshold are pruned hourly.
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
-                <Database className="h-4 w-4 text-emerald-500" />
+            <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <Database className="h-4 w-4 text-success" />
                 <span>Storage Engine</span>
               </div>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Embedded SQLite engine with WAL mode and atomic transactions in{" "}
                 <code>DATA_DIR/supervisor.db</code>.
               </p>
             </div>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

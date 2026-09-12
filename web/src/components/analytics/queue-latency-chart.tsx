@@ -7,6 +7,15 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "cn";
 import type { LatencyBucket } from "../../gen/api_pb";
 import { CapacityHealthBadge } from "./capacity-health-badge";
@@ -82,27 +91,22 @@ export function QueueLatencyChart({
   }, [points]);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <Card>
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-blue-500" />
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Queue Wait-Time Latency
-            </h2>
-          </div>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Dispatch latency (<code>started_at − queued_at</code>) tracked over time to measure pool
-            dispatch capacity.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <CardHeader className="border-b border-border/60">
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          Queue Wait-Time Latency
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Dispatch latency (<code>started_at − queued_at</code>) tracked over time to measure pool
+          dispatch capacity.
+        </CardDescription>
+        <CardAction className="flex items-center gap-3">
           <CapacityHealthBadge avgQueueSeconds={averageQueueSeconds} />
 
           {/* Timeframe Selector */}
-          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold dark:border-slate-800 dark:bg-slate-800">
+          <div className="flex items-center rounded-xl border border-border/60 bg-muted/50 p-0.5 text-xs font-semibold">
             <Button
               variant="ghost"
               size="xs"
@@ -122,18 +126,16 @@ export function QueueLatencyChart({
               7d
             </Button>
           </div>
-        </div>
-      </div>
+        </CardAction>
+      </CardHeader>
 
       {/* Chart Canvas */}
-      <div className="relative mt-4">
+      <CardContent className="relative">
         {points.length === 0 ? (
-          <div className="flex h-52 flex-col items-center justify-center text-center text-xs text-slate-400">
-            <Clock className="h-6 w-6 text-slate-300 dark:text-slate-600 mb-1" />
-            <p className="font-semibold text-slate-600 dark:text-slate-400">
-              No queue latency data yet
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+          <div className="flex h-52 flex-col items-center justify-center text-center text-xs text-muted-foreground">
+            <Clock className="mb-1 h-6 w-6 text-muted-foreground/50" />
+            <p className="font-semibold text-foreground/80">No queue latency data yet</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
               Completed and in-flight runner jobs will generate latency trends.
             </p>
           </div>
@@ -235,16 +237,15 @@ export function QueueLatencyChart({
             </AreaChart>
           </ChartContainer>
         )}
-      </div>
+      </CardContent>
 
-      {/* Footer Notes */}
-      <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+      <CardFooter className="gap-1.5 text-[11px] text-muted-foreground/80">
         <Info className="h-3.5 w-3.5 shrink-0" />
         <span>
           Lower queue latency means workflow runs execute immediately without container launch
           delays.
         </span>
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }
