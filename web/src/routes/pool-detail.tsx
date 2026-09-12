@@ -181,7 +181,7 @@ export function PoolDetailPage() {
       <div className="space-y-4">
         <Link
           to="/pools"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Pools
         </Link>
@@ -203,7 +203,7 @@ export function PoolDetailPage() {
       <div>
         <Link
           to="/pools"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors mb-3"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Runner Pools
         </Link>
@@ -211,9 +211,7 @@ export function PoolDetailPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {pool.name}
-              </h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground ">{pool.name}</h1>
               <PoolHealthBadge status={pool.healthStatus} size="md" />
               <Badge
                 className={cn(
@@ -225,7 +223,7 @@ export function PoolDetailPage() {
               >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
-                    isStreamActive ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                    isStreamActive ? "bg-success animate-pulse" : "bg-warning"
                   }`}
                 />
                 <span className="font-mono text-[10px]">
@@ -241,10 +239,10 @@ export function PoolDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 uppercase tracking-wider dark:bg-blue-950/50 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
+            <span className="rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary uppercase tracking-wider border border-primary/30 ">
               {pool.provider}
             </span>
-            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 uppercase tracking-wider dark:bg-slate-800 dark:text-slate-300">
+            <span className="rounded-md bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider ">
               {pool.scope || "repo"}
             </span>
           </div>
@@ -327,19 +325,19 @@ export function PoolDetailPage() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
+      <div className="flex border-b border-border ">
         <button
           type="button"
           onClick={() => setActiveTab("runners")}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "runners"
-              ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
           <Activity className="h-3.5 w-3.5" />
           <span>Active Containers & Runners</span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground ">
             {runners?.length ?? 0}
           </span>
         </button>
@@ -349,8 +347,8 @@ export function PoolDetailPage() {
           onClick={() => setActiveTab("config")}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "config"
-              ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
           <Server className="h-3.5 w-3.5" />
@@ -362,13 +360,13 @@ export function PoolDetailPage() {
           onClick={() => setActiveTab("renovate")}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "renovate"
-              ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
           <Bot className="h-3.5 w-3.5" />
           <span>Renovate Bot</span>
-          {pool.renovate?.enabled && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+          {pool.renovate?.enabled && <span className="h-1.5 w-1.5 rounded-full bg-success" />}
         </button>
       </div>
 

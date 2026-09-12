@@ -224,7 +224,7 @@ on every re-application. Our own wrappers and routes remain fully gated.
 | inline notification banner, ad-hoc loaders | Alert (pool status banner, image-update notices, renovate save errors), toast (Base UI; settings/renovate/pool-detail transient feedback), Skeleton (route + widget loading states), Spinner (in-button pending) | 4 alert sites / 4 toast sites / 9 skeleton sites / 12 spinner sites; Progress component available but no genuine-percent site exists yet | RUN-176 |
 | hand-rolled SVG line chart | Chart (recharts; ChartContainer/Area/ChartTooltip, threshold ReferenceLines, `--chart-*` tokens only) | 1 chart (queue-latency); capacity-health/success-failure widgets are future candidates | RUN-177 |
 | last hand-rolled dashed empty panels (pools list/filter, profiles) | Empty (icon media, header, content CTA) | 2 panels / 2 routes | RUN-180 |
-| hand-rolled card shells on unmigrated surfaces (onboarding wizard shell + GitHub-App callout, login card, history-detail summary, renovate/settings KPI & tab panels, pool-poll-status, queue-latency chart shell, dashboard/pools warning strips → Alert, history/renovate/settings/dashboard flush table cards) | Card (`size="sm"` p-4 panels, `py-0` + overflow-hidden tables, `gap-0` free-form shells), Alert (destructive/warning strips), semantic tokens throughout each converted panel | ~20 shells / 10 files | RUN-185 |
+| legacy raw-palette interior styling (~660 occurrences / 16 files at pass start) | semantic token pass — `text-foreground`/`text-muted-foreground`, `bg-primary[/10]`, success/warning/destructive tokens; manual `dark:` color overrides collapsed into the theme-adaptive tokens; `text-white` kept only on fixed token fills (`bg-success`/`bg-warning`); log-terminal untouched (fixed-dark carve-out) | ~660 occurrences → 0 raw color classes / 16 files | RUN-184 |
 
 ## 6. Migration plan
 
@@ -298,7 +298,7 @@ Grep sweeps over `web/src` (excluding `components/ui/` and tests), run at close:
 | Bare `<table>` outside `ui/` | **0** — Table primitives only |
 | Dashed empty-state panels outside `ui/` | **0** — `empty` adopted everywhere (RUN-180) |
 | Structural card shells (`rounded-2xl border border-slate-200 …`) | **0 outside `ui/`** — every structural shell is the Card primitive or an Alert strip (RUN-185 converted the post-close residuals; log-viewer core exempt by carve-out) |
-| Raw palette classes outside `ui/` | **~805 occurrences / 18 files** (largest: wizard ~76, onboarding ~79, settings ~50, dashboard ~31, log-terminal ~28 — the latter inside the deliberate custom core) — ticketed on Linear as a post-milestone tokenization pass |
+| Raw palette classes outside `ui/` | **0 color classes** (RUN-184 pass; only intentional `text-white` on fixed token fills remains). Log-terminal keeps its fixed-dark palette by carve-out. `dark:` remnants are non-color layout helpers (`dark:block`, `dark:mb-*`) |
 | `cn()` usage | confirmed — `clsx` + `tailwind-merge` compose all conditional classes |
 
 Interpretation: every component axis the milestone planned (§5) has **no bespoke duplicates left**; what remains is legacy *interior styling* on surfaces the per-surface phases never touched — styling debt, not missing primitives. Per §3 rule 5 these are ticketed rather than folded into the close-out PR. The milestone is closed with that debt explicit.

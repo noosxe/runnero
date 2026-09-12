@@ -155,10 +155,10 @@ export function HistoryPage() {
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground ">
             Job Execution History
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground ">
             Historical execution records, queue latencies, duration metrics, and runner logs.
           </p>
         </div>
@@ -393,7 +393,7 @@ export function HistoryPage() {
                 <ChevronLeft data-icon="inline-start" /> Prev
               </Button>
 
-              <span className="px-2 font-mono text-slate-600 dark:text-slate-300">
+              <span className="px-2 font-mono text-muted-foreground ">
                 {page} / {totalPages}
               </span>
 

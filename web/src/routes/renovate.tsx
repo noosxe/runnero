@@ -39,7 +39,7 @@ export function RenovatePage() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground ">
             Renovate Bot Dashboard
           </h1>
           <Badge className="border-primary/30 bg-primary/10 text-primary font-medium">
@@ -47,7 +47,7 @@ export function RenovatePage() {
             <span className="font-mono text-[10px]">Managed Automation</span>
           </Badge>
         </div>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground ">
           Automated dependency updates, scheduled scans, and on-demand maintenance runs across
           runner pools.
         </p>
@@ -93,9 +93,7 @@ export function RenovatePage() {
 
       {/* Pools Renovate List */}
       <div className="space-y-4">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white">
-          Runner Pool Schedules & Status
-        </h2>
+        <h2 className="text-base font-bold text-foreground ">Runner Pool Schedules & Status</h2>
 
         {isLoading ? (
           <div className="space-y-3">
@@ -202,9 +200,7 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
               : "bg-muted text-muted-foreground",
           )}
         >
-          <span
-            className={`size-1.5 rounded-full ${isEnabled ? "bg-emerald-500" : "bg-slate-400"}`}
-          />
+          <span className={`size-1.5 rounded-full ${isEnabled ? "bg-success" : "bg-muted"}`} />
           <span>{isEnabled ? "Enabled" : "Disabled"}</span>
         </Badge>
       </TableCell>
@@ -241,10 +237,10 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
               <span
                 className={`size-1.5 rounded-full ${
                   isRunning
-                    ? "bg-amber-500 animate-ping"
+                    ? "bg-warning animate-ping"
                     : status.lastRun.status === "success"
-                      ? "bg-emerald-500"
-                      : "bg-rose-500"
+                      ? "bg-success"
+                      : "bg-destructive"
                 }`}
               />
               <span>{status.lastRun.status}</span>

@@ -408,9 +408,9 @@ export function OnboardingPage() {
   ];
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center p-4 bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-50">
+    <div className="relative flex min-h-screen flex-col items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
       {/* Theme Switcher */}
-      <div className="absolute top-4 right-4 flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+      <div className="absolute top-4 right-4 flex items-center rounded-xl border border-border bg-card p-1 shadow-xs bg-muted">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -466,7 +466,7 @@ export function OnboardingPage() {
         </div>
 
         {/* Step Progress Bar */}
-        <div className="mt-8 flex items-center justify-between border-b border-slate-100 pb-6 dark:border-slate-800">
+        <div className="mt-8 flex items-center justify-between border-b border-border/60 pb-6 ">
           {steps.map((step) => {
             const Icon = step.icon;
             const isDone = currentStep > step.num;
@@ -477,10 +477,10 @@ export function OnboardingPage() {
                 <div
                   className={`flex h-9 w-9 items-center justify-center rounded-xl text-xs font-semibold transition-all ${
                     isDone
-                      ? "bg-emerald-600 text-white"
+                      ? "bg-success text-white"
                       : isCurrent
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-muted text-muted-foreground "
                   }`}
                 >
                   {isDone ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
@@ -488,10 +488,10 @@ export function OnboardingPage() {
                 <span
                   className={`mt-1.5 text-[11px] font-medium ${
                     isCurrent
-                      ? "font-bold text-blue-600 dark:text-blue-400"
+                      ? "font-bold text-primary "
                       : isDone
-                        ? "text-slate-700 dark:text-slate-300"
-                        : "text-slate-400"
+                        ? "text-foreground "
+                        : "text-muted-foreground"
                   }`}
                 >
                   {step.label}
@@ -503,7 +503,7 @@ export function OnboardingPage() {
 
         {/* Error Alert */}
         {error && (
-          <div className="mt-6 flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/50 dark:text-rose-400">
+          <div className="mt-6 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive ">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -515,21 +515,21 @@ export function OnboardingPage() {
             session ? (
               <div className="mt-6 text-xs">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h2 className="text-sm font-bold text-foreground ">
                     Step 1 of 5: Master Administrator Configured
                   </h2>
-                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 text-muted-foreground ">
                     Master administrator credentials are configured and authenticated.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800/40 dark:bg-emerald-950/20">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4 ">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success " />
                   <div>
-                    <div className="font-semibold text-emerald-900 dark:text-emerald-300">
+                    <div className="font-semibold text-success ">
                       Active Administrator Session ({session.username})
                     </div>
-                    <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">
+                    <div className="text-[11px] text-success ">
                       Session token is active. You may proceed with configuring Git providers and
                       runner pools, or skip to the dashboard.
                     </div>
@@ -552,10 +552,10 @@ export function OnboardingPage() {
               <form onSubmit={handleAdminLogin} className="mt-6 text-xs">
                 <FieldGroup>
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                    <h2 className="text-sm font-bold text-foreground ">
                       Step 1 of 5: Master Administrator Authentication
                     </h2>
-                    <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                    <p className="mt-0.5 text-muted-foreground ">
                       Administrator credentials are already configured. Please log in with your
                       master credentials to continue onboarding.
                     </p>
@@ -610,10 +610,10 @@ export function OnboardingPage() {
             <form onSubmit={handleAdminSubmit} className="mt-6 text-xs">
               <FieldGroup>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h2 className="text-sm font-bold text-foreground ">
                     Step 1 of 5: Create Master Administrator
                   </h2>
-                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 text-muted-foreground ">
                     Administrative credentials are protected with bcrypt password hashing and 24h
                     JWT sessions.
                   </p>
@@ -680,10 +680,10 @@ export function OnboardingPage() {
         {currentStep === 2 && githubAppInstallPrompt ? (
           <div className="mt-6 text-xs">
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h2 className="text-sm font-bold text-foreground ">
                 Step 2 of 5: Install GitHub App on Your Account
               </h2>
-              <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 text-muted-foreground ">
                 Profile &ldquo;{githubAppInstallPrompt.profileName}&rdquo; was created successfully.
               </p>
             </div>
@@ -742,10 +742,10 @@ export function OnboardingPage() {
             <form onSubmit={handleProviderSubmit} className="mt-6 text-xs">
               <FieldGroup>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h2 className="text-sm font-bold text-foreground ">
                     Step 2 of 5: Connect Git Provider
                   </h2>
-                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 text-muted-foreground ">
                     Register authentication credentials to fetch runner registration tokens and
                     orchestrate pools.
                   </p>
@@ -871,10 +871,10 @@ export function OnboardingPage() {
           <form onSubmit={handleSafeguardsSubmit} className="mt-6 text-xs">
             <FieldGroup>
               <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h2 className="text-sm font-bold text-foreground ">
                   Step 3 of 5: Global Scaling Safeguards
                 </h2>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-muted-foreground ">
                   Configure supervisor-level guardrails to prevent host resource starvation.
                 </p>
               </div>
@@ -961,23 +961,23 @@ export function OnboardingPage() {
           (!createdAuthProfileId && !status?.authProfileExists ? (
             <div className="mt-6 text-xs">
               <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h2 className="text-sm font-bold text-foreground ">
                   Step 4 of 5: Initial Runner Pool Setup
                 </h2>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-muted-foreground ">
                   Configure your first auto-scaling runner pool, concurrency targets, and container
                   resource limits.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning ">
                 <div className="flex items-start gap-3">
-                  <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <Info className="mt-0.5 h-5 w-5 shrink-0 text-warning " />
                   <div className="space-y-1">
-                    <p className="font-semibold text-slate-900 dark:text-white">
+                    <p className="font-semibold text-foreground ">
                       Git Authentication Profile Required
                     </p>
-                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    <p className="text-[11px] text-warning ">
                       Runner pools require a Git authentication profile to register runners with
                       your Git provider. Since the Git Auth step was skipped, initial pool setup
                       cannot be configured right now. You can configure pools later from the
@@ -1002,10 +1002,10 @@ export function OnboardingPage() {
             <form onSubmit={handlePoolSubmit} className="mt-6 text-xs">
               <FieldGroup>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h2 className="text-sm font-bold text-foreground ">
                     Step 4 of 5: Initial Runner Pool Setup
                   </h2>
-                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 text-muted-foreground ">
                     Configure your first auto-scaling runner pool, concurrency targets, and
                     container resource limits.
                   </p>
@@ -1141,7 +1141,7 @@ export function OnboardingPage() {
                 </div>
 
                 {/* Docker Policy (docs/05 §4 enforcement) */}
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/50">
+                <div className="rounded-xl border border-border/60 bg-muted/50 p-3.5 ">
                   <Field orientation="horizontal">
                     <FieldContent>
                       <FieldLabel htmlFor="allow-docker">Allow Docker in Container</FieldLabel>
@@ -1158,7 +1158,7 @@ export function OnboardingPage() {
                     />
                   </Field>
                   {isDockerLocked && (
-                    <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                    <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-warning ">
                       <Info className="h-3 w-3 shrink-0" />
                       <span>
                         Locked to Enabled for {deducedProvider.toUpperCase()} runners: workflow
@@ -1169,7 +1169,7 @@ export function OnboardingPage() {
                 </div>
 
                 {/* Renovate Bot Toggle */}
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/50">
+                <div className="rounded-xl border border-border/60 bg-muted/50 p-3.5 ">
                   <Field orientation="horizontal">
                     <FieldContent>
                       <FieldLabel htmlFor="enable-renovate">
@@ -1188,7 +1188,7 @@ export function OnboardingPage() {
                   </Field>
 
                   {renovateEnabled && (
-                    <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200/60 pt-3 dark:border-slate-700/60 sm:grid-cols-2">
+                    <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
                       <Field>
                         <FieldLabel htmlFor="renovate-cron">Cron Schedule</FieldLabel>
                         <Input
@@ -1236,10 +1236,10 @@ export function OnboardingPage() {
           <form onSubmit={handleLaunchSubmit} className="mt-6 text-xs">
             <FieldGroup>
               <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h2 className="text-sm font-bold text-foreground ">
                   Step 5 of 5: Review & Launch Supervisor
                 </h2>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-muted-foreground ">
                   Verify system initialization settings before starting reconciliation control
                   loops.
                 </p>
@@ -1248,48 +1248,44 @@ export function OnboardingPage() {
               {/* Review Cards Grid */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* Card 1: Admin */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                    <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
+                  <div className="flex items-center gap-2 font-bold text-foreground ">
+                    <ShieldCheck className="h-4 w-4 text-primary " />
                     <span>Master Administrator</span>
                   </div>
-                  <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
+                  <div className="mt-2 space-y-1 text-muted-foreground ">
                     <div className="flex justify-between">
                       <span>Username:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {username}
-                      </span>
+                      <span className="font-semibold text-foreground ">{username}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Session:</span>
-                      <span className="font-semibold text-emerald-600">Active</span>
+                      <span className="font-semibold text-success">Active</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Card 2: Git Provider */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
+                  <div className="flex items-center gap-2 font-bold text-foreground ">
                     <KeyRound
-                      className={`h-4 w-4 ${isGitProfileSkipped ? "text-slate-400" : "text-blue-600 dark:text-blue-400"}`}
+                      className={`h-4 w-4 ${isGitProfileSkipped ? "text-muted-foreground" : "text-primary "}`}
                     />
                     <span>Git Auth Profile</span>
                   </div>
                   {isGitProfileSkipped ? (
-                    <div className="mt-2 text-slate-500 italic dark:text-slate-400">
+                    <div className="mt-2 text-muted-foreground italic ">
                       Skipped &mdash; not configured
                     </div>
                   ) : (
-                    <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
+                    <div className="mt-2 space-y-1 text-muted-foreground ">
                       <div className="flex justify-between">
                         <span>Profile Name:</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {profileName}
-                        </span>
+                        <span className="font-semibold text-foreground ">{profileName}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Method:</span>
-                        <span className="font-semibold uppercase text-slate-800 dark:text-slate-200">
+                        <span className="font-semibold uppercase text-foreground ">
                           {authMethod}
                         </span>
                       </div>
@@ -1298,27 +1294,23 @@ export function OnboardingPage() {
                 </div>
 
                 {/* Card 3: Safeguards */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                    <Sliders className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
+                  <div className="flex items-center gap-2 font-bold text-foreground ">
+                    <Sliders className="h-4 w-4 text-primary " />
                     <span>Global Constraints</span>
                   </div>
-                  <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
+                  <div className="mt-2 space-y-1 text-muted-foreground ">
                     <div className="flex justify-between">
                       <span>Max Runners:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {totalAllowedRunners}
-                      </span>
+                      <span className="font-semibold text-foreground ">{totalAllowedRunners}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Warm Idle Pool:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {totalIdleWarmPool}
-                      </span>
+                      <span className="font-semibold text-foreground ">{totalIdleWarmPool}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Shutdown Timeout:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      <span className="font-semibold text-foreground ">
                         {shutdownTimeoutSeconds}s
                       </span>
                     </div>
@@ -1326,40 +1318,40 @@ export function OnboardingPage() {
                 </div>
 
                 {/* Card 4: Initial Pool */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
+                  <div className="flex items-center gap-2 font-bold text-foreground ">
                     <Server
-                      className={`h-4 w-4 ${isPoolSkipped ? "text-slate-400" : "text-blue-600 dark:text-blue-400"}`}
+                      className={`h-4 w-4 ${isPoolSkipped ? "text-muted-foreground" : "text-primary "}`}
                     />
                     <span>{isPoolSkipped ? "Initial Pool" : `Initial Pool: ${poolName}`}</span>
                   </div>
                   {isPoolSkipped ? (
-                    <div className="mt-2 text-slate-500 italic dark:text-slate-400">
+                    <div className="mt-2 text-muted-foreground italic ">
                       Skipped &mdash; no pool created
                     </div>
                   ) : (
-                    <div className="mt-2 space-y-1 text-slate-600 dark:text-slate-400">
+                    <div className="mt-2 space-y-1 text-muted-foreground ">
                       <div className="flex justify-between">
                         <span>Target URL:</span>
-                        <span className="max-w-[120px] truncate font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="max-w-[120px] truncate font-semibold text-foreground ">
                           {repositoryUrl}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Concurrency:</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="font-semibold text-foreground ">
                           {minIdleRunners} idle / {maxConcurrency} max
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Docker Access:</span>
-                        <span className="font-semibold text-emerald-600">
+                        <span className="font-semibold text-success">
                           {effectiveAllowDocker ? "Enabled" : "Disabled"}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Renovate:</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="font-semibold text-foreground ">
                           {renovateEnabled ? renovateCron : "Disabled"}
                         </span>
                       </div>
@@ -1368,12 +1360,12 @@ export function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+              <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-success ">
                 <div className="flex items-center gap-2 font-semibold">
                   <Rocket className="h-4 w-4" />
                   <span>{hasPoolToLaunch ? "Ready to Launch" : "Ready to Finish Setup"}</span>
                 </div>
-                <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+                <p className="mt-1 text-[11px] text-success ">
                   {hasPoolToLaunch
                     ? "Upon confirmation, the supervisor reconciler will start immediately, register runner containers with your Git provider, and transition to the live dashboard."
                     : "Upon confirmation, system initialization will be completed and you will transition to the dashboard where you can configure providers and pools at any time."}

@@ -29,7 +29,7 @@ export function TargetCountBadge({
       <TooltipTrigger
         render={
           <span
-            className={`inline-flex shrink-0 items-center rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 ${className}`}
+            className={`inline-flex shrink-0 items-center rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary ${className}`}
           />
         }
       >

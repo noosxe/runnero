@@ -93,9 +93,7 @@ export function PoolsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Runner Pools
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground ">Runner Pools</h1>
             <Badge
               className={cn(
                 "border",
@@ -106,7 +104,7 @@ export function PoolsPage() {
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  isConnected ? "bg-success animate-pulse" : "bg-warning"
                 }`}
               />
               <span className="font-mono text-[10px]">
@@ -114,7 +112,7 @@ export function PoolsPage() {
               </span>
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground ">
             Manage ephemeral worker pools, runtime scaling targets, and provider bindings.
           </p>
         </div>
@@ -126,7 +124,7 @@ export function PoolsPage() {
         ) : (
           <Link
             to="/profiles"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary transition-colors"
           >
             <span>+ Add Runner Pool</span>
           </Link>
@@ -396,12 +394,12 @@ export function PoolsPage() {
                       <div className="mt-0.5 text-base font-bold text-foreground">
                         {p.minIdleRunners}
                         {p.healthStatus === PoolHealthStatus.DEGRADED && p.minIdleRunners > 0 && (
-                          <span className="ml-1 text-[10px] font-normal text-rose-600 dark:text-rose-400">
+                          <span className="ml-1 text-[10px] font-normal text-destructive ">
                             (Failed)
                           </span>
                         )}
                         {p.healthStatus === PoolHealthStatus.PROVISIONING && (
-                          <span className="ml-1 text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                          <span className="ml-1 text-[10px] font-normal text-warning ">
                             (Warming)
                           </span>
                         )}

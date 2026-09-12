@@ -44,7 +44,7 @@ export function SuccessFailureWidget({
     <Card className="gap-0 py-5">
       <CardHeader className="border-b [.border-b]:pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-bold">
-          <PieChart className="h-4 w-4 text-emerald-500" />
+          <PieChart className="h-4 w-4 text-success" />
           Execution Health &amp; Ratio
         </CardTitle>
         <CardAction>
@@ -56,21 +56,23 @@ export function SuccessFailureWidget({
         {/* Primary Metric Ring / Stat */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+            <div className="text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {successRatePercent === null ? "—" : `${successRatePercent.toFixed(1)}%`}
             </div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs font-medium text-muted-foreground mt-0.5">
               {successRatePercent === null
                 ? "No concluded jobs in window"
                 : "Success Rate Across All Pools"}
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-800/60">
-            <Timer className="h-4 w-4 text-indigo-500" />
+          <div className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-muted/50 px-3 py-2 text-xs ">
+            <Timer className="h-4 w-4 text-primary" />
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400">Avg Runtime</p>
-              <p className="font-mono font-bold text-slate-800 dark:text-slate-200">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">
+                Avg Runtime
+              </p>
+              <p className="font-mono font-bold text-foreground ">
                 {formatDuration(averageRuntimeSeconds)}
               </p>
             </div>
@@ -79,7 +81,7 @@ export function SuccessFailureWidget({
 
         {/* Stacked Ratio Progress Bar */}
         <div className="mt-5 space-y-1.5">
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted ">
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -108,7 +110,7 @@ export function SuccessFailureWidget({
             </Tooltip>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+          <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
             <span>{successPct.toFixed(1)}% success</span>
             <span>{failurePct.toFixed(1)}% failures</span>
           </div>

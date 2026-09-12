@@ -34,9 +34,9 @@ export function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-4 bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-50">
+    <div className="relative flex min-h-screen items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
       {/* Top Corner Theme Switcher */}
-      <div className="absolute top-4 right-4 flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+      <div className="absolute top-4 right-4 flex items-center rounded-xl border border-border bg-card p-1 shadow-xs bg-muted">
         <Tooltip>
           <TooltipTrigger
             render={

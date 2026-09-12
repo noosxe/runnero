@@ -50,10 +50,8 @@ export function ProfilesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Git Auth Profiles
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground ">Git Auth Profiles</h1>
+          <p className="text-sm text-muted-foreground ">
             Credentials for requesting ephemeral runner registration tokens from Git providers.
           </p>
         </div>
