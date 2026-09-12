@@ -3,6 +3,7 @@ import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Card } from "@/components/ui/card";
 import { cn } from "cn";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useLogin } from "../lib/api/query-hooks";
@@ -89,20 +90,20 @@ export function LoginPage() {
         </Tooltip>
       </div>
 
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+      <Card className="w-full max-w-sm px-(--card-spacing)">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
           <ShieldCheck className="h-6 w-6" />
         </div>
 
-        <h1 className="text-center text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+        <h1 className="text-center text-xl font-bold tracking-tight text-foreground">
           Sign In to Supervisor
         </h1>
-        <p className="mt-1 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-center text-xs text-muted-foreground">
           Enter administrative credentials to access control interface
         </p>
 
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/50 dark:text-rose-400">
+          <div className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -150,7 +151,7 @@ export function LoginPage() {
             {loginMutation.isPending ? "Signing in..." : "Sign In"}
           </Button>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

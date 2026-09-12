@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { cn } from "cn";
 import {
   Empty,
@@ -174,9 +175,9 @@ export function HistoryPage() {
       </div>
 
       {/* Filters Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+      <Card size="sm" className="gap-3 p-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             value={search}
@@ -258,7 +259,7 @@ export function HistoryPage() {
             </SelectContent>
           </Select>
         </div>
-      </div>
+      </Card>
 
       {/* History Table */}
       {isLoading ? (
@@ -282,7 +283,7 @@ export function HistoryPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+        <Card className="py-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -369,19 +370,17 @@ export function HistoryPage() {
           </div>
 
           {/* Pagination Footer */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 px-5 py-3.5 dark:border-slate-800 text-xs text-slate-500">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/60 px-(--card-spacing) py-3.5 text-xs text-muted-foreground">
             <div>
               Showing{" "}
-              <span className="font-semibold text-slate-700 dark:text-slate-200">
+              <span className="font-semibold text-foreground">
                 {totalCount === 0 ? 0 : offset + 1}
               </span>{" "}
               to{" "}
-              <span className="font-semibold text-slate-700 dark:text-slate-200">
+              <span className="font-semibold text-foreground">
                 {Math.min(offset + pageSize, totalCount)}
               </span>{" "}
-              of{" "}
-              <span className="font-semibold text-slate-700 dark:text-slate-200">{totalCount}</span>{" "}
-              runs
+              of <span className="font-semibold text-foreground">{totalCount}</span> runs
             </div>
 
             <div className="flex items-center gap-1">
@@ -408,7 +407,7 @@ export function HistoryPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

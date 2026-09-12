@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
@@ -440,7 +441,7 @@ export function OnboardingPage() {
       </div>
 
       {/* Main Wizard Container */}
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+      <Card className="w-full max-w-2xl gap-0 p-6 sm:p-8">
         {/* Header */}
         <div className="relative text-center">
           {(status?.adminCreated || currentStep > 1) && (
@@ -455,13 +456,11 @@ export function OnboardingPage() {
               <ArrowRight data-icon="inline-end" />
             </Button>
           )}
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
             <ShieldCheck className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            System Onboarding
-          </h1>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">System Onboarding</h1>
+          <p className="mt-1 text-xs text-muted-foreground">
             Configure master administrator, connect Git provider, and set concurrency safeguards
           </p>
         </div>
@@ -689,16 +688,16 @@ export function OnboardingPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-5 text-slate-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-slate-200">
+            <Card className="gap-0 border-primary/25 bg-primary/5 p-5">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                   <FolderGit2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                  <h3 className="text-sm font-bold text-foreground">
                     Action Required: Install App in GitHub
                   </h3>
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Your GitHub App credentials have been saved and encrypted. To allow runnero to
                     access your repositories and register self-hosted runners, install the app on
                     your GitHub user account or organization.
@@ -719,7 +718,7 @@ export function OnboardingPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
 
             <div className="flex gap-3 pt-2">
               <Button variant="outline" onClick={() => setGithubAppInstallPrompt(null)}>
@@ -1402,7 +1401,7 @@ export function OnboardingPage() {
             </FieldGroup>
           </form>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

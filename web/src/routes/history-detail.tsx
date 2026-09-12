@@ -1,5 +1,6 @@
 import { useParams, Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { cn } from "cn";
 import { useJobRecord, useRunnerLogs } from "../lib/api/query-hooks";
 import { useStreamRunnerLogs } from "../lib/api/streaming-hooks";
@@ -86,11 +87,11 @@ export function HistoryDetailPage() {
       </div>
 
       {/* Execution Summary Header Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+      <Card className="px-(--card-spacing)">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
+              <h1 className="font-mono text-xl font-bold tracking-tight text-foreground">
                 {runnerName || (isJobLoading ? "Loading runner..." : `Job #${jobId}`)}
               </h1>
 
@@ -121,11 +122,11 @@ export function HistoryDetailPage() {
               )}
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-muted-foreground">
               {job ? (
                 <>
                   Execution record for pool{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  <span className="font-semibold text-foreground">
                     {job.poolName || `#${job.poolId.toString()}`}
                   </span>
                   {job.id > 0n && ` • Job ID #${job.id.toString()}`}
@@ -138,48 +139,50 @@ export function HistoryDetailPage() {
         </div>
 
         {/* Quick KPI Strip */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border/60 pt-4 sm:grid-cols-4">
           <div className="flex items-center gap-2">
-            <Timer className="h-4 w-4 text-slate-400" />
+            <Timer className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400">Duration</p>
-              <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Duration</p>
+              <p className="font-mono text-xs font-bold text-foreground">
                 {job ? formatDuration(job.durationSeconds) : "—"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-slate-400" />
+            <Clock className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400">Queue Latency</p>
-              <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                Queue Latency
+              </p>
+              <p className="font-mono text-xs font-bold text-foreground">
                 {job && job.queueTimeSeconds > 0 ? `${job.queueTimeSeconds.toFixed(1)}s` : "—"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Server className="h-4 w-4 text-slate-400" />
+            <Server className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400">Pool</p>
-              <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Pool</p>
+              <p className="truncate font-mono text-xs font-bold text-foreground">
                 {job?.poolName || (job?.poolId ? `#${job.poolId.toString()}` : "—")}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-slate-400" />
+            <Calendar className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400">Started</p>
-              <p className="font-mono text-[11px] text-slate-600 dark:text-slate-400">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Started</p>
+              <p className="font-mono text-[11px] text-muted-foreground">
                 {formatTimestamp(job?.startedAt)}
               </p>
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Log Console Terminal View */}
       <div className="h-[600px]">
