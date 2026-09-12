@@ -549,7 +549,14 @@ func (c *Client) DeregisterRunner(ctx context.Context, scope provider.Registrati
 	case http.StatusNoContent, http.StatusNotFound:
 		return nil
 	default:
-		return fmt.Errorf("failed to delete registered runner %q (status %d): %s", runnerName, resp.StatusCode, strings.TrimSpace(string(body)))
+		bodyText := strings.TrimSpace(string(body))
+		// GitHub refuses to delete a runner that is mid-job with a 422 and a
+		// distinctive message (RUN-182): surface it as a typed error so idle
+		// drains can veto the termination instead of killing a busy runner.
+		if resp.StatusCode == http.StatusUnprocessableEntity && strings.Contains(bodyText, "currently running a job") {
+			return fmt.Errorf("failed to delete registered runner %q (status %d): %s: %w", runnerName, resp.StatusCode, bodyText, provider.ErrRunnerBusy)
+		}
+		return fmt.Errorf("failed to delete registered runner %q (status %d): %s", runnerName, resp.StatusCode, bodyText)
 	}
 }
 

@@ -229,3 +229,9 @@ convergence bound.
   fail-open; provider-without-lister untouched). `mockGitProvider` gained
   `ListRunners` so every existing controller test exercises the sync path
   with an empty listing (a no-op).
+- **Drain veto (RUN-182):** idle-drain deregistrations now treat a provider
+  `422 "currently running a job"` refusal (`provider.ErrRunnerBusy`, GitHub
+  only for now) as a veto — the runner is preserved and re-marked busy
+  instead of being terminated on stale local idle state (supervisor-restart
+  window). Specified in docs/03 §3b; shutdown, pool-deletion, and
+  hung-runner paths remain best-effort.

@@ -3,6 +3,7 @@ package github_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -384,5 +385,46 @@ func TestDeregisterRunnerDeleteError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "status 403") || !strings.Contains(err.Error(), "runnero-ghost") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// RUN-182: a 422 "currently running a job" delete response must surface as
+// provider.ErrRunnerBusy so idle drains can veto the termination.
+func TestDeregisterRunnerBusyVeto(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"Bad request - Runner runnero-ghost is currently running a job and cannot be deleted."}`))
+	})
+	mux.HandleFunc("/repos/my-org/my-repo/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(runnersPayload(t, [][3]any{{"runnero-ghost", true, true}})))
+	})
+	client := newRunnerTestClient(t, mux)
+
+	err := client.DeregisterRunner(context.Background(), provider.ScopeRepo, "https://github.com/my-org/my-repo", "runnero-ghost")
+	if err == nil {
+		t.Fatal("expected an error when the runner is mid-job")
+	}
+	if !errors.Is(err, provider.ErrRunnerBusy) {
+		t.Fatalf("busy 422 must wrap provider.ErrRunnerBusy, got %v", err)
+	}
+
+	// A 422 with an unrelated message is NOT a busy veto.
+	otherMux := http.NewServeMux()
+	otherMux.HandleFunc("/repos/my-org/my-repo/actions/runners/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"Bad request - validation failed"}`))
+	})
+	otherMux.HandleFunc("/repos/my-org/my-repo/actions/runners", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(runnersPayload(t, [][3]any{{"runnero-ghost", false, true}})))
+	})
+	otherClient := newRunnerTestClient(t, otherMux)
+
+	otherErr := otherClient.DeregisterRunner(context.Background(), provider.ScopeRepo, "https://github.com/my-org/my-repo", "runnero-ghost")
+	if otherErr == nil {
+		t.Fatal("expected an error for the unrelated 422")
+	}
+	if errors.Is(otherErr, provider.ErrRunnerBusy) {
+		t.Fatalf("unrelated 422 must not be classified as busy veto, got %v", otherErr)
 	}
 }
