@@ -241,6 +241,10 @@ Each PR is a self-contained adopt-and-replace pass with green gates.
    collapsed-sidebar bug; collapsed state persists like `use-theme` does.
 7. **RUN-176 — Toast/Alert/Skeleton/Progress**; **RUN-177 — Charts** (recharts
    adopted for the queue-latency chart).
+7b. **RUN-179 — structural panels onto Card** (pool-detail KPI/config/renovate
+   panels and table wrappers, pool-diagnostics card, dashboard/pools
+   link-cards, wizard stepper); **RUN-180 — dashed empty states** (adopt the
+   registry `empty` component across routes).
 8. **RUN-178 — Cleanup & close:** grep sweeps prove no bespoke duplicates
    remain; docs/09 + this doc reflect shipped state; README roadmap entry
    moves to Features.

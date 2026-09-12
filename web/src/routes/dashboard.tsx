@@ -325,51 +325,53 @@ export function DashboardPage() {
                 key={p.id.toString()}
                 to="/pools/$poolId"
                 params={{ poolId: p.id.toString() }}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all hover:border-blue-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-600"
+                className="group"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400 truncate">
-                    {p.name}
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <PoolHealthBadge status={p.healthStatus} size="sm" />
-                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                      {p.provider}
-                    </span>
-                  </div>
-                </div>
-                {poolTargetList(p).length > 1 && (
-                  <div className="mt-2 flex items-center text-xs text-slate-500 dark:text-slate-400">
-                    <TargetCountBadge pool={p} />
-                  </div>
-                )}
-                {p.currentIntent && (
-                  <div className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 italic truncate">
-                    {p.currentIntent}
-                  </div>
-                )}
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-400">
-                  <span>
-                    Active:{" "}
-                    <strong className="text-slate-900 dark:text-white">{p.activeRunners}</strong>
-                  </span>
-                  <span>
-                    Idle Target:{" "}
-                    <strong
-                      className={
-                        p.healthStatus === PoolHealthStatus.DEGRADED && p.minIdleRunners > 0
-                          ? "text-rose-600 dark:text-rose-400"
-                          : "text-slate-900 dark:text-white"
-                      }
-                    >
-                      {p.minIdleRunners}
-                    </strong>
-                  </span>
-                  <span>
-                    Max:{" "}
-                    <strong className="text-slate-900 dark:text-white">{p.maxConcurrency}</strong>
-                  </span>
-                </div>
+                <Card className="transition-all hover:ring-primary/40 hover:shadow-md">
+                  <CardContent>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-semibold text-foreground group-hover:text-primary">
+                        {p.name}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <PoolHealthBadge status={p.healthStatus} size="sm" />
+                        <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {p.provider}
+                        </span>
+                      </div>
+                    </div>
+                    {poolTargetList(p).length > 1 && (
+                      <div className="mt-2 flex items-center text-xs text-muted-foreground">
+                        <TargetCountBadge pool={p} />
+                      </div>
+                    )}
+                    {p.currentIntent && (
+                      <div className="mt-1.5 truncate text-[11px] italic text-muted-foreground">
+                        {p.currentIntent}
+                      </div>
+                    )}
+                    <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                      <span>
+                        Active: <strong className="text-foreground">{p.activeRunners}</strong>
+                      </span>
+                      <span>
+                        Idle Target:{" "}
+                        <strong
+                          className={
+                            p.healthStatus === PoolHealthStatus.DEGRADED && p.minIdleRunners > 0
+                              ? "text-destructive"
+                              : "text-foreground"
+                          }
+                        >
+                          {p.minIdleRunners}
+                        </strong>
+                      </span>
+                      <span>
+                        Max: <strong className="text-foreground">{p.maxConcurrency}</strong>
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
               </Link>
             ))}
           </div>

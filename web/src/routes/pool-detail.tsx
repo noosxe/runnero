@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -184,9 +185,11 @@ export function PoolDetailPage() {
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Pools
         </Link>
-        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
-          Pool not found or loading...
-        </div>
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            Pool not found or loading...
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -255,76 +258,72 @@ export function PoolDetailPage() {
 
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Active Running Jobs
-          </span>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">
-              {activeInstances}
-            </span>
-            <span className="text-xs text-slate-400">of {pool.maxConcurrency} max</span>
-          </div>
-        </div>
+        <Card size="sm">
+          <CardContent>
+            <span className="text-xs font-medium text-muted-foreground">Active Running Jobs</span>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-foreground">{activeInstances}</span>
+              <span className="text-xs text-muted-foreground">of {pool.maxConcurrency} max</span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Idle Warm Pool
-          </span>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">
-              {idleInstances}
-            </span>
-            <span
-              className={`text-xs ${
-                pool.healthStatus === PoolHealthStatus.DEGRADED &&
+        <Card size="sm">
+          <CardContent>
+            <span className="text-xs font-medium text-muted-foreground">Idle Warm Pool</span>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-foreground">{idleInstances}</span>
+              <span
+                className={`text-xs ${
+                  pool.healthStatus === PoolHealthStatus.DEGRADED &&
+                  pool.minIdleRunners > 0 &&
+                  idleInstances === 0
+                    ? "font-medium text-destructive"
+                    : pool.healthStatus === PoolHealthStatus.PROVISIONING &&
+                        idleInstances < pool.minIdleRunners
+                      ? "font-medium text-warning"
+                      : "text-muted-foreground"
+                }`}
+              >
+                target: {pool.minIdleRunners}
+                {pool.healthStatus === PoolHealthStatus.DEGRADED &&
                 pool.minIdleRunners > 0 &&
                 idleInstances === 0
-                  ? "font-medium text-rose-600 dark:text-rose-400"
+                  ? " (Reconciliation Failed)"
                   : pool.healthStatus === PoolHealthStatus.PROVISIONING &&
                       idleInstances < pool.minIdleRunners
-                    ? "font-medium text-amber-600 dark:text-amber-400"
-                    : "text-slate-400"
-              }`}
-            >
-              target: {pool.minIdleRunners}
-              {pool.healthStatus === PoolHealthStatus.DEGRADED &&
-              pool.minIdleRunners > 0 &&
-              idleInstances === 0
-                ? " (Reconciliation Failed)"
-                : pool.healthStatus === PoolHealthStatus.PROVISIONING &&
-                    idleInstances < pool.minIdleRunners
-                  ? " (Provisioning...)"
-                  : ""}
-            </span>
-          </div>
-        </div>
+                    ? " (Provisioning...)"
+                    : ""}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Resource Quotas
-          </span>
-          <div className="mt-1 flex items-center gap-3 text-xs font-semibold text-slate-800 dark:text-slate-200">
-            <span className="inline-flex items-center gap-1">
-              <Cpu className="h-3.5 w-3.5 text-slate-400" />
-              {pool.cpuLimit || "Unlimited"}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <HardDrive className="h-3.5 w-3.5 text-slate-400" />
-              {pool.memoryLimit || "Unlimited"}
-            </span>
-          </div>
-        </div>
+        <Card size="sm">
+          <CardContent>
+            <span className="text-xs font-medium text-muted-foreground">Resource Quotas</span>
+            <div className="mt-1 flex items-center gap-3 text-xs font-semibold text-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+                {pool.cpuLimit || "Unlimited"}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                {pool.memoryLimit || "Unlimited"}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Docker Privileges
-          </span>
-          <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
-            <Shield className="h-3.5 w-3.5 text-slate-400" />
-            <span>{pool.allowDocker ? "Docker Daemon Enabled" : "Rootless Isolation"}</span>
-          </div>
-        </div>
+        <Card size="sm">
+          <CardContent>
+            <span className="text-xs font-medium text-muted-foreground">Docker Privileges</span>
+            <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>{pool.allowDocker ? "Docker Daemon Enabled" : "Rootless Isolation"}</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Navigation Tabs */}
@@ -396,7 +395,7 @@ export function PoolDetailPage() {
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+            <Card className="py-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -438,12 +437,12 @@ export function PoolDetailPage() {
                               <span
                                 className={`size-1.5 rounded-full ${
                                   isBusy
-                                    ? "bg-emerald-500 animate-pulse"
+                                    ? "bg-success animate-pulse"
                                     : isIdle
-                                      ? "bg-sky-500"
+                                      ? "bg-primary"
                                       : isDegraded
-                                        ? "bg-rose-500"
-                                        : "bg-slate-400"
+                                        ? "bg-destructive"
+                                        : "bg-muted-foreground"
                                 }`}
                               />
                               <span>{r.status}</span>
@@ -498,72 +497,67 @@ export function PoolDetailPage() {
                   </TableBody>
                 </Table>
               </div>
-            </div>
+            </Card>
           )}
         </div>
       )}
 
       {/* Tab Content: Configuration */}
       {activeTab === "config" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Pool Parameters & Resource Limits
-            </h2>
-            <div className="flex items-center gap-2">
-              <Button
-                size="xs"
-                aria-label="Edit pool configuration"
-                onClick={() => setIsEditModalOpen(true)}
-              >
-                <Pencil data-icon="inline-start" />
-                <span>Edit Configuration</span>
-              </Button>
-              <Button
-                variant="destructive"
-                size="xs"
-                aria-label="Delete pool"
-                onClick={() => setIsDeleteModalOpen(true)}
-              >
-                <Trash2 data-icon="inline-start" />
-                <span>Delete Pool</span>
-              </Button>
-            </div>
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Pool Parameters & Resource Limits</CardTitle>
+            <CardAction>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="xs"
+                  aria-label="Edit pool configuration"
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  <Pencil data-icon="inline-start" />
+                  <span>Edit Configuration</span>
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="xs"
+                  aria-label="Delete pool"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                >
+                  <Trash2 data-icon="inline-start" />
+                  <span>Delete Pool</span>
+                </Button>
+              </div>
+            </CardAction>
+          </CardHeader>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
-            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">Target Repositories</span>
+            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+              <span className="text-muted-foreground">Target Repositories</span>
               <div className="mt-1 space-y-1">
                 {poolTargetList(pool).map((url) => (
-                  <div
-                    key={url}
-                    className="font-mono font-semibold text-slate-900 dark:text-white break-all"
-                  >
+                  <div key={url} className="font-mono font-semibold text-foreground break-all">
                     {url}
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">Git Provider</span>
-              <div className="mt-1 font-semibold text-slate-900 dark:text-white uppercase">
-                {pool.provider}
-              </div>
+            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+              <span className="text-muted-foreground">Git Provider</span>
+              <div className="mt-1 font-semibold text-foreground uppercase">{pool.provider}</div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">Registration Scope</span>
-              <div className="mt-1 font-semibold text-slate-900 dark:text-white uppercase">
+            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+              <span className="text-muted-foreground">Registration Scope</span>
+              <div className="mt-1 font-semibold text-foreground uppercase">
                 {pool.scope || "repo"}
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+            <div className="rounded-xl bg-muted/50 p-4 border border-border/60 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Runner Container Image</span>
+                  <span className="text-muted-foreground">Runner Container Image</span>
                   <Button
                     variant="outline"
                     size="xs"
@@ -580,7 +574,7 @@ export function PoolDetailPage() {
                     </span>
                   </Button>
                 </div>
-                <div className="mt-1 font-mono font-semibold text-slate-900 dark:text-white break-all">
+                <div className="mt-1 font-mono font-semibold text-foreground break-all">
                   {pool.runnerImage || "ghcr.io/noosxe/runnero:latest"}
                 </div>
               </div>
@@ -589,7 +583,7 @@ export function PoolDetailPage() {
                 <div className="mt-3 text-xs">
                   {checkUpdateMutation.data.updateAvailable ? (
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                      <div className="flex items-center gap-1.5 text-warning font-medium">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                         <span>
                           Update available:{" "}
@@ -615,7 +609,7 @@ export function PoolDetailPage() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                    <div className="flex items-center gap-1.5 text-success font-medium">
                       <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                       <span>Image is up-to-date with registry</span>
                     </div>
@@ -624,7 +618,7 @@ export function PoolDetailPage() {
               )}
 
               {checkUpdateMutation.isError && (
-                <div className="mt-3 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-destructive font-medium">
                   <XCircle className="h-3.5 w-3.5 shrink-0" />
                   <span>Check failed: {checkUpdateMutation.error.message}</span>
                 </div>
@@ -632,7 +626,7 @@ export function PoolDetailPage() {
 
               {!checkUpdateMutation.isSuccess && !checkUpdateMutation.isError && poolUpdate && (
                 <div className="mt-3 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                  <div className="flex items-center gap-1.5 text-warning font-medium">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                     <span>
                       Update available:{" "}
@@ -658,20 +652,20 @@ export function PoolDetailPage() {
               )}
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">Max Job Lifetime Limit</span>
-              <div className="mt-1 font-semibold text-slate-900 dark:text-white">
+            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
+              <span className="text-muted-foreground">Max Job Lifetime Limit</span>
+              <div className="mt-1 font-semibold text-foreground">
                 {pool.maxRunnerLifetimeSeconds
                   ? `${pool.maxRunnerLifetimeSeconds} seconds`
                   : "7200s (2 hours)"}
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
+            <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400">Runner Labels</span>
+                <span className="text-muted-foreground">Runner Labels</span>
                 {labelsCopied && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success">
                     <Check className="h-3 w-3" />
                     Copied
                   </span>
@@ -693,16 +687,18 @@ export function PoolDetailPage() {
                     pool.labels.map((l) => (
                       <span
                         key={l}
-                        className="rounded-md bg-slate-200 px-2 py-0.5 text-[11px] font-mono text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono text-foreground/80"
                       >
                         {l}
                       </span>
                     ))
                   ) : (
-                    <span className="font-mono text-slate-400">self-hosted, linux, arm64</span>
+                    <span className="font-mono text-muted-foreground">
+                      self-hosted, linux, arm64
+                    </span>
                   )}
                   {pool.labels && pool.labels.length > 0 && (
-                    <Copy className="h-3 w-3 shrink-0 text-slate-400" />
+                    <Copy className="h-3 w-3 shrink-0 text-muted-foreground" />
                   )}
                 </TooltipTrigger>
                 {pool.labels && pool.labels.length > 0 && (
@@ -713,7 +709,7 @@ export function PoolDetailPage() {
               </Tooltip>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Tab Content: Renovate Bot */}
@@ -900,42 +896,42 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
     <div className="space-y-6">
       {/* Overview & Manual Trigger Card */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-blue-500" />
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Renovate Status & Automation
-              </h2>
-            </div>
-            <Button
-              size="xs"
-              onClick={handleTrigger}
-              disabled={triggerMutation.isPending || isRunning}
-            >
-              {triggerMutation.isPending ? (
-                <>
-                  <Spinner />
-                  <span>Triggering...</span>
-                </>
-              ) : isRunning ? (
-                <>
-                  <Spinner />
-                  <span>Run in progress...</span>
-                </>
-              ) : (
-                <>
-                  <Play data-icon="inline-start" className="fill-current" />
-                  <span>Trigger Renovate Run</span>
-                </>
-              )}
-            </Button>
-          </div>
+        <Card className="lg:col-span-2 gap-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-primary" />
+              Renovate Status & Automation
+            </CardTitle>
+            <CardAction>
+              <Button
+                size="xs"
+                onClick={handleTrigger}
+                disabled={triggerMutation.isPending || isRunning}
+              >
+                {triggerMutation.isPending ? (
+                  <>
+                    <Spinner />
+                    <span>Triggering...</span>
+                  </>
+                ) : isRunning ? (
+                  <>
+                    <Spinner />
+                    <span>Run in progress...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play data-icon="inline-start" className="fill-current" />
+                    <span>Trigger Renovate Run</span>
+                  </>
+                )}
+              </Button>
+            </CardAction>
+          </CardHeader>
 
           {/* Status Metrics Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-[11px] font-medium text-slate-400">Bot State</span>
+            <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
+              <span className="text-[11px] font-medium text-muted-foreground">Bot State</span>
               <div className="mt-1 flex items-center gap-2">
                 <Badge
                   className={cn(
@@ -954,14 +950,14 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
                       isRunning
-                        ? "bg-amber-500 animate-ping"
+                        ? "bg-warning animate-ping"
                         : status?.lastRun?.status === "success"
-                          ? "bg-emerald-500"
+                          ? "bg-success"
                           : status?.lastRun?.status === "failure"
-                            ? "bg-rose-500"
+                            ? "bg-destructive"
                             : pool.renovate?.enabled
-                              ? "bg-sky-500"
-                              : "bg-slate-400"
+                              ? "bg-primary"
+                              : "bg-muted-foreground"
                     }`}
                   />
                   <span>
@@ -974,17 +970,19 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-[11px] font-medium text-slate-400">Next Scheduled Run</span>
-              <div className="mt-1 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+            <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Next Scheduled Run
+              </span>
+              <div className="mt-1 font-mono text-xs font-semibold text-foreground truncate">
                 {status?.nextScheduledRun ||
                   (pool.renovate?.enabled ? pool.renovate.cronSchedule : "Disabled")}
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-[11px] font-medium text-slate-400">Last Execution</span>
-              <div className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+            <div className="rounded-xl bg-muted/50 p-3.5 border border-border/60">
+              <span className="text-[11px] font-medium text-muted-foreground">Last Execution</span>
+              <div className="mt-1 text-xs font-medium text-foreground">
                 {status?.lastRun?.startedAt
                   ? new Date(status.lastRun.startedAt).toLocaleString()
                   : "No runs yet"}
@@ -993,30 +991,28 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
           </div>
 
           {status?.lastRun?.summary && (
-            <div className="mt-2 rounded-xl bg-slate-50 p-3 text-xs font-mono text-slate-700 dark:bg-slate-950/60 dark:text-slate-300 border border-slate-100 dark:border-slate-800 whitespace-pre-wrap">
-              <div className="text-[10px] uppercase tracking-wider font-sans font-semibold text-slate-400 mb-1">
+            <div className="mt-2 rounded-xl bg-muted/50 p-3 text-xs font-mono text-foreground/80 border border-border/60 whitespace-pre-wrap">
+              <div className="text-[10px] uppercase tracking-wider font-sans font-semibold text-muted-foreground mb-1">
                 Latest Run Summary
               </div>
               {status.lastRun.summary}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Configuration Form */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Bot Settings</h3>
-          </div>
+        <Card className="gap-4">
+          <CardHeader>
+            <CardTitle>Bot Settings</CardTitle>
+          </CardHeader>
 
           <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
             <div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  Enable Managed Renovate
-                </span>
+                <span className="font-semibold text-foreground">Enable Managed Renovate</span>
               </label>
-              <p className="mt-1 text-[11px] text-slate-400">
+              <p className="mt-1 text-[11px] text-muted-foreground">
                 Automatically scans and updates dependencies according to the schedule.
               </p>
             </div>
@@ -1030,7 +1026,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                 placeholder="0 3 * * 1"
                 className="font-mono text-xs"
               />
-              <p className="mt-1 text-[11px] text-slate-400">
+              <p className="mt-1 text-[11px] text-muted-foreground">
                 Standard 5-part cron syntax (e.g., <code className="font-mono">0 3 * * 1</code> for
                 weekly Monday 3 AM).
               </p>
@@ -1072,12 +1068,12 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
               )}
             </Button>
           </form>
-        </div>
+        </Card>
       </div>
 
       {/* History Table */}
       <div className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Execution History</h3>
+        <h3 className="text-sm font-bold text-foreground">Execution History</h3>
 
         {historyLoading ? (
           <div className="space-y-2">
@@ -1098,7 +1094,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+          <Card className="py-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -1130,10 +1126,10 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                           <span
                             className={`size-1.5 rounded-full ${
                               run.status === "running"
-                                ? "bg-amber-500 animate-ping"
+                                ? "bg-warning animate-ping"
                                 : run.status === "success"
-                                  ? "bg-emerald-500"
-                                  : "bg-rose-500"
+                                  ? "bg-success"
+                                  : "bg-destructive"
                             }`}
                           />
                           <span>{run.status}</span>
@@ -1153,7 +1149,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                 </TableBody>
               </Table>
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>
