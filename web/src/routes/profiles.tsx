@@ -1,5 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthProfiles, useDeleteAuthProfile } from "../lib/api/query-hooks";
 import type { AuthProfile } from "../gen/api_pb";
@@ -62,22 +70,24 @@ export function ProfilesPage() {
           ))}
         </div>
       ) : !profiles || profiles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          <KeyRound className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
-            No auth profiles configured
-          </p>
-          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            Connect a GitHub App or Personal Access Token (PAT) for GitHub, Gitea, or Forgejo to
-            begin orchestrating runner pools.
-          </p>
-          <div className="mt-4">
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <KeyRound />
+            </EmptyMedia>
+            <EmptyTitle>No auth profiles configured</EmptyTitle>
+            <EmptyDescription>
+              Connect a GitHub App or Personal Access Token (PAT) for GitHub, Gitea, or Forgejo to
+              begin orchestrating runner pools.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
             <Button size="xs" onClick={() => setModal({ mode: "create" })}>
               <Plus data-icon="inline-start" />
               <span>Add First Profile</span>
             </Button>
-          </div>
-        </div>
+          </EmptyContent>
+        </Empty>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {profiles.map((prof) => (

@@ -223,6 +223,7 @@ on every re-application. Our own wrappers and routes remain fully gated.
 | hand-rolled app shell (collapsing sidebar bug) | Sidebar (icon-collapsible, persisted in localStorage), Sheet (mobile drawer), Avatar, Breadcrumb, Separator, ToggleGroup (theme switch) | app-shell | RUN-175 |
 | inline notification banner, ad-hoc loaders | Alert (pool status banner, image-update notices, renovate save errors), toast (Base UI; settings/renovate/pool-detail transient feedback), Skeleton (route + widget loading states), Spinner (in-button pending) | 4 alert sites / 4 toast sites / 9 skeleton sites / 12 spinner sites; Progress component available but no genuine-percent site exists yet | RUN-176 |
 | hand-rolled SVG line chart | Chart (recharts; ChartContainer/Area/ChartTooltip, threshold ReferenceLines, `--chart-*` tokens only) | 1 chart (queue-latency); capacity-health/success-failure widgets are future candidates | RUN-177 |
+| last hand-rolled dashed empty panels (pools list/filter, profiles) | Empty (icon media, header, content CTA) | 2 panels / 2 routes | RUN-180 |
 
 ## 6. Migration plan
 
