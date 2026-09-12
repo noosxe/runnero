@@ -13,6 +13,7 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 ## ✨ Features
 
 - **All-in-One Multi-Provider Supervisor:** Database-driven daemon that automatically provisions, monitors, scales, and maintains dynamic pools of ephemeral runner containers across GitHub, Gitea, and Forgejo repositories.
+- **shadcn/ui Component System:** The entire Web UI runs on shadcn/ui primitives (Base UI under the hood) vendored via the shadcn CLI against the owner-generated `b7QqImqdoe` preset — Button, Card, Dialog/AlertDialog, Select, Table, Tooltip, Sidebar/Sheet, Toast/Alert/Skeleton, recharts-powered Charts, and `Empty` states — styled exclusively with OKLCH semantic tokens in light/dark; bespoke survivors eliminated across the app (migration history in [docs/27-shadcn-ui-migration.md](docs/27-shadcn-ui-migration.md)).
 - **Embedded Web UI & Flexible Onboarding Wizard:** Single-Page Application (React 19, TypeScript, TanStack Router & Query, TailwindCSS) embedded directly into the Go supervisor binary via `go:embed`. Features an administrator bootstrap setup, optional Git provider, safeguard, and pool configuration with instant "Skip to Dashboard" capability, zero-pool empty states with prerequisite guidance, dark/light theme switching, and live pool management.
 - **Dynamic Ephemeral Scaling:** Automatically manages warm standby containers (`min_idle_runners`) ready for immediate job dispatch, auto-scales up to concurrency limits (`max_concurrency`), and aggressively prunes completed or failed containers within seconds.
 - **Real-Time Streaming Logs & Interactive Terminal:** Unbuffered ConnectRPC server-sent streaming (`StreamRunnerLogs`, `StreamSystemMetrics`) pushing real-time container output directly to an embedded xterm.js terminal emulator with auto-scroll and quick-copy.
@@ -365,7 +366,6 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
-- **shadcn/ui Component Migration** *[Design Phase]*: Replace the hand-rolled Tailwind UI primitives (25 button variants, 5 copy-pasted modal shells, native selects/tables/tooltips) with shadcn/ui components spawned via the shadcn CLI — design in [docs/27-shadcn-ui-migration.md](docs/27-shadcn-ui-migration.md).
 ---
 
 ## 📄 License
