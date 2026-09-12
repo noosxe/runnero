@@ -231,7 +231,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
                   className="font-mono text-[11px]"
                   required={!privateKeyOptional}
                 />
-                <p className="mt-1 text-[11px] text-slate-400">{secretHelperText()}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{secretHelperText()}</p>
               </div>
             </>
           ) : (
@@ -247,7 +247,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
 
                 required={!tokenOptional}
               />
-              <p className="mt-1 text-[11px] text-slate-400">{secretHelperText()}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{secretHelperText()}</p>
             </div>
           )}
 

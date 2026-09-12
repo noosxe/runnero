@@ -467,7 +467,7 @@ export function PoolWizardModal({
 
         {/* Error Notification */}
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -487,11 +487,11 @@ export function PoolWizardModal({
                 value={poolName}
                 onChange={(e) => setPoolName(e.target.value.toLowerCase())}
               />
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-[11px] text-muted-foreground">
                 Lowercase letters, digits, and hyphens only. Used as container identifier prefix.
               </p>
               {poolName && !isNameSlugValid && (
-                <p className="mt-1 text-[11px] text-rose-500 font-medium">
+                <p className="mt-1 text-[11px] text-destructive font-medium">
                   Invalid slug format: must contain only a-z, 0-9, and hyphens.
                 </p>
               )}
@@ -526,20 +526,20 @@ export function PoolWizardModal({
                 </SelectContent>
               </Select>
               {isEdit && (
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   Profile family is locked to the pool's {deducedProvider} provider; recreate the
                   pool to change provider (docs/22 §5.3).
                 </p>
               )}
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-[11px] text-slate-500">Deduced Provider:</span>
-                <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 capitalize">
+                <span className="text-[11px] text-muted-foreground">Deduced Provider:</span>
+                <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary capitalize">
                   {deducedProvider}
                 </span>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-end gap-2 pt-4 border-t border-border/60 ">
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
@@ -558,8 +558,8 @@ export function PoolWizardModal({
         {currentStep === 2 && (
           <div className="mt-5 space-y-4">
             {isEdit && selectedTargetUrls.length > 0 && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+              <div className="rounded-xl border border-border bg-muted/50 p-3 ">
+                <span className="font-semibold text-foreground block mb-1.5">
                   Selected Targets ({selectedTargetUrls.length})
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -618,7 +618,7 @@ export function PoolWizardModal({
             {/* Target Discovery Search & Action Bar */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder={`Search discovered ${scope === "repo" ? "repositories" : "organizations"}...`}
@@ -636,11 +636,11 @@ export function PoolWizardModal({
                           href={manageAccessUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 shadow-xs"
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted/50 shadow-xs"
                         />
                       }
                     >
-                      <ExternalLink className="h-3 w-3 text-slate-400" />
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
                       <span>Manage Access in GitHub</span>
                     </TooltipTrigger>
                     <TooltipContent>Manage repository access in GitHub</TooltipContent>
@@ -666,7 +666,7 @@ export function PoolWizardModal({
             </div>
 
             {/* Discovered Items Container */}
-            <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2 dark:border-slate-800 dark:bg-slate-950/40 space-y-1.5">
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-muted/50 p-2 space-y-1.5">
               {isDiscovering && (
                 <div className="flex flex-col gap-1.5 p-2">
                   {Array.from({ length: 4 }).map((_, i) => (
@@ -677,11 +677,9 @@ export function PoolWizardModal({
 
               {!isDiscovering && discoveryError && (
                 <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                  <AlertCircle className="h-6 w-6 text-rose-500 mb-1" />
-                  <p className="text-rose-600 dark:text-rose-400 font-semibold">
-                    Failed to discover targets
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-1 max-w-sm">
+                  <AlertCircle className="h-6 w-6 text-destructive mb-1" />
+                  <p className="text-destructive font-semibold">Failed to discover targets</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 max-w-sm">
                     {discoveryError instanceof Error
                       ? discoveryError.message
                       : "Upstream API error"}
@@ -697,12 +695,12 @@ export function PoolWizardModal({
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 mb-2.5">
                     <FolderGit2 className="h-5 w-5 text-primary" />
                   </div>
-                  <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
+                  <h4 className="text-xs font-semibold text-foreground ">
                     {installUrl
                       ? "GitHub App Not Installed Yet"
                       : `No ${scope === "repo" ? "repositories" : "organizations"} found`}
                   </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                  <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
                     {installUrl
                       ? "This GitHub App has not been installed on any account or organization. Install the app to grant access to repositories."
                       : `No accessible ${scope === "repo" ? "repositories" : "organizations"} were found for this auth profile.`}
@@ -718,7 +716,7 @@ export function PoolWizardModal({
                         <ExternalLink className="h-3.5 w-3.5" />
                         <span>Install GitHub App on Your Account</span>
                       </a>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">
+                      <p className="text-[10px] text-muted-foreground mt-2">
                         After completing installation in GitHub, return here — your repositories
                         will appear automatically.
                       </p>
@@ -731,7 +729,7 @@ export function PoolWizardModal({
                 !discoveryError &&
                 discoveredTargets.length > 0 &&
                 filteredDiscoveredTargets.length === 0 && (
-                  <div className="py-8 text-center text-slate-400">
+                  <div className="py-8 text-center text-muted-foreground">
                     <FolderGit2 className="h-6 w-6 mx-auto mb-1 opacity-50" />
                     <span>
                       No matching {scope === "repo" ? "repositories" : "organizations"} found
@@ -749,34 +747,34 @@ export function PoolWizardModal({
                       onClick={() => handleToggleTarget(target.htmlUrl)}
                       className={`flex items-start gap-3 rounded-xl border p-2.5 transition-colors cursor-pointer ${
                         isSelected
-                          ? "border-blue-500 bg-blue-50/50 dark:border-blue-700 dark:bg-blue-950/30"
-                          : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                          ? "border-primary/50 bg-primary/10 "
+                          : "border-border bg-card hover:border-border bg-muted "
                       }`}
                     >
-                      <div className="pt-0.5 text-blue-600 dark:text-blue-400 shrink-0">
+                      <div className="pt-0.5 text-primary shrink-0">
                         {isSelected ? (
                           <CheckSquare className="h-4 w-4" />
                         ) : (
-                          <Square className="h-4 w-4 text-slate-400" />
+                          <Square className="h-4 w-4 text-muted-foreground" />
                         )}
                       </div>
 
                       {scope === "org" ? (
-                        <Building className="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
+                        <Building className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       ) : (
-                        <FolderGit2 className="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
+                        <FolderGit2 className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       )}
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900 dark:text-white truncate">
+                          <span className="font-semibold text-foreground truncate">
                             {target.fullName || target.name}
                           </span>
                           <span
                             className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[10px] font-medium border ${
                               target.isPrivate
-                                ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900"
-                                : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                                ? "bg-warning/10 text-warning border-warning/30 "
+                                : "bg-muted text-muted-foreground border-border "
                             }`}
                           >
                             {target.isPrivate ? (
@@ -793,7 +791,7 @@ export function PoolWizardModal({
                           </span>
                         </div>
                         {target.description && (
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                             {target.description}
                           </p>
                         )}
@@ -808,7 +806,7 @@ export function PoolWizardModal({
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}
                               aria-label="Open in upstream git provider"
-                              className="text-slate-400 hover:text-blue-600 p-1 shrink-0"
+                              className="text-muted-foreground hover:text-primary p-1 shrink-0"
                             />
                           }
                         >
@@ -821,7 +819,7 @@ export function PoolWizardModal({
                 })}
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-between items-center pt-4 border-t border-border/60 ">
               <Button variant="outline" onClick={() => setCurrentStep(1)}>
                 <ChevronLeft data-icon="inline-start" />
                 <span>Back</span>
@@ -850,7 +848,7 @@ export function PoolWizardModal({
                   value={minIdleRunners}
                   onChange={(e) => setMinIdleRunners(Number(e.target.value))}
                 />
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   Set to 0 for scale-to-zero mode (ephemeral on-demand only).
                 </p>
               </div>
@@ -867,7 +865,7 @@ export function PoolWizardModal({
                   value={maxConcurrency}
                   onChange={(e) => setMaxConcurrency(Number(e.target.value))}
                 />
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   Total maximum simultaneous runner containers allowed across all targets.
                 </p>
               </div>
@@ -882,7 +880,7 @@ export function PoolWizardModal({
                   value={labels}
                   onChange={(e) => setCustomLabels(e.target.value)}
                 />
-                <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>Comma-separated list matched in workflow runs.</span>
                   {customLabels !== null && (
                     <Button variant="link" size="xs" onClick={() => setCustomLabels(null)}>
@@ -930,7 +928,7 @@ export function PoolWizardModal({
             </div>
 
             {/* Docker Socket Privilege */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-2 border-t border-border/60 ">
               <FieldLabel className="flex items-center gap-2">
                 <Checkbox
                   checked={isDockerLocked ? true : allowDocker}
@@ -940,7 +938,7 @@ export function PoolWizardModal({
                 <span>Enable Docker-in-Docker socket access</span>
               </FieldLabel>
               {isDockerLocked && (
-                <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                <p className="mt-1 text-[11px] text-warning ">
                   Mandatory for {deducedProvider} pools (runner daemon communicates via Docker
                   daemon).
                 </p>
@@ -948,7 +946,7 @@ export function PoolWizardModal({
             </div>
 
             {/* Demand Polling Fallback (docs/24 §5.9) */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-2 border-t border-border/60 ">
               <FieldLabel className="flex items-center gap-2">
                 <Checkbox
                   checked={
@@ -959,7 +957,7 @@ export function PoolWizardModal({
                 />
                 <span>Scale without webhooks (poll for queued jobs)</span>
               </FieldLabel>
-              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-[11px] text-muted-foreground ">
                 {deducedProvider === "gitea" &&
                   "Not available for Gitea pools: Gitea has no repo-scoped queued-jobs API."}
                 {deducedProvider === "forgejo" &&
@@ -970,20 +968,20 @@ export function PoolWizardModal({
             </div>
 
             {/* Renovate Bot Section */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-950/40 space-y-3">
-              <FieldLabel className="flex items-center gap-2 dark:text-white">
+            <div className="rounded-xl border border-border bg-muted/50 p-3 space-y-3">
+              <FieldLabel className="flex items-center gap-2 ">
                 <Checkbox
                   checked={renovateEnabled}
                   onCheckedChange={(v) => setRenovateEnabled(v === true)}
                 />
                 <span className="flex items-center gap-1.5">
-                  <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <Bot className="h-4 w-4 text-primary " />
                   Enable Automated Renovate Dependency Scans
                 </span>
               </FieldLabel>
 
               {renovateEnabled && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-border ">
                   <div>
                     <FieldLabel className="dark:block mb-1">Cron Schedule</FieldLabel>
                     <Input
@@ -1006,7 +1004,7 @@ export function PoolWizardModal({
               )}
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-between items-center pt-4 border-t border-border/60 ">
               <Button variant="outline" onClick={() => setCurrentStep(2)}>
                 <ChevronLeft data-icon="inline-start" />
                 <span>Back</span>
@@ -1023,38 +1021,34 @@ export function PoolWizardModal({
         {currentStep === 4 && (
           <form onSubmit={handleSubmitPool} className="mt-5 space-y-4">
             {isEdit && changes.length > 0 && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/30 space-y-2">
-                <span className="text-sm font-bold text-slate-900 dark:text-white">
+              <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 space-y-2">
+                <span className="text-sm font-bold text-foreground ">
                   Changed Fields ({changes.length})
                 </span>
                 <div className="max-h-44 overflow-y-auto space-y-1">
                   {changes.map((c) => (
                     <div
                       key={c.field}
-                      className="flex flex-wrap items-baseline gap-x-2 rounded-lg bg-white px-2.5 py-1.5 text-[11px] dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
+                      className="flex flex-wrap items-baseline gap-x-2 rounded-lg bg-card px-2.5 py-1.5 text-[11px] bg-muted border border-border/60 "
                     >
-                      <span className="font-semibold text-slate-700 dark:text-slate-300 min-w-28">
-                        {c.field}:
-                      </span>
-                      <span className="font-mono text-rose-600 dark:text-rose-400 break-all line-through">
+                      <span className="font-semibold text-foreground min-w-28">{c.field}:</span>
+                      <span className="font-mono text-destructive break-all line-through">
                         {c.before || "—"}
                       </span>
-                      <ChevronRight className="h-3 w-3 shrink-0 self-center text-slate-400" />
-                      <span className="font-mono text-emerald-700 dark:text-emerald-400 break-all">
-                        {c.after || "—"}
-                      </span>
+                      <ChevronRight className="h-3 w-3 shrink-0 self-center text-muted-foreground" />
+                      <span className="font-mono text-success break-all">{c.after || "—"}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
             {isEdit && changes.length === 0 && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/40">
+              <div className="rounded-xl border border-border bg-muted/50 p-4 text-[11px] text-muted-foreground ">
                 No changes yet — modify any field to see the diff before saving.
               </div>
             )}
             {isEdit && identityChanged && !renamed && (
-              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
+              <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-warning ">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>
                   {pool?.idleRunners ?? 0} idle runner{pool?.idleRunners === 1 ? "" : "s"} will be
@@ -1063,7 +1057,7 @@ export function PoolWizardModal({
               </div>
             )}
             {isEdit && renamed && (
-              <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/80 p-3 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-400">
+              <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-primary ">
                 <Info className="h-4 w-4 shrink-0" />
                 <span>
                   Renaming only changes how the pool is displayed — runners are unaffected and keep
@@ -1071,36 +1065,34 @@ export function PoolWizardModal({
                 </span>
               </div>
             )}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/40 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
+            <div className="rounded-xl border border-border bg-muted/50 p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3 ">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">{poolName}</h4>
-                  <p className="text-[11px] text-slate-500">
+                  <h4 className="text-sm font-bold text-foreground ">{poolName}</h4>
+                  <p className="text-[11px] text-muted-foreground">
                     Provider Profile: {selectedAuthProfile?.name} ({selectedAuthProfile?.authMethod}
                     )
                   </p>
                 </div>
-                <span className="inline-flex items-center rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 capitalize">
+                <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary capitalize">
                   {deducedProvider} ({scope})
                 </span>
               </div>
 
               {/* Targets Summary */}
               <div>
-                <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+                <span className="font-semibold text-foreground block mb-1.5">
                   Associated Targets ({selectedTargetUrls.length}):
                 </span>
-                <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
+                <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-border bg-card p-2 bg-muted">
                   {selectedTargetUrls.map((url) => (
                     <div key={url} className="flex items-center justify-between text-[11px]">
-                      <span className="font-mono text-slate-800 dark:text-slate-200 truncate">
-                        {url}
-                      </span>
+                      <span className="font-mono text-foreground truncate">{url}</span>
                       <a
                         href={url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-slate-400 hover:text-blue-500 ml-2 shrink-0"
+                        className="text-muted-foreground hover:text-primary ml-2 shrink-0"
                       >
                         <ExternalLink className="h-3 w-3" />
                       </a>
@@ -1110,37 +1102,37 @@ export function PoolWizardModal({
               </div>
 
               {/* Specs Grid */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 border-t border-border pt-3 ">
                 <div>
-                  <span className="text-slate-400 block">Idle Warm</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{minIdleRunners}</span>
+                  <span className="text-muted-foreground block">Idle Warm</span>
+                  <span className="font-bold text-foreground ">{minIdleRunners}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Max Limit</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{maxConcurrency}</span>
+                  <span className="text-muted-foreground block">Max Limit</span>
+                  <span className="font-bold text-foreground ">{maxConcurrency}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">CPU / RAM</span>
-                  <span className="font-bold text-slate-900 dark:text-white">
+                  <span className="text-muted-foreground block">CPU / RAM</span>
+                  <span className="font-bold text-foreground ">
                     {cpuLimit} / {memoryLimit}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Docker Access</span>
-                  <span className="font-bold text-slate-900 dark:text-white">
+                  <span className="text-muted-foreground block">Docker Access</span>
+                  <span className="font-bold text-foreground ">
                     {isDockerLocked || allowDocker ? "Enabled" : "Disabled"}
                   </span>
                 </div>
               </div>
 
               {/* Labels & Renovate */}
-              <div className="border-t border-slate-200 pt-3 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div className="border-t border-border pt-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400">Labels:</span>
-                  <span className="font-mono text-slate-700 dark:text-slate-300">{labels}</span>
+                  <span className="text-muted-foreground">Labels:</span>
+                  <span className="font-mono text-foreground ">{labels}</span>
                 </div>
                 {renovateEnabled && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
                     <Bot className="h-3.5 w-3.5" />
                     Renovate Scheduled ({renovateCron})
                   </span>
@@ -1148,7 +1140,7 @@ export function PoolWizardModal({
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-between items-center pt-4 border-t border-border/60 ">
               <Button variant="outline" onClick={() => setCurrentStep(3)}>
                 <ChevronLeft data-icon="inline-start" />
                 <span>Back</span>

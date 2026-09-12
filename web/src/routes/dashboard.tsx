@@ -109,10 +109,8 @@ export function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Dashboard Overview
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground ">Dashboard Overview</h1>
+          <p className="text-sm text-muted-foreground ">
             Real-time supervisor metrics, queue wait-time analytics, runner capacity, and execution
             health.
           </p>
@@ -121,7 +119,7 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           <Link
             to="/pools"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground shadow-xs hover:bg-muted/50 transition-colors"
           >
             <span>Manage Pools</span>
           </Link>
@@ -169,18 +167,18 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card size="sm">
           <CardContent>
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>Active Runners</span>
-              <Activity className="h-4 w-4 text-emerald-500" />
+              <Activity className="h-4 w-4 text-success" />
             </div>
-            <div className="mt-2 font-mono text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <div className="mt-2 font-mono text-3xl font-extrabold tracking-tight text-foreground ">
               {statsLoading ? (
                 <Skeleton className="inline-block h-9 w-24 align-middle" />
               ) : (
                 `${stats?.totalActiveRunners ?? 0} active`
               )}
             </div>
-            <div className="mt-1 text-xs text-slate-400">
+            <div className="mt-1 text-xs text-muted-foreground">
               {stats?.totalIdleRunners ?? 0} warm idle standby
             </div>
           </CardContent>
@@ -188,18 +186,18 @@ export function DashboardPage() {
 
         <Card size="sm">
           <CardContent>
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>{timeframeHours}h Jobs Executed</span>
-              <Server className="h-4 w-4 text-blue-500" />
+              <Server className="h-4 w-4 text-primary" />
             </div>
-            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+            <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (
                 <Skeleton className="inline-block h-9 w-24 align-middle" />
               ) : (
                 totalJobs
               )}
             </div>
-            <div className="mt-1 text-xs text-slate-400">
+            <div className="mt-1 text-xs text-muted-foreground">
               {avgQueueSeconds === null
                 ? "Queue timing requires webhooks"
                 : `Avg queue wait: ${avgQueueSeconds.toFixed(1)}s`}
@@ -209,11 +207,11 @@ export function DashboardPage() {
 
         <Card size="sm">
           <CardContent>
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>Success Rate</span>
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <CheckCircle2 className="h-4 w-4 text-success" />
             </div>
-            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+            <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (
                 <Skeleton className="inline-block h-9 w-24 align-middle" />
               ) : successRate === null ? (
@@ -222,7 +220,7 @@ export function DashboardPage() {
                 `${successRate.toFixed(1)}%`
               )}
             </div>
-            <div className="mt-1 text-xs text-slate-400">
+            <div className="mt-1 text-xs text-muted-foreground">
               {knownOutcomeJobs === 0
                 ? "No concluded jobs in window"
                 : `${successfulJobs} passed / ${failedJobs} failed`}
@@ -232,18 +230,18 @@ export function DashboardPage() {
 
         <Card size="sm">
           <CardContent>
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>Avg Runtime</span>
-              <Clock className="h-4 w-4 text-indigo-500" />
+              <Clock className="h-4 w-4 text-primary" />
             </div>
-            <div className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+            <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (
                 <Skeleton className="inline-block h-9 w-24 align-middle" />
               ) : (
                 formatDuration(avgRuntimeSeconds)
               )}
             </div>
-            <div className="mt-1 text-xs text-slate-400">Job completion duration</div>
+            <div className="mt-1 text-xs text-muted-foreground">Job completion duration</div>
           </CardContent>
         </Card>
       </div>
@@ -274,17 +272,12 @@ export function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Configured Runner Pools
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <h2 className="text-lg font-bold text-foreground ">Configured Runner Pools</h2>
+            <p className="text-xs text-muted-foreground ">
               Active dynamic scaling pools and container resource allocations.
             </p>
           </div>
-          <Link
-            to="/pools"
-            className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
-          >
+          <Link to="/pools" className="text-xs font-semibold text-primary hover:underline ">
             View All Pools &rarr;
           </Link>
         </div>
@@ -383,15 +376,12 @@ export function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Recent Executions</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <h2 className="text-lg font-bold text-foreground ">Recent Executions</h2>
+            <p className="text-xs text-muted-foreground ">
               Latest ephemeral workflow jobs completed across runner pools.
             </p>
           </div>
-          <Link
-            to="/history"
-            className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
-          >
+          <Link to="/history" className="text-xs font-semibold text-primary hover:underline ">
             View Full History &rarr;
           </Link>
         </div>

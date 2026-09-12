@@ -126,7 +126,7 @@ function ShellMain() {
             <span
               className={cn(
                 "size-1.5 rounded-full",
-                isConnected ? "animate-pulse bg-emerald-500" : "bg-amber-500",
+                isConnected ? "animate-pulse bg-success" : "bg-warning",
               )}
             />
             <span className="hidden font-mono sm:inline">

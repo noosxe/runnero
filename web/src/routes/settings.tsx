@@ -118,23 +118,23 @@ export function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground ">
           Supervisor Settings & Administration
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-muted-foreground ">
           Global supervisor constraints, runner image lifecycle updates, and retention policies.
         </p>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
+      <div className="flex border-b border-border ">
         <button
           type="button"
           onClick={() => setActiveTab("constraints")}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "constraints"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              ? "border-primary/50 text-primary "
+              : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
           <Sliders className="h-4 w-4" />
@@ -146,8 +146,8 @@ export function SettingsPage() {
           onClick={() => setActiveTab("images")}
           className={`relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "images"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              ? "border-primary/50 text-primary "
+              : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
           <RefreshCw className="h-4 w-4" />
@@ -164,8 +164,8 @@ export function SettingsPage() {
           onClick={() => setActiveTab("backups")}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "backups"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              ? "border-primary/50 text-primary "
+              : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
           <Database className="h-4 w-4" />
@@ -205,10 +205,10 @@ export function SettingsPage() {
                       htmlFor="total_allowed_runners"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                     >
-                      <Layers className="h-3.5 w-3.5 text-blue-500" />
+                      <Layers className="h-3.5 w-3.5 text-primary" />
                       <span>Global Runner Quota</span>
                     </FieldLabel>
-                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
                       <Input
                         id="total_allowed_runners"
                         type="number"
@@ -221,11 +221,13 @@ export function SettingsPage() {
                             total_allowed_runners: e.target.value,
                           }))
                         }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
                       />
-                      <span className="flex items-center px-3 text-xs text-slate-400">runners</span>
+                      <span className="flex items-center px-3 text-xs text-muted-foreground">
+                        runners
+                      </span>
                     </div>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-muted-foreground">
                       Maximum concurrent active containers across all pools combined.
                     </p>
                   </div>
@@ -236,10 +238,10 @@ export function SettingsPage() {
                       htmlFor="total_idle_warm_pool"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                     >
-                      <Clock className="h-3.5 w-3.5 text-indigo-500" />
+                      <Clock className="h-3.5 w-3.5 text-primary" />
                       <span>Warm Idle Pool Limit</span>
                     </FieldLabel>
-                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
                       <Input
                         id="total_idle_warm_pool"
                         type="number"
@@ -252,11 +254,13 @@ export function SettingsPage() {
                             total_idle_warm_pool: e.target.value,
                           }))
                         }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
                       />
-                      <span className="flex items-center px-3 text-xs text-slate-400">runners</span>
+                      <span className="flex items-center px-3 text-xs text-muted-foreground">
+                        runners
+                      </span>
                     </div>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-muted-foreground">
                       Maximum standby idle runners kept warm for instant job dispatch.
                     </p>
                   </div>
@@ -267,10 +271,10 @@ export function SettingsPage() {
                       htmlFor="graceful_shutdown_timeout"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                     >
-                      <Clock className="h-3.5 w-3.5 text-amber-500" />
+                      <Clock className="h-3.5 w-3.5 text-warning" />
                       <span>Graceful Drain Timeout</span>
                     </FieldLabel>
-                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
                       <Input
                         id="graceful_shutdown_timeout"
                         type="number"
@@ -283,11 +287,13 @@ export function SettingsPage() {
                             graceful_shutdown_timeout: e.target.value,
                           }))
                         }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
                       />
-                      <span className="flex items-center px-3 text-xs text-slate-400">seconds</span>
+                      <span className="flex items-center px-3 text-xs text-muted-foreground">
+                        seconds
+                      </span>
                     </div>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-muted-foreground">
                       Maximum time to await active workflow completion before SIGKILL.
                     </p>
                   </div>
@@ -298,10 +304,10 @@ export function SettingsPage() {
                       htmlFor="job_retention_days"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
                     >
-                      <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                      <Calendar className="h-3.5 w-3.5 text-success" />
                       <span>History Retention Period</span>
                     </FieldLabel>
-                    <div className="flex rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
                       <Input
                         id="job_retention_days"
                         type="number"
@@ -314,11 +320,13 @@ export function SettingsPage() {
                             job_retention_days: e.target.value,
                           }))
                         }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-slate-900 focus:outline-hidden dark:text-white"
+                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
                       />
-                      <span className="flex items-center px-3 text-xs text-slate-400">days</span>
+                      <span className="flex items-center px-3 text-xs text-muted-foreground">
+                        days
+                      </span>
                     </div>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-muted-foreground">
                       Automated background pruning threshold for finished jobs and log files.
                     </p>
                   </div>
@@ -376,7 +384,7 @@ export function SettingsPage() {
           {/* Pending Notifications */}
           {updates && updates.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Pending Image Notifications
               </h3>
               <ImageUpdateNotification updates={updates} poolNameLookup={poolNameLookup} />

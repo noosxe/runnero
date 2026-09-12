@@ -80,7 +80,7 @@ export function HistoryDetailPage() {
       <div className="flex items-center justify-between">
         <Link
           to="/history"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline "
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Job Execution History
         </Link>
