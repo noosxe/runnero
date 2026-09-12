@@ -355,31 +355,27 @@ export function SettingsPage() {
           {/* Action Strip */}
           <Card>
             <CardHeader>
-              <div>
-                <CardTitle className="text-base font-bold">
-                  Runner Image Update Management
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Periodically verifies upstream container image digests (GHCR, Docker Hub) and
-                  pulls updates gracefully.
-                </CardDescription>
-              </div>
+              <CardTitle className="text-base font-bold">Runner Image Update Management</CardTitle>
+              <CardDescription className="text-xs">
+                Periodically verifies upstream container image digests (GHCR, Docker Hub) and pulls
+                updates gracefully.
+              </CardDescription>
+              <CardAction>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCheckUpdatesAll}
+                  disabled={isCheckingUpdates || !pools || pools.length === 0}
+                >
+                  {isCheckingUpdates ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <RefreshCw data-icon="inline-start" />
+                  )}
+                  <span>{isCheckingUpdates ? "Checking Updates..." : "Check All Pools Now"}</span>
+                </Button>
+              </CardAction>
             </CardHeader>
-            <CardAction>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCheckUpdatesAll}
-                disabled={isCheckingUpdates || !pools || pools.length === 0}
-              >
-                {isCheckingUpdates ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <RefreshCw data-icon="inline-start" />
-                )}
-                <span>{isCheckingUpdates ? "Checking Updates..." : "Check All Pools Now"}</span>
-              </Button>
-            </CardAction>
           </Card>
           {/* Pending Notifications */}
           {updates && updates.length > 0 ? (
