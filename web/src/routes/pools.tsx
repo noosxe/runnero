@@ -13,11 +13,20 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { usePools, useAuthProfiles, useSession } from "../lib/api/query-hooks";
 import { useWatchPools } from "../lib/api/streaming-hooks";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { Link } from "@tanstack/react-router";
 import {
+  Plus,
   Server,
   Search,
   Cpu,
@@ -26,7 +35,6 @@ import {
   Activity,
   ArrowUpRight,
   Info,
-  Plus,
   AlertTriangle,
   Pencil,
 } from "lucide-react";
@@ -241,20 +249,24 @@ export function PoolsPage() {
           ))}
         </div>
       ) : filteredPools.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          <Server className="mx-auto mb-2 h-8 w-8 text-slate-400" />
-          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
-            {pools?.length === 0 ? "No runner pools configured" : "No pools match your filters"}
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">
-            {pools?.length === 0
-              ? hasAuthProfiles
-                ? "Git authentication profile is ready. Create your first runner pool to start processing CI workflows."
-                : "No Git authentication profiles are configured yet. Connect a Git profile before creating your first pool."
-              : "Try adjusting your search terms or filter criteria."}
-          </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Server />
+            </EmptyMedia>
+            <EmptyTitle>
+              {pools?.length === 0 ? "No runner pools configured" : "No pools match your filters"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {pools?.length === 0
+                ? hasAuthProfiles
+                  ? "Git authentication profile is ready. Create your first runner pool to start processing CI workflows."
+                  : "No Git authentication profiles are configured yet. Connect a Git profile before creating your first pool."
+                : "Try adjusting your search terms or filter criteria."}
+            </EmptyDescription>
+          </EmptyHeader>
           {pools?.length === 0 && (
-            <div className="mt-4 flex items-center justify-center gap-3">
+            <EmptyContent>
               {hasAuthProfiles ? (
                 <Button size="xs" onClick={() => setIsModalOpen(true)}>
                   <span>+ Add Runner Pool</span>
@@ -262,15 +274,15 @@ export function PoolsPage() {
               ) : (
                 <Link
                   to="/profiles"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-500"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Configure Git Profile</span>
                 </Link>
               )}
-            </div>
+            </EmptyContent>
           )}
-        </div>
+        </Empty>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {filteredPools.map((p) => {
