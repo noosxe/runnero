@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -170,87 +170,89 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
         )}
 
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <div>
-            <FieldLabel>Provider Method</FieldLabel>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {AUTH_METHODS.map((m) => (
-                <Button
-                  key={m.id}
-                  type="button"
-                  variant="outline"
-                  aria-pressed={authMethod === m.id}
-                  onClick={() => handleMethodChange(m.id)}
-                  className={cn(
-                    "h-auto w-full py-2 text-center",
-                    authMethod === m.id && "border-primary bg-primary/5 text-primary font-semibold",
-                  )}
-                >
-                  {m.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <FieldLabel htmlFor="modal-profile-name">Profile Name</FieldLabel>
-            <Input
-              id="modal-profile-name"
-              type="text"
-              placeholder="e.g. github-production"
-              value={profileName}
-              onChange={(e) => setProfileName(e.target.value)}
-
-              required
-            />
-          </div>
-
-          {authMethod === "github_app" ? (
-            <>
-              <div>
-                <FieldLabel htmlFor="modal-app-id">GitHub App ID</FieldLabel>
-                <Input
-                  id="modal-app-id"
-                  type="number"
-                  placeholder="e.g. 123456"
-                  value={appId}
-                  onChange={(e) => setAppId(e.target.value)}
-
-                  required
-                />
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel>Provider Method</FieldLabel>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {AUTH_METHODS.map((m) => (
+                  <Button
+                    key={m.id}
+                    type="button"
+                    variant="outline"
+                    aria-pressed={authMethod === m.id}
+                    onClick={() => handleMethodChange(m.id)}
+                    className={cn(
+                      "h-auto w-full py-2 text-center",
+                      authMethod === m.id &&
+                        "border-primary bg-primary/5 text-primary font-semibold",
+                    )}
+                  >
+                    {m.label}
+                  </Button>
+                ))}
               </div>
+            </Field>
 
-              <div>
-                <FieldLabel htmlFor="modal-private-key">Private Key (.pem)</FieldLabel>
-                <Textarea
-                  id="modal-private-key"
-                  rows={4}
-                  placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
-                  value={privateKeyPem}
-                  onChange={(e) => setPrivateKeyPem(e.target.value)}
-                  aria-required={!privateKeyOptional}
-                  className="font-mono text-[11px]"
-                  required={!privateKeyOptional}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">{secretHelperText()}</p>
-              </div>
-            </>
-          ) : (
-            <div>
-              <FieldLabel htmlFor="modal-token">Personal Access Token (PAT)</FieldLabel>
+            <Field>
+              <FieldLabel htmlFor="modal-profile-name">Profile Name</FieldLabel>
               <Input
-                id="modal-token"
-                type="password"
-                placeholder="ghp_... or gitea_pat_..."
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                aria-required={!tokenOptional}
+                id="modal-profile-name"
+                type="text"
+                placeholder="e.g. github-production"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
 
-                required={!tokenOptional}
+                required
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">{secretHelperText()}</p>
-            </div>
-          )}
+            </Field>
 
+            {authMethod === "github_app" ? (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="modal-app-id">GitHub App ID</FieldLabel>
+                  <Input
+                    id="modal-app-id"
+                    type="number"
+                    placeholder="e.g. 123456"
+                    value={appId}
+                    onChange={(e) => setAppId(e.target.value)}
+
+                    required
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="modal-private-key">Private Key (.pem)</FieldLabel>
+                  <Textarea
+                    id="modal-private-key"
+                    rows={4}
+                    placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
+                    value={privateKeyPem}
+                    onChange={(e) => setPrivateKeyPem(e.target.value)}
+                    aria-required={!privateKeyOptional}
+                    className="font-mono text-[11px]"
+                    required={!privateKeyOptional}
+                  />
+                  <FieldDescription className="text-[11px]">{secretHelperText()}</FieldDescription>
+                </Field>
+              </>
+            ) : (
+              <Field>
+                <FieldLabel htmlFor="modal-token">Personal Access Token (PAT)</FieldLabel>
+                <Input
+                  id="modal-token"
+                  type="password"
+                  placeholder="ghp_... or gitea_pat_..."
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  aria-required={!tokenOptional}
+
+                  required={!tokenOptional}
+                />
+                <FieldDescription className="text-[11px]">{secretHelperText()}</FieldDescription>
+              </Field>
+            )}
+          </FieldGroup>
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button variant="outline" onClick={onClose}>
               Cancel

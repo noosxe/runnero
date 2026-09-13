@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1012,41 +1018,49 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
 
           <CardContent>
             <form onSubmit={handleSaveConfig} className="flex flex-col gap-4 text-xs">
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
-                  <span className="font-semibold text-foreground">Enable Managed Renovate</span>
-                </label>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Automatically scans and updates dependencies according to the schedule.
-                </p>
-              </div>
+              <FieldGroup className="gap-4">
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="renovate-enabled"
+                    checked={enabled}
+                    onCheckedChange={(v) => setEnabled(v === true)}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="renovate-enabled">Enable Managed Renovate</FieldLabel>
+                    <FieldDescription className="text-[11px]">
+                      Automatically scans and updates dependencies according to the schedule.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
 
-              <div>
-                <FieldLabel className="block dark:mb-1">Cron Schedule</FieldLabel>
-                <Input
-                  type="text"
-                  value={cronSchedule}
-                  onChange={(e) => setCronSchedule(e.target.value)}
-                  placeholder="0 3 * * 1"
-                  className="font-mono text-xs"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Standard 5-part cron syntax (e.g., <code className="font-mono">0 3 * * 1</code>{" "}
-                  for weekly Monday 3 AM).
-                </p>
-              </div>
+                <Field>
+                  <FieldLabel htmlFor="renovate-cron">Cron Schedule</FieldLabel>
+                  <Input
+                    id="renovate-cron"
+                    type="text"
+                    value={cronSchedule}
+                    onChange={(e) => setCronSchedule(e.target.value)}
+                    placeholder="0 3 * * 1"
+                    className="font-mono text-xs"
+                  />
+                  <FieldDescription className="text-[11px]">
+                    Standard 5-part cron syntax (e.g., <code className="font-mono">0 3 * * 1</code>{" "}
+                    for weekly Monday 3 AM).
+                  </FieldDescription>
+                </Field>
 
-              <div>
-                <FieldLabel className="block dark:mb-1">Task Container Image</FieldLabel>
-                <Input
-                  type="text"
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  placeholder="renovate/renovate:latest"
-                  className="font-mono text-xs"
-                />
-              </div>
+                <Field>
+                  <FieldLabel htmlFor="renovate-image">Task Container Image</FieldLabel>
+                  <Input
+                    id="renovate-image"
+                    type="text"
+                    value={image}
+                    onChange={(e) => setImage(e.target.value)}
+                    placeholder="renovate/renovate:latest"
+                    className="font-mono text-xs"
+                  />
+                </Field>
+              </FieldGroup>
 
               {saveError && (
                 <Alert variant="destructive">
