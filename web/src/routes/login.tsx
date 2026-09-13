@@ -8,12 +8,11 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Card } from "@/components/ui/card";
-import { cn } from "cn";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useLogin } from "../lib/api/query-hooks";
-import { useTheme } from "../hooks/use-theme";
+import { useTheme, type Theme } from "../hooks/use-theme";
 import { ShieldCheck, AlertCircle, Eye, EyeOff, Sun, Moon, Monitor } from "lucide-react";
 
 export function LoginPage() {
@@ -43,57 +42,23 @@ export function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
       {/* Top Corner Theme Switcher */}
       <div className="absolute top-4 right-4 flex items-center rounded-xl border border-border bg-card p-1 shadow-xs bg-muted">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Light Theme"
-                onClick={() => setTheme("light")}
-                aria-pressed={theme === "light"}
-                className={cn(theme === "light" && "bg-muted text-primary")}
-              />
-            }
-          >
+        <ToggleGroup
+          size="sm"
+          value={[theme]}
+          onValueChange={(value) => {
+            if (value[0]) setTheme(value[0] as Theme);
+          }}
+        >
+          <ToggleGroupItem value="light" aria-label="Light">
             <Sun />
-          </TooltipTrigger>
-          <TooltipContent>Light Theme</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Dark Theme"
-                onClick={() => setTheme("dark")}
-                aria-pressed={theme === "dark"}
-                className={cn(theme === "dark" && "bg-muted text-primary")}
-              />
-            }
-          >
+          </ToggleGroupItem>
+          <ToggleGroupItem value="dark" aria-label="Dark">
             <Moon />
-          </TooltipTrigger>
-          <TooltipContent>Dark Theme</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="System Theme"
-                onClick={() => setTheme("system")}
-                aria-pressed={theme === "system"}
-                className={cn(theme === "system" && "bg-muted text-primary")}
-              />
-            }
-          >
+          </ToggleGroupItem>
+          <ToggleGroupItem value="system" aria-label="System">
             <Monitor />
-          </TooltipTrigger>
-          <TooltipContent>System Theme</TooltipContent>
-        </Tooltip>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       <Card className="w-full max-w-sm px-(--card-spacing)">

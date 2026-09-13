@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts";
-import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   ChartContainer,
   ChartTooltip,
@@ -16,7 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "cn";
 import type { LatencyBucket } from "../../gen/api_pb";
 import { CapacityHealthBadge } from "./capacity-health-badge";
 import { TrendingUp, Clock, Info } from "lucide-react";
@@ -107,24 +106,16 @@ export function QueueLatencyChart({
 
           {/* Timeframe Selector */}
           <div className="flex items-center rounded-xl border border-border/60 bg-muted/50 p-0.5 text-xs font-semibold">
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => onTimeframeChange(24)}
-              aria-pressed={timeframeHours === 24}
-              className={cn(timeframeHours === 24 && "bg-background text-foreground shadow-2xs")}
+            <ToggleGroup
+              size="sm"
+              value={[timeframeHours.toString()]}
+              onValueChange={(value) => {
+                if (value[0]) onTimeframeChange(Number(value[0]));
+              }}
             >
-              24h
-            </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => onTimeframeChange(168)}
-              aria-pressed={timeframeHours === 168}
-              className={cn(timeframeHours === 168 && "bg-background text-foreground shadow-2xs")}
-            >
-              7d
-            </Button>
+              <ToggleGroupItem value="24">24h</ToggleGroupItem>
+              <ToggleGroupItem value="168">7d</ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </CardAction>
       </CardHeader>

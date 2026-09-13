@@ -7,6 +7,7 @@ let mockSearch: { redirect?: string } = { redirect: "/pools" };
 const mockMutateAsync = vi.fn();
 const mockNavigate = vi.fn();
 const mockSetTheme = vi.fn();
+let mockTheme = "light";
 
 vi.mock("../lib/api/query-hooks", () => ({
   useLogin: () => ({
@@ -24,7 +25,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("../hooks/use-theme", () => ({
   useTheme: () => ({
-    theme: "light",
+    theme: mockTheme,
     setTheme: mockSetTheme,
   }),
 }));
@@ -34,6 +35,7 @@ describe("LoginPage", () => {
     vi.clearAllMocks();
     mockIsPending = false;
     mockSearch = { redirect: "/pools" };
+    mockTheme = "light";
   });
 
   it("renders login form with fields and buttons", () => {
@@ -105,17 +107,21 @@ describe("LoginPage", () => {
   });
 
   it("handles theme switcher buttons", () => {
-    render(<LoginPage />);
+    const { rerender } = render(<LoginPage />);
 
-    const darkBtn = screen.getByRole("button", { name: "Dark Theme" });
+    const darkBtn = screen.getByRole("button", { name: "Dark" });
     fireEvent.click(darkBtn);
     expect(mockSetTheme).toHaveBeenCalledWith("dark");
+    mockTheme = "dark";
+    rerender(<LoginPage />);
 
-    const systemBtn = screen.getByRole("button", { name: "System Theme" });
+    const systemBtn = screen.getByRole("button", { name: "System" });
     fireEvent.click(systemBtn);
     expect(mockSetTheme).toHaveBeenCalledWith("system");
+    mockTheme = "system";
+    rerender(<LoginPage />);
 
-    const lightBtn = screen.getByRole("button", { name: "Light Theme" });
+    const lightBtn = screen.getByRole("button", { name: "Light" });
     fireEvent.click(lightBtn);
     expect(mockSetTheme).toHaveBeenCalledWith("light");
   });
