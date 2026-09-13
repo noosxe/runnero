@@ -136,19 +136,19 @@ export function LogTerminal({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 font-mono shadow-2xl text-xs">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-terminal-border bg-terminal font-mono shadow-2xl text-xs">
       {/* Terminal Top Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-terminal-border bg-terminal-surface/90 px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Terminal className="size-4 text-blue-400" />
-            <span className="font-bold text-slate-100">
+            <Terminal className="size-4 text-terminal-accent" />
+            <span className="font-bold text-terminal-title">
               {title || runnerName || "Terminal Console"}
             </span>
           </div>
 
           {containerId && (
-            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+            <span className="rounded bg-terminal-raised px-1.5 py-0.5 text-[10px] text-terminal-muted">
               {containerId.substring(0, 12)}
             </span>
           )}
@@ -170,10 +170,10 @@ export function LogTerminal({
               <span
                 className={`size-1.5 rounded-full ${
                   isPaused
-                    ? "bg-amber-400"
+                    ? "bg-warning"
                     : isConnected
-                      ? "bg-emerald-400 animate-pulse"
-                      : "bg-sky-400 animate-ping"
+                      ? "bg-success animate-pulse"
+                      : "bg-primary animate-ping"
                 }`}
               />
               <span>
@@ -188,7 +188,7 @@ export function LogTerminal({
             </Badge>
           ) : (
             <Badge variant="secondary" className="gap-1">
-              <Clock className="size-3 text-slate-400" />
+              <Clock className="size-3 text-terminal-muted" />
               <span>Historical Archive</span>
             </Badge>
           )}
@@ -264,10 +264,10 @@ export function LogTerminal({
       </div>
 
       {/* Filter and Search Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-900/40 px-4 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-terminal-border/80 bg-terminal-surface/40 px-4 py-2">
         <div className="flex items-center gap-2 flex-1 max-w-sm">
           <div className="relative w-full">
-            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-500" />
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-terminal-dim" />
             <Input
               type="text"
               value={search}
@@ -280,7 +280,7 @@ export function LogTerminal({
 
         <div className="flex items-center gap-3">
           {/* Stream Filter Switcher */}
-          <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950 p-0.5">
+          <div className="flex items-center rounded-lg border border-terminal-border bg-terminal p-0.5">
             <Button
               variant="ghost"
               size="xs"
@@ -296,7 +296,8 @@ export function LogTerminal({
               onClick={() => setStreamFilter("stdout")}
               aria-pressed={streamFilter === "stdout"}
               className={cn(
-                streamFilter === "stdout" && "bg-cyan-950 text-cyan-300 border border-cyan-800",
+                streamFilter === "stdout" &&
+                  "bg-terminal-out/10 text-terminal-out border border-terminal-out/40",
               )}
             >
               stdout
@@ -307,14 +308,15 @@ export function LogTerminal({
               onClick={() => setStreamFilter("stderr")}
               aria-pressed={streamFilter === "stderr"}
               className={cn(
-                streamFilter === "stderr" && "bg-rose-950 text-rose-300 border border-rose-800",
+                streamFilter === "stderr" &&
+                  "bg-terminal-err/10 text-terminal-err border border-terminal-err/40",
               )}
             >
               stderr
             </Button>
           </div>
 
-          <span className="text-[10px] text-slate-500">
+          <span className="text-[10px] text-terminal-dim">
             {filteredLogs.length} / {displayedLogs.length} lines
           </span>
         </div>
@@ -324,31 +326,31 @@ export function LogTerminal({
       <div
         ref={terminalRef}
         onScroll={handleScroll}
-        className="relative flex-1 overflow-y-auto p-4 text-[11px] leading-relaxed text-slate-300 selection:bg-blue-600/40"
+        className="relative flex-1 overflow-y-auto p-4 text-[11px] leading-relaxed text-terminal-fg selection:bg-terminal-accent/40"
       >
         {isLoading ? (
-          <div className="flex h-32 items-center justify-center text-slate-500">
-            <Radio className="size-4 animate-spin text-blue-500 mr-2" />
+          <div className="flex h-32 items-center justify-center text-terminal-dim">
+            <Radio className="size-4 animate-spin text-terminal-accent mr-2" />
             <span>Loading log stream...</span>
           </div>
         ) : filteredLogs.length === 0 ? (
-          <div className="flex h-32 flex-col items-center justify-center text-slate-500 text-center">
+          <div className="flex h-32 flex-col items-center justify-center text-terminal-dim text-center">
             {search || streamFilter !== "all" ? (
               <>
-                <p className="font-semibold text-slate-400">No matching log lines</p>
-                <p className="text-[10px] text-slate-600 mt-1">
+                <p className="font-semibold text-terminal-muted">No matching log lines</p>
+                <p className="text-[10px] text-terminal-faint mt-1">
                   Try resetting search or stream filters
                 </p>
               </>
             ) : mode === "live" ? (
               <>
-                <p className="font-semibold text-slate-400">Waiting for runner output...</p>
-                <p className="text-[10px] text-slate-600 mt-1">
+                <p className="font-semibold text-terminal-muted">Waiting for runner output...</p>
+                <p className="text-[10px] text-terminal-faint mt-1">
                   Container output will stream here in real-time
                 </p>
               </>
             ) : (
-              <p className="font-semibold text-slate-400">
+              <p className="font-semibold text-terminal-muted">
                 No log output recorded for this runner execution
               </p>
             )}
@@ -360,15 +362,15 @@ export function LogTerminal({
               return (
                 <div
                   key={idx}
-                  className={`flex items-start gap-2 rounded px-1 py-0.5 hover:bg-slate-900/60 transition-colors ${
-                    isErr ? "bg-rose-950/20 text-rose-200" : ""
+                  className={`flex items-start gap-2 rounded px-1 py-0.5 hover:bg-terminal-surface/60 transition-colors ${
+                    isErr ? "bg-terminal-err/10 text-terminal-err-soft" : ""
                   }`}
                 >
-                  <span className="w-10 shrink-0 select-none text-right font-mono text-[10px] text-slate-600">
+                  <span className="w-10 shrink-0 select-none text-right font-mono text-[10px] text-terminal-faint">
                     {idx + 1}
                   </span>
                   {chunk.timestamp && (
-                    <span className="shrink-0 select-none font-mono text-[10px] text-slate-500">
+                    <span className="shrink-0 select-none font-mono text-[10px] text-terminal-dim">
                       {chunk.timestamp.length > 19
                         ? chunk.timestamp.substring(11, 19)
                         : chunk.timestamp}
@@ -376,7 +378,7 @@ export function LogTerminal({
                   )}
                   <span
                     className={`shrink-0 select-none font-mono text-[10px] font-semibold ${
-                      isErr ? "text-rose-400" : "text-cyan-400"
+                      isErr ? "text-terminal-err" : "text-terminal-out"
                     }`}
                   >
                     [{chunk.stream || "stdout"}]
