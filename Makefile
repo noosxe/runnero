@@ -88,6 +88,27 @@ clean: clean-e2e
 	rm -rf bin web/dist
 
 ## test-e2e: run containerized Playwright E2E tests
+# --- E2E stack collision guards (RUN-208) -----------------------------------
+# The self-hosted CI runner shares one Docker engine with local development,
+# and both drive the same compose file. Three guards keep them apart:
+#   1. Project namespacing: CI (GitHub Actions sets CI=true) keeps the
+#      workflow's fixed project `runnero-e2e`; manual runs get a per-user
+#      project, so neither side can touch the other's containers, networks,
+#      or volumes (COMPOSE_PROJECT_NAME overrides the stack's `name:`).
+#   2. flock: same-project invocations (two local terminals, or the CI job's
+#      own test -> clean steps) serialize on a per-project lockfile instead
+#      of racing; the wait is capped by E2E_LOCK_WAIT.
+#   3. In-flight guard: clean-e2e refuses to tear down while the suite's
+#      Playwright container still runs -- the RUN-208 failure mode. Override
+#      with E2E_FORCE_CLEAN=1 (the CI teardown sets it: after a job timeout
+#      the suite is already dead and cleanup must still proceed).
+E2E_PROJECT ?= $(if $(CI),runnero-e2e,runnero-e2e-$(shell id -un 2>/dev/null || echo local))
+export COMPOSE_PROJECT_NAME := $(E2E_PROJECT)
+E2E_COMPOSE := docker compose -f tests/e2e/docker-compose.e2e.yml
+E2E_LOCK := /tmp/$(E2E_PROJECT).lock
+E2E_LOCK_WAIT ?= 600
+
+## test-e2e: run containerized Playwright E2E tests
 test-e2e:
 	# Fresh state must not depend on the previous run's teardown: the supervisor
 	# keeps its database in an anonymous volume (VOLUME /data), so a stack left
@@ -96,23 +117,30 @@ test-e2e:
 	# wizard rendered its login branch instead of step 1). Surface down errors
 	# instead of swallowing them, and recreate containers with renewed
 	# anonymous volumes so every boot starts empty even if cleanup leaked.
-	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans
-	docker compose -f tests/e2e/docker-compose.e2e.yml up \
-		--build \
-		--force-recreate \
-		--renew-anon-volumes \
-		--abort-on-container-exit \
-		--exit-code-from e2e-playwright
+	flock -w $(E2E_LOCK_WAIT) $(E2E_LOCK) bash -c '\
+		$(E2E_COMPOSE) down -v --remove-orphans && \
+		$(E2E_COMPOSE) up \
+			--build \
+			--force-recreate \
+			--renew-anon-volumes \
+			--abort-on-container-exit \
+			--exit-code-from e2e-playwright'
 
 ## test-e2e-ui: run Playwright E2E tests with UI mode on port 9323
 test-e2e-ui:
-	docker compose -f tests/e2e/docker-compose.e2e.yml run \
+	flock -w $(E2E_LOCK_WAIT) $(E2E_LOCK) $(E2E_COMPOSE) run \
 		--rm -p 9323:9323 e2e-playwright pnpm exec playwright test --ui-port=9323 --ui-host=0.0.0.0
 
 ## clean-e2e: clean up E2E containers, networks, and scratch volumes
 clean-e2e:
-	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans 2>/dev/null || true
-
+	@if [ -n "$${E2E_FORCE_CLEAN:-}" ] || ! docker ps -q \
+			--filter "label=com.docker.compose.project=$(E2E_PROJECT)" \
+			--filter "label=com.docker.compose.service=e2e-playwright" \
+			--filter status=running | grep -q .; then \
+		flock -w $(E2E_LOCK_WAIT) $(E2E_LOCK) $(E2E_COMPOSE) down -v --remove-orphans 2>/dev/null || true; \
+	else \
+		echo "clean-e2e: an E2E suite is still running in project $(E2E_PROJECT) - refusing to tear it down (E2E_FORCE_CLEAN=1 overrides)"; \
+	fi
 
 # --- Deployment compose stack (docker-compose.yml) -------------------------
 # Lifecycle wrappers for the self-hosted stack. Plain docker compose calls,
