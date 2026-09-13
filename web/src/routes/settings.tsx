@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { cn } from "cn";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -131,11 +132,12 @@ export function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("constraints")}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "constraints"
-              ? "border-primary/50 text-primary "
-              : "border-transparent text-muted-foreground hover:text-foreground "
-          }`}
+              ? "border-primary/50 text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
         >
           <Sliders className="size-4" />
           <span>Global Constraints</span>
@@ -144,11 +146,12 @@ export function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("images")}
-          className={`relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
+          className={cn(
+            "relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "images"
-              ? "border-primary/50 text-primary "
-              : "border-transparent text-muted-foreground hover:text-foreground "
-          }`}
+              ? "border-primary/50 text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
         >
           <RefreshCw className="size-4" />
           <span>Runner Image Updates</span>
@@ -158,11 +161,12 @@ export function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("backups")}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "backups"
-              ? "border-primary/50 text-primary "
-              : "border-transparent text-muted-foreground hover:text-foreground "
-          }`}
+              ? "border-primary/50 text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
         >
           <Database className="size-4" />
           <span>Database & Retention</span>

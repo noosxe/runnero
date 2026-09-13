@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -135,11 +136,12 @@ export function ProfilesPage() {
                       href={prof.installUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                      className={cn(
+                        "inline-flex items-center gap-1 text-xs font-semibold",
                         prof.installationsCount === 0
                           ? "text-primary hover:text-primary/80"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
                     >
                       <ExternalLink className="size-3.5" />
                       <span>

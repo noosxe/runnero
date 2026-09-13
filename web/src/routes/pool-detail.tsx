@@ -228,9 +228,10 @@ export function PoolDetailPage() {
                 )}
               >
                 <span
-                  className={`size-1.5 rounded-full ${
-                    isStreamActive ? "bg-success animate-pulse" : "bg-warning"
-                  }`}
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    isStreamActive ? "bg-success animate-pulse" : "bg-warning",
+                  )}
                 />
                 <span className="font-mono text-[10px]">
                   {isStreamActive ? "Live Orchestrator Stream" : "Connecting"}
@@ -278,16 +279,17 @@ export function PoolDetailPage() {
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-2xl font-bold text-foreground">{idleInstances}</span>
               <span
-                className={`text-xs ${
+                className={cn(
+                  "text-xs",
                   pool.healthStatus === PoolHealthStatus.DEGRADED &&
-                  pool.minIdleRunners > 0 &&
-                  idleInstances === 0
+                    pool.minIdleRunners > 0 &&
+                    idleInstances === 0
                     ? "font-medium text-destructive"
                     : pool.healthStatus === PoolHealthStatus.PROVISIONING &&
                         idleInstances < pool.minIdleRunners
                       ? "font-medium text-warning"
-                      : "text-muted-foreground"
-                }`}
+                      : "text-muted-foreground",
+                )}
               >
                 target: {pool.minIdleRunners}
                 {pool.healthStatus === PoolHealthStatus.DEGRADED &&
@@ -335,11 +337,12 @@ export function PoolDetailPage() {
         <button
           type="button"
           onClick={() => setActiveTab("runners")}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "runners"
               ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground "
-          }`}
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
         >
           <Activity className="size-3.5" />
           <span>Active Containers & Runners</span>
@@ -349,11 +352,12 @@ export function PoolDetailPage() {
         <button
           type="button"
           onClick={() => setActiveTab("config")}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "config"
               ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground "
-          }`}
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
         >
           <Server className="size-3.5" />
           <span>Pool Configuration</span>
@@ -362,11 +366,12 @@ export function PoolDetailPage() {
         <button
           type="button"
           onClick={() => setActiveTab("renovate")}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "renovate"
               ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground "
-          }`}
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
         >
           <Bot className="size-3.5" />
           <span>Renovate Bot</span>
@@ -437,15 +442,16 @@ export function PoolDetailPage() {
                               )}
                             >
                               <span
-                                className={`size-1.5 rounded-full ${
+                                className={cn(
+                                  "size-1.5 rounded-full",
                                   isBusy
                                     ? "bg-success animate-pulse"
                                     : isIdle
                                       ? "bg-primary"
                                       : isDegraded
                                         ? "bg-destructive"
-                                        : "bg-muted-foreground"
-                                }`}
+                                        : "bg-muted-foreground",
+                                )}
                               />
                               <span>{r.status}</span>
                             </Badge>
@@ -953,7 +959,8 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                     )}
                   >
                     <span
-                      className={`size-1.5 rounded-full ${
+                      className={cn(
+                        "size-1.5 rounded-full",
                         isRunning
                           ? "bg-warning animate-ping"
                           : status?.lastRun?.status === "success"
@@ -962,8 +969,8 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                               ? "bg-destructive"
                               : pool.renovate?.enabled
                                 ? "bg-primary"
-                                : "bg-muted-foreground"
-                      }`}
+                                : "bg-muted-foreground",
+                      )}
                     />
                     <span>
                       {isRunning
@@ -1142,13 +1149,14 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                           )}
                         >
                           <span
-                            className={`size-1.5 rounded-full ${
+                            className={cn(
+                              "size-1.5 rounded-full",
                               run.status === "running"
                                 ? "bg-warning animate-ping"
                                 : run.status === "success"
                                   ? "bg-success"
-                                  : "bg-destructive"
-                            }`}
+                                  : "bg-destructive",
+                            )}
                           />
                           <span>{run.status}</span>
                         </Badge>
