@@ -60,7 +60,7 @@ export function CapacityHealthBadge({ avgQueueSeconds }: CapacityHealthProps) {
           />
         }
       >
-        <span className={`size-2 rounded-full ${info.dotClass} animate-pulse`} />
+        <span className={cn("size-2 rounded-full", info.dotClass, "animate-pulse")} />
         {info.status === "optimal" ? (
           <CheckCircle2 />
         ) : info.status === "moderate" ? (

@@ -104,9 +104,10 @@ export function PoolsPage() {
               )}
             >
               <span
-                className={`size-1.5 rounded-full ${
-                  isConnected ? "bg-success animate-pulse" : "bg-warning"
-                }`}
+                className={cn(
+                  "size-1.5 rounded-full",
+                  isConnected ? "bg-success animate-pulse" : "bg-warning",
+                )}
               />
               <span className="font-mono text-[10px]">
                 {isConnected ? "Live Stream" : "Connecting"}
@@ -365,13 +366,14 @@ export function PoolsPage() {
                     </div>
                     <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
                       <div
-                        className={`h-full transition-all duration-500 rounded-full ${
+                        className={cn(
+                          "h-full transition-all duration-500 rounded-full",
                           utilization > 85
                             ? "bg-destructive"
                             : utilization > 60
                               ? "bg-warning"
-                              : "bg-success"
-                        }`}
+                              : "bg-success",
+                        )}
                         style={{ width: `${utilization}%` }}
                       />
                     </div>

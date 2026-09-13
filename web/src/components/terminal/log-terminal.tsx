@@ -168,13 +168,14 @@ export function LogTerminal({
               )}
             >
               <span
-                className={`size-1.5 rounded-full ${
+                className={cn(
+                  "size-1.5 rounded-full",
                   isPaused
                     ? "bg-warning"
                     : isConnected
                       ? "bg-success animate-pulse"
-                      : "bg-primary animate-ping"
-                }`}
+                      : "bg-primary animate-ping",
+                )}
               />
               <span>
                 {isPaused
@@ -195,7 +196,7 @@ export function LogTerminal({
         </div>
 
         {/* Action Controls */}
-        <div className={`flex items-center gap-1.5 ${headerRightInset ? "mr-9" : ""}`}>
+        <div className={cn("flex items-center gap-1.5", headerRightInset && "mr-9")}>
           {mode === "live" && (
             <Button
               variant="outline"
@@ -362,9 +363,10 @@ export function LogTerminal({
               return (
                 <div
                   key={idx}
-                  className={`flex items-start gap-2 rounded px-1 py-0.5 hover:bg-terminal-surface/60 transition-colors ${
-                    isErr ? "bg-terminal-err/10 text-terminal-err-soft" : ""
-                  }`}
+                  className={cn(
+                    "flex items-start gap-2 rounded px-1 py-0.5 hover:bg-terminal-surface/60 transition-colors",
+                    isErr && "bg-terminal-err/10 text-terminal-err-soft",
+                  )}
                 >
                   <span className="w-10 shrink-0 select-none text-right font-mono text-[10px] text-terminal-faint">
                     {idx + 1}
@@ -377,9 +379,10 @@ export function LogTerminal({
                     </span>
                   )}
                   <span
-                    className={`shrink-0 select-none font-mono text-[10px] font-semibold ${
-                      isErr ? "text-terminal-err" : "text-terminal-out"
-                    }`}
+                    className={cn(
+                      "shrink-0 select-none font-mono text-[10px] font-semibold",
+                      isErr ? "text-terminal-err" : "text-terminal-out",
+                    )}
                   >
                     [{chunk.stream || "stdout"}]
                   </span>

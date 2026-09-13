@@ -1,4 +1,5 @@
 import { useState, useMemo, type FormEvent } from "react";
+import { cn } from "cn";
 import {
   Field,
   FieldContent,
@@ -446,24 +447,26 @@ export function PoolWizardModal({
             return (
               <div key={s.step} className="flex items-center gap-2">
                 <div
-                  className={`flex size-6 items-center justify-center rounded-full font-bold transition-colors ${
+                  className={cn(
+                    "flex size-6 items-center justify-center rounded-full font-bold transition-colors",
                     isCompleted
                       ? "bg-success text-success-foreground"
                       : isActive
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                  }`}
+                        : "bg-muted text-muted-foreground",
+                  )}
                 >
                   {isCompleted ? <Check className="size-3.5" /> : s.step}
                 </div>
                 <span
-                  className={`font-semibold hidden sm:inline ${
+                  className={cn(
+                    "font-semibold hidden sm:inline",
                     isActive
                       ? "text-primary"
                       : isCompleted
                         ? "text-foreground"
-                        : "text-muted-foreground"
-                  }`}
+                        : "text-muted-foreground",
+                  )}
                 >
                   {s.label}
                 </span>
@@ -753,11 +756,12 @@ export function PoolWizardModal({
                       <div
                         key={target.htmlUrl}
                         onClick={() => handleToggleTarget(target.htmlUrl)}
-                        className={`flex items-start gap-3 rounded-xl border p-2.5 transition-colors cursor-pointer ${
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border p-2.5 transition-colors cursor-pointer",
                           isSelected
-                            ? "border-primary/50 bg-primary/10 "
-                            : "border-border bg-card hover:border-border bg-muted "
-                        }`}
+                            ? "border-primary/50 bg-primary/10"
+                            : "border-border bg-card hover:border-border bg-muted",
+                        )}
                       >
                         <div className="pt-0.5 text-primary shrink-0">
                           {isSelected ? (
@@ -779,11 +783,12 @@ export function PoolWizardModal({
                               {target.fullName || target.name}
                             </span>
                             <span
-                              className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[10px] font-medium border ${
+                              className={cn(
+                                "inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[10px] font-medium border",
                                 target.isPrivate
-                                  ? "bg-warning/10 text-warning border-warning/30 "
-                                  : "bg-muted text-muted-foreground border-border "
-                              }`}
+                                  ? "bg-warning/10 text-warning border-warning/30"
+                                  : "bg-muted text-muted-foreground border-border",
+                              )}
                             >
                               {target.isPrivate ? (
                                 <>

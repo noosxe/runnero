@@ -466,24 +466,26 @@ export function OnboardingPage() {
             return (
               <div key={step.num} className="flex flex-1 flex-col items-center">
                 <div
-                  className={`flex size-9 items-center justify-center rounded-xl text-xs font-semibold transition-all ${
+                  className={cn(
+                    "flex size-9 items-center justify-center rounded-xl text-xs font-semibold transition-all",
                     isDone
                       ? "bg-success text-success-foreground"
                       : isCurrent
                         ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-muted text-muted-foreground "
-                  }`}
+                        : "bg-muted text-muted-foreground",
+                  )}
                 >
                   {isDone ? <CheckCircle2 className="size-4" /> : <Icon className="size-4" />}
                 </div>
                 <span
-                  className={`mt-1.5 text-[11px] font-medium ${
+                  className={cn(
+                    "mt-1.5 text-[11px] font-medium",
                     isCurrent
-                      ? "font-bold text-primary "
+                      ? "font-bold text-primary"
                       : isDone
-                        ? "text-foreground "
-                        : "text-muted-foreground"
-                  }`}
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                  )}
                 >
                   {step.label}
                 </span>
@@ -1260,7 +1262,10 @@ export function OnboardingPage() {
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
                     <KeyRound
-                      className={`size-4 ${isGitProfileSkipped ? "text-muted-foreground" : "text-primary "}`}
+                      className={cn(
+                        "size-4",
+                        isGitProfileSkipped ? "text-muted-foreground" : "text-primary",
+                      )}
                     />
                     <span>Git Auth Profile</span>
                   </div>
@@ -1312,7 +1317,10 @@ export function OnboardingPage() {
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
                     <Server
-                      className={`size-4 ${isPoolSkipped ? "text-muted-foreground" : "text-primary "}`}
+                      className={cn(
+                        "size-4",
+                        isPoolSkipped ? "text-muted-foreground" : "text-primary",
+                      )}
                     />
                     <span>{isPoolSkipped ? "Initial Pool" : `Initial Pool: ${poolName}`}</span>
                   </div>

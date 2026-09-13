@@ -200,7 +200,7 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
               : "bg-muted text-muted-foreground",
           )}
         >
-          <span className={`size-1.5 rounded-full ${isEnabled ? "bg-success" : "bg-muted"}`} />
+          <span className={cn("size-1.5 rounded-full", isEnabled ? "bg-success" : "bg-muted")} />
           <span>{isEnabled ? "Enabled" : "Disabled"}</span>
         </Badge>
       </TableCell>
@@ -235,13 +235,14 @@ function PoolRenovateRow({ pool }: { pool: Pool }) {
               )}
             >
               <span
-                className={`size-1.5 rounded-full ${
+                className={cn(
+                  "size-1.5 rounded-full",
                   isRunning
                     ? "bg-warning animate-ping"
                     : status.lastRun.status === "success"
                       ? "bg-success"
-                      : "bg-destructive"
-                }`}
+                      : "bg-destructive",
+                )}
               />
               <span>{status.lastRun.status}</span>
             </Badge>
