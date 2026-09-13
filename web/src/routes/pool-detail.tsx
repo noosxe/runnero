@@ -343,9 +343,7 @@ export function PoolDetailPage() {
         >
           <Activity className="size-3.5" />
           <span>Active Containers & Runners</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground ">
-            {runners?.length ?? 0}
-          </span>
+          <Badge variant="secondary">{runners?.length ?? 0}</Badge>
         </button>
 
         <button
