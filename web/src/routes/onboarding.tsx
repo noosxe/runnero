@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "cn";
 import { useNavigate } from "@tanstack/react-router";
 import { create } from "@bufbuild/protobuf";
@@ -36,7 +37,7 @@ import {
   useCreatePool,
   useCompleteOnboarding,
 } from "../lib/api/query-hooks";
-import { useTheme } from "../hooks/use-theme";
+import { useTheme, type Theme } from "../hooks/use-theme";
 import {
   ShieldCheck,
   KeyRound,
@@ -411,33 +412,23 @@ export function OnboardingPage() {
     <div className="relative flex min-h-screen flex-col items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
       {/* Theme Switcher */}
       <div className="absolute top-4 right-4 flex items-center rounded-xl border border-border bg-card p-1 shadow-xs bg-muted">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setTheme("light")}
-          aria-pressed={theme === "light"}
-          className={cn(theme === "light" && "bg-muted text-primary")}
+        <ToggleGroup
+          size="sm"
+          value={[theme]}
+          onValueChange={(value) => {
+            if (value[0]) setTheme(value[0] as Theme);
+          }}
         >
-          <Sun />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setTheme("dark")}
-          aria-pressed={theme === "dark"}
-          className={cn(theme === "dark" && "bg-muted text-primary")}
-        >
-          <Moon />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setTheme("system")}
-          aria-pressed={theme === "system"}
-          className={cn(theme === "system" && "bg-muted text-primary")}
-        >
-          <Monitor />
-        </Button>
+          <ToggleGroupItem value="light" aria-label="Light">
+            <Sun />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="dark" aria-label="Dark">
+            <Moon />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="system" aria-label="System">
+            <Monitor />
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {/* Main Wizard Container */}
