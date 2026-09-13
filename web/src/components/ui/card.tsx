@@ -32,9 +32,13 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+// Deliberate divergence from upstream shadcn/ui (new-york-v4 renders a <div>):
+// an <h3> gives card titles real heading semantics for assistive tech.
+// Rendering is identical — classes pin font size/weight, and Tailwind's
+// preflight resets native h3 styling. See RUN-211.
+function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
   return (
-    <div
+    <h3
       data-slot="card-title"
       className={cn("font-heading text-base font-medium", className)}
       {...props}
