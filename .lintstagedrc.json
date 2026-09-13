@@ -1,4 +1,7 @@
 {
-  "*.{js,jsx,ts,tsx,mjs,cjs}": ["oxfmt", "oxlint --deny-warnings"],
-  "*.{html,json}": ["oxfmt"]
+  "*.{js,jsx,ts,tsx,mjs,cjs}": [
+    "oxfmt --no-error-on-unmatched-pattern",
+    "oxlint --deny-warnings --no-error-on-unmatched-pattern"
+  ],
+  "*.{html,json}": ["oxfmt --no-error-on-unmatched-pattern"]
 }
