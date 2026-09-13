@@ -4,7 +4,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { WarningBadge } from "@/components/common/warning-badge";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   Card,
   CardAction,
@@ -32,7 +32,17 @@ import {
   useCheckImageUpdate,
 } from "../lib/api/query-hooks";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import { Sliders, Calendar, RefreshCw, Database, Save, Layers, Clock, Archive } from "lucide-react";
+import {
+  Sliders,
+  Calendar,
+  RefreshCw,
+  Database,
+  Save,
+  Layers,
+  Clock,
+  Archive,
+  Server,
+} from "lucide-react";
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<"constraints" | "images" | "backups">("constraints");
@@ -415,8 +425,15 @@ export function SettingsPage() {
               <TableBody>
                 {!pools || pools.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                      No pools configured.
+                    <TableCell colSpan={4}>
+                      <Empty className="py-6">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <Server />
+                          </EmptyMedia>
+                          <EmptyTitle>No pools configured.</EmptyTitle>
+                        </EmptyHeader>
+                      </Empty>
                     </TableCell>
                   </TableRow>
                 ) : (

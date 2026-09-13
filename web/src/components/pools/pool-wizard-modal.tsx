@@ -9,6 +9,14 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -702,22 +710,24 @@ export function PoolWizardModal({
                 )}
 
                 {!isDiscovering && !discoveryError && discoveredTargets.length === 0 && (
-                  <div className="py-8 px-4 text-center">
-                    <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 mb-2.5">
-                      <FolderGit2 className="size-5 text-primary" />
-                    </div>
-                    <h4 className="text-xs font-semibold text-foreground ">
-                      {installUrl
-                        ? "GitHub App Not Installed Yet"
-                        : `No ${scope === "repo" ? "repositories" : "organizations"} found`}
-                    </h4>
-                    <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
-                      {installUrl
-                        ? "This GitHub App has not been installed on any account or organization. Install the app to grant access to repositories."
-                        : `No accessible ${scope === "repo" ? "repositories" : "organizations"} were found for this auth profile.`}
-                    </p>
+                  <Empty className="py-8 px-4">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <FolderGit2 />
+                      </EmptyMedia>
+                      <EmptyTitle>
+                        {installUrl
+                          ? "GitHub App Not Installed Yet"
+                          : `No ${scope === "repo" ? "repositories" : "organizations"} found`}
+                      </EmptyTitle>
+                      <EmptyDescription>
+                        {installUrl
+                          ? "This GitHub App has not been installed on any account or organization. Install the app to grant access to repositories."
+                          : `No accessible ${scope === "repo" ? "repositories" : "organizations"} were found for this auth profile.`}
+                      </EmptyDescription>
+                    </EmptyHeader>
                     {installUrl && (
-                      <div className="mt-3.5">
+                      <EmptyContent>
                         <a
                           href={installUrl}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
@@ -727,25 +737,29 @@ export function PoolWizardModal({
                           <ExternalLink className="size-3.5" />
                           <span>Install GitHub App on Your Account</span>
                         </a>
-                        <p className="text-[10px] text-muted-foreground mt-2">
+                        <p className="text-[10px] text-muted-foreground">
                           After completing installation in GitHub, return here — your repositories
                           will appear automatically.
                         </p>
-                      </div>
+                      </EmptyContent>
                     )}
-                  </div>
+                  </Empty>
                 )}
 
                 {!isDiscovering &&
                   !discoveryError &&
                   discoveredTargets.length > 0 &&
                   filteredDiscoveredTargets.length === 0 && (
-                    <div className="py-8 text-center text-muted-foreground">
-                      <FolderGit2 className="size-6 mx-auto mb-1 opacity-50" />
-                      <span>
-                        No matching {scope === "repo" ? "repositories" : "organizations"} found
-                      </span>
-                    </div>
+                    <Empty className="py-6">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon" className="opacity-50">
+                          <FolderGit2 className="size-6" />
+                        </EmptyMedia>
+                        <EmptyTitle className="text-sm text-muted-foreground">
+                          No matching {scope === "repo" ? "repositories" : "organizations"} found
+                        </EmptyTitle>
+                      </EmptyHeader>
+                    </Empty>
                   )}
 
                 {!isDiscovering &&
