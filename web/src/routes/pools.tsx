@@ -141,12 +141,10 @@ export function PoolsPage() {
             Gitea, or Forgejo. Connect an auth profile first or run through the setup wizard.
           </AlertDescription>
           <AlertAction>
-            {/* No `warning` Button variant exists yet; the solid warning colors stay as
-                className until --warning-foreground / a warning variant lands (RUN-190). */}
             <LinkButton
               to="/profiles"
               size="sm"
-              className="bg-warning text-white hover:bg-warning/90"
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
             >
               Configure Profile &rarr;
             </LinkButton>

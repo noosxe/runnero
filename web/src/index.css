@@ -34,7 +34,9 @@
     --destructive: oklch(0.577 0.245 27.325);
     /* App-specific tokens (not preset-owned): re-add if `apply --preset` rewrites this file */
     --success: oklch(0.627 0.17 149.2);
+    --success-foreground: oklch(0.985 0 0);
     --warning: oklch(0.666 0.179 58.318); /* = preset's --chart-3 amber */
+    --warning-foreground: oklch(0.985 0 0);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
@@ -74,7 +76,9 @@
     --destructive: oklch(0.704 0.191 22.216);
     /* App-specific: same values in both modes, mirroring the preset's mode-invariant chart ramp */
     --success: oklch(0.627 0.17 149.2);
+    --success-foreground: oklch(0.985 0 0);
     --warning: oklch(0.666 0.179 58.318);
+    --warning-foreground: oklch(0.985 0 0);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
@@ -116,7 +120,9 @@
     --color-border: var(--border);
     --color-destructive: var(--destructive);
     --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
     --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);

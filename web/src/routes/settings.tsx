@@ -153,7 +153,7 @@ export function SettingsPage() {
           <RefreshCw className="h-4 w-4" />
           <span>Runner Image Updates</span>
           {updates && updates.length > 0 && (
-            <Badge className="h-4 bg-warning px-1.5 text-[10px] font-bold text-white">
+            <Badge className="h-4 bg-warning px-1.5 text-[10px] font-bold text-warning-foreground">
               {updates.length}
             </Badge>
           )}
