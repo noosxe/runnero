@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { WarningBadge } from "@/components/common/warning-badge";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Card,
@@ -152,11 +152,7 @@ export function SettingsPage() {
         >
           <RefreshCw className="size-4" />
           <span>Runner Image Updates</span>
-          {updates && updates.length > 0 && (
-            <Badge className="h-4 bg-warning px-1.5 text-[10px] font-bold text-warning-foreground">
-              {updates.length}
-            </Badge>
-          )}
+          {updates && updates.length > 0 && <WarningBadge>{updates.length}</WarningBadge>}
         </button>
 
         <button
