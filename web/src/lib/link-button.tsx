@@ -1,10 +1,50 @@
-import { createLink } from "@tanstack/react-router";
+import {
+  Link,
+  type AnyRouter,
+  type CreateLinkProps,
+  type LinkComponentProps,
+  type RegisteredRouter,
+} from "@tanstack/react-router";
+import type { Ref } from "react";
 import { Button } from "@/components/ui/button";
 
 /**
  * Router-aware Button: a TanStack `Link` that renders as a shadcn Button.
- * Accepts both router props (`to`, `params`, …) and Button props
+ *
+ * Composed via Base UI's `render` prop so the DOM is a real `<a>` (valid HTML,
+ * native link semantics — middle-click, ⌘/Ctrl-click, "Open in new tab", and
+ * copy-link-address all work) carrying the Button styles.
+ * `nativeButton={false}` is required because the rendered element is not a
+ * `<button>`. Accepts both router props (`to`, `params`, …) and Button props
  * (`variant`, `size`, …). See
  * https://tanstack.com/router/latest/docs/framework/react/guide/custom-link
  */
-export const LinkButton = createLink(Button);
+export function LinkButton<
+  TRouter extends AnyRouter = RegisteredRouter,
+  const TFrom extends string = string,
+  const TTo extends string | undefined = undefined,
+  const TMaskFrom extends string = TFrom,
+  const TMaskTo extends string = "",
+>(
+  props: LinkComponentProps<"a", TRouter, TFrom, TTo, TMaskFrom, TMaskTo> &
+    Pick<
+      LinkComponentProps<typeof Button, TRouter, TFrom, TTo, TMaskFrom, TMaskTo>,
+      "variant" | "size" | "focusableWhenDisabled"
+    >,
+) {
+  const { variant, size, focusableWhenDisabled, ...linkProps } = props;
+  // TanStack's conditional link-prop types can't flow through a generic body,
+  // so loosen to the concrete shape `createLink` itself hands a host component.
+  // `ref` is tracked separately: the element type changes to an anchor, so the
+  // ref does too.
+  const anchorProps = linkProps as CreateLinkProps & { ref?: Ref<HTMLAnchorElement> };
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      focusableWhenDisabled={focusableWhenDisabled}
+      nativeButton={false}
+      render={<Link {...anchorProps} />}
+    />
+  );
+}
