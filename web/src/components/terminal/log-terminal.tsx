@@ -354,7 +354,7 @@ export function LogTerminal({
             )}
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="flex flex-col gap-0.5">
             {filteredLogs.map((chunk, idx) => {
               const isErr = chunk.stream === "stderr";
               return (

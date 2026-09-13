@@ -178,10 +178,10 @@ export function PoolDetailPage() {
 
   if (!pool) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <Link
           to="/pools"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-primary hover:underline"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Pools
         </Link>
@@ -198,7 +198,7 @@ export function PoolDetailPage() {
   const idleInstances = runners?.filter((r) => r.status === "idle").length ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Navigation & Header */}
       <div>
         <Link
@@ -372,9 +372,9 @@ export function PoolDetailPage() {
 
       {/* Tab Content: Runners & Containers Table */}
       {activeTab === "runners" && (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {runnersLoading ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
@@ -532,7 +532,7 @@ export function PoolDetailPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
               <div className="rounded-xl bg-muted/50 p-4 border border-border/60">
                 <span className="text-muted-foreground">Target Repositories</span>
-                <div className="mt-1 space-y-1">
+                <div className="mt-1 flex flex-col gap-1">
                   {poolTargetList(pool).map((url) => (
                     <div key={url} className="font-mono font-semibold text-foreground break-all">
                       {url}
@@ -893,7 +893,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Overview & Manual Trigger Card */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 gap-4">
@@ -1011,7 +1011,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveConfig} className="flex flex-col gap-4 text-xs">
               <div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
@@ -1078,11 +1078,11 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
       </div>
 
       {/* History Table */}
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <h3 className="text-sm font-bold text-foreground">Execution History</h3>
 
         {historyLoading ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
             ))}

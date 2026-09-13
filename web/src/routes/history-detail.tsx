@@ -75,7 +75,7 @@ export function HistoryDetailPage() {
   const isFailed = job?.status === "failure" || job?.status === "failed";
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Navigation Breadcrumb */}
       <div className="flex items-center justify-between">
         <Link
@@ -89,7 +89,7 @@ export function HistoryDetailPage() {
       {/* Execution Summary Header Card */}
       <Card className="px-(--card-spacing)">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2.5">
               <h1 className="font-mono text-xl font-bold tracking-tight text-foreground">
                 {runnerName || (isJobLoading ? "Loading runner..." : `Job #${jobId}`)}

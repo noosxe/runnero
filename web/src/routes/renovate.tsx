@@ -35,7 +35,7 @@ export function RenovatePage() {
   const enabledPools = pools?.filter((p) => p.renovate?.enabled).length ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2.5">
@@ -92,11 +92,11 @@ export function RenovatePage() {
       </div>
 
       {/* Pools Renovate List */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <h2 className="text-base font-bold text-foreground ">Runner Pool Schedules & Status</h2>
 
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}

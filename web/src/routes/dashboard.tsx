@@ -105,7 +105,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       {/* Header */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -270,7 +270,7 @@ export function DashboardPage() {
       </div>
 
       {/* Pools Summary */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-foreground ">Configured Runner Pools</h2>
@@ -284,7 +284,7 @@ export function DashboardPage() {
         </div>
 
         {poolsLoading ? (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}
@@ -374,7 +374,7 @@ export function DashboardPage() {
       </div>
 
       {/* Recent History */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-foreground ">Recent Executions</h2>

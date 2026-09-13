@@ -973,7 +973,7 @@ export function OnboardingPage() {
               <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning ">
                 <div className="flex items-start gap-3">
                   <Info className="mt-0.5 h-5 w-5 shrink-0 text-warning " />
-                  <div className="space-y-1">
+                  <div className="flex flex-col gap-1">
                     <p className="font-semibold text-foreground ">
                       Git Authentication Profile Required
                     </p>
@@ -1253,7 +1253,7 @@ export function OnboardingPage() {
                     <ShieldCheck className="h-4 w-4 text-primary " />
                     <span>Master Administrator</span>
                   </div>
-                  <div className="mt-2 space-y-1 text-muted-foreground ">
+                  <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
                     <div className="flex justify-between">
                       <span>Username:</span>
                       <span className="font-semibold text-foreground ">{username}</span>
@@ -1278,7 +1278,7 @@ export function OnboardingPage() {
                       Skipped &mdash; not configured
                     </div>
                   ) : (
-                    <div className="mt-2 space-y-1 text-muted-foreground ">
+                    <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
                       <div className="flex justify-between">
                         <span>Profile Name:</span>
                         <span className="font-semibold text-foreground ">{profileName}</span>
@@ -1299,7 +1299,7 @@ export function OnboardingPage() {
                     <Sliders className="h-4 w-4 text-primary " />
                     <span>Global Constraints</span>
                   </div>
-                  <div className="mt-2 space-y-1 text-muted-foreground ">
+                  <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
                     <div className="flex justify-between">
                       <span>Max Runners:</span>
                       <span className="font-semibold text-foreground ">{totalAllowedRunners}</span>
@@ -1330,7 +1330,7 @@ export function OnboardingPage() {
                       Skipped &mdash; no pool created
                     </div>
                   ) : (
-                    <div className="mt-2 space-y-1 text-muted-foreground ">
+                    <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
                       <div className="flex justify-between">
                         <span>Target URL:</span>
                         <span className="max-w-[120px] truncate font-semibold text-foreground ">

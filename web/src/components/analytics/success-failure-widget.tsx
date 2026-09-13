@@ -80,7 +80,7 @@ export function SuccessFailureWidget({
         </div>
 
         {/* Stacked Ratio Progress Bar */}
-        <div className="mt-5 space-y-1.5">
+        <div className="mt-5 flex flex-col gap-1.5">
           <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted ">
             <Tooltip>
               <TooltipTrigger

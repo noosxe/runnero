@@ -109,7 +109,7 @@ export function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 text-xs">
           <div>
             <FieldLabel htmlFor="username">Username</FieldLabel>
             <Input

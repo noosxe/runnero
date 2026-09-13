@@ -44,7 +44,7 @@ export function PoolPollStatus({ pool, className = "" }: PoolPollStatusProps) {
           <div className="mt-0.5 rounded-xl bg-muted/50 p-2 text-muted-foreground">
             <RefreshCw className="h-4 w-4" />
           </div>
-          <div className="flex-1 space-y-1">
+          <div className="flex flex-1 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="text-sm font-semibold">Demand Polling</CardTitle>
               <span className="text-xs text-muted-foreground">

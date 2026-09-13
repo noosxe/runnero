@@ -115,7 +115,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground ">
@@ -188,7 +188,7 @@ export function SettingsPage() {
           {settingsLoading ? (
             <CardContent className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="space-y-1.5">
+                <div key={i} className="flex flex-col gap-1.5">
                   <Skeleton className="h-3 w-24" />
                   <Skeleton className="h-9 w-full" />
                 </div>
@@ -197,10 +197,10 @@ export function SettingsPage() {
             </CardContent>
           ) : (
             <CardContent className="max-w-2xl">
-              <form onSubmit={handleSaveConstraints} className="space-y-6">
+              <form onSubmit={handleSaveConstraints} className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Total Allowed Runners */}
-                  <div className="space-y-1.5">
+                  <div className="flex flex-col gap-1.5">
                     <FieldLabel
                       htmlFor="total_allowed_runners"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
@@ -233,7 +233,7 @@ export function SettingsPage() {
                   </div>
 
                   {/* Warm Idle Pool Limit */}
-                  <div className="space-y-1.5">
+                  <div className="flex flex-col gap-1.5">
                     <FieldLabel
                       htmlFor="total_idle_warm_pool"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
@@ -266,7 +266,7 @@ export function SettingsPage() {
                   </div>
 
                   {/* Graceful Shutdown Timeout */}
-                  <div className="space-y-1.5">
+                  <div className="flex flex-col gap-1.5">
                     <FieldLabel
                       htmlFor="graceful_shutdown_timeout"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
@@ -299,7 +299,7 @@ export function SettingsPage() {
                   </div>
 
                   {/* History Retention Period */}
-                  <div className="space-y-1.5">
+                  <div className="flex flex-col gap-1.5">
                     <FieldLabel
                       htmlFor="job_retention_days"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
@@ -351,7 +351,7 @@ export function SettingsPage() {
 
       {/* Tab: Runner Image Updates */}
       {activeTab === "images" && (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           {/* Action Strip */}
           <Card>
             <CardHeader>
@@ -379,7 +379,7 @@ export function SettingsPage() {
           </Card>
           {/* Pending Notifications */}
           {updates && updates.length > 0 ? (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Pending Image Notifications
               </h3>
