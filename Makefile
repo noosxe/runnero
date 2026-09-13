@@ -13,7 +13,7 @@ export CGO_ENABLED := 0
 BINARY := runnero-supervisor
 PKG     := ./...
 
-.PHONY: build build-web build-image-runner build-image-supervisor test test-race test-scripts test-web test-e2e test-e2e-ui clean-e2e lint lint-web fmt fmt-web vet tidy clean generate proto-lint
+.PHONY: build build-web build-image-runner build-image-supervisor test test-race test-scripts test-web test-e2e test-e2e-ui clean-e2e lint lint-web fmt fmt-web vet tidy clean generate proto-lint launch stop restart pull logs status
 
 ## generate: run code generation tools (sqlc, buf)
 generate:
@@ -113,3 +113,30 @@ test-e2e-ui:
 clean-e2e:
 	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans 2>/dev/null || true
 
+
+# --- Deployment compose stack (docker-compose.yml) -------------------------
+# Lifecycle wrappers for the self-hosted stack. Plain docker compose calls,
+# so these work outside the Nix development shell too.
+
+## launch: start the deployment stack in the background
+launch:
+	docker compose -f docker-compose.yml up -d
+
+## stop: stop and remove the deployment stack
+stop:
+	docker compose -f docker-compose.yml down
+
+## restart: restart the deployment stack (stop, then launch)
+restart: stop launch
+
+## pull: pull the latest images for the deployment stack
+pull:
+	docker compose -f docker-compose.yml pull
+
+## logs: follow the deployment stack's logs
+logs:
+	docker compose -f docker-compose.yml logs -f
+
+## status: show the deployment stack's container status
+status:
+	docker compose -f docker-compose.yml ps

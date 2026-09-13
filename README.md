@@ -73,6 +73,7 @@ Start the containerized supervisor daemon:
 ```bash
 docker compose up -d
 ```
+When working from a clone of this repository, the same lifecycle is available as `make` targets: `make launch`, `make status`, `make logs`, `make restart`, `make pull`, `make stop`.
 
 Verify that the supervisor is healthy:
 ```bash
