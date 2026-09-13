@@ -456,8 +456,8 @@ export function OnboardingPage() {
               <ArrowRight data-icon="inline-end" />
             </Button>
           )}
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <ShieldCheck className="h-6 w-6" />
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <ShieldCheck className="size-6" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">System Onboarding</h1>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -475,7 +475,7 @@ export function OnboardingPage() {
             return (
               <div key={step.num} className="flex flex-1 flex-col items-center">
                 <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex size-9 items-center justify-center rounded-xl text-xs font-semibold transition-all ${
                     isDone
                       ? "bg-success text-success-foreground"
                       : isCurrent
@@ -483,7 +483,7 @@ export function OnboardingPage() {
                         : "bg-muted text-muted-foreground "
                   }`}
                 >
-                  {isDone ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                  {isDone ? <CheckCircle2 className="size-4" /> : <Icon className="size-4" />}
                 </div>
                 <span
                   className={`mt-1.5 text-[11px] font-medium ${
@@ -504,7 +504,7 @@ export function OnboardingPage() {
         {/* Error Alert */}
         {error && (
           <div className="mt-6 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive ">
-            <AlertCircle className="h-4 w-4 shrink-0" />
+            <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -524,7 +524,7 @@ export function OnboardingPage() {
                 </div>
 
                 <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4 ">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success " />
+                  <CheckCircle2 className="size-5 shrink-0 text-success " />
                   <div>
                     <div className="font-semibold text-success ">
                       Active Administrator Session ({session.username})
@@ -690,8 +690,8 @@ export function OnboardingPage() {
 
             <Card className="gap-0 border-primary/25 bg-primary/5 p-5">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                  <FolderGit2 className="h-5 w-5" />
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <FolderGit2 className="size-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-foreground">
@@ -972,7 +972,7 @@ export function OnboardingPage() {
 
               <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning ">
                 <div className="flex items-start gap-3">
-                  <Info className="mt-0.5 h-5 w-5 shrink-0 text-warning " />
+                  <Info className="mt-0.5 size-5 shrink-0 text-warning " />
                   <div className="flex flex-col gap-1">
                     <p className="font-semibold text-foreground ">
                       Git Authentication Profile Required
@@ -1159,7 +1159,7 @@ export function OnboardingPage() {
                   </Field>
                   {isDockerLocked && (
                     <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-warning ">
-                      <Info className="h-3 w-3 shrink-0" />
+                      <Info className="size-3 shrink-0" />
                       <span>
                         Locked to Enabled for {deducedProvider.toUpperCase()} runners: workflow
                         execution requires Docker containerization (docs/05 §4).
@@ -1250,7 +1250,7 @@ export function OnboardingPage() {
                 {/* Card 1: Admin */}
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
-                    <ShieldCheck className="h-4 w-4 text-primary " />
+                    <ShieldCheck className="size-4 text-primary " />
                     <span>Master Administrator</span>
                   </div>
                   <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
@@ -1269,7 +1269,7 @@ export function OnboardingPage() {
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
                     <KeyRound
-                      className={`h-4 w-4 ${isGitProfileSkipped ? "text-muted-foreground" : "text-primary "}`}
+                      className={`size-4 ${isGitProfileSkipped ? "text-muted-foreground" : "text-primary "}`}
                     />
                     <span>Git Auth Profile</span>
                   </div>
@@ -1296,7 +1296,7 @@ export function OnboardingPage() {
                 {/* Card 3: Safeguards */}
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
-                    <Sliders className="h-4 w-4 text-primary " />
+                    <Sliders className="size-4 text-primary " />
                     <span>Global Constraints</span>
                   </div>
                   <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
@@ -1321,7 +1321,7 @@ export function OnboardingPage() {
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
                     <Server
-                      className={`h-4 w-4 ${isPoolSkipped ? "text-muted-foreground" : "text-primary "}`}
+                      className={`size-4 ${isPoolSkipped ? "text-muted-foreground" : "text-primary "}`}
                     />
                     <span>{isPoolSkipped ? "Initial Pool" : `Initial Pool: ${poolName}`}</span>
                   </div>
@@ -1362,7 +1362,7 @@ export function OnboardingPage() {
 
               <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-success ">
                 <div className="flex items-center gap-2 font-semibold">
-                  <Rocket className="h-4 w-4" />
+                  <Rocket className="size-4" />
                   <span>{hasPoolToLaunch ? "Ready to Launch" : "Ready to Finish Setup"}</span>
                 </div>
                 <p className="mt-1 text-[11px] text-success ">

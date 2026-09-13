@@ -42,7 +42,7 @@ export function PoolPollStatus({ pool, className = "" }: PoolPollStatusProps) {
       <CardContent>
         <div className="flex items-start gap-3">
           <div className="mt-0.5 rounded-xl bg-muted/50 p-2 text-muted-foreground">
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="size-4" />
           </div>
           <div className="flex flex-1 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">

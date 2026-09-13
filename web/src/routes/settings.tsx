@@ -137,7 +137,7 @@ export function SettingsPage() {
               : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
-          <Sliders className="h-4 w-4" />
+          <Sliders className="size-4" />
           <span>Global Constraints</span>
         </button>
 
@@ -150,7 +150,7 @@ export function SettingsPage() {
               : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className="size-4" />
           <span>Runner Image Updates</span>
           {updates && updates.length > 0 && (
             <Badge className="h-4 bg-warning px-1.5 text-[10px] font-bold text-warning-foreground">
@@ -168,7 +168,7 @@ export function SettingsPage() {
               : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
-          <Database className="h-4 w-4" />
+          <Database className="size-4" />
           <span>Database & Retention</span>
         </button>
       </div>
@@ -205,7 +205,7 @@ export function SettingsPage() {
                       htmlFor="total_allowed_runners"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
-                      <Layers className="h-3.5 w-3.5 text-primary" />
+                      <Layers className="size-3.5 text-primary" />
                       <span>Global Runner Quota</span>
                     </FieldLabel>
                     <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
@@ -238,7 +238,7 @@ export function SettingsPage() {
                       htmlFor="total_idle_warm_pool"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
-                      <Clock className="h-3.5 w-3.5 text-primary" />
+                      <Clock className="size-3.5 text-primary" />
                       <span>Warm Idle Pool Limit</span>
                     </FieldLabel>
                     <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
@@ -271,7 +271,7 @@ export function SettingsPage() {
                       htmlFor="graceful_shutdown_timeout"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
-                      <Clock className="h-3.5 w-3.5 text-warning" />
+                      <Clock className="size-3.5 text-warning" />
                       <span>Graceful Drain Timeout</span>
                     </FieldLabel>
                     <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
@@ -304,7 +304,7 @@ export function SettingsPage() {
                       htmlFor="job_retention_days"
                       className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
-                      <Calendar className="h-3.5 w-3.5 text-success" />
+                      <Calendar className="size-3.5 text-success" />
                       <span>History Retention Period</span>
                     </FieldLabel>
                     <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
@@ -459,7 +459,7 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Archive className="h-4 w-4 text-primary" />
+                <Archive className="size-4 text-primary" />
                 <span>Pruning Interval</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -471,7 +471,7 @@ export function SettingsPage() {
 
             <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Database className="h-4 w-4 text-success" />
+                <Database className="size-4 text-success" />
                 <span>Storage Engine</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">

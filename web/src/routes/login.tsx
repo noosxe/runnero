@@ -91,8 +91,8 @@ export function LoginPage() {
       </div>
 
       <Card className="w-full max-w-sm px-(--card-spacing)">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-          <ShieldCheck className="h-6 w-6" />
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+          <ShieldCheck className="size-6" />
         </div>
 
         <h1 className="text-center text-xl font-bold tracking-tight text-foreground">
@@ -104,7 +104,7 @@ export function LoginPage() {
 
         {error && (
           <div className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
-            <AlertCircle className="h-4 w-4 shrink-0" />
+            <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}

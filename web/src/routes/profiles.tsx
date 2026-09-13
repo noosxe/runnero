@@ -100,7 +100,7 @@ export function ProfilesPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-success" />
+                    <ShieldCheck className="size-4 text-success" />
                     <span>Encrypted AES-256 (Write-Only)</span>
                   </div>
 
@@ -113,7 +113,7 @@ export function ProfilesPage() {
                   {prof.authMethod === "github_app" &&
                     (prof.installationsCount > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
-                        <CheckCircle2 className="h-3 w-3" />
+                        <CheckCircle2 className="size-3" />
                         <span>
                           Installed on {prof.installationsCount}{" "}
                           {prof.installationsCount === 1 ? "account" : "accounts"}
@@ -121,7 +121,7 @@ export function ProfilesPage() {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
-                        <AlertCircle className="h-3 w-3" />
+                        <AlertCircle className="size-3" />
                         <span>Not Installed</span>
                       </span>
                     ))}
@@ -141,7 +141,7 @@ export function ProfilesPage() {
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
+                      <ExternalLink className="size-3.5" />
                       <span>
                         {prof.installationsCount === 0 ? "Install App" : "Configure Access"}
                       </span>
