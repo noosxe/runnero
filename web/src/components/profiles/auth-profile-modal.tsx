@@ -3,8 +3,8 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "cn";
 import { useCreateAuthProfile, useUpdateAuthProfile } from "../../lib/api/query-hooks";
 import { fromWireAuthMethod, toWireAuthMethod } from "../../lib/utils/auth-methods";
 import type { AuthProfile } from "../../gen/api_pb";
@@ -173,24 +173,24 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
           <FieldGroup className="gap-4">
             <Field>
               <FieldLabel>Provider Method</FieldLabel>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <ToggleGroup
+                variant="outline"
+                className="mt-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-4"
+                value={[authMethod]}
+                onValueChange={(value) => {
+                  if (value[0]) handleMethodChange(value[0] as AuthMethod);
+                }}
+              >
                 {AUTH_METHODS.map((m) => (
-                  <Button
+                  <ToggleGroupItem
                     key={m.id}
-                    type="button"
-                    variant="outline"
-                    aria-pressed={authMethod === m.id}
-                    onClick={() => handleMethodChange(m.id)}
-                    className={cn(
-                      "h-auto w-full py-2 text-center",
-                      authMethod === m.id &&
-                        "border-primary bg-primary/5 text-primary font-semibold",
-                    )}
+                    value={m.id}
+                    className="h-auto w-full py-2 text-center"
                   >
                     {m.label}
-                  </Button>
+                  </ToggleGroupItem>
                 ))}
-              </div>
+              </ToggleGroup>
             </Field>
 
             <Field>
