@@ -477,9 +477,9 @@ export function OnboardingPage() {
                 <div
                   className={`flex h-9 w-9 items-center justify-center rounded-xl text-xs font-semibold transition-all ${
                     isDone
-                      ? "bg-success text-white"
+                      ? "bg-success text-success-foreground"
                       : isCurrent
-                        ? "bg-primary text-white shadow-sm"
+                        ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted text-muted-foreground "
                   }`}
                 >
@@ -1380,7 +1380,7 @@ export function OnboardingPage() {
                 <Button
                   type="submit"
                   disabled={createPoolMutation.isPending || completeOnboardingMutation.isPending}
-                  className="flex-1 bg-success text-white hover:bg-success/80"
+                  className="flex-1 bg-success text-success-foreground hover:bg-success/80"
                 >
                   <Rocket data-icon="inline-start" />
                   {createPoolMutation.isPending || completeOnboardingMutation.isPending

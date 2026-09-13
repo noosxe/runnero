@@ -441,7 +441,7 @@ export function PoolWizardModal({
                 <div
                   className={`flex h-6 w-6 items-center justify-center rounded-full font-bold transition-colors ${
                     isCompleted
-                      ? "bg-success text-white"
+                      ? "bg-success text-success-foreground"
                       : isActive
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground"

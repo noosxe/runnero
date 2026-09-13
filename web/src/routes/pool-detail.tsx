@@ -597,7 +597,7 @@ export function PoolDetailPage() {
                           size="xs"
                           onClick={() => pullImageMutation.mutate(poolIdBigInt)}
                           disabled={pullImageMutation.isPending}
-                          className="bg-warning text-white hover:bg-warning/80"
+                          className="bg-warning text-warning-foreground hover:bg-warning/80"
                         >
                           {pullImageMutation.isPending ? (
                             <Spinner data-icon="inline-start" />
@@ -638,7 +638,7 @@ export function PoolDetailPage() {
                       size="xs"
                       onClick={() => pullImageMutation.mutate(poolIdBigInt)}
                       disabled={pullImageMutation.isPending}
-                      className="bg-warning text-white hover:bg-warning/80"
+                      className="bg-warning text-warning-foreground hover:bg-warning/80"
                     >
                       {pullImageMutation.isPending ? (
                         <Spinner data-icon="inline-start" />
