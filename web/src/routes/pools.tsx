@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -155,16 +155,17 @@ export function PoolsPage() {
 
       {/* Filters Toolbar */}
       <Card size="sm" className="gap-3 p-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+        <InputGroup className="flex-1">
+          <InputGroupAddon align="inline-start">
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search pools by name or target URL..."
-            className="pl-9"
           />
-        </div>
+        </InputGroup>
 
         <div className="flex items-center gap-2">
           <Select

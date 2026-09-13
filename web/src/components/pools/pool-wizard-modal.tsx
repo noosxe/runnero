@@ -18,6 +18,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -636,16 +637,17 @@ export function PoolWizardModal({
 
               {/* Target Discovery Search & Action Bar */}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
-                  <Input
+                <InputGroup className="flex-1">
+                  <InputGroupAddon align="inline-start">
+                    <Search />
+                  </InputGroupAddon>
+                  <InputGroupInput
                     type="text"
                     placeholder={`Search discovered ${scope === "repo" ? "repositories" : "organizations"}...`}
                     value={targetSearch}
                     onChange={(e) => setTargetSearch(e.target.value)}
-                    className="pl-8"
                   />
-                </div>
+                </InputGroup>
                 <div className="flex items-center gap-2">
                   {manageAccessUrl && (
                     <Tooltip>
