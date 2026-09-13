@@ -203,7 +203,7 @@ export function SettingsPage() {
                   <div className="space-y-1.5">
                     <FieldLabel
                       htmlFor="total_allowed_runners"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
                       <Layers className="h-3.5 w-3.5 text-primary" />
                       <span>Global Runner Quota</span>
@@ -236,7 +236,7 @@ export function SettingsPage() {
                   <div className="space-y-1.5">
                     <FieldLabel
                       htmlFor="total_idle_warm_pool"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
                       <Clock className="h-3.5 w-3.5 text-primary" />
                       <span>Warm Idle Pool Limit</span>
@@ -269,7 +269,7 @@ export function SettingsPage() {
                   <div className="space-y-1.5">
                     <FieldLabel
                       htmlFor="graceful_shutdown_timeout"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
                       <Clock className="h-3.5 w-3.5 text-warning" />
                       <span>Graceful Drain Timeout</span>
@@ -302,7 +302,7 @@ export function SettingsPage() {
                   <div className="space-y-1.5">
                     <FieldLabel
                       htmlFor="job_retention_days"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider dark:"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
                     >
                       <Calendar className="h-3.5 w-3.5 text-success" />
                       <span>History Retention Period</span>
