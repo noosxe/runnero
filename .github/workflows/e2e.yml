@@ -109,6 +109,9 @@ jobs:
 
       # Resource ownership (AGENTS.md): the shared Docker host must not keep
       # the compose stack, its networks, or its scratch volumes after the run.
+      # E2E_FORCE_CLEAN bypasses the RUN-208 in-flight guard: this step only
+      # runs after the suite has ended (or been killed by the job timeout),
+      # so any still-running container is a dead leftover to clean up.
       - name: Tear Down E2E Stack
         if: always()
-        run: make clean-e2e
+        run: E2E_FORCE_CLEAN=1 make clean-e2e
