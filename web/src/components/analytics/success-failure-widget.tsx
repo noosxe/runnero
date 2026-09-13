@@ -44,7 +44,7 @@ export function SuccessFailureWidget({
     <Card className="gap-0 py-5">
       <CardHeader className="border-b [.border-b]:pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-bold">
-          <PieChart className="h-4 w-4 text-success" />
+          <PieChart className="size-4 text-success" />
           Execution Health &amp; Ratio
         </CardTitle>
         <CardAction>
@@ -67,7 +67,7 @@ export function SuccessFailureWidget({
           </div>
 
           <div className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-muted/50 px-3 py-2 text-xs ">
-            <Timer className="h-4 w-4 text-primary" />
+            <Timer className="size-4 text-primary" />
             <div>
               <p className="text-[10px] uppercase font-semibold text-muted-foreground">
                 Avg Runtime
@@ -122,7 +122,7 @@ export function SuccessFailureWidget({
         <div className="grid w-full grid-cols-2 gap-3">
           <div className="rounded-xl border border-success/20 bg-success/5 p-3">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-success">
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              <CheckCircle2 className="size-3.5" />
               <span>Successful</span>
             </div>
             <div className="mt-1 font-mono text-xl font-bold text-success">{successfulJobs}</div>
@@ -131,7 +131,7 @@ export function SuccessFailureWidget({
 
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
-              <XCircle className="h-3.5 w-3.5" />
+              <XCircle className="size-3.5" />
               <span>Failed</span>
             </div>
             <div className="mt-1 font-mono text-xl font-bold text-destructive">{failedJobs}</div>

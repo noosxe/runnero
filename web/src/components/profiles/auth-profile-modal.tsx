@@ -164,7 +164,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
             role="alert"
             className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-destructive"
           >
-            <AlertCircle className="h-4 w-4 shrink-0" />
+            <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}

@@ -95,7 +95,7 @@ export function QueueLatencyChart({
       {/* Header */}
       <CardHeader className="border-b border-border/60">
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-primary" />
+          <TrendingUp className="size-4 text-primary" />
           Queue Wait-Time Latency
         </CardTitle>
         <CardDescription className="text-xs">
@@ -133,7 +133,7 @@ export function QueueLatencyChart({
       <CardContent className="relative">
         {points.length === 0 ? (
           <div className="flex h-52 flex-col items-center justify-center text-center text-xs text-muted-foreground">
-            <Clock className="mb-1 h-6 w-6 text-muted-foreground/50" />
+            <Clock className="mb-1 size-6 text-muted-foreground/50" />
             <p className="font-semibold text-foreground/80">No queue latency data yet</p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
               Completed and in-flight runner jobs will generate latency trends.
@@ -240,7 +240,7 @@ export function QueueLatencyChart({
       </CardContent>
 
       <CardFooter className="gap-1.5 text-[11px] text-muted-foreground/80">
-        <Info className="h-3.5 w-3.5 shrink-0" />
+        <Info className="size-3.5 shrink-0" />
         <span>
           Lower queue latency means workflow runs execute immediately without container launch
           delays.

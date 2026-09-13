@@ -183,7 +183,7 @@ export function PoolDetailPage() {
           to="/pools"
           className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-primary hover:underline"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Pools
+          <ArrowLeft className="size-3.5" /> Back to Pools
         </Link>
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -205,7 +205,7 @@ export function PoolDetailPage() {
           to="/pools"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Runner Pools
+          <ArrowLeft className="size-3.5" /> Back to Runner Pools
         </Link>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -222,7 +222,7 @@ export function PoolDetailPage() {
                 )}
               >
                 <span
-                  className={`h-1.5 w-1.5 rounded-full ${
+                  className={`size-1.5 rounded-full ${
                     isStreamActive ? "bg-success animate-pulse" : "bg-warning"
                   }`}
                 />
@@ -302,11 +302,11 @@ export function PoolDetailPage() {
             <span className="text-xs font-medium text-muted-foreground">Resource Quotas</span>
             <div className="mt-1 flex items-center gap-3 text-xs font-semibold text-foreground">
               <span className="inline-flex items-center gap-1">
-                <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+                <Cpu className="size-3.5 text-muted-foreground" />
                 {pool.cpuLimit || "Unlimited"}
               </span>
               <span className="inline-flex items-center gap-1">
-                <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                <HardDrive className="size-3.5 text-muted-foreground" />
                 {pool.memoryLimit || "Unlimited"}
               </span>
             </div>
@@ -317,7 +317,7 @@ export function PoolDetailPage() {
           <CardContent>
             <span className="text-xs font-medium text-muted-foreground">Docker Privileges</span>
             <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+              <Shield className="size-3.5 text-muted-foreground" />
               <span>{pool.allowDocker ? "Docker Daemon Enabled" : "Rootless Isolation"}</span>
             </div>
           </CardContent>
@@ -335,7 +335,7 @@ export function PoolDetailPage() {
               : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
-          <Activity className="h-3.5 w-3.5" />
+          <Activity className="size-3.5" />
           <span>Active Containers & Runners</span>
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground ">
             {runners?.length ?? 0}
@@ -351,7 +351,7 @@ export function PoolDetailPage() {
               : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
-          <Server className="h-3.5 w-3.5" />
+          <Server className="size-3.5" />
           <span>Pool Configuration</span>
         </button>
 
@@ -364,9 +364,9 @@ export function PoolDetailPage() {
               : "border-transparent text-muted-foreground hover:text-foreground "
           }`}
         >
-          <Bot className="h-3.5 w-3.5" />
+          <Bot className="size-3.5" />
           <span>Renovate Bot</span>
-          {pool.renovate?.enabled && <span className="h-1.5 w-1.5 rounded-full bg-success" />}
+          {pool.renovate?.enabled && <span className="size-1.5 rounded-full bg-success" />}
         </button>
       </div>
 
@@ -583,7 +583,7 @@ export function PoolDetailPage() {
                     {checkUpdateMutation.data.updateAvailable ? (
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-warning font-medium">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          <AlertTriangle className="size-3.5 shrink-0" />
                           <span>
                             Update available:{" "}
                             <code className="font-mono text-[11px]">
@@ -609,7 +609,7 @@ export function PoolDetailPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-success font-medium">
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                        <CheckCircle2 className="size-3.5 shrink-0" />
                         <span>Image is up-to-date with registry</span>
                       </div>
                     )}
@@ -618,7 +618,7 @@ export function PoolDetailPage() {
 
                 {checkUpdateMutation.isError && (
                   <div className="mt-3 flex items-center gap-1.5 text-xs text-destructive font-medium">
-                    <XCircle className="h-3.5 w-3.5 shrink-0" />
+                    <XCircle className="size-3.5 shrink-0" />
                     <span>Check failed: {checkUpdateMutation.error.message}</span>
                   </div>
                 )}
@@ -626,7 +626,7 @@ export function PoolDetailPage() {
                 {!checkUpdateMutation.isSuccess && !checkUpdateMutation.isError && poolUpdate && (
                   <div className="mt-3 flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-1.5 text-warning font-medium">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      <AlertTriangle className="size-3.5 shrink-0" />
                       <span>
                         Update available:{" "}
                         <code className="font-mono text-[11px]">
@@ -665,7 +665,7 @@ export function PoolDetailPage() {
                   <span className="text-muted-foreground">Runner Labels</span>
                   {labelsCopied && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success">
-                      <Check className="h-3 w-3" />
+                      <Check className="size-3" />
                       Copied
                     </span>
                   )}
@@ -899,7 +899,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
         <Card className="lg:col-span-2 gap-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-primary" />
+              <Bot className="size-5 text-primary" />
               Renovate Status & Automation
             </CardTitle>
             <CardAction>
@@ -949,7 +949,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
                     )}
                   >
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
+                      className={`size-1.5 rounded-full ${
                         isRunning
                           ? "bg-warning animate-ping"
                           : status?.lastRun?.status === "success"

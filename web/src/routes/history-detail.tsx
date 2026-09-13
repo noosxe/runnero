@@ -82,7 +82,7 @@ export function HistoryDetailPage() {
           to="/history"
           className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline "
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Job Execution History
+          <ArrowLeft className="size-3.5" /> Back to Job Execution History
         </Link>
       </div>
 
@@ -109,13 +109,13 @@ export function HistoryDetailPage() {
                   )}
                 >
                   {isSuccess ? (
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="size-3" />
                   ) : isFailed ? (
-                    <XCircle className="h-3 w-3" />
+                    <XCircle className="size-3" />
                   ) : isRunning ? (
-                    <Radio className="h-3 w-3 animate-pulse" />
+                    <Radio className="size-3 animate-pulse" />
                   ) : (
-                    <Clock className="h-3 w-3" />
+                    <Clock className="size-3" />
                   )}
                   <span>{job.status}</span>
                 </Badge>
@@ -141,7 +141,7 @@ export function HistoryDetailPage() {
         {/* Quick KPI Strip */}
         <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border/60 pt-4 sm:grid-cols-4">
           <div className="flex items-center gap-2">
-            <Timer className="h-4 w-4 text-muted-foreground" />
+            <Timer className="size-4 text-muted-foreground" />
             <div>
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">Duration</p>
               <p className="font-mono text-xs font-bold text-foreground">
@@ -151,7 +151,7 @@ export function HistoryDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="size-4 text-muted-foreground" />
             <div>
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">
                 Queue Latency
@@ -163,7 +163,7 @@ export function HistoryDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Server className="h-4 w-4 text-muted-foreground" />
+            <Server className="size-4 text-muted-foreground" />
             <div>
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">Pool</p>
               <p className="truncate font-mono text-xs font-bold text-foreground">
@@ -173,7 +173,7 @@ export function HistoryDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="size-4 text-muted-foreground" />
             <div>
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">Started</p>
               <p className="font-mono text-[11px] text-muted-foreground">

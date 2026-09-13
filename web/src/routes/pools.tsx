@@ -104,7 +104,7 @@ export function PoolsPage() {
               )}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${
+                className={`size-1.5 rounded-full ${
                   isConnected ? "bg-success animate-pulse" : "bg-warning"
                 }`}
               />
@@ -155,7 +155,7 @@ export function PoolsPage() {
       {/* Filters Toolbar */}
       <Card size="sm" className="gap-3 p-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             value={search}
@@ -300,7 +300,7 @@ export function PoolsPage() {
                       )}
                       {p.currentIntent && (
                         <p className="mt-1.5 text-xs text-muted-foreground italic flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block shrink-0" />
+                          <span className="size-1.5 rounded-full bg-primary inline-block shrink-0" />
                           <span className="truncate">{p.currentIntent}</span>
                         </p>
                       )}
@@ -321,7 +321,7 @@ export function PoolsPage() {
                     <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-foreground/90">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 min-w-0">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-destructive">
@@ -356,7 +356,7 @@ export function PoolsPage() {
                   <div className="mt-5">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <Activity className="h-3.5 w-3.5 text-success" />
+                        <Activity className="size-3.5 text-success" />
                         <span>Capacity Utilization</span>
                       </span>
                       <span className="font-semibold text-foreground">
@@ -412,16 +412,16 @@ export function PoolsPage() {
                   {/* Badges / Specs Strip */}
                   <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground/80">
-                      <Cpu className="h-3 w-3 text-muted-foreground" />
+                      <Cpu className="size-3 text-muted-foreground" />
                       {p.cpuLimit || "2"} CPU
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground/80">
-                      <HardDrive className="h-3 w-3 text-muted-foreground" />
+                      <HardDrive className="size-3 text-muted-foreground" />
                       {p.memoryLimit || "4G"} Mem
                     </span>
                     {p.allowDocker && (
                       <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-0.5 font-medium text-success">
-                        <Shield className="h-3 w-3" />
+                        <Shield className="size-3" />
                         Docker Enabled
                       </span>
                     )}
@@ -453,7 +453,7 @@ export function PoolsPage() {
                       className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/90 transition-colors"
                     >
                       <span>View Pool Details</span>
-                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      <ArrowUpRight className="size-3.5" />
                     </Link>
                   </div>
                 </CardFooter>

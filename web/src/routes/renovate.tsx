@@ -58,7 +58,7 @@ export function RenovatePage() {
         <Card size="sm" className="p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Configured Pools</span>
-            <Layers className="h-4 w-4 text-muted-foreground" />
+            <Layers className="size-4 text-muted-foreground" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-foreground">{totalPools}</span>
@@ -69,7 +69,7 @@ export function RenovatePage() {
         <Card size="sm" className="p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Renovate Active</span>
-            <Bot className="h-4 w-4 text-success" />
+            <Bot className="size-4 text-success" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-success">{enabledPools}</span>
@@ -80,7 +80,7 @@ export function RenovatePage() {
         <Card size="sm" className="p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Automation Coverage</span>
-            <Calendar className="h-4 w-4 text-primary" />
+            <Calendar className="size-4 text-primary" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-foreground">

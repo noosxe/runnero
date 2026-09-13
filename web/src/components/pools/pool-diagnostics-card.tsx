@@ -98,7 +98,7 @@ export function PoolDiagnosticsCard({ pool, className }: PoolDiagnosticsCardProp
     <Card className={cn("gap-0 ring-destructive/25 bg-destructive/5", className)}>
       <CardContent className="flex items-start gap-3.5">
         <div className="mt-0.5 rounded-xl bg-destructive/10 p-2 text-destructive">
-          <AlertTriangle className="h-5 w-5" />
+          <AlertTriangle className="size-5" />
         </div>
 
         <div className="flex flex-1 flex-col gap-2">
@@ -120,7 +120,7 @@ export function PoolDiagnosticsCard({ pool, className }: PoolDiagnosticsCardProp
 
           <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-1.5 text-xs text-destructive/90">
-              <Wrench className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <Wrench className="mt-0.5 size-3.5 shrink-0" />
               <span>{remediation.suggestion}</span>
             </div>
 

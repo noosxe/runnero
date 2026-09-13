@@ -170,7 +170,7 @@ export function DashboardPage() {
           <CardContent>
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>Active Runners</span>
-              <Activity className="h-4 w-4 text-success" />
+              <Activity className="size-4 text-success" />
             </div>
             <div className="mt-2 font-mono text-3xl font-extrabold tracking-tight text-foreground ">
               {statsLoading ? (
@@ -189,7 +189,7 @@ export function DashboardPage() {
           <CardContent>
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>{timeframeHours}h Jobs Executed</span>
-              <Server className="h-4 w-4 text-primary" />
+              <Server className="size-4 text-primary" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (
@@ -210,7 +210,7 @@ export function DashboardPage() {
           <CardContent>
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>Success Rate</span>
-              <CheckCircle2 className="h-4 w-4 text-success" />
+              <CheckCircle2 className="size-4 text-success" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (
@@ -233,7 +233,7 @@ export function DashboardPage() {
           <CardContent>
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>Avg Runtime</span>
-              <Clock className="h-4 w-4 text-primary" />
+              <Clock className="size-4 text-primary" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (

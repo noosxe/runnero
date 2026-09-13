@@ -439,7 +439,7 @@ export function PoolWizardModal({
             return (
               <div key={s.step} className="flex items-center gap-2">
                 <div
-                  className={`flex h-6 w-6 items-center justify-center rounded-full font-bold transition-colors ${
+                  className={`flex size-6 items-center justify-center rounded-full font-bold transition-colors ${
                     isCompleted
                       ? "bg-success text-success-foreground"
                       : isActive
@@ -447,7 +447,7 @@ export function PoolWizardModal({
                         : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  {isCompleted ? <Check className="h-3.5 w-3.5" /> : s.step}
+                  {isCompleted ? <Check className="size-3.5" /> : s.step}
                 </div>
                 <span
                   className={`font-semibold hidden sm:inline ${
@@ -468,7 +468,7 @@ export function PoolWizardModal({
         {/* Error Notification */}
         {error && (
           <div className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-destructive">
-            <AlertCircle className="h-4 w-4 shrink-0" />
+            <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -618,7 +618,7 @@ export function PoolWizardModal({
             {/* Target Discovery Search & Action Bar */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder={`Search discovered ${scope === "repo" ? "repositories" : "organizations"}...`}
@@ -677,7 +677,7 @@ export function PoolWizardModal({
 
               {!isDiscovering && discoveryError && (
                 <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                  <AlertCircle className="h-6 w-6 text-destructive mb-1" />
+                  <AlertCircle className="size-6 text-destructive mb-1" />
                   <p className="text-destructive font-semibold">Failed to discover targets</p>
                   <p className="text-[11px] text-muted-foreground mt-1 max-w-sm">
                     {discoveryError instanceof Error
@@ -692,8 +692,8 @@ export function PoolWizardModal({
 
               {!isDiscovering && !discoveryError && discoveredTargets.length === 0 && (
                 <div className="py-8 px-4 text-center">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 mb-2.5">
-                    <FolderGit2 className="h-5 w-5 text-primary" />
+                  <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 mb-2.5">
+                    <FolderGit2 className="size-5 text-primary" />
                   </div>
                   <h4 className="text-xs font-semibold text-foreground ">
                     {installUrl
@@ -713,7 +713,7 @@ export function PoolWizardModal({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        <ExternalLink className="size-3.5" />
                         <span>Install GitHub App on Your Account</span>
                       </a>
                       <p className="text-[10px] text-muted-foreground mt-2">
@@ -730,7 +730,7 @@ export function PoolWizardModal({
                 discoveredTargets.length > 0 &&
                 filteredDiscoveredTargets.length === 0 && (
                   <div className="py-8 text-center text-muted-foreground">
-                    <FolderGit2 className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                    <FolderGit2 className="size-6 mx-auto mb-1 opacity-50" />
                     <span>
                       No matching {scope === "repo" ? "repositories" : "organizations"} found
                     </span>
@@ -753,16 +753,16 @@ export function PoolWizardModal({
                     >
                       <div className="pt-0.5 text-primary shrink-0">
                         {isSelected ? (
-                          <CheckSquare className="h-4 w-4" />
+                          <CheckSquare className="size-4" />
                         ) : (
-                          <Square className="h-4 w-4 text-muted-foreground" />
+                          <Square className="size-4 text-muted-foreground" />
                         )}
                       </div>
 
                       {scope === "org" ? (
-                        <Building className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                        <Building className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       ) : (
-                        <FolderGit2 className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                        <FolderGit2 className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       )}
 
                       <div className="flex-1 min-w-0">
@@ -779,12 +779,12 @@ export function PoolWizardModal({
                           >
                             {target.isPrivate ? (
                               <>
-                                <Lock className="h-2.5 w-2.5" />
+                                <Lock className="size-2.5" />
                                 Private
                               </>
                             ) : (
                               <>
-                                <Globe className="h-2.5 w-2.5" />
+                                <Globe className="size-2.5" />
                                 Public
                               </>
                             )}
@@ -975,7 +975,7 @@ export function PoolWizardModal({
                   onCheckedChange={(v) => setRenovateEnabled(v === true)}
                 />
                 <span className="flex items-center gap-1.5">
-                  <Bot className="h-4 w-4 text-primary " />
+                  <Bot className="size-4 text-primary " />
                   Enable Automated Renovate Dependency Scans
                 </span>
               </FieldLabel>
@@ -1035,7 +1035,7 @@ export function PoolWizardModal({
                       <span className="font-mono text-destructive break-all line-through">
                         {c.before || "—"}
                       </span>
-                      <ChevronRight className="h-3 w-3 shrink-0 self-center text-muted-foreground" />
+                      <ChevronRight className="size-3 shrink-0 self-center text-muted-foreground" />
                       <span className="font-mono text-success break-all">{c.after || "—"}</span>
                     </div>
                   ))}
@@ -1049,7 +1049,7 @@ export function PoolWizardModal({
             )}
             {isEdit && identityChanged && !renamed && (
               <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-warning ">
-                <AlertCircle className="h-4 w-4 shrink-0" />
+                <AlertCircle className="size-4 shrink-0" />
                 <span>
                   {pool?.idleRunners ?? 0} idle runner{pool?.idleRunners === 1 ? "" : "s"} will be
                   recycled to apply the new configuration; running jobs are not affected.
@@ -1058,7 +1058,7 @@ export function PoolWizardModal({
             )}
             {isEdit && renamed && (
               <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-primary ">
-                <Info className="h-4 w-4 shrink-0" />
+                <Info className="size-4 shrink-0" />
                 <span>
                   Renaming only changes how the pool is displayed — runners are unaffected and keep
                   their original pool label until they recycle naturally.
@@ -1094,7 +1094,7 @@ export function PoolWizardModal({
                         rel="noreferrer"
                         className="text-muted-foreground hover:text-primary ml-2 shrink-0"
                       >
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="size-3" />
                       </a>
                     </div>
                   ))}
@@ -1133,7 +1133,7 @@ export function PoolWizardModal({
                 </div>
                 {renovateEnabled && (
                   <span className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
-                    <Bot className="h-3.5 w-3.5" />
+                    <Bot className="size-3.5" />
                     Renovate Scheduled ({renovateCron})
                   </span>
                 )}

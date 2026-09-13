@@ -141,7 +141,7 @@ export function LogTerminal({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Terminal className="h-4 w-4 text-blue-400" />
+            <Terminal className="size-4 text-blue-400" />
             <span className="font-bold text-slate-100">
               {title || runnerName || "Terminal Console"}
             </span>
@@ -168,7 +168,7 @@ export function LogTerminal({
               )}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${
+                className={`size-1.5 rounded-full ${
                   isPaused
                     ? "bg-amber-400"
                     : isConnected
@@ -188,7 +188,7 @@ export function LogTerminal({
             </Badge>
           ) : (
             <Badge variant="secondary" className="gap-1">
-              <Clock className="h-3 w-3 text-slate-400" />
+              <Clock className="size-3 text-slate-400" />
               <span>Historical Archive</span>
             </Badge>
           )}
@@ -267,7 +267,7 @@ export function LogTerminal({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-900/40 px-4 py-2">
         <div className="flex items-center gap-2 flex-1 max-w-sm">
           <div className="relative w-full">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-500" />
             <Input
               type="text"
               value={search}
@@ -328,7 +328,7 @@ export function LogTerminal({
       >
         {isLoading ? (
           <div className="flex h-32 items-center justify-center text-slate-500">
-            <Radio className="h-4 w-4 animate-spin text-blue-500 mr-2" />
+            <Radio className="size-4 animate-spin text-blue-500 mr-2" />
             <span>Loading log stream...</span>
           </div>
         ) : filteredLogs.length === 0 ? (
