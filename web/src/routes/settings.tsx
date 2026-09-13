@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -198,140 +198,141 @@ export function SettingsPage() {
           ) : (
             <CardContent className="max-w-2xl">
               <form onSubmit={handleSaveConstraints} className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Total Allowed Runners */}
-                  <div className="flex flex-col gap-1.5">
-                    <FieldLabel
-                      htmlFor="total_allowed_runners"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                    >
-                      <Layers className="size-3.5 text-primary" />
-                      <span>Global Runner Quota</span>
-                    </FieldLabel>
-                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                      <Input
-                        id="total_allowed_runners"
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={totalAllowedRunners}
-                        onChange={(e) =>
-                          setLocalOverrides((prev) => ({
-                            ...prev,
-                            total_allowed_runners: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                      />
-                      <span className="flex items-center px-3 text-xs text-muted-foreground">
-                        runners
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Maximum concurrent active containers across all pools combined.
-                    </p>
-                  </div>
+                <FieldGroup className="gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Total Allowed Runners */}
+                    <Field>
+                      <FieldLabel
+                        htmlFor="total_allowed_runners"
+                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                      >
+                        <Layers className="size-3.5 text-primary" />
+                        <span>Global Runner Quota</span>
+                      </FieldLabel>
+                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
+                        <Input
+                          id="total_allowed_runners"
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={totalAllowedRunners}
+                          onChange={(e) =>
+                            setLocalOverrides((prev) => ({
+                              ...prev,
+                              total_allowed_runners: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
+                        />
+                        <span className="flex items-center px-3 text-xs text-muted-foreground">
+                          runners
+                        </span>
+                      </div>
+                      <FieldDescription className="text-[11px]">
+                        Maximum concurrent active containers across all pools combined.
+                      </FieldDescription>
+                    </Field>
 
-                  {/* Warm Idle Pool Limit */}
-                  <div className="flex flex-col gap-1.5">
-                    <FieldLabel
-                      htmlFor="total_idle_warm_pool"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                    >
-                      <Clock className="size-3.5 text-primary" />
-                      <span>Warm Idle Pool Limit</span>
-                    </FieldLabel>
-                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                      <Input
-                        id="total_idle_warm_pool"
-                        type="number"
-                        min="0"
-                        max="20"
-                        value={totalIdleWarmPool}
-                        onChange={(e) =>
-                          setLocalOverrides((prev) => ({
-                            ...prev,
-                            total_idle_warm_pool: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                      />
-                      <span className="flex items-center px-3 text-xs text-muted-foreground">
-                        runners
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Maximum standby idle runners kept warm for instant job dispatch.
-                    </p>
-                  </div>
+                    {/* Warm Idle Pool Limit */}
+                    <Field>
+                      <FieldLabel
+                        htmlFor="total_idle_warm_pool"
+                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                      >
+                        <Clock className="size-3.5 text-primary" />
+                        <span>Warm Idle Pool Limit</span>
+                      </FieldLabel>
+                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
+                        <Input
+                          id="total_idle_warm_pool"
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={totalIdleWarmPool}
+                          onChange={(e) =>
+                            setLocalOverrides((prev) => ({
+                              ...prev,
+                              total_idle_warm_pool: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
+                        />
+                        <span className="flex items-center px-3 text-xs text-muted-foreground">
+                          runners
+                        </span>
+                      </div>
+                      <FieldDescription className="text-[11px]">
+                        Maximum standby idle runners kept warm for instant job dispatch.
+                      </FieldDescription>
+                    </Field>
 
-                  {/* Graceful Shutdown Timeout */}
-                  <div className="flex flex-col gap-1.5">
-                    <FieldLabel
-                      htmlFor="graceful_shutdown_timeout"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                    >
-                      <Clock className="size-3.5 text-warning" />
-                      <span>Graceful Drain Timeout</span>
-                    </FieldLabel>
-                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                      <Input
-                        id="graceful_shutdown_timeout"
-                        type="number"
-                        min="30"
-                        max="3600"
-                        value={gracefulShutdownTimeout}
-                        onChange={(e) =>
-                          setLocalOverrides((prev) => ({
-                            ...prev,
-                            graceful_shutdown_timeout: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                      />
-                      <span className="flex items-center px-3 text-xs text-muted-foreground">
-                        seconds
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Maximum time to await active workflow completion before SIGKILL.
-                    </p>
-                  </div>
+                    {/* Graceful Shutdown Timeout */}
+                    <Field>
+                      <FieldLabel
+                        htmlFor="graceful_shutdown_timeout"
+                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                      >
+                        <Clock className="size-3.5 text-warning" />
+                        <span>Graceful Drain Timeout</span>
+                      </FieldLabel>
+                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
+                        <Input
+                          id="graceful_shutdown_timeout"
+                          type="number"
+                          min="30"
+                          max="3600"
+                          value={gracefulShutdownTimeout}
+                          onChange={(e) =>
+                            setLocalOverrides((prev) => ({
+                              ...prev,
+                              graceful_shutdown_timeout: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
+                        />
+                        <span className="flex items-center px-3 text-xs text-muted-foreground">
+                          seconds
+                        </span>
+                      </div>
+                      <FieldDescription className="text-[11px]">
+                        Maximum time to await active workflow completion before SIGKILL.
+                      </FieldDescription>
+                    </Field>
 
-                  {/* History Retention Period */}
-                  <div className="flex flex-col gap-1.5">
-                    <FieldLabel
-                      htmlFor="job_retention_days"
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                    >
-                      <Calendar className="size-3.5 text-success" />
-                      <span>History Retention Period</span>
-                    </FieldLabel>
-                    <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                      <Input
-                        id="job_retention_days"
-                        type="number"
-                        min="1"
-                        max="365"
-                        value={jobRetentionDays}
-                        onChange={(e) =>
-                          setLocalOverrides((prev) => ({
-                            ...prev,
-                            job_retention_days: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                      />
-                      <span className="flex items-center px-3 text-xs text-muted-foreground">
-                        days
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Automated background pruning threshold for finished jobs and log files.
-                    </p>
+                    {/* History Retention Period */}
+                    <Field>
+                      <FieldLabel
+                        htmlFor="job_retention_days"
+                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                      >
+                        <Calendar className="size-3.5 text-success" />
+                        <span>History Retention Period</span>
+                      </FieldLabel>
+                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
+                        <Input
+                          id="job_retention_days"
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={jobRetentionDays}
+                          onChange={(e) =>
+                            setLocalOverrides((prev) => ({
+                              ...prev,
+                              job_retention_days: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
+                        />
+                        <span className="flex items-center px-3 text-xs text-muted-foreground">
+                          days
+                        </span>
+                      </div>
+                      <FieldDescription className="text-[11px]">
+                        Automated background pruning threshold for finished jobs and log files.
+                      </FieldDescription>
+                    </Field>
                   </div>
-                </div>
-
+                </FieldGroup>
                 {/* Submit Actions */}
                 <div className="flex items-center gap-3 pt-2">
                   <Button type="submit" size="sm" disabled={isSaving}>

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -110,42 +110,44 @@ export function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 text-xs">
-          <div>
-            <FieldLabel htmlFor="username">Username</FieldLabel>
-            <Input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-
-              required
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-            <div className="relative mt-1">
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel htmlFor="username">Username</FieldLabel>
               <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
 
                 required
+                autoFocus
               />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Toggle password visibility"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff /> : <Eye />}
-              </Button>
-            </div>
-          </div>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+
+                  required
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Toggle password visibility"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </Button>
+              </div>
+            </Field>
+          </FieldGroup>
 
           <Button type="submit" disabled={loginMutation.isPending} className="w-full">
             {loginMutation.isPending ? "Signing in..." : "Sign In"}

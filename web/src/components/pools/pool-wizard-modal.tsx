@@ -1,5 +1,12 @@
 import { useState, useMemo, type FormEvent } from "react";
-import { FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -476,69 +483,67 @@ export function PoolWizardModal({
         {/* Step 1: Identity & Credentials */}
         {currentStep === 1 && (
           <div className="mt-5 flex flex-col gap-4">
-            <div>
-              <FieldLabel htmlFor="wizard-pool-name" className="dark:block mb-1">
-                Pool Name (Slug)
-              </FieldLabel>
-              <Input
-                id="wizard-pool-name"
-                type="text"
-                placeholder="e.g. arm64-ci-pool"
-                value={poolName}
-                onChange={(e) => setPoolName(e.target.value.toLowerCase())}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Lowercase letters, digits, and hyphens only. Used as container identifier prefix.
-              </p>
-              {poolName && !isNameSlugValid && (
-                <p className="mt-1 text-[11px] text-destructive font-medium">
-                  Invalid slug format: must contain only a-z, 0-9, and hyphens.
-                </p>
-              )}
-            </div>
+            <FieldGroup className="gap-4">
+              <Field data-invalid={Boolean(poolName) && !isNameSlugValid}>
+                <FieldLabel htmlFor="wizard-pool-name">Pool Name (Slug)</FieldLabel>
+                <Input
+                  id="wizard-pool-name"
+                  aria-invalid={Boolean(poolName) && !isNameSlugValid}
+                  type="text"
+                  placeholder="e.g. arm64-ci-pool"
+                  value={poolName}
+                  onChange={(e) => setPoolName(e.target.value.toLowerCase())}
+                />
+                <FieldDescription className="text-[11px]">
+                  Lowercase letters, digits, and hyphens only. Used as container identifier prefix.
+                </FieldDescription>
+                {poolName && !isNameSlugValid && (
+                  <FieldError className="text-[11px] font-medium">
+                    Invalid slug format: must contain only a-z, 0-9, and hyphens.
+                  </FieldError>
+                )}
+              </Field>
 
-            <div>
-              <FieldLabel htmlFor="wizard-auth-profile" className="dark:block mb-1">
-                Git Authentication Profile
-              </FieldLabel>
-              <Select
-                value={authProfileId}
-                onValueChange={(v) => {
-                  setAuthProfileId(v as string);
-                  setSelectedTargetUrls([]);
-                }}
-                items={(selectableAuthProfiles ?? []).map((prof) => ({
-                  value: prof.id.toString(),
-                  label: `${prof.name} (${prof.authMethod})`,
-                }))}
-              >
-                <SelectTrigger id="wizard-auth-profile">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {(selectableAuthProfiles ?? []).map((prof) => (
-                      <SelectItem key={prof.id.toString()} value={prof.id.toString()}>
-                        {prof.name} ({prof.authMethod})
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              {isEdit && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Profile family is locked to the pool's {deducedProvider} provider; recreate the
-                  pool to change provider (docs/22 §5.3).
-                </p>
-              )}
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">Deduced Provider:</span>
-                <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary capitalize">
-                  {deducedProvider}
-                </span>
-              </div>
-            </div>
-
+              <Field>
+                <FieldLabel htmlFor="wizard-auth-profile">Git Authentication Profile</FieldLabel>
+                <Select
+                  value={authProfileId}
+                  onValueChange={(v) => {
+                    setAuthProfileId(v as string);
+                    setSelectedTargetUrls([]);
+                  }}
+                  items={(selectableAuthProfiles ?? []).map((prof) => ({
+                    value: prof.id.toString(),
+                    label: `${prof.name} (${prof.authMethod})`,
+                  }))}
+                >
+                  <SelectTrigger id="wizard-auth-profile">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {(selectableAuthProfiles ?? []).map((prof) => (
+                        <SelectItem key={prof.id.toString()} value={prof.id.toString()}>
+                          {prof.name} ({prof.authMethod})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {isEdit && (
+                  <FieldDescription className="text-[11px]">
+                    Profile family is locked to the pool's {deducedProvider} provider; recreate the
+                    pool to change provider (docs/22 §5.3).
+                  </FieldDescription>
+                )}
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">Deduced Provider:</span>
+                  <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary capitalize">
+                    {deducedProvider}
+                  </span>
+                </div>
+              </Field>
+            </FieldGroup>
             <div className="flex justify-end gap-2 pt-4 border-t border-border/60 ">
               <Button variant="outline" onClick={onClose}>
                 Cancel
@@ -557,268 +562,271 @@ export function PoolWizardModal({
         {/* Step 2: Scope & Target Discovery */}
         {currentStep === 2 && (
           <div className="mt-5 flex flex-col gap-4">
-            {isEdit && selectedTargetUrls.length > 0 && (
-              <div className="rounded-xl border border-border bg-muted/50 p-3 ">
-                <span className="font-semibold text-foreground block mb-1.5">
-                  Selected Targets ({selectedTargetUrls.length})
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedTargetUrls.map((url) => (
-                    <Badge key={url} variant="outline" className="gap-1 py-0.5 pl-2 pr-1 font-mono">
-                      <span className="max-w-48 truncate">{url}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={`Remove target ${url}`}
-                        onClick={() => handleToggleTarget(url)}
-                      >
-                        <X />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-center">
-              <div>
-                <FieldLabel htmlFor="wizard-scope" className="dark:block mb-1">
-                  Pool Scope
-                </FieldLabel>
-                <Select
-                  value={scope}
-                  onValueChange={(v) => setScope(v as "repo" | "org")}
-                  items={[
-                    { value: "repo", label: "Repositories (Multi-Repo)" },
-                    { value: "org", label: "Organizations (Multi-Org)" },
-                  ]}
-                >
-                  <SelectTrigger id="wizard-scope">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="repo">Repositories (Multi-Repo)</SelectItem>
-                      <SelectItem value="org">Organizations (Multi-Org)</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2 justify-end pt-5">
-                <Badge className="h-auto border-primary/30 bg-primary/10 px-2.5 py-1 text-primary font-semibold">
-                  <Layers />
-                  <span>
-                    {selectedTargetUrls.length}{" "}
-                    {scope === "repo" ? "Repositories" : "Organizations"} Selected
+            <FieldGroup className="gap-4">
+              {isEdit && selectedTargetUrls.length > 0 && (
+                <div className="rounded-xl border border-border bg-muted/50 p-3 ">
+                  <span className="font-semibold text-foreground block mb-1.5">
+                    Selected Targets ({selectedTargetUrls.length})
                   </span>
-                </Badge>
-              </div>
-            </div>
-
-            {/* Target Discovery Search & Action Bar */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder={`Search discovered ${scope === "repo" ? "repositories" : "organizations"}...`}
-                  value={targetSearch}
-                  onChange={(e) => setTargetSearch(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                {manageAccessUrl && (
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <a
-                          href={manageAccessUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted/50 shadow-xs"
-                        />
-                      }
-                    >
-                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                      <span>Manage Access in GitHub</span>
-                    </TooltipTrigger>
-                    <TooltipContent>Manage repository access in GitHub</TooltipContent>
-                  </Tooltip>
-                )}
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={handleSelectAllFiltered}
-                  disabled={filteredDiscoveredTargets.length === 0}
-                >
-                  Select All Filtered
-                </Button>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={handleClearSelection}
-                  disabled={selectedTargetUrls.length === 0}
-                >
-                  Clear
-                </Button>
-              </div>
-            </div>
-
-            {/* Discovered Items Container */}
-            <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-muted/50 p-2 flex flex-col gap-1.5">
-              {isDiscovering && (
-                <div className="flex flex-col gap-1.5 p-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-8 w-full" />
-                  ))}
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedTargetUrls.map((url) => (
+                      <Badge
+                        key={url}
+                        variant="outline"
+                        className="gap-1 py-0.5 pl-2 pr-1 font-mono"
+                      >
+                        <span className="max-w-48 truncate">{url}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={`Remove target ${url}`}
+                          onClick={() => handleToggleTarget(url)}
+                        >
+                          <X />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               )}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-center">
+                <Field>
+                  <FieldLabel htmlFor="wizard-scope">Pool Scope</FieldLabel>
+                  <Select
+                    value={scope}
+                    onValueChange={(v) => setScope(v as "repo" | "org")}
+                    items={[
+                      { value: "repo", label: "Repositories (Multi-Repo)" },
+                      { value: "org", label: "Organizations (Multi-Org)" },
+                    ]}
+                  >
+                    <SelectTrigger id="wizard-scope">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="repo">Repositories (Multi-Repo)</SelectItem>
+                        <SelectItem value="org">Organizations (Multi-Org)</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
 
-              {!isDiscovering && discoveryError && (
-                <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                  <AlertCircle className="size-6 text-destructive mb-1" />
-                  <p className="text-destructive font-semibold">Failed to discover targets</p>
-                  <p className="text-[11px] text-muted-foreground mt-1 max-w-sm">
-                    {discoveryError instanceof Error
-                      ? discoveryError.message
-                      : "Upstream API error"}
-                  </p>
-                  <Button size="xs" onClick={() => refetchDiscovery()} className="mt-3">
-                    Retry Discovery
+                <div className="flex items-center gap-2 justify-end pt-5">
+                  <Badge className="h-auto border-primary/30 bg-primary/10 px-2.5 py-1 text-primary font-semibold">
+                    <Layers />
+                    <span>
+                      {selectedTargetUrls.length}{" "}
+                      {scope === "repo" ? "Repositories" : "Organizations"} Selected
+                    </span>
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Target Discovery Search & Action Bar */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={`Search discovered ${scope === "repo" ? "repositories" : "organizations"}...`}
+                    value={targetSearch}
+                    onChange={(e) => setTargetSearch(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  {manageAccessUrl && (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <a
+                            href={manageAccessUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted/50 shadow-xs"
+                          />
+                        }
+                      >
+                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                        <span>Manage Access in GitHub</span>
+                      </TooltipTrigger>
+                      <TooltipContent>Manage repository access in GitHub</TooltipContent>
+                    </Tooltip>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={handleSelectAllFiltered}
+                    disabled={filteredDiscoveredTargets.length === 0}
+                  >
+                    Select All Filtered
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={handleClearSelection}
+                    disabled={selectedTargetUrls.length === 0}
+                  >
+                    Clear
                   </Button>
                 </div>
-              )}
+              </div>
 
-              {!isDiscovering && !discoveryError && discoveredTargets.length === 0 && (
-                <div className="py-8 px-4 text-center">
-                  <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 mb-2.5">
-                    <FolderGit2 className="size-5 text-primary" />
-                  </div>
-                  <h4 className="text-xs font-semibold text-foreground ">
-                    {installUrl
-                      ? "GitHub App Not Installed Yet"
-                      : `No ${scope === "repo" ? "repositories" : "organizations"} found`}
-                  </h4>
-                  <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
-                    {installUrl
-                      ? "This GitHub App has not been installed on any account or organization. Install the app to grant access to repositories."
-                      : `No accessible ${scope === "repo" ? "repositories" : "organizations"} were found for this auth profile.`}
-                  </p>
-                  {installUrl && (
-                    <div className="mt-3.5">
-                      <a
-                        href={installUrl}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink className="size-3.5" />
-                        <span>Install GitHub App on Your Account</span>
-                      </a>
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        After completing installation in GitHub, return here — your repositories
-                        will appear automatically.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!isDiscovering &&
-                !discoveryError &&
-                discoveredTargets.length > 0 &&
-                filteredDiscoveredTargets.length === 0 && (
-                  <div className="py-8 text-center text-muted-foreground">
-                    <FolderGit2 className="size-6 mx-auto mb-1 opacity-50" />
-                    <span>
-                      No matching {scope === "repo" ? "repositories" : "organizations"} found
-                    </span>
+              {/* Discovered Items Container */}
+              <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-muted/50 p-2 flex flex-col gap-1.5">
+                {isDiscovering && (
+                  <div className="flex flex-col gap-1.5 p-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-8 w-full" />
+                    ))}
                   </div>
                 )}
 
-              {!isDiscovering &&
-                !discoveryError &&
-                filteredDiscoveredTargets.map((target) => {
-                  const isSelected = selectedTargetUrls.includes(target.htmlUrl);
-                  return (
-                    <div
-                      key={target.htmlUrl}
-                      onClick={() => handleToggleTarget(target.htmlUrl)}
-                      className={`flex items-start gap-3 rounded-xl border p-2.5 transition-colors cursor-pointer ${
-                        isSelected
-                          ? "border-primary/50 bg-primary/10 "
-                          : "border-border bg-card hover:border-border bg-muted "
-                      }`}
-                    >
-                      <div className="pt-0.5 text-primary shrink-0">
-                        {isSelected ? (
-                          <CheckSquare className="size-4" />
-                        ) : (
-                          <Square className="size-4 text-muted-foreground" />
-                        )}
-                      </div>
+                {!isDiscovering && discoveryError && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                    <AlertCircle className="size-6 text-destructive mb-1" />
+                    <p className="text-destructive font-semibold">Failed to discover targets</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 max-w-sm">
+                      {discoveryError instanceof Error
+                        ? discoveryError.message
+                        : "Upstream API error"}
+                    </p>
+                    <Button size="xs" onClick={() => refetchDiscovery()} className="mt-3">
+                      Retry Discovery
+                    </Button>
+                  </div>
+                )}
 
-                      {scope === "org" ? (
-                        <Building className="size-5 text-muted-foreground shrink-0 mt-0.5" />
-                      ) : (
-                        <FolderGit2 className="size-5 text-muted-foreground shrink-0 mt-0.5" />
-                      )}
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground truncate">
-                            {target.fullName || target.name}
-                          </span>
-                          <span
-                            className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[10px] font-medium border ${
-                              target.isPrivate
-                                ? "bg-warning/10 text-warning border-warning/30 "
-                                : "bg-muted text-muted-foreground border-border "
-                            }`}
-                          >
-                            {target.isPrivate ? (
-                              <>
-                                <Lock className="size-2.5" />
-                                Private
-                              </>
-                            ) : (
-                              <>
-                                <Globe className="size-2.5" />
-                                Public
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        {target.description && (
-                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {target.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <a
-                              href={target.htmlUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label="Open in upstream git provider"
-                              className="text-muted-foreground hover:text-primary p-1 shrink-0"
-                            />
-                          }
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </TooltipTrigger>
-                        <TooltipContent>Open in upstream git provider</TooltipContent>
-                      </Tooltip>
+                {!isDiscovering && !discoveryError && discoveredTargets.length === 0 && (
+                  <div className="py-8 px-4 text-center">
+                    <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 mb-2.5">
+                      <FolderGit2 className="size-5 text-primary" />
                     </div>
-                  );
-                })}
-            </div>
+                    <h4 className="text-xs font-semibold text-foreground ">
+                      {installUrl
+                        ? "GitHub App Not Installed Yet"
+                        : `No ${scope === "repo" ? "repositories" : "organizations"} found`}
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
+                      {installUrl
+                        ? "This GitHub App has not been installed on any account or organization. Install the app to grant access to repositories."
+                        : `No accessible ${scope === "repo" ? "repositories" : "organizations"} were found for this auth profile.`}
+                    </p>
+                    {installUrl && (
+                      <div className="mt-3.5">
+                        <a
+                          href={installUrl}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="size-3.5" />
+                          <span>Install GitHub App on Your Account</span>
+                        </a>
+                        <p className="text-[10px] text-muted-foreground mt-2">
+                          After completing installation in GitHub, return here — your repositories
+                          will appear automatically.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
+                {!isDiscovering &&
+                  !discoveryError &&
+                  discoveredTargets.length > 0 &&
+                  filteredDiscoveredTargets.length === 0 && (
+                    <div className="py-8 text-center text-muted-foreground">
+                      <FolderGit2 className="size-6 mx-auto mb-1 opacity-50" />
+                      <span>
+                        No matching {scope === "repo" ? "repositories" : "organizations"} found
+                      </span>
+                    </div>
+                  )}
+
+                {!isDiscovering &&
+                  !discoveryError &&
+                  filteredDiscoveredTargets.map((target) => {
+                    const isSelected = selectedTargetUrls.includes(target.htmlUrl);
+                    return (
+                      <div
+                        key={target.htmlUrl}
+                        onClick={() => handleToggleTarget(target.htmlUrl)}
+                        className={`flex items-start gap-3 rounded-xl border p-2.5 transition-colors cursor-pointer ${
+                          isSelected
+                            ? "border-primary/50 bg-primary/10 "
+                            : "border-border bg-card hover:border-border bg-muted "
+                        }`}
+                      >
+                        <div className="pt-0.5 text-primary shrink-0">
+                          {isSelected ? (
+                            <CheckSquare className="size-4" />
+                          ) : (
+                            <Square className="size-4 text-muted-foreground" />
+                          )}
+                        </div>
+
+                        {scope === "org" ? (
+                          <Building className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                        ) : (
+                          <FolderGit2 className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground truncate">
+                              {target.fullName || target.name}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[10px] font-medium border ${
+                                target.isPrivate
+                                  ? "bg-warning/10 text-warning border-warning/30 "
+                                  : "bg-muted text-muted-foreground border-border "
+                              }`}
+                            >
+                              {target.isPrivate ? (
+                                <>
+                                  <Lock className="size-2.5" />
+                                  Private
+                                </>
+                              ) : (
+                                <>
+                                  <Globe className="size-2.5" />
+                                  Public
+                                </>
+                              )}
+                            </span>
+                          </div>
+                          {target.description && (
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                              {target.description}
+                            </p>
+                          )}
+                        </div>
+
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <a
+                                href={target.htmlUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Open in upstream git provider"
+                                className="text-muted-foreground hover:text-primary p-1 shrink-0"
+                              />
+                            }
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent>Open in upstream git provider</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    );
+                  })}
+              </div>
+            </FieldGroup>
             <div className="flex justify-between items-center pt-4 border-t border-border/60 ">
               <Button variant="outline" onClick={() => setCurrentStep(1)}>
                 <ChevronLeft data-icon="inline-start" />
@@ -835,175 +843,173 @@ export function PoolWizardModal({
         {/* Step 3: Specs & Quotas */}
         {currentStep === 3 && (
           <div className="mt-5 flex flex-col gap-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <FieldLabel htmlFor="wizard-min-idle" className="dark:block mb-1">
-                  Min Idle Warm Runners
-                </FieldLabel>
-                <Input
-                  id="wizard-min-idle"
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={minIdleRunners}
-                  onChange={(e) => setMinIdleRunners(Number(e.target.value))}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Set to 0 for scale-to-zero mode (ephemeral on-demand only).
-                </p>
+            <FieldGroup className="gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="wizard-min-idle">Min Idle Warm Runners</FieldLabel>
+                  <Input
+                    id="wizard-min-idle"
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={minIdleRunners}
+                    onChange={(e) => setMinIdleRunners(Number(e.target.value))}
+                  />
+                  <FieldDescription className="text-[11px]">
+                    Set to 0 for scale-to-zero mode (ephemeral on-demand only).
+                  </FieldDescription>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="wizard-max-concurrency">Max Concurrency</FieldLabel>
+                  <Input
+                    id="wizard-max-concurrency"
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={maxConcurrency}
+                    onChange={(e) => setMaxConcurrency(Number(e.target.value))}
+                  />
+                  <FieldDescription className="text-[11px]">
+                    Total maximum simultaneous runner containers allowed across all targets.
+                  </FieldDescription>
+                </Field>
+
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="wizard-labels">Runner Labels</FieldLabel>
+                  <Input
+                    id="wizard-labels"
+                    type="text"
+                    value={labels}
+                    onChange={(e) => setCustomLabels(e.target.value)}
+                  />
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Comma-separated list matched in workflow runs.</span>
+                    {customLabels !== null && (
+                      <Button variant="link" size="xs" onClick={() => setCustomLabels(null)}>
+                        Reset to suggested ({suggestedLabels})
+                      </Button>
+                    )}
+                  </div>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="wizard-runner-image">Runner Image</FieldLabel>
+                  <Input
+                    id="wizard-runner-image"
+                    type="text"
+                    value={runnerImage}
+                    onChange={(e) => setRunnerImage(e.target.value)}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="wizard-cpu">CPU Limit</FieldLabel>
+                  <Input
+                    id="wizard-cpu"
+                    type="text"
+                    value={cpuLimit}
+                    onChange={(e) => setCpuLimit(e.target.value)}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="wizard-mem">Memory Limit</FieldLabel>
+                  <Input
+                    id="wizard-mem"
+                    type="text"
+                    value={memoryLimit}
+                    onChange={(e) => setMemoryLimit(e.target.value)}
+                  />
+                </Field>
               </div>
 
-              <div>
-                <FieldLabel htmlFor="wizard-max-concurrency" className="dark:block mb-1">
-                  Max Concurrency
-                </FieldLabel>
-                <Input
-                  id="wizard-max-concurrency"
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={maxConcurrency}
-                  onChange={(e) => setMaxConcurrency(Number(e.target.value))}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Total maximum simultaneous runner containers allowed across all targets.
-                </p>
-              </div>
-
-              <div className="sm:col-span-2">
-                <FieldLabel htmlFor="wizard-labels" className="dark:block mb-1">
-                  Runner Labels
-                </FieldLabel>
-                <Input
-                  id="wizard-labels"
-                  type="text"
-                  value={labels}
-                  onChange={(e) => setCustomLabels(e.target.value)}
-                />
-                <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>Comma-separated list matched in workflow runs.</span>
-                  {customLabels !== null && (
-                    <Button variant="link" size="xs" onClick={() => setCustomLabels(null)}>
-                      Reset to suggested ({suggestedLabels})
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="wizard-runner-image" className="dark:block mb-1">
-                  Runner Image
-                </FieldLabel>
-                <Input
-                  id="wizard-runner-image"
-                  type="text"
-                  value={runnerImage}
-                  onChange={(e) => setRunnerImage(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="wizard-cpu" className="dark:block mb-1">
-                  CPU Limit
-                </FieldLabel>
-                <Input
-                  id="wizard-cpu"
-                  type="text"
-                  value={cpuLimit}
-                  onChange={(e) => setCpuLimit(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="wizard-mem" className="dark:block mb-1">
-                  Memory Limit
-                </FieldLabel>
-                <Input
-                  id="wizard-mem"
-                  type="text"
-                  value={memoryLimit}
-                  onChange={(e) => setMemoryLimit(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Docker Socket Privilege */}
-            <div className="pt-2 border-t border-border/60 ">
-              <FieldLabel className="flex items-center gap-2">
+              {/* Docker Socket Privilege */}
+              <Field orientation="horizontal" className="pt-2 border-t border-border/60">
                 <Checkbox
+                  id="wizard-allow-docker"
                   checked={isDockerLocked ? true : allowDocker}
                   disabled={isDockerLocked}
                   onCheckedChange={(v) => setAllowDocker(v === true)}
                 />
-                <span>Enable Docker-in-Docker socket access</span>
-              </FieldLabel>
-              {isDockerLocked && (
-                <p className="mt-1 text-[11px] text-warning ">
-                  Mandatory for {deducedProvider} pools (runner daemon communicates via Docker
-                  daemon).
-                </p>
-              )}
-            </div>
+                <FieldContent>
+                  <FieldLabel htmlFor="wizard-allow-docker">
+                    Enable Docker-in-Docker socket access
+                  </FieldLabel>
+                  {isDockerLocked && (
+                    <FieldDescription className="text-[11px] text-warning">
+                      Mandatory for {deducedProvider} pools (runner daemon communicates via Docker
+                      daemon).
+                    </FieldDescription>
+                  )}
+                </FieldContent>
+              </Field>
 
-            {/* Demand Polling Fallback (docs/24 §5.9) */}
-            <div className="pt-2 border-t border-border/60 ">
-              <FieldLabel className="flex items-center gap-2">
+              {/* Demand Polling Fallback (docs/24 §5.9) */}
+              <Field orientation="horizontal" className="pt-2 border-t border-border/60">
                 <Checkbox
+                  id="wizard-poll-fallback"
                   checked={
                     deducedProvider === "github" ? pollFallback : deducedProvider === "forgejo"
                   }
                   disabled={deducedProvider !== "github"}
                   onCheckedChange={(v) => setPollFallback(v === true)}
                 />
-                <span>Scale without webhooks (poll for queued jobs)</span>
-              </FieldLabel>
-              <p className="mt-1 text-[11px] text-muted-foreground ">
-                {deducedProvider === "gitea" &&
-                  "Not available for Gitea pools: Gitea has no repo-scoped queued-jobs API."}
-                {deducedProvider === "forgejo" &&
-                  "Always on for Forgejo pools: Forgejo has no workflow_job webhooks, so the supervisor polls for waiting tasks."}
-                {deducedProvider === "github" &&
-                  "Polls connected repositories for queued jobs so runners scale on hosts without inbound webhooks. Webhooks remain the fast path when available."}
-              </p>
-            </div>
+                <FieldContent>
+                  <FieldLabel htmlFor="wizard-poll-fallback">
+                    Scale without webhooks (poll for queued jobs)
+                  </FieldLabel>
+                  <FieldDescription className="text-[11px]">
+                    {deducedProvider === "gitea" &&
+                      "Not available for Gitea pools: Gitea has no repo-scoped queued-jobs API."}
+                    {deducedProvider === "forgejo" &&
+                      "Always on for Forgejo pools: Forgejo has no workflow_job webhooks, so the supervisor polls for waiting tasks."}
+                    {deducedProvider === "github" &&
+                      "Polls connected repositories for queued jobs so runners scale on hosts without inbound webhooks. Webhooks remain the fast path when available."}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
 
-            {/* Renovate Bot Section */}
-            <div className="rounded-xl border border-border bg-muted/50 p-3 flex flex-col gap-3">
-              <FieldLabel className="flex items-center gap-2 ">
-                <Checkbox
-                  checked={renovateEnabled}
-                  onCheckedChange={(v) => setRenovateEnabled(v === true)}
-                />
-                <span className="flex items-center gap-1.5">
-                  <Bot className="size-4 text-primary " />
-                  Enable Automated Renovate Dependency Scans
-                </span>
-              </FieldLabel>
+              {/* Renovate Bot Section */}
+              <div className="rounded-xl border border-border bg-muted/50 p-3 flex flex-col gap-3">
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="wizard-renovate-enabled"
+                    checked={renovateEnabled}
+                    onCheckedChange={(v) => setRenovateEnabled(v === true)}
+                  />
+                  <FieldLabel htmlFor="wizard-renovate-enabled">
+                    <Bot className="size-4 text-primary " />
+                    Enable Automated Renovate Dependency Scans
+                  </FieldLabel>
+                </Field>
 
-              {renovateEnabled && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-border ">
-                  <div>
-                    <FieldLabel className="dark:block mb-1">Cron Schedule</FieldLabel>
-                    <Input
-                      type="text"
-                      value={renovateCron}
-                      onChange={(e) => setRenovateCron(e.target.value)}
-                      placeholder="0 2 * * *"
-                    />
+                {renovateEnabled && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-border ">
+                    <Field>
+                      <FieldLabel htmlFor="wizard-renovate-cron">Cron Schedule</FieldLabel>
+                      <Input
+                        id="wizard-renovate-cron"
+                        type="text"
+                        value={renovateCron}
+                        onChange={(e) => setRenovateCron(e.target.value)}
+                        placeholder="0 2 * * *"
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="wizard-renovate-image">Renovate Image</FieldLabel>
+                      <Input
+                        id="wizard-renovate-image"
+                        type="text"
+                        value={renovateImage}
+                        onChange={(e) => setRenovateImage(e.target.value)}
+                        placeholder="renovate/renovate:latest"
+                      />
+                    </Field>
                   </div>
-                  <div>
-                    <FieldLabel className="dark:block mb-1">Renovate Image</FieldLabel>
-                    <Input
-                      type="text"
-                      value={renovateImage}
-                      onChange={(e) => setRenovateImage(e.target.value)}
-                      placeholder="renovate/renovate:latest"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
+                )}
+              </div>
+            </FieldGroup>
             <div className="flex justify-between items-center pt-4 border-t border-border/60 ">
               <Button variant="outline" onClick={() => setCurrentStep(2)}>
                 <ChevronLeft data-icon="inline-start" />
