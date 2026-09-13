@@ -1,7 +1,7 @@
 import { cn } from "cn";
 import { PoolHealthStatus, type Pool } from "../../gen/api_pb";
 import { AlertTriangle, ArrowRight, KeyRound, ShieldAlert, Wrench } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { LinkButton } from "@/lib/link-button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export interface PoolDiagnosticsCardProps {
@@ -125,18 +125,15 @@ export function PoolDiagnosticsCard({ pool, className }: PoolDiagnosticsCardProp
             </div>
 
             {remediation.actionHref && (
-              <Link
-                to={remediation.actionHref}
-                className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-destructive px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-destructive/90"
-              >
+              <LinkButton to={remediation.actionHref} variant="destructive" size="sm">
                 {remediation.actionHref === "/profiles" ? (
-                  <KeyRound className="h-3.5 w-3.5" />
+                  <KeyRound data-icon="inline-start" />
                 ) : (
-                  <ShieldAlert className="h-3.5 w-3.5" />
+                  <ShieldAlert data-icon="inline-start" />
                 )}
                 <span>{remediation.actionText}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+                <ArrowRight data-icon="inline-end" />
+              </LinkButton>
             )}
           </div>
         </div>

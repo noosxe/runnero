@@ -25,6 +25,7 @@ import {
 import { usePools, useAuthProfiles, useSession } from "../lib/api/query-hooks";
 import { useWatchPools } from "../lib/api/streaming-hooks";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
+import { LinkButton } from "../lib/link-button";
 import { Link } from "@tanstack/react-router";
 import {
   Plus,
@@ -122,12 +123,9 @@ export function PoolsPage() {
             <span>+ Add Runner Pool</span>
           </Button>
         ) : (
-          <Link
-            to="/profiles"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary transition-colors"
-          >
+          <LinkButton to="/profiles">
             <span>+ Add Runner Pool</span>
-          </Link>
+          </LinkButton>
         )}
       </div>
 
@@ -143,12 +141,15 @@ export function PoolsPage() {
             Gitea, or Forgejo. Connect an auth profile first or run through the setup wizard.
           </AlertDescription>
           <AlertAction>
-            <Link
+            {/* No `warning` Button variant exists yet; the solid warning colors stay as
+                className until --warning-foreground / a warning variant lands (RUN-190). */}
+            <LinkButton
               to="/profiles"
-              className="shrink-0 rounded-xl bg-warning px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-warning/90"
+              size="sm"
+              className="bg-warning text-white hover:bg-warning/90"
             >
               Configure Profile &rarr;
-            </Link>
+            </LinkButton>
           </AlertAction>
         </Alert>
       )}
@@ -271,13 +272,10 @@ export function PoolsPage() {
                   <span>+ Add Runner Pool</span>
                 </Button>
               ) : (
-                <Link
-                  to="/profiles"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
-                >
-                  <Plus className="h-3.5 w-3.5" />
+                <LinkButton to="/profiles" size="xs">
+                  <Plus data-icon="inline-start" />
                   <span>Configure Git Profile</span>
-                </Link>
+                </LinkButton>
               )}
             </EmptyContent>
           )}
