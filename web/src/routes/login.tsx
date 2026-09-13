@@ -1,6 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card } from "@/components/ui/card";
@@ -126,8 +132,8 @@ export function LoginPage() {
 
             <Field>
               <FieldLabel htmlFor="password">Password</FieldLabel>
-              <div className="relative">
-                <Input
+              <InputGroup>
+                <InputGroupInput
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -135,17 +141,18 @@ export function LoginPage() {
 
                   required
                 />
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Toggle password visibility"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </Button>
-              </div>
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="Toggle password visibility"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
             </Field>
           </FieldGroup>
 
