@@ -475,7 +475,7 @@ export function PoolWizardModal({
 
         {/* Step 1: Identity & Credentials */}
         {currentStep === 1 && (
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 flex flex-col gap-4">
             <div>
               <FieldLabel htmlFor="wizard-pool-name" className="dark:block mb-1">
                 Pool Name (Slug)
@@ -556,7 +556,7 @@ export function PoolWizardModal({
 
         {/* Step 2: Scope & Target Discovery */}
         {currentStep === 2 && (
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 flex flex-col gap-4">
             {isEdit && selectedTargetUrls.length > 0 && (
               <div className="rounded-xl border border-border bg-muted/50 p-3 ">
                 <span className="font-semibold text-foreground block mb-1.5">
@@ -666,7 +666,7 @@ export function PoolWizardModal({
             </div>
 
             {/* Discovered Items Container */}
-            <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-muted/50 p-2 space-y-1.5">
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-muted/50 p-2 flex flex-col gap-1.5">
               {isDiscovering && (
                 <div className="flex flex-col gap-1.5 p-2">
                   {Array.from({ length: 4 }).map((_, i) => (
@@ -834,7 +834,7 @@ export function PoolWizardModal({
 
         {/* Step 3: Specs & Quotas */}
         {currentStep === 3 && (
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 flex flex-col gap-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <FieldLabel htmlFor="wizard-min-idle" className="dark:block mb-1">
@@ -968,7 +968,7 @@ export function PoolWizardModal({
             </div>
 
             {/* Renovate Bot Section */}
-            <div className="rounded-xl border border-border bg-muted/50 p-3 space-y-3">
+            <div className="rounded-xl border border-border bg-muted/50 p-3 flex flex-col gap-3">
               <FieldLabel className="flex items-center gap-2 ">
                 <Checkbox
                   checked={renovateEnabled}
@@ -1019,13 +1019,13 @@ export function PoolWizardModal({
 
         {/* Step 4: Review & Confirmation */}
         {currentStep === 4 && (
-          <form onSubmit={handleSubmitPool} className="mt-5 space-y-4">
+          <form onSubmit={handleSubmitPool} className="mt-5 flex flex-col gap-4">
             {isEdit && changes.length > 0 && (
-              <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 space-y-2">
+              <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 flex flex-col gap-2">
                 <span className="text-sm font-bold text-foreground ">
                   Changed Fields ({changes.length})
                 </span>
-                <div className="max-h-44 overflow-y-auto space-y-1">
+                <div className="max-h-44 overflow-y-auto flex flex-col gap-1">
                   {changes.map((c) => (
                     <div
                       key={c.field}
@@ -1065,7 +1065,7 @@ export function PoolWizardModal({
                 </span>
               </div>
             )}
-            <div className="rounded-xl border border-border bg-muted/50 p-4 space-y-4">
+            <div className="rounded-xl border border-border bg-muted/50 p-4 flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-border pb-3 ">
                 <div>
                   <h4 className="text-sm font-bold text-foreground ">{poolName}</h4>
@@ -1084,7 +1084,7 @@ export function PoolWizardModal({
                 <span className="font-semibold text-foreground block mb-1.5">
                   Associated Targets ({selectedTargetUrls.length}):
                 </span>
-                <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-border bg-card p-2 bg-muted">
+                <div className="max-h-32 overflow-y-auto flex flex-col gap-1 rounded-lg border border-border bg-card p-2 bg-muted">
                   {selectedTargetUrls.map((url) => (
                     <div key={url} className="flex items-center justify-between text-[11px]">
                       <span className="font-mono text-foreground truncate">{url}</span>

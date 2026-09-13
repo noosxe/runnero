@@ -101,7 +101,7 @@ export function PoolDiagnosticsCard({ pool, className }: PoolDiagnosticsCardProp
           <AlertTriangle className="h-5 w-5" />
         </div>
 
-        <div className="flex-1 space-y-2">
+        <div className="flex flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-bold text-destructive">Reconciliation Failure Alert</h3>
             {pool.lastErrorCode && (

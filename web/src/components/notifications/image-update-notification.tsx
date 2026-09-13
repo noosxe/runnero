@@ -38,7 +38,7 @@ export function ImageUpdateNotification({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {updates.map((up) => {
         const poolName = poolNameLookup[up.poolId.toString()] ?? `Pool #${up.poolId}`;
         const isPulling = activePullId === up.poolId;
