@@ -48,4 +48,22 @@ describe("LinkButton", () => {
     expect(anchor).toHaveClass("rounded-4xl");
     expect(anchor).toHaveTextContent("Manage");
   });
+
+  it("merges className via tailwind-merge so color overrides replace variant colors", async () => {
+    const { container } = await renderWithRouter(
+      <LinkButton to="/profiles" className="bg-warning text-white">
+        Configure
+      </LinkButton>,
+    );
+
+    const anchor = container.querySelector("a");
+    // The override wins and the default variant's colors are gone — with plain
+    // class concatenation both would coexist and CSS source order would decide.
+    // Compare class tokens, not substrings (hover:bg-primary/80 is legitimate).
+    const classes = (anchor?.className ?? "").split(/\s+/);
+    expect(classes).toContain("bg-warning");
+    expect(classes).toContain("text-white");
+    expect(classes).not.toContain("bg-primary");
+    expect(classes).not.toContain("text-primary-foreground");
+  });
 });

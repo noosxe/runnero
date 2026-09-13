@@ -32,7 +32,10 @@ export function LinkButton<
       "variant" | "size" | "focusableWhenDisabled"
     >,
 ) {
-  const { variant, size, focusableWhenDisabled, ...linkProps } = props;
+  // `className` routes through Button (not Link) so it merges with tailwind-merge:
+  // variant color overrides like `bg-warning` cleanly replace the variant's
+  // `bg-primary` instead of colliding with it in the stylesheet.
+  const { variant, size, focusableWhenDisabled, className, ...linkProps } = props;
   // TanStack's conditional link-prop types can't flow through a generic body,
   // so loosen to the concrete shape `createLink` itself hands a host component.
   // `ref` is tracked separately: the element type changes to an anchor, so the
@@ -43,6 +46,7 @@ export function LinkButton<
       variant={variant}
       size={size}
       focusableWhenDisabled={focusableWhenDisabled}
+      className={className}
       nativeButton={false}
       render={<Link {...anchorProps} />}
     />

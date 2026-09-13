@@ -150,15 +150,16 @@ export function DashboardPage() {
             </p>
           )}
           <AlertAction>
-            <Link
+            <LinkButton
               to={degradedPools.length === 1 ? "/pools/$poolId" : "/pools"}
               params={
                 degradedPools.length === 1 ? { poolId: degradedPools[0].id.toString() } : undefined
               }
-              className="shrink-0 rounded-xl bg-destructive px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-destructive/90"
+              variant="destructive"
+              size="sm"
             >
               Inspect Diagnostics &rarr;
-            </Link>
+            </LinkButton>
           </AlertAction>
         </Alert>
       )}
