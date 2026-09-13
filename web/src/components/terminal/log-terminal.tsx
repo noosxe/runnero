@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
@@ -267,16 +267,18 @@ export function LogTerminal({
       {/* Filter and Search Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-terminal-border/80 bg-terminal-surface/40 px-4 py-2">
         <div className="flex items-center gap-2 flex-1 max-w-sm">
-          <div className="relative w-full">
-            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-terminal-dim" />
-            <Input
+          <InputGroup>
+            <InputGroupAddon align="inline-start">
+              <Search className="size-3.5 text-terminal-dim" />
+            </InputGroupAddon>
+            <InputGroupInput
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter log output..."
-              className="pl-8 font-mono text-[11px]"
+              className="font-mono text-[11px]"
             />
-          </div>
+          </InputGroup>
         </div>
 
         <div className="flex items-center gap-3">
