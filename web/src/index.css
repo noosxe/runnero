@@ -37,6 +37,20 @@
     --success-foreground: oklch(0.985 0 0);
     --warning: oklch(0.666 0.179 58.318); /* = preset's --chart-3 amber */
     --warning-foreground: oklch(0.985 0 0);
+    /* Terminal palette (app-specific): fixed dark console look in both themes; override per-theme later if needed */
+    --terminal-bg: oklch(0.129 0.042 264.695); /* slate-950 */
+    --terminal-surface: oklch(0.208 0.042 265.755); /* slate-900 */
+    --terminal-raised: oklch(0.279 0.041 260.031); /* slate-800 */
+    --terminal-border: oklch(0.279 0.041 260.031); /* slate-800 */
+    --terminal-fg: oklch(0.869 0.022 252.894); /* slate-300 */
+    --terminal-title: oklch(0.968 0.007 247.896); /* slate-100 */
+    --terminal-muted: oklch(0.704 0.04 256.788); /* slate-400 */
+    --terminal-dim: oklch(0.554 0.046 257.417); /* slate-500 */
+    --terminal-faint: oklch(0.446 0.043 257.281); /* slate-600 */
+    --terminal-out: oklch(0.789 0.154 211.53); /* cyan-400 */
+    --terminal-err: oklch(0.712 0.194 13.428); /* rose-400 */
+    --terminal-err-soft: oklch(0.892 0.058 10.001); /* rose-200 */
+    --terminal-accent: oklch(0.707 0.165 254.624); /* blue-400 */
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
@@ -123,6 +137,19 @@
     --color-success-foreground: var(--success-foreground);
     --color-warning: var(--warning);
     --color-warning-foreground: var(--warning-foreground);
+    --color-terminal: var(--terminal-bg);
+    --color-terminal-surface: var(--terminal-surface);
+    --color-terminal-raised: var(--terminal-raised);
+    --color-terminal-border: var(--terminal-border);
+    --color-terminal-fg: var(--terminal-fg);
+    --color-terminal-title: var(--terminal-title);
+    --color-terminal-muted: var(--terminal-muted);
+    --color-terminal-dim: var(--terminal-dim);
+    --color-terminal-faint: var(--terminal-faint);
+    --color-terminal-out: var(--terminal-out);
+    --color-terminal-err: var(--terminal-err);
+    --color-terminal-err-soft: var(--terminal-err-soft);
+    --color-terminal-accent: var(--terminal-accent);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
