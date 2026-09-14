@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { RenovatePage } from "./renovate";
 import { Toaster } from "@/components/ui/toast";
@@ -57,16 +58,7 @@ vi.mock("../lib/api/query-hooks", () => ({
   }),
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to, ...props }: any) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-  createLink:
-    (Comp: any) =>
-    ({ children, ...props }: any) => <Comp {...props}>{children}</Comp>,
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock());
 
 describe("RenovatePage", () => {
   beforeEach(() => {

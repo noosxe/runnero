@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { LoginPage } from "./login";
 
@@ -18,10 +19,12 @@ vi.mock("../lib/api/query-hooks", () => ({
   }),
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => mockNavigate,
-  useSearch: () => mockSearch,
-}));
+vi.mock("@tanstack/react-router", () =>
+  createRouterMock({
+    useNavigate: () => mockNavigate,
+    useSearch: () => mockSearch,
+  }),
+);
 
 vi.mock("../hooks/use-theme", () => ({
   useTheme: () => ({

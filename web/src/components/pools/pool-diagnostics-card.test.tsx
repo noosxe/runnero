@@ -1,16 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen } from "@testing-library/react";
 import { create } from "@bufbuild/protobuf";
 import { PoolDiagnosticsCard } from "./pool-diagnostics-card";
 import { PoolHealthStatus, PoolSchema } from "../../gen/api_pb";
 
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to, ...props }: any) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock());
 
 describe("PoolDiagnosticsCard", () => {
   it("renders null when pool is Healthy and has no lastError", () => {

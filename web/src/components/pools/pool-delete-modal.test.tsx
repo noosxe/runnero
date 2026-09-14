@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PoolDeleteModal } from "./pool-delete-modal";
 
@@ -12,9 +13,7 @@ vi.mock("../../lib/api/query-hooks", () => ({
   }),
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => mockNavigate,
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock({ useNavigate: () => mockNavigate }));
 
 function renderModal(overrides?: { busyCount?: number; idleCount?: number; maxLifetime?: number }) {
   return render(

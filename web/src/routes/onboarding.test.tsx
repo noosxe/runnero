@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { OnboardingPage } from "./onboarding";
 
@@ -29,9 +30,7 @@ let mockSession: { username: string; isAdmin: boolean; hostArch?: string; hostOs
   null;
 const mockLogin = vi.fn();
 
-vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => mockNavigate,
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock({ useNavigate: () => mockNavigate }));
 
 vi.mock("../lib/api/query-hooks", () => ({
   useOnboardingStatus: () => ({
