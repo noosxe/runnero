@@ -73,7 +73,7 @@ export function createRouterMock(
      * component renders as-is. Enough for render tests; not a behavioral
      * router (nothing here navigates).
      */
-    createLink: (Comp: ComponentType) => Comp,
+    createLink: <P,>(Comp: ComponentType<P>): ComponentType<P> => Comp,
     useNavigate: overrides.useNavigate ?? (() => vi.fn()),
     useParams: overrides.useParams ?? (() => ({})),
     useSearch: overrides.useSearch ?? (() => ({})),
