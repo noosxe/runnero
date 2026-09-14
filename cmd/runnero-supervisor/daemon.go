@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"maps"
 	"os"
 	"os/signal"
@@ -16,9 +20,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/noosxe/runnero/internal/config"
 	"github.com/noosxe/runnero/internal/cron"
 	"github.com/noosxe/runnero/internal/db"
 	"github.com/noosxe/runnero/internal/keys"
+	"github.com/noosxe/runnero/internal/logging"
 	"github.com/noosxe/runnero/internal/orchestrator"
 	"github.com/noosxe/runnero/internal/orchestrator/docker"
 	"github.com/noosxe/runnero/internal/provider"
@@ -113,9 +119,43 @@ func runDaemonContext(ctx context.Context) error {
 	backupMgr := db.NewBackupManager(database, cfg.DataDir, cfg.BackupIntervalHours, cfg.BackupRetentionCount)
 	go backupMgr.Start(daemonCtx)
 
+	// RUN-186: durable log persistence (docs/28). The supervisor may be
+	// recreated at any time, so everything here derives from durable state:
+	// a fresh boot id per lifetime, an append-only ndjson boot file for the
+	// structured log stream, and boot+hourly retention sweeps over
+	// <data-dir>/logs. bootID is generated unconditionally so removal
+	// records always carry it, even with persistence disabled.
+	bootID, err := newBootID()
+	if err != nil {
+		return fmt.Errorf("daemon: generating boot id: %w", err)
+	}
+
+	var removalLog *orchestrator.RemovalLogger
+	if cfg.LogPersistenceEnabled {
+		sink, err := logging.OpenBootFileSink(cfg.DataDir, bootID, time.Now().UTC(), version, cfg.LogSupervisorRotationBytes)
+		if err != nil {
+			logger.Warn("supervisor boot log persistence disabled", "err", err)
+		} else {
+			defer func() {
+				if err := sink.Close(); err != nil {
+					logger.Warn("closing boot log file", "err", err)
+				}
+			}()
+			// Re-Setup (safe: last call wins) so the structured stream keeps
+			// going to stdout and is mirrored into the boot file unchanged.
+			if err := logging.Setup(logging.Options{
+				Level:  cfg.LogLevel,
+				Writer: io.MultiWriter(os.Stdout, sink),
+			}); err != nil {
+				logger.Warn("mirroring logs into boot file failed", "err", err)
+			}
+			go sweepDurableLogs(daemonCtx, cfg, logger)
+		}
+		removalLog = orchestrator.NewRemovalLogger(cfg.DataDir, bootID)
+	}
+
 	retentionScheduler := db.NewRetentionScheduler(database, nil)
 	go retentionScheduler.Start(daemonCtx)
-
 	var dockerOpts []docker.Option
 	if cfg.DockerHost != "" {
 		dockerOpts = append(dockerOpts, docker.WithHost(cfg.DockerHost))
@@ -159,6 +199,8 @@ func runDaemonContext(ctx context.Context) error {
 		Reconciler:        reconciler,
 		EventListener:     eventListener,
 		DataDir:           cfg.DataDir,
+		RemovalLog:        removalLog,
+		CaptureTimeout:    time.Duration(cfg.LogRunnerCaptureTimeout) * time.Second,
 		EnrichConclusions: cfg.EnrichJobConclusions,
 		TaskExitHandler:   renovateExecutor,
 	})
@@ -413,4 +455,40 @@ func configuredWebhookSecrets() map[string]string {
 		}
 	}
 	return secrets
+}
+
+// newBootID generates the 8-hex-char identifier every durable log artifact
+// of this supervisor lifetime is tagged with (RUN-186, docs/28 §4).
+func newBootID() (string, error) {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", fmt.Errorf("reading randomness: %w", err)
+	}
+	return hex.EncodeToString(b[:]), nil
+}
+
+// sweepDurableLogs enforces the RUN-186 retention knobs (docs/28 §5.5):
+// one sweep at boot, then hourly. Best-effort and counted — retention
+// problems must be visible without ever blocking the daemon.
+func sweepDurableLogs(ctx context.Context, cfg *config.Config, log *slog.Logger) {
+	targets := []logging.SweepTarget{
+		{Dir: filepath.Join(cfg.DataDir, "logs", "supervisor"), MaxFiles: cfg.LogSupervisorMaxFiles},
+		{Dir: filepath.Join(cfg.DataDir, "logs"), MaxFiles: cfg.LogRunnerMaxFiles},
+	}
+	sweep := func() {
+		if n := logging.SweepLogs(targets, cfg.LogTotalBudgetBytes); n > 0 {
+			log.Info("durable log retention sweep removed files", "count", n)
+		}
+	}
+	sweep()
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sweep()
+		}
+	}
 }
