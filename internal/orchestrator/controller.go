@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,6 +51,11 @@ const (
 	// DefaultGhostSweepMaxDeregistrations bounds the per-cycle sweep burst after mass-leak
 	// events (e.g. host reboot with a large pool); the remainder is swept on later cycles.
 	DefaultGhostSweepMaxDeregistrations = 50
+
+	// DefaultRunnerCaptureTimeout bounds each runner stdout capture attempt
+	// before removal (RUN-186, docs/28 §5.2): forensics must never delay
+	// the lifecycle, so a stuck Docker log API gives up after this long.
+	DefaultRunnerCaptureTimeout = 10 * time.Second
 	// DefaultDrainBackstop is the force-terminate backstop for gracefully
 	// drained busy runners whose deleted pool set no max_runner_lifetime
 	// (docs/25 §4.4, §8.3): drained leftovers can never outlive this cap.
@@ -134,13 +140,19 @@ const (
 
 // ControllerOptions configures the PoolController.
 type ControllerOptions struct {
-	DB                           PoolRepository
-	JobRecorder                  JobHistoryRecorder
-	ContainerEngine              ContainerProvider
-	ProviderResolver             GitProviderResolver
-	Reconciler                   *Reconciler
-	EventListener                *EventListener
-	DataDir                      string
+	DB               PoolRepository
+	JobRecorder      JobHistoryRecorder
+	ContainerEngine  ContainerProvider
+	ProviderResolver GitProviderResolver
+	Reconciler       *Reconciler
+	EventListener    *EventListener
+	DataDir          string
+	// RemovalLog persists structured removal records (RUN-186,
+	// docs/28 §5.4). Nil disables record emission (tests, CLI).
+	RemovalLog *RemovalLogger
+	// CaptureTimeout bounds each runner log capture attempt (RUN-186,
+	// docs/28 §5.2). Zero defaults to 10s.
+	CaptureTimeout               time.Duration
 	GlobalMaxRunners             int
 	ShutdownTimeout              time.Duration
 	ShutdownPollInterval         time.Duration
@@ -170,6 +182,8 @@ type PoolController struct {
 	eventListener           *EventListener
 	taskExitHandler         TaskExitHandler
 	dataDir                 string
+	removalLog              *RemovalLogger
+	captureTimeout          time.Duration
 	globalMaxRunners        int
 	shutdownTimeout         time.Duration
 	shutdownPollInterval    time.Duration
@@ -246,6 +260,11 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		ghostMax = DefaultGhostSweepMaxDeregistrations
 	}
 
+	captureTimeout := opts.CaptureTimeout
+	if captureTimeout <= 0 {
+		captureTimeout = DefaultRunnerCaptureTimeout
+	}
+
 	ctrl := PoolController{
 		db:                      opts.DB,
 		jobRecorder:             jobRec,
@@ -255,6 +274,8 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		eventListener:           opts.EventListener,
 		taskExitHandler:         opts.TaskExitHandler,
 		dataDir:                 opts.DataDir,
+		removalLog:              opts.RemovalLog,
+		captureTimeout:          captureTimeout,
 		globalMaxRunners:        globalMax,
 		shutdownTimeout:         shutdownTimeout,
 		shutdownPollInterval:    shutdownPollInterval,
@@ -437,7 +458,7 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 		} else {
 			// Reap any exited containers detected during audit cycle
 			for _, exited := range report.Exited {
-				c.reapContainer(ctx, exited.ID, exited.PoolID, exited.ExitCode, true)
+				c.reapContainer(ctx, exited.ID, exited.PoolID, exited.PoolName, exited.ExitCode, true)
 			}
 		}
 	}
@@ -663,22 +684,17 @@ func (c *PoolController) busyAnchor(poolName string, r RunnerStatus) (time.Time,
 // pools are already cascade-gone, making the timeout record a benign no-op
 // (docs/25 §4.3).
 func (c *PoolController) terminateHungRunner(ctx context.Context, poolID int64, poolName string, r RunnerStatus, anchor, now time.Time) {
-	var logPath string
-	if c.dataDir != "" {
-		var err error
-		logPath, err = c.engine.CaptureLogs(ctx, r.ID, c.dataDir)
-		if err != nil {
-			c.logger.Warn("capturing exit logs for hung runner", "id", r.ID, "err", err)
-		}
+	// Capture, terminate, untrack, and record via the RUN-186 choke point;
+	// logPath feeds the job_history timeout row below.
+	logPath, termErr := c.terminateAndRecord(ctx, removalOpts{
+		poolID:  poolID,
+		r:       r,
+		reason:  RemovalReasonLifetimeLimit,
+		untrack: true,
+	})
+	if termErr != nil {
+		c.logger.Error("failed to force terminate hung runner", "id", r.ID, "err", termErr)
 	}
-
-	// Force terminate container immediately.
-	if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
-		c.logger.Error("failed to force terminate hung runner", "id", r.ID, "err", err)
-	}
-
-	// Untrack runner from active pool state.
-	c.reconciler.UntrackRunner(poolID, r.ID)
 
 	// Record timeout in job_history (docs/21 §5.2, docs/23 §4.3): every
 	// lifetime termination is mid-job (busy-only switch, docs/23 §4.3); the
@@ -695,6 +711,88 @@ func (c *PoolController) terminateHungRunner(ctx context.Context, poolID int64, 
 
 	// Capacity freed up, drain internal queue.
 	c.drainQueue(ctx)
+}
+
+// removalOpts carries the per-path context for terminateAndRecord.
+type removalOpts struct {
+	poolID      int64
+	r           RunnerStatus
+	reason      string
+	exitCode    *int
+	deregErr    error  // outcome of the deregistration attempt (nil = ok or not attempted)
+	untrack     bool   // remove the runner from reconciler tracking after termination
+	skipCapture string // non-empty: capture is skipped and this reason is recorded
+}
+
+// terminateAndRecord is the RUN-186 removal choke point (docs/28 §5.2):
+// every termination path flows through best-effort stdout capture, force
+// termination, optional tracking cleanup, and exactly one structured
+// removal record in removals.jsonl. Persistence never gates the lifecycle —
+// capture and record failures are logged and swallowed. The terminate error
+// is returned so callers that surface it (API) keep doing so.
+func (c *PoolController) terminateAndRecord(ctx context.Context, o removalOpts) (string, error) {
+	var capture RemovalCapture
+	switch {
+	case o.skipCapture != "":
+		capture.Skipped = o.skipCapture
+	case c.dataDir != "" && c.engine != nil:
+		// Hard cap on the capture attempt (docs/28 §5.2): removal must never
+		// wait on a stuck Docker log API longer than the knob allows.
+		captureCtx, cancelCapture := context.WithTimeout(ctx, c.captureTimeout)
+		path, err := c.engine.CaptureLogs(captureCtx, o.r.ID, c.dataDir)
+		cancelCapture()
+		switch {
+		case err == nil:
+			capture = RemovalCapture{OK: true, File: path}
+			if info, statErr := os.Stat(path); statErr == nil {
+				capture.Bytes = info.Size()
+			}
+		case errors.Is(err, ErrLogsUnavailable):
+			// A concurrent reap path already captured and removed the
+			// container (RUN-121): benign, but still recorded.
+			capture = RemovalCapture{Error: "logs unavailable (already reaped or removed)"}
+		default:
+			capture = RemovalCapture{Error: err.Error()}
+			c.logger.Warn("capturing exit logs before removal", "id", o.r.ID, "err", err)
+		}
+	default:
+		capture.Skipped = "capture disabled"
+	}
+
+	termErr := error(nil)
+	if c.engine != nil {
+		termErr = c.engine.TerminateRunner(ctx, o.r.ID)
+		if termErr != nil {
+			c.logger.Warn("terminating runner container", "id", o.r.ID, "reason", o.reason, "err", termErr)
+		}
+	}
+	if o.untrack && c.reconciler != nil {
+		c.reconciler.UntrackRunner(o.poolID, o.r.ID)
+	}
+
+	c.removalLog.Record(RemovalRecord{
+		RunnerID:     o.r.ID,
+		RunnerName:   o.r.Name,
+		PoolID:       o.poolID,
+		PoolName:     o.r.PoolName,
+		Container:    o.r.ID,
+		Reason:       o.reason,
+		ProviderBusy: errors.Is(o.deregErr, provider.ErrRunnerBusy),
+		DeregError:   deregErrorString(o.deregErr),
+		ExitCode:     o.exitCode,
+		Capture:      capture,
+	})
+	return capture.File, termErr
+}
+
+// deregErrorString flattens the provider deregistration outcome for the
+// record: busy vetoes surface as provider_busy, real failures as
+// dereg_error, and "nothing attempted" stays empty.
+func deregErrorString(err error) string {
+	if err == nil || errors.Is(err, provider.ErrRunnerBusy) {
+		return ""
+	}
+	return err.Error()
 }
 
 // HandleContainerEvent processes real-time Docker events ("die", "destroy").
@@ -727,11 +825,12 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 			if err != nil {
 				c.logger.Error("failed to handle task container exit", "id", event.ContainerID, "err", err)
 			}
-			if c.engine != nil {
-				if err := c.engine.TerminateRunner(ctx, event.ContainerID); err != nil {
-					c.logger.Warn("terminating exited task container", "id", event.ContainerID, "err", err)
-				}
-			}
+			_, _ = c.terminateAndRecord(ctx, removalOpts{
+				r:           RunnerStatus{ID: event.ContainerID, PoolName: event.PoolName},
+				reason:      RemovalReasonTaskExit,
+				untrack:     true,
+				skipCapture: "task exit (the task exit handler owns task logs)",
+			})
 			c.drainQueue(ctx)
 			return nil
 		}
@@ -745,7 +844,7 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 	}
 
 	// 1. Reap dead container
-	c.reapContainer(ctx, event.ContainerID, poolID, event.ExitCode, true)
+	c.reapContainer(ctx, event.ContainerID, poolID, event.PoolName, event.ExitCode, true)
 
 	// 2. Replenish target pool immediately
 	if poolID != 0 {
@@ -764,27 +863,22 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 	return nil
 }
 
-func (c *PoolController) reapContainer(ctx context.Context, containerID string, poolID int64, exitCode int, exitKnown bool) {
+func (c *PoolController) reapContainer(ctx context.Context, containerID string, poolID int64, poolName string, exitCode int, exitKnown bool) {
 	c.closeJobRowOnDeath(ctx, containerID, poolID, exitCode, exitKnown)
-	if c.dataDir != "" && c.engine != nil {
-		if _, err := c.engine.CaptureLogs(ctx, containerID, c.dataDir); err != nil {
-			// A concurrent reap path (audit cycle vs die/destroy event) already
-			// captured the logs and started removal — benign (RUN-121).
-			if errors.Is(err, ErrLogsUnavailable) {
-				c.logger.Debug("skipping exit log capture, container already reaped by another path", "id", containerID, "err", err)
-			} else {
-				c.logger.Warn("capturing exit logs before container removal", "id", containerID, "err", err)
-			}
-		}
+	var code *int
+	if exitKnown {
+		code = &exitCode
 	}
-	if c.engine != nil {
-		if err := c.engine.TerminateRunner(ctx, containerID); err != nil {
-			c.logger.Warn("terminating exited runner container", "id", containerID, "err", err)
-		}
-	}
-	if c.reconciler != nil {
-		c.reconciler.UntrackRunner(poolID, containerID)
-	}
+	// Capture, terminate, untrack, and record via the RUN-186 choke point;
+	// the audit-cycle reap also closes the recreation window (docs/28 §5.3):
+	// leftovers from a previous supervisor lifetime flow through here too.
+	_, _ = c.terminateAndRecord(ctx, removalOpts{
+		poolID:   poolID,
+		r:        RunnerStatus{ID: containerID, PoolName: poolName},
+		reason:   RemovalReasonReap,
+		exitCode: code,
+		untrack:  true,
+	})
 
 	// Drain internal provisioning queue as global capacity freed up
 	c.drainQueue(ctx)
@@ -948,8 +1042,10 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 				c.logger.Info("terminating idle runner during graceful shutdown", "pool", r.PoolName, "id", r.ID, "name", r.Name)
 				// Shutdown is explicitly best-effort (docs/25): a busy veto here
 				// must not block teardown, the ghost sweep reconciles leftovers.
-				_ = c.deregisterRunner(ctx, r)
-				_ = c.engine.TerminateRunner(ctx, r.ID)
+				deregErr := c.deregisterRunner(ctx, r)
+				_, _ = c.terminateAndRecord(ctx, removalOpts{
+					r: r, reason: RemovalReasonShutdown, deregErr: deregErr,
+				})
 			} else {
 				activeRunners = append(activeRunners, r)
 			}
@@ -1006,7 +1102,7 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 			report, err := c.reconciler.Audit(ctx)
 			if err == nil {
 				for _, exited := range report.Exited {
-					c.reapContainer(ctx, exited.ID, exited.PoolID, exited.ExitCode, true)
+					c.reapContainer(ctx, exited.ID, exited.PoolID, exited.PoolName, exited.ExitCode, true)
 				}
 			}
 
@@ -1054,8 +1150,10 @@ func (c *PoolController) forceTerminateRemaining(ctx context.Context) {
 	for poolName, poolMap := range c.reconciler.tracked {
 		for id, r := range poolMap {
 			if r.State == "running" {
-				_ = c.deregisterRunner(ctx, r)
-				_ = c.engine.TerminateRunner(ctx, id)
+				deregErr := c.deregisterRunner(ctx, r)
+				_, _ = c.terminateAndRecord(ctx, removalOpts{
+					r: r, reason: RemovalReasonShutdown, deregErr: deregErr,
+				})
 				delete(poolMap, id)
 			}
 		}
@@ -1122,8 +1220,9 @@ func (c *PoolController) drainIdleRunner(ctx context.Context, p db.RunnerPool, r
 		}
 		return false
 	}
-	_ = c.engine.TerminateRunner(ctx, r.ID)
-	c.reconciler.UntrackRunner(p.ID, r.ID)
+	_, _ = c.terminateAndRecord(ctx, removalOpts{
+		poolID: p.ID, r: r, reason: RemovalReasonIdleDrain, untrack: true,
+	})
 	return true
 }
 
@@ -1759,6 +1858,14 @@ func (c *PoolController) spawnSingleRunner(ctx context.Context, p db.RunnerPool,
 
 	id, err := c.engine.SpawnRunner(ctx, config)
 	if err != nil {
+		c.removalLog.Record(RemovalRecord{
+			RunnerName: containerName,
+			PoolID:     p.ID,
+			PoolName:   p.Name,
+			Container:  containerName,
+			Reason:     RemovalReasonCreateFailure,
+			Capture:    RemovalCapture{Skipped: "container never started"},
+		})
 		return fmt.Errorf("spawning runner for pool %q: %w", p.Name, err)
 	}
 
@@ -2118,9 +2225,10 @@ func (c *PoolController) drainPool(ctx context.Context, poolID int64, poolName s
 		}
 		// Pool deletion is destructive by definition (docs/25 §4.2): a busy veto
 		// must not block hard cleanup, the removed-pool fallback reconciles.
-		_ = c.deregisterRunner(ctx, r)
-		_ = c.engine.TerminateRunner(ctx, r.ID)
-		c.reconciler.UntrackRunner(poolID, r.ID)
+		deregErr := c.deregisterRunner(ctx, r)
+		_, _ = c.terminateAndRecord(ctx, removalOpts{
+			poolID: poolID, r: r, reason: RemovalReasonPoolDrain, deregErr: deregErr, untrack: true,
+		})
 	}
 
 	// Queue purge and diagnostics removal happen in both modes: the pool row
@@ -2186,7 +2294,8 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) e
 		}
 		// RUN-182: stale local idle state must not kill a runner the provider
 		// still considers mid-job — preserve it and converge the classification.
-		if errors.Is(c.deregisterRunner(ctx, r), provider.ErrRunnerBusy) {
+		deregErr := c.deregisterRunner(ctx, r)
+		if errors.Is(deregErr, provider.ErrRunnerBusy) {
 			c.logger.Warn("recycle: provider vetoed idle recycle, runner is mid-job",
 				"pool", r.PoolName, "pool_id", poolID, "runner", r.ID, "name", r.Name)
 			if r.Name != "" {
@@ -2194,11 +2303,12 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) e
 			}
 			continue
 		}
-		if err := c.engine.TerminateRunner(ctx, r.ID); err != nil {
+		if _, err := c.terminateAndRecord(ctx, removalOpts{
+			poolID: poolID, r: r, reason: RemovalReasonRecycle, deregErr: deregErr, untrack: true,
+		}); err != nil {
 			c.logger.Warn("recycle: failed terminating idle runner", "pool", r.PoolName, "pool_id", poolID, "runner", r.ID, "err", err)
 			continue
 		}
-		c.reconciler.UntrackRunner(poolID, r.ID)
 		recycled++
 	}
 	if recycled > 0 {
@@ -2232,13 +2342,11 @@ func (c *PoolController) PoolRunners(poolID int64) []server.RunnerInstanceInfo {
 
 // TerminateRunner manually terminates a runner container and reconciles pool tracking state.
 func (c *PoolController) TerminateRunner(ctx context.Context, poolID int64, containerID string) error {
-	if c.engine != nil {
-		if err := c.engine.TerminateRunner(ctx, containerID); err != nil {
-			return err
-		}
-	}
-	if c.reconciler != nil {
-		c.reconciler.UntrackRunner(poolID, containerID)
-	}
-	return nil
+	_, err := c.terminateAndRecord(ctx, removalOpts{
+		poolID:  poolID,
+		r:       RunnerStatus{ID: containerID},
+		reason:  RemovalReasonManual,
+		untrack: true,
+	})
+	return err
 }

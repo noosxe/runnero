@@ -210,3 +210,36 @@ future exposure).
 After a supervisor recreation and a runner drain, an operator can answer
 "what happened to runner X in its last job / why was it removed" from files
 that survived the recreation.
+
+## 10. As-built notes (implementation PR)
+
+The implementation follows this design with four deliberate adjustments,
+each preserving the acceptance:
+
+- **Runner captures reuse the existing compressed JSONL store.** M25
+  (job history) already persists runner stdout as
+  `<data-dir>/logs/<runner-id>.log.jsonl.gz` and consumers (job rows,
+  Renovate task logs) key on that location, so the choke point captures
+  into the same store instead of introducing a parallel raw-text
+  `runners/` subtree. Durability is identical; one capture format, not two.
+- **The removal choke point lives in the pool controller**, not the Docker
+  wrapper: `terminateAndRecord` (capture → terminate → untrack → record)
+  is shared by the reap, lifetime-limit, idle-drain, shutdown, pool-drain,
+  recycle, manual-API, and task-exit paths, and spawn failures are recorded
+  as `create-failure` by the spawn pipeline. The Docker client's internal
+  rollback (start-failure) stays engine-side since the controller observes
+  the resulting error.
+- **Boot-time reconciliation needs no new sweep**: the audit cycle already
+  reaps exited containers (including leftovers from a previous supervisor
+  lifetime) through `reapContainer`, which now flows through the choke
+  point — the recreation window closes on the first reconcile pass.
+- **The capture timeout is enforced with `context.WithTimeout`** around
+  the capture call (`log-runner-capture-timeout-seconds`, default 10 s),
+  and the retention sweeper runs in the daemon (boot + hourly) over
+  `logs/supervisor/` and `logs/` with the total budget across both.
+
+`removals.jsonl` field names as shipped: `ts`, `boot_id`, `runner_id`,
+`runner_name`, `pool_id`, `pool_name`, `container`, `reason` (`reap`,
+`task-exit`, `lifetime-limit`, `idle-drain`, `shutdown`, `pool-drain`,
+`recycle`, `manual`, `create-failure`), `provider_busy`, `dereg_error`,
+`exit_code`, and `capture` (`ok`, `bytes`, `file`, `error`, `skipped`).

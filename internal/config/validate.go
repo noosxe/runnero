@@ -36,7 +36,30 @@ func (c *Config) Validate() error {
 	if c.BackupRetentionCount < 1 {
 		return fmt.Errorf("backup retention must keep at least 1 snapshot (key 'backup-retention-count', env %s)", EnvBackupRetention)
 	}
+	if c.BackupRetentionCount < 1 {
+		return fmt.Errorf("backup retention must keep at least 1 snapshot (key 'backup-retention-count', env %s)", EnvBackupRetention)
+	}
 
+	if c.LogPersistenceEnabled {
+		if c.LogSupervisorRotationBytes < 1 {
+			return fmt.Errorf("supervisor log rotation threshold must be at least 1 byte (key 'log-supervisor-rotation-bytes', env %s)", EnvLogSupervisorRotationBytes)
+		}
+		if c.LogSupervisorMaxFiles < 1 {
+			return fmt.Errorf("supervisor log retention must keep at least 1 file (key 'log-supervisor-max-files', env %s)", EnvLogSupervisorMaxFiles)
+		}
+		if c.LogRunnerCaptureMaxBytes < 1 {
+			return fmt.Errorf("runner log capture cap must be at least 1 byte (key 'log-runner-capture-max-bytes', env %s)", EnvLogRunnerCaptureMaxBytes)
+		}
+		if c.LogRunnerCaptureTimeout < 1 {
+			return fmt.Errorf("runner log capture timeout must be at least 1 second (key 'log-runner-capture-timeout-seconds', env %s)", EnvLogRunnerCaptureTimeout)
+		}
+		if c.LogRunnerMaxFiles < 1 {
+			return fmt.Errorf("runner log retention must keep at least 1 file (key 'log-runner-max-files', env %s)", EnvLogRunnerMaxFiles)
+		}
+		if c.LogTotalBudgetBytes < 1 {
+			return fmt.Errorf("log total budget must be at least 1 byte (key 'log-total-budget-bytes', env %s)", EnvLogTotalBudgetBytes)
+		}
+	}
 	if c.TailscaleEnabled() {
 		funnel, funnelErr := parseTailscaleBool(c.TailscaleFunnel)
 		ui, uiErr := parseTailscaleBool(c.TailscaleUI)

@@ -40,6 +40,15 @@ const (
 	EnvWebhookGiteaSecret   = EnvPrefix + "WEBHOOK_GITEA_SECRET"
 	EnvWebhookForgejoSecret = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
 
+	// Durable log persistence (RUN-186, docs/28 §5.5).
+	EnvLogPersistenceEnabled      = EnvPrefix + "LOG_PERSISTENCE_ENABLED"
+	EnvLogSupervisorRotationBytes = EnvPrefix + "LOG_SUPERVISOR_ROTATION_BYTES"
+	EnvLogSupervisorMaxFiles      = EnvPrefix + "LOG_SUPERVISOR_MAX_FILES"
+	EnvLogRunnerCaptureMaxBytes   = EnvPrefix + "LOG_RUNNER_CAPTURE_MAX_BYTES"
+	EnvLogRunnerCaptureTimeout    = EnvPrefix + "LOG_RUNNER_CAPTURE_TIMEOUT_SECONDS"
+	EnvLogRunnerMaxFiles          = EnvPrefix + "LOG_RUNNER_MAX_FILES"
+	EnvLogTotalBudgetBytes        = EnvPrefix + "LOG_TOTAL_BUDGET_BYTES"
+
 	// Embedded Tailscale integration (RUN-155, docs/26). The feature is
 	// completely off unless SUPERVISOR_TAILSCALE_AUTHKEY is set; every other
 	// variable is ignored (and never validated) in off mode.
@@ -61,10 +70,17 @@ const (
 	DefaultBackupRetentionCount = 7
 
 	// Embedded Tailscale defaults (RUN-155, docs/26 §4).
-	DefaultTailscaleHostname     = "runnero"
-	DefaultTailscaleStateDirName = "tailscale"
-	DefaultTailscaleFunnel       = "true"
-	DefaultTailscaleUI           = "true"
+	DefaultTailscaleHostname          = "runnero"
+	DefaultTailscaleStateDirName      = "tailscale"
+	DefaultTailscaleFunnel            = "true"
+	DefaultTailscaleUI                = "true"
+	DefaultLogPersistenceEnabled      = true
+	DefaultLogSupervisorRotationBytes = int64(32 * 1024 * 1024) // 32 MiB per boot file
+	DefaultLogSupervisorMaxFiles      = 10
+	DefaultLogRunnerCaptureMaxBytes   = int64(16 * 1024 * 1024) // 16 MiB tail per runner
+	DefaultLogRunnerCaptureTimeout    = 10                      // seconds
+	DefaultLogRunnerMaxFiles          = 200
+	DefaultLogTotalBudgetBytes        = int64(1024 * 1024 * 1024) // 1 GiB across <data-dir>/logs
 )
 
 // MinEncryptionKeyBytes is the minimum acceptable length for
@@ -92,11 +108,18 @@ var envKeys = map[string]string{
 	EnvWebhookGiteaSecret:   "webhook-gitea-secret",
 	EnvWebhookForgejoSecret: "webhook-forgejo-secret",
 
-	EnvTailscaleAuthKey:  "tailscale-auth-key",
-	EnvTailscaleHostname: "tailscale-hostname",
-	EnvTailscaleFunnel:   "tailscale-funnel",
-	EnvTailscaleUI:       "tailscale-ui",
-	EnvTailscaleStateDir: "tailscale-state-dir",
+	EnvTailscaleAuthKey:           "tailscale-auth-key",
+	EnvTailscaleHostname:          "tailscale-hostname",
+	EnvTailscaleFunnel:            "tailscale-funnel",
+	EnvTailscaleUI:                "tailscale-ui",
+	EnvTailscaleStateDir:          "tailscale-state-dir",
+	EnvLogPersistenceEnabled:      "log-persistence-enabled",
+	EnvLogSupervisorRotationBytes: "log-supervisor-rotation-bytes",
+	EnvLogSupervisorMaxFiles:      "log-supervisor-max-files",
+	EnvLogRunnerCaptureMaxBytes:   "log-runner-capture-max-bytes",
+	EnvLogRunnerCaptureTimeout:    "log-runner-capture-timeout-seconds",
+	EnvLogRunnerMaxFiles:          "log-runner-max-files",
+	EnvLogTotalBudgetBytes:        "log-total-budget-bytes",
 }
 
 // Config is the typed result of loading every configuration layer. Field
@@ -127,6 +150,16 @@ type Config struct {
 	TailscaleFunnel   string `koanf:"tailscale-funnel"`
 	TailscaleUI       string `koanf:"tailscale-ui"`
 	TailscaleStateDir string `koanf:"tailscale-state-dir"`
+
+	// Durable log persistence (RUN-186, docs/28 §5.5). Byte knobs are raw
+	// byte counts; the capture timeout is in seconds.
+	LogPersistenceEnabled      bool  `koanf:"log-persistence-enabled"`
+	LogSupervisorRotationBytes int64 `koanf:"log-supervisor-rotation-bytes"`
+	LogSupervisorMaxFiles      int   `koanf:"log-supervisor-max-files"`
+	LogRunnerCaptureMaxBytes   int64 `koanf:"log-runner-capture-max-bytes"`
+	LogRunnerCaptureTimeout    int   `koanf:"log-runner-capture-timeout-seconds"`
+	LogRunnerMaxFiles          int   `koanf:"log-runner-max-files"`
+	LogTotalBudgetBytes        int64 `koanf:"log-total-budget-bytes"`
 }
 
 // Options parameterizes Load. The zero value loads defaults plus the
@@ -227,6 +260,14 @@ func defaults() map[string]any {
 		"webhook-github-secret":  "",
 		"webhook-gitea-secret":   "",
 		"webhook-forgejo-secret": "",
+
+		"log-persistence-enabled":            DefaultLogPersistenceEnabled,
+		"log-supervisor-rotation-bytes":      DefaultLogSupervisorRotationBytes,
+		"log-supervisor-max-files":           DefaultLogSupervisorMaxFiles,
+		"log-runner-capture-max-bytes":       DefaultLogRunnerCaptureMaxBytes,
+		"log-runner-capture-timeout-seconds": DefaultLogRunnerCaptureTimeout,
+		"log-runner-max-files":               DefaultLogRunnerMaxFiles,
+		"log-total-budget-bytes":             DefaultLogTotalBudgetBytes,
 
 		"tailscale-auth-key":  "",
 		"tailscale-hostname":  DefaultTailscaleHostname,
