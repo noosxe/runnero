@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -56,23 +57,7 @@ vi.mock("../lib/api/query-hooks", () => ({
   },
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to, onClick, ...props }: any) => (
-    <a
-      href={to}
-      onClick={(e) => {
-        e.preventDefault();
-        onClick?.(e);
-      }}
-      {...props}
-    >
-      {children}
-    </a>
-  ),
-  createLink:
-    (Comp: any) =>
-    ({ children, ...props }: any) => <Comp {...props}>{children}</Comp>,
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock());
 
 describe("HistoryPage", () => {
   beforeEach(() => {

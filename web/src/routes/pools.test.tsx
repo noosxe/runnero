@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -92,13 +93,7 @@ vi.mock("../lib/api/streaming-hooks", () => ({
   }),
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to, ...props }: any) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock());
 
 describe("PoolsPage", () => {
   beforeEach(() => {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen } from "@testing-library/react";
 import { DashboardPage } from "./dashboard";
 
@@ -58,16 +59,7 @@ let currentAuthProfiles: any = [{ id: 1n, name: "default-profile" }];
 let isStatsLoading = false;
 let isPoolsLoading = false;
 
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to, ...props }: any) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-  createLink:
-    (Comp: any) =>
-    ({ children, ...props }: any) => <Comp {...props}>{children}</Comp>,
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock());
 
 vi.mock("../lib/api/query-hooks", () => ({
   useSystemStats: () => ({

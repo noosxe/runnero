@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { createRouterMock } from "@/test/router-mock";
 import { render, screen } from "@testing-library/react";
 import { HistoryDetailPage } from "./history-detail";
 
@@ -28,14 +29,7 @@ const mockLogs = [
   },
 ];
 
-vi.mock("@tanstack/react-router", () => ({
-  useParams: () => ({ jobId: "101" }),
-  Link: ({ children, to, ...props }: any) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-}));
+vi.mock("@tanstack/react-router", () => createRouterMock({ useParams: () => ({ jobId: "101" }) }));
 
 vi.mock("../lib/api/query-hooks", () => ({
   useJobRecord: () => ({
