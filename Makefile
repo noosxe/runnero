@@ -103,7 +103,11 @@ clean: clean-e2e
 #      with E2E_FORCE_CLEAN=1 (the CI teardown sets it: after a job timeout
 #      the suite is already dead and cleanup must still proceed).
 E2E_PROJECT ?= $(if $(CI),runnero-e2e,runnero-e2e-$(shell id -un 2>/dev/null || echo local))
-export COMPOSE_PROJECT_NAME := $(E2E_PROJECT)
+# COMPOSE_PROJECT_NAME is deliberately NOT exported globally: it is scoped
+# to the three E2E targets below, so the deployment compose targets
+# (launch/stop/status/...) keep the project the compose file implies
+# (`runnero`, derived from the directory) instead of the E2E-local one.
+test-e2e test-e2e-ui clean-e2e: export COMPOSE_PROJECT_NAME := $(E2E_PROJECT)
 E2E_COMPOSE := docker compose -f tests/e2e/docker-compose.e2e.yml
 E2E_LOCK := /tmp/$(E2E_PROJECT).lock
 E2E_LOCK_WAIT ?= 600

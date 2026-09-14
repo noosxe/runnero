@@ -217,7 +217,10 @@ keep manual invocations from disturbing a CI run (and each other):
   resolve to `runnero-e2e-$USER` instead. `COMPOSE_PROJECT_NAME` overrides
   the stack's top-level `name:`, so no compose-file branching is needed —
   and because containers, networks, and volumes are all project-scoped,
-  the two stacks cannot collide by construction.
+  the two stacks cannot collide by construction. The override is exported
+  **target-scoped to the three E2E targets only**, so the deployment
+  compose targets (`launch`, `status`, …) keep operating on the project
+  the deployment file implies (`runnero`).
 - **Advisory lock**: every E2E make target wraps its compose invocations in
   `flock` on a per-project lockfile (`/tmp/<project>.lock`), serializing
   concurrent invocations of the same project (two local terminals, or the
@@ -232,7 +235,7 @@ keep manual invocations from disturbing a CI run (and each other):
 
 ```makefile
 E2E_PROJECT ?= $(if $(CI),runnero-e2e,runnero-e2e-$(shell id -un 2>/dev/null || echo local))
-export COMPOSE_PROJECT_NAME := $(E2E_PROJECT)
+test-e2e test-e2e-ui clean-e2e: export COMPOSE_PROJECT_NAME := $(E2E_PROJECT)
 E2E_COMPOSE := docker compose -f tests/e2e/docker-compose.e2e.yml
 E2E_LOCK := /tmp/$(E2E_PROJECT).lock
 E2E_LOCK_WAIT ?= 600
