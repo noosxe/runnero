@@ -19,7 +19,7 @@ The Web Control Interface is an embedded Single Page Application (SPA) compiled 
 | **Routing** | **TanStack Router** (`@tanstack/react-router`) | Type-safe search params, nested layouts, route loaders, and redirect guards. |
 | **State & API** | **TanStack Query** (`@tanstack/react-query`) + **Connect-Web** | Binary Protobuf transport client (`@connectrpc/connect-web`), zero JSON transport. |
 | **Styling** | **TailwindCSS** | Utility-first CSS; new/migrated code uses the preset's semantic tokens only (`bg-primary`, `text-muted-foreground`, …) — no raw palette classes (`slate-*`, `emerald-*`) and no manual `dark:` overrides. |
-| **UI Components** | **shadcn/ui** (Base UI base) | Vendored via the shadcn CLI only; preset `b7QqImqdoe` owns the visual language (docs/27). Generated files in `web/src/components/ui/` are read-only — customization via composition wrappers, CSS variables, or config. `web/src/index.css` and `src/components/ui/**` are excluded from oxlint/oxfmt (preset-owned, CLI-formatted). |
+| **UI Components** | **shadcn/ui** (Base UI base) | Vendored via the shadcn CLI only; preset `b7QqIqFpNQ` owns the visual language (docs/27). Generated files in `web/src/components/ui/` are read-only — customization via composition wrappers, CSS variables, or config. `web/src/index.css` and `src/components/ui/**` are excluded from oxlint/oxfmt (preset-owned, CLI-formatted). |
 | **Icons** | **Lucide React** (`lucide-react`) | Clean, consistent, lightweight SVG iconography. |
 
 ### 1.2 Binary Transport & Error Handling
@@ -37,7 +37,9 @@ Per docs/06 §1 and RUN-44:
 ### 1.3 Theming & Design Tokens
 The interface supports both **Light** and **Dark** modes via an in-app toggle persisted to `localStorage` (`use-theme` toggles the `dark` class on `<html>`; wired to Tailwind through `@custom-variant dark`).
 
-Colors are **preset-owned**: the `b7QqImqdoe` preset (style `maia`, neutral base, blue primary, amber chart ramp, Inter / Source Sans 3) emits OKLCH semantic tokens into `web/src/index.css` (`:root` / `.dark` blocks mapped through `@theme inline`). Code must reference semantic tokens — never hard-coded palette values:
+Colors are **preset-owned**: the `b7QqIqFpNQ` preset (style `maia`, neutral base, sky primary, amber chart ramp, Inter / Source Sans 3) emits OKLCH semantic tokens into `web/src/index.css` (`:root` / `.dark` blocks mapped through `@theme inline`). Code must reference semantic tokens — never hard-coded palette values:
+
+To re-theme later: build a preset at [ui.shadcn.com/create](https://ui.shadcn.com/create), read it back with `pnpm dlx shadcn@latest preset decode <code>`, then apply only the theme tokens with `pnpm dlx shadcn@latest apply <code> --only theme` in `web/` (component files stay untouched). The current preset is the original `b7QqImqdoe` (blue) re-themed sky in 2026-09 — same fields otherwise; full history in docs/27 §4.1.
 
 ```text
 Semantic tokens (preset-owned, both modes):

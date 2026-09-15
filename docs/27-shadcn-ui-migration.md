@@ -35,7 +35,7 @@ feature with no shared contract.
 ## 2. Goals
 
 - Adopt **shadcn/ui** as the single source of UI primitives, with the
-  owner-selected preset `b7QqImqdoe` (§4.1) as the design language.
+  owner-selected preset `b7QqIqFpNQ` (§4.1) as the design language.
 - Prefer ready-made registry components over custom UI wherever an equivalent
   exists; custom UI survives only where nothing fits (the log viewer, see
   Non-goals).
@@ -47,7 +47,7 @@ feature with no shared contract.
 
 ### Non-goals
 
-- No redesign beyond the owner-selected preset (`b7QqImqdoe`, §4.3) — the
+- No redesign beyond the owner-selected preset (`b7QqIqFpNQ`, §4.3) — the
   preset defines the new visual language.
 - No form library (react-hook-form / zod) — forms keep their controlled state.
 - No backend, RPC (docs/08) or routing changes — this is strictly the
@@ -158,6 +158,16 @@ for the record (never manually):
 | radius | default |
 | menu | subtle accent, default color |
 
+
+(Post-close-out re-theme, 2026-09.) The owner re-themed the preset from
+`blue` to `sky` at [ui.shadcn.com/create](https://ui.shadcn.com/create); the
+current design language is preset `b7QqIqFpNQ` — identical fields except
+`theme: sky` (verified via `preset decode`). Applied with
+`pnpm dlx shadcn@latest apply b7QqIqFpNQ --only theme` in `web/`, which
+rewrote only the primary / sidebar-primary OKLCH tokens in `src/index.css`
+(light + dark); component files stayed untouched. Future re-themes follow
+the same route: generate a preset → `preset decode <code>` →
+`apply <code> --only theme`.
 Preset codes do **not** encode the primitive base — that is chosen once at
 init (interactive prompt / `--base`). **Decision: Base UI** (the `base`
 library) — shadcn's current default direction. Its components expose
