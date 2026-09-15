@@ -375,6 +375,8 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 
 ## 🗺️ Roadmap & Future Enhancements
 
+- **Web Log Observability** *[Design Phase]* ([docs/29](docs/29-log-observability-ui.md)): browse persisted supervisor boot logs, runner stdout captures, and removal decision records from the web UI — the RUN-186 log store surfaced with the same retention and permission guarantees (RUN-213).
+
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
