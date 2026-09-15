@@ -1137,3 +1137,53 @@ func TestDockerClient_SpawnRunner_MemorySwap(t *testing.T) {
 		}
 	})
 }
+
+// TestDockerClient_SpawnRunner_PidsLimit verifies the PIDs-cap wiring
+// (RUN-148): a positive cap lands in HostConfig.PidsLimit, 0/unset leaves
+// Docker's default (no cap).
+func TestDockerClient_SpawnRunner_PidsLimit(t *testing.T) {
+	ctx := context.Background()
+
+	newSpawnMock := func() (*docker.Client, **container.HostConfig) {
+		var created *container.HostConfig
+		mockAPI := &mockDockerAPI{
+			containerCreateFn: func(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+				created = options.HostConfig
+				return client.ContainerCreateResult{ID: "c-pids"}, nil
+			},
+			containerStartFn: func(ctx context.Context, id string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
+				return client.ContainerStartResult{}, nil
+			},
+		}
+		cli, err := docker.NewClient(ctx, docker.WithAPIClient(mockAPI))
+		if err != nil {
+			t.Fatalf("NewClient failed: %v", err)
+		}
+		return cli, &created
+	}
+
+	t.Run("positive cap reaches HostConfig.PidsLimit", func(t *testing.T) {
+		cli, hostCfg := newSpawnMock()
+		if _, err := cli.SpawnRunner(ctx, orchestrator.RunnerConfig{
+			PoolName: "pids-pool", PidsLimit: 4096,
+		}); err != nil {
+			t.Fatalf("SpawnRunner failed: %v", err)
+		}
+		if (**hostCfg).PidsLimit == nil || *(**hostCfg).PidsLimit != 4096 {
+			t.Fatalf("expected PidsLimit=4096, got %v", (**hostCfg).PidsLimit)
+		}
+	})
+
+	t.Run("zero leaves Docker's default", func(t *testing.T) {
+		cli, hostCfg := newSpawnMock()
+		if _, err := cli.SpawnRunner(ctx, orchestrator.RunnerConfig{
+			PoolName: "pids-pool", PidsLimit: 0,
+		}); err != nil {
+			t.Fatalf("SpawnRunner failed: %v", err)
+		}
+		if (**hostCfg).PidsLimit != nil {
+			t.Fatalf("expected PidsLimit unset, got %d", (**hostCfg).PidsLimit)
+		}
+	})
+}
+

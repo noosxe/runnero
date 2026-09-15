@@ -1715,3 +1715,80 @@ func TestPoolServiceMemorySwapValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestPoolServicePidsLimitValidation covers the pids_limit rule (RUN-148)
+// through CreatePool: 0 = unlimited (opt-out), negative values rejected.
+func TestPoolServicePidsLimitValidation(t *testing.T) {
+	ctx := context.Background()
+	database, jwtSecret := setupTestDB(t)
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		JWTSigningSecret: jwtSecret,
+	})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	})); err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	cookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
+
+	authProfile, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
+		Name:           "pids-auth-profile",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "encrypted-token", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthProfile failed: %v", err)
+	}
+
+	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
+
+	cases := []struct {
+		name     string
+		pids     int32
+		wantCode connect.Code
+	}{
+		{"default cap accepted", 4096, connect.Code(0)},
+		{"strict cap accepted", 1024, connect.Code(0)},
+		{"zero is explicit unlimited", 0, connect.Code(0)},
+		{"negative is rejected", -1, connect.CodeInvalidArgument},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := connect.NewRequest(&supervisorv1.CreatePoolRequest{
+				Pool: &supervisorv1.Pool{
+					Name:          fmt.Sprintf("pids-pool-%d", i),
+					Provider:      "github",
+					RepositoryUrl: "https://github.com/acme/repo",
+					AuthProfileId: authProfile.ID,
+					Scope:         "repo",
+					RunnerImage:   "ghcr.io/noosxe/runnero:latest",
+					PidsLimit:     tc.pids,
+				},
+			})
+			req.Header().Set("Cookie", "session_token="+cookie)
+			_, err := client.CreatePool(ctx, req)
+			gotCode := connect.Code(0)
+			if err != nil {
+				gotCode = connect.CodeOf(err)
+			}
+			if gotCode != tc.wantCode {
+				t.Fatalf("pids=%d: want %v, got %v", tc.pids, tc.wantCode, err)
+			}
+		})
+	}
+}

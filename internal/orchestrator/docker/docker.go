@@ -313,6 +313,13 @@ func (c *Client) spawn(ctx context.Context, config orchestrator.RunnerConfig, ta
 		}
 	}
 
+	// Per-pool PIDs cap (RUN-148): >0 caps the container's process count
+	// (fork-bomb blast radius); 0/unset leaves Docker's default, no cap.
+	if config.PidsLimit > 0 {
+		pidsLimit := config.PidsLimit
+		hostConfig.PidsLimit = &pidsLimit
+	}
+
 	containerConfig := &container.Config{
 		Image:  image,
 		Env:    env,

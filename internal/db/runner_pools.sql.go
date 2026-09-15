@@ -37,11 +37,12 @@ INSERT INTO runner_pools (
     cpu_limit,
     memory_limit,
     memory_swap_limit,
+    pids_limit,
     poll_fallback,
     poll_interval_seconds
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-) RETURNING id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+) RETURNING id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit
 `
 
 type CreateRunnerPoolParams struct {
@@ -59,6 +60,7 @@ type CreateRunnerPoolParams struct {
 	CpuLimit                 sql.NullString `json:"cpu_limit"`
 	MemoryLimit              sql.NullString `json:"memory_limit"`
 	MemorySwapLimit          sql.NullString `json:"memory_swap_limit"`
+	PidsLimit                sql.NullInt64  `json:"pids_limit"`
 	PollFallback             bool           `json:"poll_fallback"`
 	PollIntervalSeconds      int64          `json:"poll_interval_seconds"`
 }
@@ -79,6 +81,7 @@ func (q *Queries) CreateRunnerPool(ctx context.Context, arg CreateRunnerPoolPara
 		arg.CpuLimit,
 		arg.MemoryLimit,
 		arg.MemorySwapLimit,
+		arg.PidsLimit,
 		arg.PollFallback,
 		arg.PollIntervalSeconds,
 	)
@@ -103,6 +106,7 @@ func (q *Queries) CreateRunnerPool(ctx context.Context, arg CreateRunnerPoolPara
 		&i.PollFallback,
 		&i.PollIntervalSeconds,
 		&i.MemorySwapLimit,
+		&i.PidsLimit,
 	)
 	return i, err
 }
@@ -118,7 +122,7 @@ func (q *Queries) DeleteRunnerPool(ctx context.Context, id int64) error {
 }
 
 const getRunnerPoolById = `-- name: GetRunnerPoolById :one
-SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit FROM runner_pools
+SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
 WHERE id = ? LIMIT 1
 `
 
@@ -145,12 +149,13 @@ func (q *Queries) GetRunnerPoolById(ctx context.Context, id int64) (RunnerPool, 
 		&i.PollFallback,
 		&i.PollIntervalSeconds,
 		&i.MemorySwapLimit,
+		&i.PidsLimit,
 	)
 	return i, err
 }
 
 const getRunnerPoolByName = `-- name: GetRunnerPoolByName :one
-SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit FROM runner_pools
+SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
 WHERE name = ? LIMIT 1
 `
 
@@ -177,12 +182,13 @@ func (q *Queries) GetRunnerPoolByName(ctx context.Context, name string) (RunnerP
 		&i.PollFallback,
 		&i.PollIntervalSeconds,
 		&i.MemorySwapLimit,
+		&i.PidsLimit,
 	)
 	return i, err
 }
 
 const listRunnerPools = `-- name: ListRunnerPools :many
-SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit FROM runner_pools
+SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
 ORDER BY name ASC
 `
 
@@ -215,6 +221,7 @@ func (q *Queries) ListRunnerPools(ctx context.Context) ([]RunnerPool, error) {
 			&i.PollFallback,
 			&i.PollIntervalSeconds,
 			&i.MemorySwapLimit,
+			&i.PidsLimit,
 		); err != nil {
 			return nil, err
 		}
@@ -245,11 +252,12 @@ SET name = ?,
     cpu_limit = ?,
     memory_limit = ?,
     memory_swap_limit = ?,
+    pids_limit = ?,
     poll_fallback = ?,
     poll_interval_seconds = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit
+RETURNING id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit
 `
 
 type UpdateRunnerPoolParams struct {
@@ -267,6 +275,7 @@ type UpdateRunnerPoolParams struct {
 	CpuLimit                 sql.NullString `json:"cpu_limit"`
 	MemoryLimit              sql.NullString `json:"memory_limit"`
 	MemorySwapLimit          sql.NullString `json:"memory_swap_limit"`
+	PidsLimit                sql.NullInt64  `json:"pids_limit"`
 	PollFallback             bool           `json:"poll_fallback"`
 	PollIntervalSeconds      int64          `json:"poll_interval_seconds"`
 	ID                       int64          `json:"id"`
@@ -288,6 +297,7 @@ func (q *Queries) UpdateRunnerPool(ctx context.Context, arg UpdateRunnerPoolPara
 		arg.CpuLimit,
 		arg.MemoryLimit,
 		arg.MemorySwapLimit,
+		arg.PidsLimit,
 		arg.PollFallback,
 		arg.PollIntervalSeconds,
 		arg.ID,
@@ -313,6 +323,7 @@ func (q *Queries) UpdateRunnerPool(ctx context.Context, arg UpdateRunnerPoolPara
 		&i.PollFallback,
 		&i.PollIntervalSeconds,
 		&i.MemorySwapLimit,
+		&i.PidsLimit,
 	)
 	return i, err
 }

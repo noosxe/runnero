@@ -267,6 +267,9 @@ func spawnIdentityChanged(existing db.RunnerPool, existingTargets []string, para
 	if existing.MemorySwapLimit != params.MemorySwapLimit {
 		return true
 	}
+	if existing.PidsLimit != params.PidsLimit {
+		return true
+	}
 	return !slices.Equal(existingTargets, newTargets)
 }
 
@@ -295,6 +298,7 @@ func poolConfigChanges(existing db.RunnerPool, existingTargets []string, updated
 	add("cpu_limit", existing.CpuLimit.String, updated.CpuLimit.String, existing.CpuLimit != updated.CpuLimit)
 	add("memory_limit", existing.MemoryLimit.String, updated.MemoryLimit.String, existing.MemoryLimit != updated.MemoryLimit)
 	add("memory_swap_limit", existing.MemorySwapLimit.String, updated.MemorySwapLimit.String, existing.MemorySwapLimit != updated.MemorySwapLimit)
+	add("pids_limit", existing.PidsLimit.Int64, updated.PidsLimit.Int64, existing.PidsLimit != updated.PidsLimit)
 	if req.Renovate != nil && renovateBeforeErr == nil {
 		afterCron := strings.TrimSpace(req.Renovate.CronSchedule)
 		afterImage := strings.TrimSpace(req.Renovate.Image)
@@ -381,6 +385,7 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 		CpuLimit:                 p.CpuLimit.String,
 		MemoryLimit:              p.MemoryLimit.String,
 		MemorySwapLimit:          p.MemorySwapLimit.String,
+		PidsLimit:                int32(p.PidsLimit.Int64),
 		MaxRunnerLifetimeSeconds: int32(p.MaxRunnerLifetimeSeconds),
 		PollFallback:             p.PollFallback,
 		PollIntervalSeconds:      int32(p.PollIntervalSeconds),
@@ -514,6 +519,10 @@ func validatePoolInput(p *supervisorv1.Pool) error {
 		}
 	}
 
+	// PIDs cap (RUN-148): 0 = unlimited (opt-out); negative values are invalid.
+	if p.PidsLimit < 0 {
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("pids_limit must be >= 0 (0 = unlimited)"))
+	}
 	// Demand polling validation (docs/24 §5.7): Gitea has no repo-scoped
 	// queued-jobs API (docs/24 §4); Forgejo polls natively regardless of the flag.
 	if p.PollFallback && provider == "gitea" {
@@ -618,6 +627,7 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 			CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
 			MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
 			MemorySwapLimit:          sql.NullString{String: pool.MemorySwapLimit, Valid: pool.MemorySwapLimit != ""},
+			PidsLimit:                sql.NullInt64{Int64: int64(pool.PidsLimit), Valid: true},
 			PollFallback:             pool.PollFallback,
 			PollIntervalSeconds:      defaultPollInterval(pool.PollIntervalSeconds),
 		},
@@ -699,6 +709,7 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
 		MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
 		MemorySwapLimit:          sql.NullString{String: pool.MemorySwapLimit, Valid: pool.MemorySwapLimit != ""},
+		PidsLimit:                sql.NullInt64{Int64: int64(pool.PidsLimit), Valid: true},
 		PollFallback:             pool.PollFallback,
 		// The interval is a DB-level knob with no UI field (docs/24 §5.4): a client
 		// that omits it (proto zero) preserves the stored cadence.

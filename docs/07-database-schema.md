@@ -52,6 +52,7 @@ CREATE TABLE runner_pools (
     cpu_limit TEXT,
     memory_limit TEXT,
     memory_swap_limit TEXT, -- RUN-147: total mem+swap (Docker MemorySwap semantics); NULL = daemon default 2x, '-1' = unlimited
+    pids_limit INTEGER, -- RUN-148: max processes per container (Docker PidsLimit semantics); NULL = legacy unset (no cap), 0 = explicit unlimited
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(auth_profile_id) REFERENCES auth_profiles(id)

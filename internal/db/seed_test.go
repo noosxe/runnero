@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"github.com/noosxe/runnero/internal/limits"
 )
 
 const sampleYAML = `version: "1.0"
@@ -43,6 +44,7 @@ pools:
     cpu_limit: "2.0"
     memory_limit: "4g"
     memory_swap_limit: "6g"
+    pids_limit: 2048
     renovate:
       enabled: true
       cron_schedule: "0 2 * * *"
@@ -130,6 +132,22 @@ func TestSeedImportAndSanitizedExport(t *testing.T) {
 	}
 	if got := swapByName["gitea-project-runners"]; got != "8g" {
 		t.Errorf("gitea-project-runners memory_swap_limit = %q, want '8g' (hardened default: swap = memory)", got)
+	}
+
+	// Verify per-pool PIDs cap (RUN-148): explicit value passes through,
+	// omitted value hardens to the shipped default (limits.DefaultPidsLimit).
+	pidsByName := map[string]int64{}
+	for _, p := range pools {
+		if !p.PidsLimit.Valid {
+			t.Errorf("pool %q pids_limit not set (NULL) after seed import", p.Name)
+		}
+		pidsByName[p.Name] = p.PidsLimit.Int64
+	}
+	if got := pidsByName["frontend-repo-runners"]; got != 2048 {
+		t.Errorf("frontend-repo-runners pids_limit = %d, want 2048", got)
+	}
+	if got := pidsByName["gitea-project-runners"]; got != limits.DefaultPidsLimit {
+		t.Errorf("gitea-project-runners pids_limit = %d, want %d (hardened default)", got, limits.DefaultPidsLimit)
 	}
 
 	// Verify global settings

@@ -117,6 +117,9 @@ type RunnerConfig struct {
 	// memory+swap allowance): "" = daemon default (2x memory), "-1" =
 	// unlimited, otherwise a memory string >= MemoryLimit (RUN-147).
 	MemorySwapLimit string `json:"memory_swap_limit"`
+	// PidsLimit is the maximum number of processes the container may spawn:
+	// 0 = no cap (opt-out), otherwise the process ceiling (RUN-148).
+	PidsLimit     int64    `json:"pids_limit"`
 	AllowDocker   bool     `json:"allow_docker"`
 }
 
@@ -240,6 +243,7 @@ pools:
     cpu_limit: "2.0"
     memory_limit: "4g"
     memory_swap_limit: "4g" # RUN-147: total mem+swap; equal to memory_limit = no extra swap (omit to get the Docker default of 2x)
+    pids_limit: 4096 # RUN-148: max processes per runner container (fork-bomb bound); 0 = unlimited
     renovate:
       enabled: true
       cron_schedule: "0 2 * * *" # Run at 2 AM daily

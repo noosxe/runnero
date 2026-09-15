@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"github.com/noosxe/runnero/internal/limits"
 
 	"gopkg.in/yaml.v3"
 )
@@ -71,6 +72,7 @@ type SeedPool struct {
 	CPULimit                 string        `yaml:"cpu_limit,omitempty"`
 	MemoryLimit              string        `yaml:"memory_limit,omitempty"`
 	MemorySwapLimit          string        `yaml:"memory_swap_limit,omitempty"`
+	PidsLimit                *int64        `yaml:"pids_limit,omitempty"`
 	Renovate                 *SeedRenovate `yaml:"renovate,omitempty"`
 }
 
@@ -85,6 +87,26 @@ func (p SeedPool) effectiveMemorySwap() string {
 		return p.MemorySwapLimit
 	}
 	return p.MemoryLimit
+}
+
+// effectivePidsLimit returns the PIDs cap to persist for a seeded pool
+// (RUN-148): an explicit value passes through (0 = unlimited opt-out);
+// when the seed omits it the pool is hardened to DefaultPidsLimit — the
+// same shipped default the wizard preselects.
+func (p SeedPool) effectivePidsLimit() int64 {
+	if p.PidsLimit != nil {
+		return *p.PidsLimit
+	}
+	return limits.DefaultPidsLimit
+}
+
+// pidsLimitSeedPtr converts the stored PIDs cap for seed export (RUN-148).
+func pidsLimitSeedPtr(p RunnerPool) *int64 {
+	if !p.PidsLimit.Valid {
+		return nil
+	}
+	v := p.PidsLimit.Int64
+	return &v
 }
 
 type SeedRenovate struct {
@@ -388,6 +410,7 @@ func (d *DB) ImportSeedConfig(ctx context.Context, cfg *SeedConfig, mode ImportM
 				CpuLimit:                 sql.NullString{String: pool.CPULimit, Valid: pool.CPULimit != ""},
 				MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
 				MemorySwapLimit:          sql.NullString{String: pool.effectiveMemorySwap(), Valid: pool.effectiveMemorySwap() != ""},
+				PidsLimit:                sql.NullInt64{Int64: pool.effectivePidsLimit(), Valid: true},
 				ID:                       existingPool.ID,
 			})
 			if err != nil {
@@ -410,6 +433,7 @@ func (d *DB) ImportSeedConfig(ctx context.Context, cfg *SeedConfig, mode ImportM
 				CpuLimit:                 sql.NullString{String: pool.CPULimit, Valid: pool.CPULimit != ""},
 				MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
 				MemorySwapLimit:          sql.NullString{String: pool.effectiveMemorySwap(), Valid: pool.effectiveMemorySwap() != ""},
+				PidsLimit:                sql.NullInt64{Int64: pool.effectivePidsLimit(), Valid: true},
 			})
 			if err != nil {
 				return fmt.Errorf("creating pool %q: %w", pool.Name, err)
@@ -570,6 +594,10 @@ func (d *DB) ExportSanitizedConfig(ctx context.Context) (*SeedConfig, error) {
 			CPULimit:                 p.CpuLimit.String,
 			MemoryLimit:              p.MemoryLimit.String,
 			MemorySwapLimit:          p.MemorySwapLimit.String,
+			// Export only when set (RUN-148): NULL legacy rows omit the field so a
+			// re-import hardens them to the shipped default; explicit values —
+			// including the 0/unlimited opt-out — roundtrip verbatim.
+			PidsLimit:                pidsLimitSeedPtr(p),
 		}
 
 		renovate, err := d.GetRenovateConfigByPoolId(ctx, p.ID)

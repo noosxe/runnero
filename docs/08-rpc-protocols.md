@@ -96,6 +96,7 @@ message Pool {
   string cpu_limit = 15;
   string memory_limit = 16;
   string memory_swap_limit = 32;  // RUN-147: Docker MemorySwap semantics — "" = 2x daemon default, "-1" = unlimited, else >= memory_limit
+  int32 pids_limit = 33;  // RUN-148: Docker PidsLimit semantics — 0 = unlimited (opt-out), else the process ceiling
   int32 max_runner_lifetime_seconds = 17; // max busy wall-clock per job, anchored at first pickup (docs/23)
   repeated string target_urls = 18; // Multi-target URLs (homogeneously repos or orgs)
 

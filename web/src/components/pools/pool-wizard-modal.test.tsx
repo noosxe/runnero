@@ -196,6 +196,8 @@ describe("PoolWizardModal", () => {
     expect(submitted.maxConcurrency).toBe(8);
     // RUN-147: the hardened swap default ships swap = memory.
     expect(submitted.memorySwapLimit).toBe("4GB");
+    // RUN-148: the shipped PIDs default (4096) preselects for new pools.
+    expect(submitted.pidsLimit).toBe(4096);
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
@@ -463,6 +465,39 @@ describe("PoolWizardModal (edit mode)", () => {
     expect(screen.getByLabelText(/Memory Swap/i)).toHaveTextContent(/unlimited/i);
   });
 
+  it("prefills strict PIDs mode from a 1024 pool value (RUN-148)", () => {
+    render(
+      <PoolWizardModal
+        isOpen={true}
+        onClose={vi.fn()}
+        mode="edit"
+        pool={makeEditPool({ pidsLimit: 1024 })}
+        authProfiles={defaultAuthProfiles}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
+    // jsdom renders the Radix SelectValue as the raw item value.
+    expect(screen.getByLabelText(/PIDs Limit/i)).toHaveTextContent(/strict/i);
+  });
+
+  it("shows the effective PIDs cap on the review step (RUN-148)", async () => {
+    render(<PoolWizardModal isOpen={true} onClose={vi.fn()} authProfiles={defaultAuthProfiles} />);
+
+    fireEvent.change(screen.getByLabelText(/Pool Name \(Slug\)/i), {
+      target: { value: "pids-default-pool" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
+    fireEvent.click(screen.getByText("Select All Filtered"));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
+
+    // The shipped default is preselected for new pools.
+    expect(screen.getByLabelText(/PIDs Limit/i)).toHaveTextContent(/default/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /Review & Confirm/i }));
+    expect(screen.getByText(/4096 \(default\)/)).toBeInTheDocument();
+  });
   it("shows the rename banner when the pool name changes", () => {
     render(
       <PoolWizardModal
