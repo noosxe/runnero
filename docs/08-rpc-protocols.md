@@ -328,9 +328,88 @@ message GetSystemStatsResponse {
   double success_rate_percent = 8;
 ```
 
+## LogService (RUN-218, docs/29 §5.1)
+
+Read side of the persisted log store (RUN-186): live runner streaming plus
+bounded reads over the on-disk artifacts — supervisor boot files, runner
+captures, and removal records. All names used in paths are validated
+(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,128}$`), and every read is capped server-side.
+
+```proto
+service LogService {
+  // Live streaming logs of an active runner container
+  rpc StreamRunnerLogs (StreamRunnerLogsRequest) returns (stream LogChunk);
+
+  // Historical logs for completed/exited runners (last tail_lines entries,
+  // default 500, cap 5000)
+  rpc GetRunnerLogs (GetRunnerLogsRequest) returns (GetRunnerLogsResponse);
+
+  // List retained supervisor boot files (stat-only + 1-line header reads)
+  rpc ListSupervisorLogs (ListSupervisorLogsRequest) returns (ListSupervisorLogsResponse);
+
+  // Server-stream one boot file; follow is rejected (FailedPrecondition)
+  // for previous boots — only the current boot can be followed
+  rpc StreamSupervisorLog (StreamSupervisorLogRequest) returns (stream LogChunk);
+
+  // Paginated, filtered removal records (reverse-chronological; scan cap
+  // 10k lines/request; page cap 200)
+  rpc ListRemovalRecords (ListRemovalRecordsRequest) returns (ListRemovalRecordsResponse);
+}
+
+message SupervisorBootLog {
+  string file = 1;        // base name only
+  string boot_id = 2;     // from the file header, filename fallback
+  string started_at = 3;  // RFC3339
+  int64 size_bytes = 4;
+  int32 rotation_seq = 5; // 0 = unrotated base file
+  bool is_current = 6;
+}
+
+message ListSupervisorLogsResponse { repeated SupervisorBootLog boots = 1; }
+
+message StreamSupervisorLogRequest {
+  string file = 1;
+  bool follow = 2;
+  int32 tail_lines = 3;   // default 500, cap 5000
+}
+
+message ListRemovalRecordsRequest {
+  int64 pool_id = 1;      // optional filters; zero/empty = unset
+  string runner_id = 2;
+  string reason = 3;
+  string since = 4;       // RFC3339
+  string until = 5;       // RFC3339
+  int32 page_size = 6;    // default 50, cap 200
+  string cursor = 7;      // ts (RFC3339Nano) of the previous page's last record
+}
+
+message RemovalRecordSummary {
+  string ts = 1;          // RFC3339
+  string boot_id = 2;
+  string runner_id = 3;
+  string runner_name = 4;
+  int64 pool_id = 5;
+  string pool_name = 6;
+  string reason = 7;
+  bool provider_busy = 8;
+  string dereg_error = 9;
+  int32 exit_code = 10;   // -1 = unset
+  bool capture_ok = 11;
+  int64 capture_bytes = 12;
+}
+
+message ListRemovalRecordsResponse {
+  repeated RemovalRecordSummary records = 1;
+  string next_cursor = 2; // empty = no further records
+}
+```
+
+Removal records reuse the writer's schema (orchestrator.RemovalRecord,
+docs/28 §5.4); a round-trip test guards the projection against drift.
+
 ## Reverse Proxy & Streaming Considerations
 
-ConnectRPC server-streaming RPCs (`LogService.StreamRunnerLogs`, `DashboardService.WatchDashboard`, `PoolService.WatchPools`, `PoolService.WatchRunners`) push chunks over long-lived HTTP/2 or chunked HTTP/1.1 connections.
+ConnectRPC server-streaming RPCs (`LogService.StreamRunnerLogs`, `LogService.StreamSupervisorLog`, `DashboardService.WatchDashboard`, `PoolService.WatchPools`, `PoolService.WatchRunners`) push chunks over long-lived HTTP/2 or chunked HTTP/1.1 connections.
 
 When operating behind a reverse proxy:
 - **Disable Buffering**: Proxies must not buffer responses (e.g. Caddy `flush_interval -1`, Traefik `flushInterval: -1`, Nginx `proxy_buffering off;`).

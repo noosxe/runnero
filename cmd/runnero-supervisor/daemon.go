@@ -131,11 +131,13 @@ func runDaemonContext(ctx context.Context) error {
 	}
 
 	var removalLog *orchestrator.RemovalLogger
+	var bootLogSink *logging.BootFileSink
 	if cfg.LogPersistenceEnabled {
 		sink, err := logging.OpenBootFileSink(cfg.DataDir, bootID, time.Now().UTC(), version, cfg.LogSupervisorRotationBytes)
 		if err != nil {
 			logger.Warn("supervisor boot log persistence disabled", "err", err)
 		} else {
+			bootLogSink = sink
 			defer func() {
 				if err := sink.Close(); err != nil {
 					logger.Warn("closing boot log file", "err", err)
@@ -255,6 +257,7 @@ func runDaemonContext(ctx context.Context) error {
 		DBEncryptionKey:     derivedKeys.DBEncryptionKey,
 		JWTSigningSecret:    derivedKeys.JWTSigningSecret,
 		IsSecureCookie:      cfg.SecureCookie,
+		BootLog:             bootLogSink,
 	}
 
 	// Webhook receiver (M11, RUN-68 / RUN-153): mount POST /hooks/{provider} only
