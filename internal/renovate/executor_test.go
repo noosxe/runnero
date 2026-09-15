@@ -295,6 +295,33 @@ func (m *mockTaskSpawner) SpawnTask(ctx context.Context, config orchestrator.Run
 	return id, nil
 }
 
+// spawnCount reports the number of spawned tasks under the mock's lock,
+// safe to call while the scheduler goroutine is still running.
+func (m *mockTaskSpawner) spawnCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.spawned)
+}
+
+// firstSpawnedID returns the first spawned container ID under the mock's lock.
+func (m *mockTaskSpawner) firstSpawnedID() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.spawnedIDs[0]
+}
+
+// waitForSpawns polls until the spawner records n tasks or times out.
+func waitForSpawns(t *testing.T, m *mockTaskSpawner, n int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for m.spawnCount() < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("expected %d spawned tasks, got %d", n, m.spawnCount())
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 func TestExecutor_Execute_Success(t *testing.T) {
 	mockDB := newMockRenovateDB()
 	mockProv := &mockGitProvider{
@@ -566,6 +593,10 @@ func TestExecutor_CronSchedulerIntegration(t *testing.T) {
 		t.Fatal("expected cron task to execute upon virtual clock advance")
 	}
 
+	// taskExecuted flips before Execute spawns the container; wait until the
+	// spawn is recorded so the assertions below are deterministic.
+	waitForSpawns(t, mockSpawner, 1)
+
 	// Verify run recorded in DB
 	run, err := mockDB.GetLatestRenovateRunByPoolId(ctx, 1)
 	if err != nil {
@@ -574,12 +605,12 @@ func TestExecutor_CronSchedulerIntegration(t *testing.T) {
 	if run.Status != "running" {
 		t.Fatalf("expected run status running, got %s", run.Status)
 	}
-	if len(mockSpawner.spawned) != 1 {
-		t.Fatalf("expected 1 container spawned, got %d", len(mockSpawner.spawned))
+	if mockSpawner.spawnCount() != 1 {
+		t.Fatalf("expected 1 container spawned, got %d", mockSpawner.spawnCount())
 	}
 
 	// Now simulate container exit: die event reaped
-	cid := mockSpawner.spawnedIDs[0]
+	cid := mockSpawner.firstSpawnedID()
 	handled, err := exec.HandleContainerExit(ctx, cid, 0, "")
 	if err != nil || !handled {
 		t.Fatalf("HandleContainerExit failed: %v", err)
