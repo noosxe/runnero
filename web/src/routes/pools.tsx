@@ -287,14 +287,12 @@ export function PoolsPage() {
             const utilization = Math.min(100, Math.round((p.activeRunners / maxConcurrency) * 100));
 
             return (
-              <Card key={p.id.toString()} className="group relative">
+              <Card key={p.id.toString()} className="relative">
                 <CardContent>
                   {/* Pool Header */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
-                        {p.name}
-                      </h3>
+                      <h3 className="text-lg font-bold text-foreground">{p.name}</h3>
                       {poolTargetList(p).length > 1 && (
                         <div className="mt-0.5">
                           <TargetCountBadge pool={p} />
