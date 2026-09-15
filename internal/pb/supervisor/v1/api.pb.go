@@ -5310,7 +5310,7 @@ const file_api_proto_rawDesc = "" +
 	"\x13installations_count\x18\b \x01(\x05R\x12installationsCount\"\x19\n" +
 	"\x17ListAuthProfilesRequest\"R\n" +
 	"\x18ListAuthProfilesResponse\x126\n" +
-	"\bprofiles\x18\x01 \x03(\v2\x1a.supervisor.v1.AuthProfileR\bprofiles\"\xc4\x05\n" +
+	"\bprofiles\x18\x01 \x03(\v2\x1a.supervisor.v1.AuthProfileR\bprofiles\"\xbb\x05\n" +
 	"\x18CreateAuthProfileRequest\x12\x1b\n" +
 	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12S\n" +
 	"\vauth_method\x18\x02 \x01(\tB2\xbaH/r-R\n" +
@@ -5319,10 +5319,10 @@ const file_api_proto_rawDesc = "" +
 	"\x06app_id\x18\x03 \x01(\x03R\x05appId\x12\x1f\n" +
 	"\vprivate_key\x18\x04 \x01(\fR\n" +
 	"privateKey\x12\x14\n" +
-	"\x05token\x18\x05 \x01(\tR\x05token:\xe7\x03\xbaH\xe3\x03\x1a\x8f\x01\n" +
-	"\x1cauth_profile.app_id.required\x12:github_app authentication requires a valid positive app_id\x1a3this.auth_method != 'github_app' || this.app_id > 0\x1a\x94\x01\n" +
-	"!auth_profile.private_key.required\x12.github_app authentication requires private_key\x1a?this.auth_method != 'github_app' || this.private_key.size() > 0\x1a\xb7\x01\n" +
-	"\x1bauth_profile.token.required\x12?gitea_token, forgejo_token and pat authentication require token\x1aW!(this.auth_method in ['gitea_token', 'forgejo_token', 'pat']) || this.token.size() > 0\"Q\n" +
+	"\x05token\x18\x05 \x01(\tR\x05token:\xde\x03\xbaH\xda\x03\x1a\x8f\x01\n" +
+	"\x1cauth_profile.app_id.required\x12:github_app authentication requires a valid positive app_id\x1a3this.auth_method != 'github_app' || this.app_id > 0\x1a\x90\x01\n" +
+	"!auth_profile.private_key.required\x12.github_app authentication requires private_key\x1a;this.auth_method != 'github_app' || this.private_key != b''\x1a\xb2\x01\n" +
+	"\x1bauth_profile.token.required\x12?gitea_token, forgejo_token and pat authentication require token\x1aR!(this.auth_method in ['gitea_token', 'forgejo_token', 'pat']) || this.token != ''\"Q\n" +
 	"\x19CreateAuthProfileResponse\x124\n" +
 	"\aprofile\x18\x01 \x01(\v2\x1a.supervisor.v1.AuthProfileR\aprofile\"\x8c\x03\n" +
 	"\x18UpdateAuthProfileRequest\x12\x17\n" +

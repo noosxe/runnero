@@ -282,6 +282,70 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     });
   });
 
+  it("blocks admin login on an empty password via the wire rule (RUN-222)", () => {
+    mockOnboardingStatus = {
+      adminCreated: true,
+      authProfileExists: false,
+      poolExists: false,
+      setupComplete: false,
+    };
+    mockSession = null;
+    render(<OnboardingPage />);
+
+    // Password left empty: LoginRequest min_len blocks the submit inline,
+    // before any API round-trip.
+    fireEvent.click(screen.getByRole("button", { name: /Log In to Continue Setup/i }));
+
+    expect(mockLogin).not.toHaveBeenCalled();
+    const inlineError = document.querySelector("#admin-password-error");
+    expect(inlineError).not.toBeNull();
+  });
+
+  it("surfaces the pool-name slug rule inline on blur in Step 4 (RUN-222)", async () => {
+    mockSetupAdmin.mockResolvedValueOnce({});
+    mockCreateAuthProfile.mockResolvedValueOnce({ profile: { id: 9n } });
+    mockSetAppSetting.mockResolvedValue({});
+
+    render(<OnboardingPage />);
+
+    // Step 1
+    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+      target: { value: "longenoughpass123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm Password"), {
+      target: { value: "longenoughpass123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Next: Git Provider/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Step 2 of 5: Connect Git Provider")).toBeInTheDocument();
+    });
+
+    // Step 2 → 3 → 4
+    fireEvent.change(screen.getByLabelText("Personal Access Token (PAT)"), {
+      target: { value: "ghp_token12345" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Next: Safeguards/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Step 3 of 5: Global Scaling Safeguards")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Next: Initial Pool/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Step 4 of 5: Initial Runner Pool Setup")).toBeInTheDocument();
+    });
+
+    // Invalid slug: blurring surfaces the string.pattern violation inline.
+    const nameInput = screen.getByLabelText("Pool Name");
+    fireEvent.change(nameInput, { target: { value: "Bad Name!" } });
+    fireEvent.blur(nameInput);
+    const inlineError = document.querySelector("#pool-name-error");
+    expect(inlineError).not.toBeNull();
+
+    // Advance stays blocked while the violation stands.
+    fireEvent.click(screen.getByRole("button", { name: /Next: Review & Launch/i }));
+    expect(screen.getByText("Step 4 of 5: Initial Runner Pool Setup")).toBeInTheDocument();
+  });
+
   it("resumes at Step 2 if admin is already created", () => {
     mockOnboardingStatus = {
       adminCreated: true,

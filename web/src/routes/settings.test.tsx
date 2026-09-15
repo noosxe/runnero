@@ -85,6 +85,33 @@ describe("SettingsPage", () => {
     });
   });
 
+  it("blocks save when a constraint leaves its class C range (RUN-222)", async () => {
+    render(<SettingsPage />);
+
+    const timeoutInput = screen.getByLabelText(/graceful drain timeout/i) as HTMLInputElement;
+    await waitFor(() => expect(timeoutInput.value).toBe("400"));
+
+    // Out of bounds: the save gate blocks and the violation lands inline.
+    fireEvent.change(timeoutInput, { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(mockSetMutate).not.toHaveBeenCalled();
+    const inlineError = document.querySelector("#graceful_shutdown_timeout-error");
+    expect(inlineError).not.toBeNull();
+    expect(inlineError).toHaveTextContent(/between 30 and 3600/i);
+
+    // Fixing the value clears the gate and the save goes through.
+    fireEvent.change(timeoutInput, { target: { value: "600" } });
+    fireEvent.blur(timeoutInput);
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(mockSetMutate).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "graceful_shutdown_timeout", value: "600" }),
+      );
+    });
+  });
+
   it("switches to runner image updates tab and lists pending notifications and pools", () => {
     render(<SettingsPage />);
 

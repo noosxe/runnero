@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
+import { useStore } from "@tanstack/react-form";
+import { useAppForm, applyFieldErrors } from "../lib/forms";
 import { cn } from "cn";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { WarningBadge } from "@/components/common/warning-badge";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -32,17 +32,37 @@ import {
   useCheckImageUpdate,
 } from "../lib/api/query-hooks";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import {
-  Sliders,
-  Calendar,
-  RefreshCw,
-  Database,
-  Save,
-  Layers,
-  Clock,
-  Archive,
-  Server,
-} from "lucide-react";
+import { Sliders, RefreshCw, Database, Save, Archive, Server } from "lucide-react";
+
+/**
+ * Global constraints form (docs/30 §5.4): the four retention/quota values
+ * persist via SetAppSettingRequest whose only wire rule is the key — the
+ * value ranges are UI policy, so they live as class C rules in the form
+ * layer and gate the save (docs/30 §5.1).
+ */
+interface ConstraintFormValues {
+  totalAllowedRunners: string;
+  totalIdleWarmPool: string;
+  gracefulShutdownTimeout: string;
+  jobRetentionDays: string;
+}
+
+const CONSTRAINT_FIELDS = [
+  "totalAllowedRunners",
+  "totalIdleWarmPool",
+  "gracefulShutdownTimeout",
+  "jobRetentionDays",
+] as const;
+
+const CONSTRAINT_BOUNDS: Record<
+  keyof ConstraintFormValues,
+  { min: number; max: number; label: string }
+> = {
+  totalAllowedRunners: { min: 1, max: 100, label: "Global Runner Quota" },
+  totalIdleWarmPool: { min: 0, max: 20, label: "Warm Idle Pool Limit" },
+  gracefulShutdownTimeout: { min: 30, max: 3600, label: "Graceful Drain Timeout" },
+  jobRetentionDays: { min: 1, max: 365, label: "History Retention Period" },
+};
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<"constraints" | "images" | "backups">("constraints");
@@ -53,46 +73,83 @@ export function SettingsPage() {
   const setSettingMutation = useSetAppSetting();
   const checkUpdateMutation = useCheckImageUpdate();
 
-  // Form State for Global Constraints
-  const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
+  // Form State for Global Constraints (docs/30 toolkit — no hand-rolled stack)
+  const form = useAppForm({
+    defaultValues: {
+      totalAllowedRunners: "20",
+      totalIdleWarmPool: "5",
+      gracefulShutdownTimeout: "300",
+      jobRetentionDays: "30",
+    } as ConstraintFormValues,
+  });
+  const formValues = useStore(form.store, (s) => s.values);
+  useStore(form.store, (s) => s.fieldMeta);
   const [isSaving, setIsSaving] = useState(false);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
 
-  const settingsMap = useMemo(() => {
-    return new Map(settings?.map((s) => [s.key, s.value]) ?? []);
+  // Adopt server values once loaded (local edits before load are dropped —
+  // the load happens long before a user can type).
+  useEffect(() => {
+    if (!settings) return;
+    const map = new Map(settings.map((s) => [s.key, s.value]));
+    // v1.33: form.reset(values) does not propagate new values — set per field.
+    form.setFieldValue("totalAllowedRunners", map.get("total_allowed_runners") ?? "20");
+    form.setFieldValue("totalIdleWarmPool", map.get("total_idle_warm_pool") ?? "5");
+    form.setFieldValue("gracefulShutdownTimeout", map.get("graceful_shutdown_timeout") ?? "300");
+    form.setFieldValue("jobRetentionDays", map.get("job_retention_days") ?? "30");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form API is stable
   }, [settings]);
 
-  const totalAllowedRunners =
-    localOverrides.total_allowed_runners ?? settingsMap.get("total_allowed_runners") ?? "20";
-  const totalIdleWarmPool =
-    localOverrides.total_idle_warm_pool ?? settingsMap.get("total_idle_warm_pool") ?? "5";
-  const gracefulShutdownTimeout =
-    localOverrides.graceful_shutdown_timeout ??
-    settingsMap.get("graceful_shutdown_timeout") ??
-    "300";
-  const jobRetentionDays =
-    localOverrides.job_retention_days ?? settingsMap.get("job_retention_days") ?? "30";
+  /**
+   * Class C evaluation (docs/30 §5.1): required + integer + range per field.
+   * One map feeds the inline errors and the save gate.
+   */
+  const runEvaluation = (): Partial<Record<keyof ConstraintFormValues, string[]>> => {
+    const fieldErrors: Partial<Record<keyof ConstraintFormValues, string[]>> = {};
+    for (const key of CONSTRAINT_FIELDS) {
+      const raw = formValues[key].trim();
+      if (!raw) {
+        (fieldErrors[key] ??= []).push(`${CONSTRAINT_BOUNDS[key].label} is required.`);
+        continue;
+      }
+      const n = Number(raw);
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        (fieldErrors[key] ??= []).push(`${CONSTRAINT_BOUNDS[key].label} must be a whole number.`);
+        continue;
+      }
+      const { min, max, label } = CONSTRAINT_BOUNDS[key];
+      if (n < min || n > max) {
+        (fieldErrors[key] ??= []).push(`${label} must be between ${min} and ${max}.`);
+      }
+    }
+    applyFieldErrors(form, fieldErrors, CONSTRAINT_FIELDS);
+    return fieldErrors;
+  };
 
   const handleSaveConstraints = async (e: React.FormEvent) => {
     e.preventDefault();
+    const fieldErrors = runEvaluation();
+    if (Object.keys(fieldErrors).length > 0) {
+      return;
+    }
     setIsSaving(true);
     try {
       await Promise.all([
         setSettingMutation.mutateAsync({
           key: "total_allowed_runners",
-          value: totalAllowedRunners,
+          value: formValues.totalAllowedRunners.trim(),
         }),
         setSettingMutation.mutateAsync({
           key: "total_idle_warm_pool",
-          value: totalIdleWarmPool,
+          value: formValues.totalIdleWarmPool.trim(),
         }),
         setSettingMutation.mutateAsync({
           key: "graceful_shutdown_timeout",
-          value: gracefulShutdownTimeout,
+          value: formValues.gracefulShutdownTimeout.trim(),
         }),
         setSettingMutation.mutateAsync({
           key: "job_retention_days",
-          value: jobRetentionDays,
+          value: formValues.jobRetentionDays.trim(),
         }),
       ]);
       toast.add({
@@ -207,145 +264,80 @@ export function SettingsPage() {
             </CardContent>
           ) : (
             <CardContent className="max-w-2xl">
-              <form onSubmit={handleSaveConstraints} className="flex flex-col gap-6">
-                <FieldGroup className="gap-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Total Allowed Runners */}
-                    <Field>
-                      <FieldLabel
-                        htmlFor="total_allowed_runners"
-                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                      >
-                        <Layers className="size-3.5 text-primary" />
-                        <span>Global Runner Quota</span>
-                      </FieldLabel>
-                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                        <Input
-                          id="total_allowed_runners"
-                          type="number"
-                          min="1"
-                          max="100"
-                          value={totalAllowedRunners}
-                          onChange={(e) =>
-                            setLocalOverrides((prev) => ({
-                              ...prev,
-                              total_allowed_runners: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                        />
-                        <span className="flex items-center px-3 text-xs text-muted-foreground">
-                          runners
-                        </span>
-                      </div>
-                      <FieldDescription className="text-[11px]">
-                        Maximum concurrent active containers across all pools combined.
-                      </FieldDescription>
-                    </Field>
+              <form onSubmit={handleSaveConstraints} noValidate className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <form.AppField name="totalAllowedRunners">
+                    {(field) => (
+                      <field.TextField
+                        label="Global Runner Quota"
+                        id="total_allowed_runners"
+                        type="number"
+                        min={1}
+                        max={100}
+                        suffix="runners"
+                        inputClassName="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden"
+                        description="Maximum concurrent active containers across all pools combined."
+                        onBlurExtra={runEvaluation}
+                      />
+                    )}
+                  </form.AppField>
 
-                    {/* Warm Idle Pool Limit */}
-                    <Field>
-                      <FieldLabel
-                        htmlFor="total_idle_warm_pool"
-                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                      >
-                        <Clock className="size-3.5 text-primary" />
-                        <span>Warm Idle Pool Limit</span>
-                      </FieldLabel>
-                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                        <Input
-                          id="total_idle_warm_pool"
-                          type="number"
-                          min="0"
-                          max="20"
-                          value={totalIdleWarmPool}
-                          onChange={(e) =>
-                            setLocalOverrides((prev) => ({
-                              ...prev,
-                              total_idle_warm_pool: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                        />
-                        <span className="flex items-center px-3 text-xs text-muted-foreground">
-                          runners
-                        </span>
-                      </div>
-                      <FieldDescription className="text-[11px]">
-                        Maximum standby idle runners kept warm for instant job dispatch.
-                      </FieldDescription>
-                    </Field>
+                  <form.AppField name="totalIdleWarmPool">
+                    {(field) => (
+                      <field.TextField
+                        label="Warm Idle Pool Limit"
+                        id="total_idle_warm_pool"
+                        type="number"
+                        min={0}
+                        max={20}
+                        suffix="runners"
+                        inputClassName="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden"
+                        description="Maximum standby idle runners kept warm for instant job dispatch."
+                        onBlurExtra={runEvaluation}
+                      />
+                    )}
+                  </form.AppField>
 
-                    {/* Graceful Shutdown Timeout */}
-                    <Field>
-                      <FieldLabel
-                        htmlFor="graceful_shutdown_timeout"
-                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                      >
-                        <Clock className="size-3.5 text-warning" />
-                        <span>Graceful Drain Timeout</span>
-                      </FieldLabel>
-                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                        <Input
-                          id="graceful_shutdown_timeout"
-                          type="number"
-                          min="30"
-                          max="3600"
-                          value={gracefulShutdownTimeout}
-                          onChange={(e) =>
-                            setLocalOverrides((prev) => ({
-                              ...prev,
-                              graceful_shutdown_timeout: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                        />
-                        <span className="flex items-center px-3 text-xs text-muted-foreground">
-                          seconds
-                        </span>
-                      </div>
-                      <FieldDescription className="text-[11px]">
-                        Maximum time to await active workflow completion before SIGKILL.
-                      </FieldDescription>
-                    </Field>
+                  <form.AppField name="gracefulShutdownTimeout">
+                    {(field) => (
+                      <field.TextField
+                        label="Graceful Drain Timeout"
+                        id="graceful_shutdown_timeout"
+                        type="number"
+                        min={30}
+                        max={3600}
+                        suffix="seconds"
+                        inputClassName="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden"
+                        description="Maximum time to await active workflow completion before SIGKILL."
+                        onBlurExtra={runEvaluation}
+                      />
+                    )}
+                  </form.AppField>
 
-                    {/* History Retention Period */}
-                    <Field>
-                      <FieldLabel
-                        htmlFor="job_retention_days"
-                        className="flex items-center gap-1.5 text-xs uppercase tracking-wider"
-                      >
-                        <Calendar className="size-3.5 text-success" />
-                        <span>History Retention Period</span>
-                      </FieldLabel>
-                      <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
-                        <Input
-                          id="job_retention_days"
-                          type="number"
-                          min="1"
-                          max="365"
-                          value={jobRetentionDays}
-                          onChange={(e) =>
-                            setLocalOverrides((prev) => ({
-                              ...prev,
-                              job_retention_days: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden "
-                        />
-                        <span className="flex items-center px-3 text-xs text-muted-foreground">
-                          days
-                        </span>
-                      </div>
-                      <FieldDescription className="text-[11px]">
-                        Automated background pruning threshold for finished jobs and log files.
-                      </FieldDescription>
-                    </Field>
-                  </div>
-                </FieldGroup>
+                  <form.AppField name="jobRetentionDays">
+                    {(field) => (
+                      <field.TextField
+                        label="History Retention Period"
+                        id="job_retention_days"
+                        type="number"
+                        min={1}
+                        max={365}
+                        suffix="days"
+                        inputClassName="w-full rounded-xl bg-transparent px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden"
+                        description="Automated background pruning threshold for finished jobs and log files."
+                        onBlurExtra={runEvaluation}
+                      />
+                    )}
+                  </form.AppField>
+                </div>
                 {/* Submit Actions */}
                 <div className="flex items-center gap-3 pt-2">
-                  <Button type="submit" size="sm" disabled={isSaving}>
+                  <Button
+                    type="submit"
+                    onMouseDown={(e) => e.preventDefault()}
+                    size="sm"
+                    disabled={isSaving}
+                  >
                     {isSaving ? (
                       <Spinner data-icon="inline-start" />
                     ) : (
@@ -482,8 +474,8 @@ export function SettingsPage() {
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 Retention window active:{" "}
-                <strong className="text-foreground">{jobRetentionDays} days</strong>. Records older
-                than this threshold are pruned hourly.
+                <strong className="text-foreground">{formValues.jobRetentionDays} days</strong>.
+                Records older than this threshold are pruned hourly.
               </p>
             </div>
 
