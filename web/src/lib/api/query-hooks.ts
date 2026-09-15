@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import {
   authClient,
   poolClient,
@@ -38,6 +44,25 @@ export const queryKeys = {
     ] as const,
   runners: (poolId: bigint) => ["pools", poolId.toString(), "runners"] as const,
   runnerLogs: (runnerId: string) => ["logs", runnerId] as const,
+  supervisorBoots: ["logs", "supervisor"] as const,
+  removalRecords: (filters: {
+    poolId?: bigint;
+    runnerId?: string;
+    reason?: string;
+    since?: string;
+    until?: string;
+  }) =>
+    [
+      "logs",
+      "removals",
+      {
+        poolId: filters.poolId?.toString(),
+        runnerId: filters.runnerId,
+        reason: filters.reason,
+        since: filters.since,
+        until: filters.until,
+      },
+    ] as const,
   jobRecord: (jobId: bigint) => ["analytics", "jobRecord", jobId.toString()] as const,
   imageUpdates: (poolId?: bigint) => ["imageUpdates", poolId?.toString() ?? "all"] as const,
   renovateStatus: (poolId: bigint) => ["renovate", "status", poolId.toString()] as const,
@@ -389,6 +414,46 @@ export function useRunnerLogs(runnerId: string, enabled = true) {
       return res.lines;
     },
     enabled: enabled && runnerId.length > 0,
+  });
+}
+
+// Supervisor Boot Log Hooks (RUN-218/RUN-219, docs/29 §5.3)
+export function useSupervisorBoots() {
+  return useQuery({
+    queryKey: queryKeys.supervisorBoots,
+    queryFn: async () => {
+      const res = await logClient.listSupervisorLogs({});
+      return res.boots;
+    },
+  });
+}
+
+export interface RemovalRecordFilters {
+  poolId?: bigint;
+  runnerId?: string;
+  reason?: string;
+  since?: string;
+  until?: string;
+}
+
+// Cursor-paginated removal records (server caps page size; cursor is the
+// previous page's last record timestamp, empty string = first page).
+export function useRemovalRecords(filters: RemovalRecordFilters) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.removalRecords(filters),
+    queryFn: async ({ pageParam }) => {
+      const res = await logClient.listRemovalRecords({
+        poolId: filters.poolId ?? 0n,
+        runnerId: filters.runnerId ?? "",
+        reason: filters.reason ?? "",
+        since: filters.since ?? "",
+        until: filters.until ?? "",
+        cursor: pageParam,
+      });
+      return res;
+    },
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
 }
 

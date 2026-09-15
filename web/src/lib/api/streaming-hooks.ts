@@ -231,6 +231,94 @@ export function useStreamRunnerLogs(runnerId: string, options?: StreamOptions) {
 }
 
 /**
+ * useSupervisorBootReplay reads the last tail_lines records of a boot file
+ * once (no follow). Used for historical boots and as the non-follow mode of
+ * the supervisor tab viewer.
+ */
+export function useSupervisorBootReplay(file: string, enabled = true, tailLines = 500) {
+  const [logs, setLogs] = useState<LogChunk[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
+    void (async () => {
+      if (!enabled || !file) {
+        setLogs([]);
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      setError(null);
+      setLogs([]);
+      try {
+        const stream = logClient.streamSupervisorLog(
+          { file, follow: false, tailLines },
+          { signal: controller.signal },
+        );
+        for await (const chunk of stream) {
+          if (!active) break;
+          setLogs((prev) => [...prev, chunk]);
+        }
+      } catch (err: unknown) {
+        if (active && !controller.signal.aborted) {
+          setError(err instanceof Error ? err : new Error(String(err)));
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [file, enabled, tailLines]);
+
+  return { logs, isLoading, error };
+}
+
+/**
+ * useStreamSupervisorLogFollow live-follows the current boot file with tail
+ * replay. Reconnects with backoff via useStreamSubscription; each reconnect
+ * resets the buffer first, so the server's tail replay never duplicates
+ * lines in the UI.
+ */
+export function useStreamSupervisorLogFollow(
+  file: string,
+  enabled = true,
+  tailLines = 500,
+  options?: StreamOptions,
+) {
+  const [logs, setLogs] = useState<LogChunk[]>([]);
+
+  const streamFn = useCallback(
+    (signal: AbortSignal) => {
+      // Reset at the start of every connection attempt: the server replays
+      // the tail on (re)connect, and a stale buffer would double every line.
+      setLogs([]);
+      return logClient.streamSupervisorLog({ file, follow: true, tailLines }, { signal });
+    },
+    [file, tailLines],
+  );
+
+  const onData = useCallback((chunk: LogChunk) => {
+    setLogs((prev) => [...prev, chunk]);
+  }, []);
+
+  const sub = useStreamSubscription<LogChunk>(streamFn, onData, {
+    ...options,
+    enabled: enabled && Boolean(file),
+  });
+
+  return { ...sub, logs };
+}
+
+/**
  * useWatchRunners streams near-realtime runner container instances for a specific pool.
  */
 export function useWatchRunners(poolId: bigint, options?: StreamOptions) {
