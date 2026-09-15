@@ -13,7 +13,7 @@ export CGO_ENABLED := 0
 BINARY := runnero-supervisor
 PKG     := ./...
 
-.PHONY: build build-web build-image-runner build-image-supervisor test test-race test-scripts test-web test-e2e test-e2e-ui clean-e2e lint lint-web fmt fmt-web vet tidy clean generate proto-lint launch stop restart pull logs status
+.PHONY: build build-web build-image-runner build-image-supervisor test test-race test-scripts test-web test-e2e test-e2e-ui clean-e2e lint lint-web fmt fmt-web vet tidy clean generate proto-lint launch stop restart logs status
 
 ## generate: run code generation tools (sqlc, buf)
 generate:
@@ -160,10 +160,6 @@ stop:
 
 ## restart: restart the deployment stack (stop, then launch)
 restart: stop launch
-
-## pull: pull the latest images for the deployment stack
-pull:
-	docker compose -f docker-compose.yml pull
 
 ## logs: follow the deployment stack's logs
 logs:

@@ -4,7 +4,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.supervisor
-    image: ghcr.io/noosxe/runnero-supervisor:latest
+    # Local dev/test stack (not a prod deployment template): runs the image
+    # built from this working tree — `make build-image-supervisor` (or
+    # `docker compose build`) tags it :local, matching this reference.
+    image: ghcr.io/noosxe/runnero-supervisor:local
     container_name: runnero-supervisor
     restart: unless-stopped
     ports:
@@ -52,7 +55,8 @@ services:
       dockerfile: Dockerfile
       args:
         - GH_RUNNER_VERSION=2.337.0
-    image: ghcr.io/noosxe/runnero:latest
+    # :local matches `make build-image-runner` (see supervisor note above)
+    image: ghcr.io/noosxe/runnero:local
     container_name: runnero
     init: true
     restart: unless-stopped
