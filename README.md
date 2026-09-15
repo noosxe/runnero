@@ -75,7 +75,7 @@ Build the supervisor image from this working tree and start the stack:
 make build-image-supervisor
 docker compose up -d
 ```
-The stack runs the locally built `:local` images (dev/test workflow) — rebuild the image whenever your checkout changes; `docker compose up -d` alone reuses the existing image. The same lifecycle is available as `make` targets: `make launch`, `make status`, `make logs`, `make restart`, `make stop`.
+The stack runs the locally built `:local` images (dev/test workflow) — rebuild the image whenever your checkout changes; `docker compose up -d` alone reuses the existing image. The same lifecycle is available as `make` targets: `make launch`, `make status`, `make logs`, `make restart`, `make stop`. After changing code or web assets, use `make rebuild` to rebuild the supervisor image and restart the stack in one step — `make restart` alone never rebuilds.
 
 Verify that the supervisor is healthy:
 ```bash
