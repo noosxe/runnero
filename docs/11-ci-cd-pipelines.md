@@ -188,7 +188,7 @@ When implementing or updating workflow path filters:
 2. **Local Parity**: CI steps must maintain exact parity with the Nix development shell commands:
    - `golangci-lint run` in the `lint` job (matches `make lint`), using `.golangci.yml` (default linters + gofmt formatter) and the exact golangci-lint version from the Nix dev shell.
    - `go vet ./...` and `go test ./...` on both matrix legs, plus `go test -race ./...` on the **amd64 leg only** (matches `make vet`, `make test`, `make test-race`). The standalone `go build ./...` step was dropped — `vet`/`test` already compile the module — and `web/dist` is built once by the `web-assets` job and shared with both legs and the lint job as an artifact.
-   - `pnpm run lint`, `pnpm run format:check`, `pnpm test`, `pnpm run build` (matches `make lint-web`, `make test-web`).
+   - `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm test`, `pnpm run build` (matches `make lint-web`, `make test-web`).
    - `shellcheck src/*.sh`, `bash tests/unit/entrypoint_test.sh` (matches `make test-scripts`).
 3. **Status Check Monitoring**:
    - Pull requests monitored via `gh pr checks <PR_NUMBER> --watch` report green immediately for skipped workflows without hanging.

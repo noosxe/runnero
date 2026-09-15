@@ -48,9 +48,9 @@ test-race: build-web
 test-web:
 	cd web && pnpm test
 
-## lint-web: run frontend Oxlint and Oxfmt checks
+## lint-web: typecheck (tsc) and run frontend Oxlint and Oxfmt checks
 lint-web:
-	cd web && pnpm run lint && pnpm run format:check
+	cd web && pnpm run typecheck && pnpm run lint && pnpm run format:check
 
 ## fmt-web: format frontend sources in place with oxfmt
 fmt-web:

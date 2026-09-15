@@ -117,7 +117,7 @@ single entry point:
 - **Runner-image shell scripts:** `make test-scripts` (bash unit tests in
   `tests/unit/`); lint with `shellcheck src/*.sh`, format-check with
   `shfmt -d src/*.sh`.
-- **Frontend:** `make test-web` (Vitest), `make lint-web` (oxlint + oxfmt).
+- **Frontend:** `make test-web` (Vitest), `make lint-web` (tsc typecheck + oxlint + oxfmt).
   Use `pnpm` exclusively — never npm or yarn.
 - **End-to-end:** `make test-e2e` runs the containerized Playwright suite via
   `docker compose -f tests/e2e/docker-compose.e2e.yml`; `make test-e2e-ui`
