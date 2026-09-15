@@ -70,11 +70,12 @@ SUPERVISOR_PORT=8090
 ```
 
 ### 2. Launch the Supervisor Stack
-Start the containerized supervisor daemon:
+Build the supervisor image from this working tree and start the stack:
 ```bash
+make build-image-supervisor
 docker compose up -d
 ```
-When working from a clone of this repository, the same lifecycle is available as `make` targets: `make launch`, `make status`, `make logs`, `make restart`, `make pull`, `make stop`.
+The stack runs the locally built `:local` images (dev/test workflow) — rebuild the image whenever your checkout changes; `docker compose up -d` alone reuses the existing image. The same lifecycle is available as `make` targets: `make launch`, `make status`, `make logs`, `make restart`, `make stop`.
 
 Verify that the supervisor is healthy:
 ```bash
@@ -254,7 +255,9 @@ If you only need a single static runner for a specific GitHub repository without
 GITHUB_REPOSITORY_URL=https://github.com/owner/repo
 RUNNER_TOKEN=your_short_lived_registration_token
 
-# Spin up standalone runner using the runner-standalone compose profile
+# Build the runner image, then spin up the standalone runner
+# using the runner-standalone compose profile
+make build-image-runner
 docker compose --profile runner-standalone up -d runner
 ```
 
