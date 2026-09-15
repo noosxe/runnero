@@ -328,12 +328,12 @@ message CreateAuthProfileRequest {
   option (buf.validate.message).cel = {
     id: "auth_profile.private_key.required"
     message: "github_app authentication requires private_key"
-    expression: "this.auth_method != 'github_app' || this.private_key.size() > 0"
+    expression: "this.auth_method != 'github_app' || this.private_key != b''"
   };
   option (buf.validate.message).cel = {
     id: "auth_profile.token.required"
     message: "gitea_token, forgejo_token and pat authentication require token"
-    expression: "!(this.auth_method in ['gitea_token', 'forgejo_token', 'pat']) || this.token.size() > 0"
+    expression: "!(this.auth_method in ['gitea_token', 'forgejo_token', 'pat']) || this.token != ''"
   };
   string name = 1 [(buf.validate.field).string.min_len = 1];
   string auth_method = 2 [(buf.validate.field).string = {

@@ -6,17 +6,22 @@ import { FormError } from "./form-error";
 interface TextFieldProps {
   label: string;
   id: string;
-  type?: "text" | "number";
+  type?: "text" | "number" | "url";
   placeholder?: string;
   /** Lower/upper bounds for type="number" inputs. */
   min?: number;
   max?: number;
   step?: number;
   className?: string;
+  /** Classes for the input itself (e.g. monospace numerics). */
+  inputClassName?: string;
   description?: string;
+  /** Unit suffix rendered flush after the input (e.g. "runners"). */
+  suffix?: string;
+  /** Autofocus the input on mount (login/admin steps). */
+  autoFocus?: boolean;
   onBlurExtra?: () => void;
 }
-
 /**
  * Free-form input bound to the app form (docs/30 §5.4): value/blur flow
  * through TanStack Form, evaluation happens on the shared violation map, and
@@ -31,7 +36,10 @@ export function TextField({
   max,
   step,
   className,
+  inputClassName,
   description,
+  suffix,
+  autoFocus,
   onBlurExtra,
 }: TextFieldProps) {
   const field = useFieldContext<string>();
@@ -42,23 +50,50 @@ export function TextField({
   return (
     <Field data-invalid={showError || undefined} className={className}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        name={field.name}
-        type={type}
-        value={field.state.value}
-        placeholder={placeholder}
-        min={min}
-        max={max}
-        step={step}
-        onBlur={() => {
-          field.handleBlur();
-          onBlurExtra?.();
-        }}
-        onChange={(e) => field.handleChange(e.target.value)}
-        aria-invalid={showError}
-        aria-describedby={showError ? `${id}-error` : undefined}
-      />
+      {suffix ? (
+        <div className="flex rounded-xl border border-border bg-card shadow-xs bg-muted">
+          <Input
+            id={id}
+            name={field.name}
+            type={type}
+            value={field.state.value}
+            placeholder={placeholder}
+            min={min}
+            max={max}
+            step={step}
+            className={inputClassName}
+            autoFocus={autoFocus}
+            onBlur={() => {
+              field.handleBlur();
+              onBlurExtra?.();
+            }}
+            onChange={(e) => field.handleChange(e.target.value)}
+            aria-invalid={showError}
+            aria-describedby={showError ? `${id}-error` : undefined}
+          />
+          <span className="flex items-center px-3 text-xs text-muted-foreground">{suffix}</span>
+        </div>
+      ) : (
+        <Input
+          id={id}
+          name={field.name}
+          type={type}
+          value={field.state.value}
+          placeholder={placeholder}
+          min={min}
+          max={max}
+          step={step}
+          className={inputClassName}
+          autoFocus={autoFocus}
+          onBlur={() => {
+            field.handleBlur();
+            onBlurExtra?.();
+          }}
+          onChange={(e) => field.handleChange(e.target.value)}
+          aria-invalid={showError}
+          aria-describedby={showError ? `${id}-error` : undefined}
+        />
+      )}
       {description ? (
         <FieldDescription className="text-[11px]">{description}</FieldDescription>
       ) : null}

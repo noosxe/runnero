@@ -142,4 +142,35 @@ describe("LoginPage", () => {
       expect(screen.getByText("invalid credentials provided")).toBeInTheDocument();
     });
   });
+
+  it("surfaces an inline error on blur for an empty password (RUN-222)", () => {
+    render(<LoginPage />);
+
+    const passwordInput = screen.getByLabelText("Password");
+    fireEvent.focus(passwordInput);
+    fireEvent.blur(passwordInput);
+
+    // Empty password violates the wire rule (min_len) — the evaluation runs on
+    // blur and the inline error carries the uniform alert markup.
+    const inlineError = document.querySelector('[data-testid="form-error"]');
+    expect(inlineError).not.toBeNull();
+    expect(passwordInput).toHaveAttribute("aria-invalid", "true");
+
+    // Filling the field and blurring again clears the error.
+    fireEvent.change(passwordInput, { target: { value: "secret123" } });
+    fireEvent.blur(passwordInput);
+    expect(document.querySelector('[data-testid="form-error"]')).toBeNull();
+  });
+
+  it("blocks submission on an empty password without calling the API (RUN-222)", () => {
+    render(<LoginPage />);
+
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "admin" } });
+    // Password left empty.
+    fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-testid="form-error"]')).not.toBeNull();
+  });
 });

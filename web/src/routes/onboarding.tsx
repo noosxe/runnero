@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,7 +24,20 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "cn";
 import { useNavigate } from "@tanstack/react-router";
 import { create } from "@bufbuild/protobuf";
-import { PoolSchema } from "../gen/api_pb";
+import { useStore } from "@tanstack/react-form";
+import {
+  PoolSchema,
+  LoginRequestSchema,
+  SetupAdminRequestSchema,
+  CreatePoolRequestSchema,
+} from "../gen/api_pb";
+import {
+  useAppForm,
+  validateMessage,
+  groupByField,
+  violationsFromConnectError,
+  applyFieldErrors,
+} from "../lib/forms";
 import { toWireAuthMethod } from "../lib/utils/auth-methods";
 import { getSuggestedRunnerLabels } from "../lib/utils/labels";
 import {
@@ -58,6 +71,72 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+/**
+ * Admin credentials form (docs/30 §5.4): wire rules (min_len on
+ * SetupAdminRequest/LoginRequest) evaluate via protovalidate on the exact
+ * request each submit sends; the 10-char policy and the confirm match are
+ * class C UI rules (docs/30 §5.1).
+ */
+interface AdminFormValues {
+  username: string;
+  password: string;
+  confirmPassword: string;
+}
+
+const ADMIN_FIELDS = ["username", "password", "confirmPassword"] as const;
+
+/**
+ * Initial pool form: free-form inputs on the wire Pool message; selects,
+ * checkboxes, and mode pickers stay client state (no wire representation).
+ */
+interface PoolFormValues {
+  poolName: string;
+  repositoryUrl: string;
+  minIdleRunners: string;
+  maxConcurrency: string;
+  labels: string;
+  runnerImage: string;
+  cpuLimit: string;
+  memoryLimit: string;
+  swapCustom: string;
+  pidsCustom: string;
+  renovateCron: string;
+  renovateImage: string;
+}
+
+const POOL_FIELDS = [
+  "poolName",
+  "repositoryUrl",
+  "minIdleRunners",
+  "maxConcurrency",
+  "labels",
+  "runnerImage",
+  "cpuLimit",
+  "memoryLimit",
+  "swapCustom",
+  "pidsCustom",
+  "renovateCron",
+  "renovateImage",
+] as const;
+
+/** proto field → form key for the inline mapping (docs/30 §5.4). */
+const PROTO_FIELD_TO_FORM: Record<string, keyof PoolFormValues> = {
+  name: "poolName",
+  min_idle_runners: "minIdleRunners",
+  max_concurrency: "maxConcurrency",
+  labels: "labels",
+  runner_image: "runnerImage",
+  cpu_limit: "cpuLimit",
+  memory_limit: "memoryLimit",
+  memory_swap_limit: "swapCustom",
+  pids_limit: "pidsCustom",
+};
+
+function toIntOrZero(raw: string): number {
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 export function OnboardingPage() {
   const { data: status } = useOnboardingStatus();
   const { data: session } = useSession();
@@ -83,11 +162,16 @@ export function OnboardingPage() {
   const [gitProfileSkipped, setGitProfileSkipped] = useState(false);
   const [poolSkipped, setPoolSkipped] = useState(false);
 
-  // Step 1: Admin Credentials State
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  // Step 1: Admin Credentials (docs/30 toolkit — no hand-rolled stack)
+  const adminForm = useAppForm({
+    defaultValues: {
+      username: "admin",
+      password: "",
+      confirmPassword: "",
+    } as AdminFormValues,
+  });
+  const adminValues = useStore(adminForm.store, (s) => s.values);
+  useStore(adminForm.store, (s) => s.fieldMeta);
 
   // Step 2: Git Provider State
   const [profileName, setProfileName] = useState("github-primary");
@@ -110,34 +194,51 @@ export function OnboardingPage() {
   const [shutdownTimeoutSeconds, setShutdownTimeoutSeconds] = useState(300);
   const [jobRetentionDays, setJobRetentionDays] = useState(30);
 
-  // Step 4: Initial Pool State
-  const [poolName, setPoolName] = useState("default-pool");
-  const [repositoryUrl, setRepositoryUrl] = useState("https://github.com/my-org/my-repo");
+  // Step 4: Initial Pool State (docs/30 toolkit — no hand-rolled stack)
+  const poolForm = useAppForm({
+    defaultValues: {
+      poolName: "default-pool",
+      repositoryUrl: "https://github.com/my-org/my-repo",
+      minIdleRunners: "1",
+      maxConcurrency: "5",
+      labels: getSuggestedRunnerLabels(undefined, undefined),
+      runnerImage: "ghcr.io/noosxe/runnero:latest",
+      cpuLimit: "2.0",
+      memoryLimit: "4GB",
+      swapCustom: "",
+      pidsCustom: "",
+      renovateCron: "0 2 * * *",
+      renovateImage: "renovate/renovate:latest",
+    } as PoolFormValues,
+  });
+  const poolValues = useStore(poolForm.store, (s) => s.values);
+  useStore(poolForm.store, (s) => s.fieldMeta);
   const [scope, setScope] = useState<"repo" | "org">("repo");
   const suggestedLabels = getSuggestedRunnerLabels(
     status?.hostOs || session?.hostOs,
     status?.hostArch || session?.hostArch,
   );
-  const [customLabels, setCustomLabels] = useState<string | null>(null);
-  const labels = customLabels ?? suggestedLabels;
+  // Suggested labels prefill the form until the user edits the field
+  // (the host architecture arrives with the async status).
+  const [labelsTouched, setLabelsTouched] = useState(false);
+  useEffect(() => {
+    if (!labelsTouched) {
+      poolForm.setFieldValue("labels", suggestedLabels);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- poolForm API is stable
+  }, [suggestedLabels, labelsTouched]);
 
-  const [runnerImage, setRunnerImage] = useState("ghcr.io/noosxe/runnero:latest");
-  const [minIdleRunners, setMinIdleRunners] = useState(1);
-  const [maxConcurrency, setMaxConcurrency] = useState(5);
-  const [cpuLimit, setCpuLimit] = useState("2.0");
-  const [memoryLimit, setMemoryLimit] = useState("4GB");
   // Memory swap mode (RUN-147): "match" hardens to swap = memory (no extra
   // swap — the shipped default); "default2x" keeps the Docker daemon default.
   const [swapMode, setSwapMode] = useState<"match" | "default2x" | "unlimited" | "custom">("match");
-  const [swapCustom, setSwapCustom] = useState("");
   const memorySwapLimit = (() => {
     switch (swapMode) {
       case "match":
-        return memoryLimit.trim() || "4GB";
+        return poolValues.memoryLimit.trim() || "4GB";
       case "unlimited":
         return "-1";
       case "custom":
-        return swapCustom.trim();
+        return poolValues.swapCustom.trim();
       case "default2x":
         return "";
     }
@@ -147,7 +248,6 @@ export function OnboardingPage() {
   const [pidsMode, setPidsMode] = useState<"default" | "strict" | "unlimited" | "custom">(
     "default",
   );
-  const [pidsCustom, setPidsCustom] = useState("");
   const pidsLimit = (() => {
     switch (pidsMode) {
       case "default":
@@ -157,15 +257,12 @@ export function OnboardingPage() {
       case "unlimited":
         return 0;
       case "custom": {
-        const n = Number.parseInt(pidsCustom, 10);
-        return Number.isFinite(n) && n > 0 ? n : 0;
+        return toIntOrZero(poolValues.pidsCustom);
       }
     }
   })();
   const [allowDocker, setAllowDocker] = useState(true);
   const [renovateEnabled, setRenovateEnabled] = useState(false);
-  const [renovateCron, setRenovateCron] = useState("0 2 * * *");
-  const [renovateImage, setRenovateImage] = useState("renovate/renovate:latest");
 
   // Deduced provider
   const deducedProvider =
@@ -226,22 +323,59 @@ export function OnboardingPage() {
     setCurrentStep(5);
   };
 
+  /**
+   * Shared admin evaluation (docs/30 §5.4): one protovalidate run on the
+   * exact SetupAdminRequest/LoginRequest plus class C rules (10-char policy,
+   * confirm match) — inline errors and the gate read the same map.
+   */
+  const runAdminEvaluation = (
+    mode: "setup" | "login",
+  ): Partial<Record<keyof AdminFormValues, string[]>> => {
+    const fieldErrors: Partial<Record<keyof AdminFormValues, string[]>> = {};
+    const { username, password, confirmPassword } = adminValues;
+
+    const schema = mode === "setup" ? SetupAdminRequestSchema : LoginRequestSchema;
+    const message = create(schema, { username, password });
+    const { byField, messageLevel } = groupByField(validateMessage(schema, message));
+    for (const [protoField, messages] of byField) {
+      const key = protoField as keyof AdminFormValues;
+      if (key === "username" || key === "password") {
+        (fieldErrors[key] ??= []).push(...messages);
+      }
+    }
+    for (const violation of messageLevel) {
+      (fieldErrors.password ??= []).push(violation.message);
+    }
+
+    if (mode === "setup") {
+      // Class C: UI password policy and the confirm-match check.
+      if (password.length < 10) {
+        (fieldErrors.password ??= []).push("Password must be at least 10 characters long");
+      }
+      if (password !== confirmPassword) {
+        (fieldErrors.confirmPassword ??= []).push("Passwords do not match");
+      }
+    }
+
+    applyFieldErrors(adminForm, fieldErrors, ADMIN_FIELDS);
+    return fieldErrors;
+  };
+
   // Step 1 Submission: Create Master Admin
   const handleAdminSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 10) {
-      setError("Password must be at least 10 characters long");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+    const fieldErrors = runAdminEvaluation("setup");
+    if (Object.keys(fieldErrors).length > 0) {
       return;
     }
 
     try {
-      await setupAdminMutation.mutateAsync({ username, password });
+      await setupAdminMutation.mutateAsync({
+        username: adminValues.username,
+        password: adminValues.password,
+      });
       setCurrentStep(2);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create administrator");
@@ -253,13 +387,16 @@ export function OnboardingPage() {
     e.preventDefault();
     setError(null);
 
-    if (!password) {
-      setError("Password is required");
+    const fieldErrors = runAdminEvaluation("login");
+    if (Object.keys(fieldErrors).length > 0) {
       return;
     }
 
     try {
-      await loginMutation.mutateAsync({ username, password });
+      await loginMutation.mutateAsync({
+        username: adminValues.username,
+        password: adminValues.password,
+      });
       setCurrentStep(!status?.authProfileExists ? 2 : !status?.poolExists ? 4 : 5);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invalid administrator credentials");
@@ -355,21 +492,102 @@ export function OnboardingPage() {
     }
   };
 
+  /**
+   * Build the exact wire Pool the launch will send (docs/30 §5.4) — the same
+   * message the preview evaluates and the submit transmits.
+   */
+  const buildPoolPayload = () =>
+    create(PoolSchema, {
+      name: poolValues.poolName.trim(),
+      provider: deducedProvider,
+      repositoryUrl: poolValues.repositoryUrl.trim(),
+      minIdleRunners: toIntOrZero(poolValues.minIdleRunners),
+      maxConcurrency: toIntOrZero(poolValues.maxConcurrency),
+      labels: (poolValues.labels.trim() || suggestedLabels)
+        .split(",")
+        .map((l) => l.trim())
+        .filter(Boolean),
+      runnerImage: poolValues.runnerImage.trim() || "ghcr.io/noosxe/runnero:latest",
+      allowDocker: effectiveAllowDocker,
+      renovate: renovateEnabled
+        ? {
+            enabled: true,
+            cronSchedule: poolValues.renovateCron.trim() || "0 2 * * *",
+            image: poolValues.renovateImage.trim() || "renovate/renovate:latest",
+          }
+        : undefined,
+      authProfileId: createdAuthProfileId ?? 1n,
+      scope,
+      cpuLimit: poolValues.cpuLimit.trim() || "2.0",
+      memoryLimit: poolValues.memoryLimit.trim() || "4GB",
+      memorySwapLimit,
+      pidsLimit,
+      maxRunnerLifetimeSeconds: 7200,
+      targetUrls: poolValues.repositoryUrl.trim() ? [poolValues.repositoryUrl.trim()] : [],
+    });
+
+  /**
+   * Shared pool evaluation (docs/30 §5.4): class A from protovalidate on the
+   * CreatePoolRequest; class C for repo URL presence, the min≤max pairing and
+   * the RUN-147 custom-mode rules. One map feeds inline errors, the step-4
+   * gate, and the launch gate.
+   */
+  const runPoolEvaluation = (): {
+    fieldErrors: Partial<Record<keyof PoolFormValues, string[]>>;
+    banner: string[];
+  } => {
+    const fieldErrors: Partial<Record<keyof PoolFormValues, string[]>> = {};
+    const banner: string[] = [];
+
+    // Class C (docs/30 §5.1): URL presence, min≤max pairing, custom modes.
+    if (!poolValues.repositoryUrl.trim()) {
+      (fieldErrors.repositoryUrl ??= []).push("Repository URL is required");
+    }
+    const minIdle = toIntOrZero(poolValues.minIdleRunners);
+    const maxConcurrency = toIntOrZero(poolValues.maxConcurrency);
+    if (minIdle > maxConcurrency) {
+      (fieldErrors.minIdleRunners ??= []).push("Min idle runners cannot exceed max concurrency");
+    }
+    if (swapMode === "custom" && !poolValues.swapCustom.trim()) {
+      (fieldErrors.swapCustom ??= []).push("Custom swap mode requires a memory string (e.g. 8GB).");
+    }
+    if (pidsMode === "custom" && !poolValues.pidsCustom.trim()) {
+      (fieldErrors.pidsCustom ??= []).push(
+        "Custom PIDs mode requires a process ceiling (e.g. 512).",
+      );
+    }
+
+    const { byField, messageLevel } = groupByField(
+      validateMessage(
+        CreatePoolRequestSchema,
+        create(CreatePoolRequestSchema, { pool: buildPoolPayload() }),
+      ),
+    );
+    for (const [protoField, messages] of byField) {
+      const formKey = PROTO_FIELD_TO_FORM[protoField];
+      if (formKey) {
+        (fieldErrors[formKey] ??= []).push(...messages);
+        continue;
+      }
+      banner.push(...messages);
+    }
+    for (const violation of messageLevel) {
+      banner.push(violation.message);
+    }
+
+    applyFieldErrors(poolForm, fieldErrors, POOL_FIELDS);
+    setError(banner.length > 0 ? banner.join("; ") : null);
+    return { fieldErrors, banner };
+  };
+
   // Step 4 Submission (advances to review)
   const handlePoolSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!poolName.trim()) {
-      setError("Pool name is required");
-      return;
-    }
-    if (!repositoryUrl.trim()) {
-      setError("Repository URL is required");
-      return;
-    }
-    if (minIdleRunners > maxConcurrency) {
-      setError("Min idle runners cannot exceed max concurrency");
+    const { fieldErrors, banner } = runPoolEvaluation();
+    if (Object.keys(fieldErrors).length > 0 || banner.length > 0) {
+      if (banner.length > 0) setError(banner[0]);
       return;
     }
 
@@ -384,50 +602,42 @@ export function OnboardingPage() {
 
     try {
       if (hasPoolToLaunch) {
-        const effectiveLabels = labels.trim() || suggestedLabels;
-        const parsedLabels = effectiveLabels
-          .split(",")
-          .map((l) => l.trim())
-          .filter(Boolean);
-
-        await createPoolMutation.mutateAsync({
-          pool: create(PoolSchema, {
-            name: poolName.trim(),
-            provider: deducedProvider,
-            repositoryUrl: repositoryUrl.trim(),
-            minIdleRunners,
-            maxConcurrency,
-            labels:
-              parsedLabels.length > 0
-                ? parsedLabels
-                : suggestedLabels
-                    .split(",")
-                    .map((l) => l.trim())
-                    .filter(Boolean),
-            runnerImage: runnerImage.trim() || "ghcr.io/noosxe/runnero:latest",
-            allowDocker: effectiveAllowDocker,
-            renovate: renovateEnabled
-              ? {
-                  enabled: true,
-                  cronSchedule: renovateCron.trim() || "0 2 * * *",
-                  image: renovateImage.trim() || "renovate/renovate:latest",
-                }
-              : undefined,
-            authProfileId: createdAuthProfileId ?? 1n,
-            scope,
-            cpuLimit: cpuLimit.trim() || "2.0",
-            memoryLimit: memoryLimit.trim() || "4GB",
-            memorySwapLimit,
-            pidsLimit,
-            maxRunnerLifetimeSeconds: 7200,
-            targetUrls: repositoryUrl.trim() ? [repositoryUrl.trim()] : [],
-          }),
-        });
+        const { fieldErrors, banner } = runPoolEvaluation();
+        if (Object.keys(fieldErrors).length > 0 || banner.length > 0) {
+          setError(
+            banner.length > 0 ? banner.join("; ") : (Object.values(fieldErrors)[0]?.[0] ?? null),
+          );
+          return;
+        }
+        await createPoolMutation.mutateAsync({ pool: buildPoolPayload() });
       }
 
       await completeOnboardingMutation.mutateAsync();
       navigate({ to: "/" });
     } catch (err: unknown) {
+      // Server is the authority (docs/30 §5.4): typed violations re-enter the
+      // inline mapping; anything unmapped keeps the banner fallback.
+      const violations = violationsFromConnectError(err);
+      if (violations && hasPoolToLaunch) {
+        const { byField, messageLevel } = groupByField(violations);
+        const serverFieldErrors: Partial<Record<keyof PoolFormValues, string[]>> = {};
+        const banner: string[] = messageLevel.map((v) => v.message);
+        for (const [protoField, messages] of byField) {
+          const formKey = PROTO_FIELD_TO_FORM[protoField];
+          if (formKey) {
+            serverFieldErrors[formKey] = messages;
+          } else {
+            banner.push(...messages);
+          }
+        }
+        applyFieldErrors(poolForm, serverFieldErrors, POOL_FIELDS);
+        setError(
+          banner.length > 0 || Object.keys(serverFieldErrors).length > 0
+            ? [banner, ...Object.values(serverFieldErrors)].flat().join("; ")
+            : "Failed to launch runner pool",
+        );
+        return;
+      }
       setError(
         err instanceof Error
           ? err.message
@@ -580,7 +790,7 @@ export function OnboardingPage() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleAdminLogin} className="mt-6 text-xs">
+              <form onSubmit={handleAdminLogin} noValidate className="mt-6 text-xs">
                 <FieldGroup>
                   <div>
                     <h2 className="text-sm font-bold text-foreground ">
@@ -592,44 +802,34 @@ export function OnboardingPage() {
                     </p>
                   </div>
 
-                  <Field>
-                    <FieldLabel htmlFor="admin-username">Admin Username</FieldLabel>
-                    <Input
-                      id="admin-username"
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="admin-password">Admin Password</FieldLabel>
-                    <InputGroup>
-                      <InputGroupInput
-                        id="admin-password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        autoFocus
+                  <adminForm.AppField name="username">
+                    {(field) => (
+                      <field.TextField
+                        label="Admin Username"
+                        id="admin-username"
+                        onBlurExtra={() => runAdminEvaluation("login")}
                       />
-                      <InputGroupAddon align="inline-end">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label="Toggle password visibility"
-                          onClick={() => setShowPassword(!showPassword)}
-                          tabIndex={-1}
-                        >
-                          {showPassword ? <EyeOff /> : <Eye />}
-                        </Button>
-                      </InputGroupAddon>
-                    </InputGroup>
-                  </Field>
+                    )}
+                  </adminForm.AppField>
+
+                  <adminForm.AppField name="password">
+                    {(field) => (
+                      <field.PasswordField
+                        label="Admin Password"
+                        id="admin-password"
+                        autoFocus
+                        onBlurExtra={() => runAdminEvaluation("login")}
+                      />
+                    )}
+                  </adminForm.AppField>
 
                   <div className="pt-2">
-                    <Button type="submit" disabled={loginMutation.isPending} className="w-full">
+                    <Button
+                      type="submit"
+                      onMouseDown={(e) => e.preventDefault()}
+                      disabled={loginMutation.isPending}
+                      className="w-full"
+                    >
                       {loginMutation.isPending ? "Authenticating..." : "Log In to Continue Setup"}
                       <ArrowRight data-icon="inline-end" />
                     </Button>
@@ -638,7 +838,7 @@ export function OnboardingPage() {
               </form>
             )
           ) : (
-            <form onSubmit={handleAdminSubmit} className="mt-6 text-xs">
+            <form onSubmit={handleAdminSubmit} noValidate className="mt-6 text-xs">
               <FieldGroup>
                 <div>
                   <h2 className="text-sm font-bold text-foreground ">
@@ -650,55 +850,44 @@ export function OnboardingPage() {
                   </p>
                 </div>
 
-                <Field>
-                  <FieldLabel htmlFor="admin-username">Admin Username</FieldLabel>
-                  <Input
-                    id="admin-username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="admin-password">Password (min 10 characters)</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      id="admin-password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
+                <adminForm.AppField name="username">
+                  {(field) => (
+                    <field.TextField
+                      label="Admin Username"
+                      id="admin-username"
+                      autoFocus
+                      onBlurExtra={() => runAdminEvaluation("setup")}
                     />
-                    <InputGroupAddon align="inline-end">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Toggle password visibility"
-                        onClick={() => setShowPassword(!showPassword)}
-                        tabIndex={-1}
-                      >
-                        {showPassword ? <EyeOff /> : <Eye />}
-                      </Button>
-                    </InputGroupAddon>
-                  </InputGroup>
-                </Field>
+                  )}
+                </adminForm.AppField>
 
-                <Field>
-                  <FieldLabel htmlFor="admin-confirm-password">Confirm Password</FieldLabel>
-                  <Input
-                    id="admin-confirm-password"
-                    type={showPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                </Field>
+                <adminForm.AppField name="password">
+                  {(field) => (
+                    <field.PasswordField
+                      label="Password (min 10 characters)"
+                      id="admin-password"
+                      onBlurExtra={() => runAdminEvaluation("setup")}
+                    />
+                  )}
+                </adminForm.AppField>
+
+                <adminForm.AppField name="confirmPassword">
+                  {(field) => (
+                    <field.PasswordField
+                      label="Confirm Password"
+                      id="admin-confirm-password"
+                      onBlurExtra={() => runAdminEvaluation("setup")}
+                    />
+                  )}
+                </adminForm.AppField>
 
                 <div className="pt-2">
-                  <Button type="submit" disabled={setupAdminMutation.isPending} className="w-full">
+                  <Button
+                    type="submit"
+                    onMouseDown={(e) => e.preventDefault()}
+                    disabled={setupAdminMutation.isPending}
+                    className="w-full"
+                  >
                     {setupAdminMutation.isPending ? "Creating Admin..." : "Next: Git Provider"}
                     <ArrowRight data-icon="inline-end" />
                   </Button>
@@ -770,7 +959,7 @@ export function OnboardingPage() {
           </div>
         ) : (
           currentStep === 2 && (
-            <form onSubmit={handleProviderSubmit} className="mt-6 text-xs">
+            <form onSubmit={handleProviderSubmit} noValidate className="mt-6 text-xs">
               <FieldGroup>
                 <div>
                   <h2 className="text-sm font-bold text-foreground ">
@@ -885,6 +1074,7 @@ export function OnboardingPage() {
                   </Button>
                   <Button
                     type="submit"
+                    onMouseDown={(e) => e.preventDefault()}
                     disabled={createAuthProfileMutation.isPending}
                     className="flex-1"
                   >
@@ -899,7 +1089,7 @@ export function OnboardingPage() {
 
         {/* Step 3: Global Scaling Safeguards */}
         {currentStep === 3 && (
-          <form onSubmit={handleSafeguardsSubmit} className="mt-6 text-xs">
+          <form onSubmit={handleSafeguardsSubmit} noValidate className="mt-6 text-xs">
             <FieldGroup>
               <div>
                 <h2 className="text-sm font-bold text-foreground ">
@@ -978,7 +1168,12 @@ export function OnboardingPage() {
                 <Button variant="outline" onClick={handleSkipSafeguards}>
                   Keep defaults & continue
                 </Button>
-                <Button type="submit" disabled={setAppSettingMutation.isPending} className="flex-1">
+                <Button
+                  type="submit"
+                  onMouseDown={(e) => e.preventDefault()}
+                  disabled={setAppSettingMutation.isPending}
+                  className="flex-1"
+                >
                   {setAppSettingMutation.isPending ? "Saving Safeguards..." : "Next: Initial Pool"}
                   <ArrowRight data-icon="inline-end" />
                 </Button>
@@ -1030,7 +1225,7 @@ export function OnboardingPage() {
               </div>
             </div>
           ) : (
-            <form onSubmit={handlePoolSubmit} className="mt-6 text-xs">
+            <form onSubmit={handlePoolSubmit} noValidate className="mt-6 text-xs">
               <FieldGroup>
                 <div>
                   <h2 className="text-sm font-bold text-foreground ">
@@ -1043,16 +1238,15 @@ export function OnboardingPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="pool-name">Pool Name</FieldLabel>
-                    <Input
-                      id="pool-name"
-                      type="text"
-                      value={poolName}
-                      onChange={(e) => setPoolName(e.target.value)}
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="poolName">
+                    {(field) => (
+                      <field.TextField
+                        label="Pool Name"
+                        id="pool-name"
+                        onBlurExtra={() => runPoolEvaluation()}
+                      />
+                    )}
+                  </poolForm.AppField>
 
                   <Field>
                     <FieldLabel htmlFor="pool-scope">Pool Scope</FieldLabel>
@@ -1076,99 +1270,91 @@ export function OnboardingPage() {
                     </Select>
                   </Field>
 
-                  <Field className="sm:col-span-2">
-                    <FieldLabel htmlFor="repo-url">Repository / Organization URL</FieldLabel>
-                    <Input
-                      id="repo-url"
-                      type="url"
-                      value={repositoryUrl}
-                      onChange={(e) => setRepositoryUrl(e.target.value)}
-                      placeholder="https://github.com/my-org/my-repo"
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="repositoryUrl">
+                    {(field) => (
+                      <field.TextField
+                        label="Repository / Organization URL"
+                        id="repo-url"
+                        type="url"
+                        placeholder="https://github.com/my-org/my-repo"
+                        className="sm:col-span-2"
+                        onBlurExtra={() => runPoolEvaluation()}
+                      />
+                    )}
+                  </poolForm.AppField>
 
-                  <Field>
-                    <FieldLabel htmlFor="min-idle">Min Idle Runners</FieldLabel>
-                    <FieldDescription>
-                      Warm standby containers ready for instant dispatch
-                    </FieldDescription>
-                    <Input
-                      id="min-idle"
-                      type="number"
-                      min={0}
-                      max={20}
-                      value={minIdleRunners}
-                      onChange={(e) => setMinIdleRunners(Number(e.target.value))}
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="minIdleRunners">
+                    {(field) => (
+                      <field.TextField
+                        label="Min Idle Runners"
+                        id="min-idle"
+                        type="number"
+                        min={0}
+                        max={20}
+                        description="Warm standby containers ready for instant dispatch"
+                        onBlurExtra={() => runPoolEvaluation()}
+                      />
+                    )}
+                  </poolForm.AppField>
 
-                  <Field>
-                    <FieldLabel htmlFor="max-concurrency">Max Concurrency</FieldLabel>
-                    <FieldDescription>
-                      Peak simultaneous runner containers for this pool
-                    </FieldDescription>
-                    <Input
-                      id="max-concurrency"
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={maxConcurrency}
-                      onChange={(e) => setMaxConcurrency(Number(e.target.value))}
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="maxConcurrency">
+                    {(field) => (
+                      <field.TextField
+                        label="Max Concurrency"
+                        id="max-concurrency"
+                        type="number"
+                        min={1}
+                        max={50}
+                        description="Peak simultaneous runner containers for this pool"
+                        onBlurExtra={() => runPoolEvaluation()}
+                      />
+                    )}
+                  </poolForm.AppField>
 
-                  <Field>
-                    <FieldLabel htmlFor="runner-labels">Runner Labels</FieldLabel>
-                    <FieldDescription>
-                      Comma-separated labels matched against workflow `runs-on`
-                    </FieldDescription>
-                    <Input
-                      id="runner-labels"
-                      type="text"
-                      value={labels}
-                      onChange={(e) => setCustomLabels(e.target.value)}
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="labels">
+                    {(field) => (
+                      <field.TextField
+                        label="Runner Labels"
+                        id="runner-labels"
+                        description="Comma-separated labels matched against workflow `runs-on`"
+                        onBlurExtra={() => {
+                          setLabelsTouched(true);
+                          runPoolEvaluation();
+                        }}
+                      />
+                    )}
+                  </poolForm.AppField>
 
-                  <Field>
-                    <FieldLabel htmlFor="runner-image">Runner Docker Image</FieldLabel>
-                    <FieldDescription>
-                      Base multi-arch image deployed for runner instances
-                    </FieldDescription>
-                    <Input
-                      id="runner-image"
-                      type="text"
-                      value={runnerImage}
-                      onChange={(e) => setRunnerImage(e.target.value)}
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="runnerImage">
+                    {(field) => (
+                      <field.TextField
+                        label="Runner Docker Image"
+                        id="runner-image"
+                        description="Base multi-arch image deployed for runner instances"
+                        onBlurExtra={() => runPoolEvaluation()}
+                      />
+                    )}
+                  </poolForm.AppField>
 
-                  <Field>
-                    <FieldLabel htmlFor="cpu-limit">CPU Limit</FieldLabel>
-                    <Input
-                      id="cpu-limit"
-                      type="text"
-                      value={cpuLimit}
-                      onChange={(e) => setCpuLimit(e.target.value)}
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="cpuLimit">
+                    {(field) => (
+                      <field.TextField
+                        label="CPU Limit"
+                        id="cpu-limit"
+                        onBlurExtra={() => runPoolEvaluation()}
+                      />
+                    )}
+                  </poolForm.AppField>
 
-                  <Field>
-                    <FieldLabel htmlFor="mem-limit">Memory Limit</FieldLabel>
-                    <Input
-                      id="mem-limit"
-                      type="text"
-                      value={memoryLimit}
-                      onChange={(e) => setMemoryLimit(e.target.value)}
-                      required
-                    />
-                  </Field>
+                  <poolForm.AppField name="memoryLimit">
+                    {(field) => (
+                      <field.TextField
+                        label="Memory Limit"
+                        id="mem-limit"
+                        onBlurExtra={() => runPoolEvaluation()}
+                      />
+                    )}
+                  </poolForm.AppField>
 
                   <Field>
                     <FieldLabel htmlFor="mem-swap">Memory Swap</FieldLabel>
@@ -1187,14 +1373,17 @@ export function OnboardingPage() {
                       </SelectContent>
                     </Select>
                     {swapMode === "custom" && (
-                      <Input
-                        id="mem-swap-custom"
-                        type="text"
-                        placeholder="total memory+swap, e.g. 8GB"
-                        value={swapCustom}
-                        onChange={(e) => setSwapCustom(e.target.value)}
-                        className="mt-2"
-                      />
+                      <poolForm.AppField name="swapCustom">
+                        {(field) => (
+                          <field.TextField
+                            id="mem-swap-custom"
+                            label="Custom swap value"
+                            placeholder="total memory+swap, e.g. 8GB"
+                            className="mt-2"
+                            onBlurExtra={() => runPoolEvaluation()}
+                          />
+                        )}
+                      </poolForm.AppField>
                     )}
                   </Field>
 
@@ -1217,15 +1406,17 @@ export function OnboardingPage() {
                       </SelectContent>
                     </Select>
                     {pidsMode === "custom" && (
-                      <Input
-                        id="onb-pids-custom"
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="max processes, e.g. 8192 (empty = unlimited)"
-                        value={pidsCustom}
-                        onChange={(e) => setPidsCustom(e.target.value)}
-                        className="mt-2"
-                      />
+                      <poolForm.AppField name="pidsCustom">
+                        {(field) => (
+                          <field.TextField
+                            id="onb-pids-custom"
+                            label="Custom process ceiling"
+                            placeholder="max processes, e.g. 8192 (empty = unlimited)"
+                            className="mt-2"
+                            onBlurExtra={() => runPoolEvaluation()}
+                          />
+                        )}
+                      </poolForm.AppField>
                     )}
                     <p className="text-muted-foreground text-xs">
                       Maximum processes per runner container. Bounds the blast radius of runaway
@@ -1283,27 +1474,25 @@ export function OnboardingPage() {
 
                   {renovateEnabled && (
                     <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="renovate-cron">Cron Schedule</FieldLabel>
-                        <Input
-                          id="renovate-cron"
-                          type="text"
-                          value={renovateCron}
-                          onChange={(e) => setRenovateCron(e.target.value)}
-                          placeholder="0 2 * * *"
-                          required
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="renovate-img">Renovate Image</FieldLabel>
-                        <Input
-                          id="renovate-img"
-                          type="text"
-                          value={renovateImage}
-                          onChange={(e) => setRenovateImage(e.target.value)}
-                          required
-                        />
-                      </Field>
+                      <poolForm.AppField name="renovateCron">
+                        {(field) => (
+                          <field.TextField
+                            label="Cron Schedule"
+                            id="renovate-cron"
+                            placeholder="0 2 * * *"
+                            onBlurExtra={() => runPoolEvaluation()}
+                          />
+                        )}
+                      </poolForm.AppField>
+                      <poolForm.AppField name="renovateImage">
+                        {(field) => (
+                          <field.TextField
+                            label="Renovate Image"
+                            id="renovate-img"
+                            onBlurExtra={() => runPoolEvaluation()}
+                          />
+                        )}
+                      </poolForm.AppField>
                     </div>
                   )}
                 </div>
@@ -1316,7 +1505,7 @@ export function OnboardingPage() {
                   <Button variant="outline" onClick={handleSkipPool}>
                     Skip this step
                   </Button>
-                  <Button type="submit" className="flex-1">
+                  <Button type="submit" onMouseDown={(e) => e.preventDefault()} className="flex-1">
                     Next: Review & Launch
                     <ArrowRight data-icon="inline-end" />
                   </Button>
@@ -1327,7 +1516,7 @@ export function OnboardingPage() {
 
         {/* Step 5: Review & Confirm Launch */}
         {currentStep === 5 && (
-          <form onSubmit={handleLaunchSubmit} className="mt-6 text-xs">
+          <form onSubmit={handleLaunchSubmit} noValidate className="mt-6 text-xs">
             <FieldGroup>
               <div>
                 <h2 className="text-sm font-bold text-foreground ">
@@ -1350,7 +1539,7 @@ export function OnboardingPage() {
                   <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
                     <div className="flex justify-between">
                       <span>Username:</span>
-                      <span className="font-semibold text-foreground ">{username}</span>
+                      <span className="font-semibold text-foreground ">{adminValues.username}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Session:</span>
@@ -1423,7 +1612,9 @@ export function OnboardingPage() {
                         isPoolSkipped ? "text-muted-foreground" : "text-primary",
                       )}
                     />
-                    <span>{isPoolSkipped ? "Initial Pool" : `Initial Pool: ${poolName}`}</span>
+                    <span>
+                      {isPoolSkipped ? "Initial Pool" : `Initial Pool: ${poolValues.poolName}`}
+                    </span>
                   </div>
                   {isPoolSkipped ? (
                     <div className="mt-2 text-muted-foreground italic ">
@@ -1434,13 +1625,14 @@ export function OnboardingPage() {
                       <div className="flex justify-between">
                         <span>Target URL:</span>
                         <span className="max-w-[120px] truncate font-semibold text-foreground ">
-                          {repositoryUrl}
+                          {poolValues.repositoryUrl}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Concurrency:</span>
                         <span className="font-semibold text-foreground ">
-                          {minIdleRunners} idle / {maxConcurrency} max
+                          {toIntOrZero(poolValues.minIdleRunners)} idle /{" "}
+                          {toIntOrZero(poolValues.maxConcurrency)} max
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -1452,20 +1644,20 @@ export function OnboardingPage() {
                       <div className="flex justify-between">
                         <span>Memory:</span>
                         <span className="font-semibold text-foreground ">
-                          {memoryLimit || "4GB"} +{" "}
+                          {poolValues.memoryLimit || "4GB"} +{" "}
                           {swapMode === "match"
                             ? "no swap"
                             : swapMode === "default2x"
-                              ? `${memoryLimit || "4GB"} swap (2x)`
+                              ? `${poolValues.memoryLimit || "4GB"} swap (2x)`
                               : swapMode === "unlimited"
                                 ? "unlimited swap"
-                                : `${swapCustom || "?"} swap`}
+                                : `${poolValues.swapCustom || "?"} swap`}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Renovate:</span>
                         <span className="font-semibold text-foreground ">
-                          {renovateEnabled ? renovateCron : "Disabled"}
+                          {renovateEnabled ? poolValues.renovateCron : "Disabled"}
                         </span>
                       </div>
                     </div>

@@ -659,6 +659,21 @@ lib/forms/
 (docs/30 §6); hand-rolled `useState` field stacks are legacy and get migrated
 when touched.
 
+**Migrated surfaces** (RUN-222): the pool wizard (create + edit), onboarding
+(admin credentials and initial-pool steps), the auth profile modal, login,
+and the settings constraints form. Onboarding steps 2–3 (provider /
+safeguards) intentionally stay on local state — their values have no wire
+annotations and no duplicated client rules; they migrate if they ever grow
+validation needs. The logs filters (phase 4, optional) were skipped: filter
+inputs have no wire rules to share and gating there buys nothing.
+
+Class A rules (protovalidate on the request message) evaluate on blur and
+submit; class C rules (UI policy with no wire annotation — the 10-character
+admin password policy, confirm-match, retention ranges, custom swap/pids
+mode pairing) live in the form layer only. Forms composing the toolkit set
+`noValidate` so native HTML5 constraints (min/max/required) never silently
+shadow the shared violation map.
+
 ### 9.2 Uniform behaviors
 
 - **Timing** (docs/30 §5.5): text/number inputs evaluate on `onBlur` and on

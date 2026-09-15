@@ -1471,7 +1471,7 @@ export function PoolWizardModal({
 
         {/* Step 4: Review & Confirmation */}
         {currentStep === 4 && (
-          <form onSubmit={handleSubmitPool} className="mt-5 flex flex-col gap-4">
+          <form onSubmit={handleSubmitPool} noValidate className="mt-5 flex flex-col gap-4">
             {isEdit && changes.length > 0 && (
               <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 flex flex-col gap-2">
                 <span className="text-sm font-bold text-foreground ">

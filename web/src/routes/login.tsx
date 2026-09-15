@@ -1,24 +1,24 @@
 import { useState, type FormEvent } from "react";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Card } from "@/components/ui/card";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { create } from "@bufbuild/protobuf";
+import { useStore } from "@tanstack/react-form";
+import { LoginRequestSchema } from "../gen/api_pb";
+import { useAppForm, validateMessage, groupByField, applyFieldErrors } from "../lib/forms";
 import { useLogin } from "../lib/api/query-hooks";
 import { useTheme, type Theme } from "../hooks/use-theme";
-import { ShieldCheck, AlertCircle, Eye, EyeOff, Sun, Moon, Monitor } from "lucide-react";
+import { ShieldCheck, AlertCircle, Sun, Moon, Monitor } from "lucide-react";
+
+interface LoginFormValues {
+  username: string;
+  password: string;
+}
+
+const LOGIN_FIELDS = ["username", "password"] as const;
 
 export function LoginPage() {
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { theme, setTheme } = useTheme();
@@ -26,11 +26,52 @@ export function LoginPage() {
   const navigate = useNavigate();
   const loginMutation = useLogin();
 
+  const form = useAppForm({
+    defaultValues: {
+      username: "admin",
+      password: "",
+    } as LoginFormValues,
+  });
+  const formValues = useStore(form.store, (s) => s.values);
+  useStore(form.store, (s) => s.fieldMeta);
+
+  /**
+   * The shared violation map (docs/30 §5.4): one protovalidate evaluation on
+   * the LoginRequest the submit will send feeds both inline field errors and
+   * the submit gate. Empty-gating IS the wire rule (min_len on both fields).
+   */
+  const runEvaluation = (): Partial<Record<keyof LoginFormValues, string[]>> => {
+    const fieldErrors: Partial<Record<keyof LoginFormValues, string[]>> = {};
+    const violations = validateMessage(
+      LoginRequestSchema,
+      create(LoginRequestSchema, {
+        username: formValues.username,
+        password: formValues.password,
+      }),
+    );
+    const { byField } = groupByField(violations);
+    for (const [protoField, messages] of byField) {
+      const key = protoField as keyof LoginFormValues;
+      if (key === "username" || key === "password") {
+        (fieldErrors[key] ??= []).push(...messages);
+      }
+    }
+    applyFieldErrors(form, fieldErrors, LOGIN_FIELDS);
+    return fieldErrors;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    const fieldErrors = runEvaluation();
+    if (Object.keys(fieldErrors).length > 0) {
+      return;
+    }
     try {
-      await loginMutation.mutateAsync({ username, password });
+      await loginMutation.mutateAsync({
+        username: formValues.username,
+        password: formValues.password,
+      });
       const target = search?.redirect && search.redirect.startsWith("/") ? search.redirect : "/";
       navigate({ to: target });
     } catch (err: unknown) {
@@ -80,48 +121,30 @@ export function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 text-xs">
-          <FieldGroup className="gap-4">
-            <Field>
-              <FieldLabel htmlFor="username">Username</FieldLabel>
-              <Input
+        <form onSubmit={handleSubmit} noValidate className="mt-6 flex flex-col gap-4 text-xs">
+          <form.AppField name="username">
+            {(field) => (
+              <field.TextField
+                label="Username"
                 id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-
-                required
                 autoFocus
+                onBlurExtra={runEvaluation}
               />
-            </Field>
+            )}
+          </form.AppField>
 
-            <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <InputGroup>
-                <InputGroupInput
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+          <form.AppField name="password">
+            {(field) => (
+              <field.PasswordField label="Password" id="password" onBlurExtra={runEvaluation} />
+            )}
+          </form.AppField>
 
-                  required
-                />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Toggle password visibility"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff /> : <Eye />}
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
-            </Field>
-          </FieldGroup>
-
-          <Button type="submit" disabled={loginMutation.isPending} className="w-full">
+          <Button
+            type="submit"
+            onMouseDown={(e) => e.preventDefault()}
+            disabled={loginMutation.isPending}
+            className="w-full"
+          >
             {loginMutation.isPending ? "Signing in..." : "Sign In"}
           </Button>
         </form>

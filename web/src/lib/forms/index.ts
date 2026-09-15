@@ -3,5 +3,8 @@ export type { ViolationView } from "./protovalidate";
 export { RULE_ID, violationsFromConnectError } from "./violations";
 export { useAppForm, withForm } from "./use-app-form";
 export { TextField } from "./fields/text-field";
+export { PasswordField } from "./fields/password-field";
+export { TextareaField } from "./fields/textarea-field";
 export { FormError } from "./fields/form-error";
+export { applyFieldErrors } from "./apply-field-errors";
 export { fieldContext, useFieldContext, useFormContext, formContext } from "./contexts";

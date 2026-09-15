@@ -196,20 +196,44 @@ describe("ProfilesPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("requires a secret when changing the auth method in edit mode", () => {
+  it("blocks github_app create without a private key via the wire CEL (RUN-222)", () => {
     render(<ProfilesPage />);
 
+    fireEvent.click(screen.getByRole("button", { name: /Add Auth Profile/i }));
+    // Create mode, GitHub App method, no key: the private_key.required CEL
+    // (this.private_key != b'') blocks the submit inline, pre-server.
+    fireEvent.click(screen.getByRole("button", { name: /GitHub App/i }));
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. github-production/i), {
+      target: { value: "new-app-profile" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. 123456/i), {
+      target: { value: "123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save Profile/i }));
+
+    expect(mockCreateMutateAsync).not.toHaveBeenCalled();
+    const inlineError = document.querySelector("#modal-private-key-error");
+    expect(inlineError).not.toBeNull();
+    expect(inlineError).toHaveTextContent(/private_key/i);
+  });
+
+  it("sends the edit-mode method switch to the server, which owns keep-existing (RUN-222)", () => {
+    render(<ProfilesPage />);
+
+    // Switching method in edit mode clears secrets; the keep-existing switch
+    // rule is class B (server-side, docs/30 §5.1) — the form still submits
+    // and the server's verdict re-enters the inline mapping.
     const editButtons = screen.getAllByRole("button", { name: /Edit Profile/i });
     fireEvent.click(editButtons[2]);
-
-    // Switch the method to GitHub App: secret inputs clear and become required.
     fireEvent.click(screen.getByRole("button", { name: /GitHub App/i }));
     expect(screen.getByText(/Required when changing the auth method/i)).toBeInTheDocument();
-    const appIdInput = screen.getByPlaceholderText(/e\.g\. 123456/i);
-    expect(appIdInput).toBeRequired();
-    const keyInput = screen.getByPlaceholderText(/BEGIN RSA PRIVATE KEY/i);
-    expect(keyInput).toBeRequired();
-    expect(keyInput).toHaveValue("");
+    expect(screen.getByPlaceholderText(/BEGIN RSA PRIVATE KEY/i)).toHaveValue("");
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. 123456/i), {
+      target: { value: "123456" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Profile/i }));
+    expect(mockUpdateMutateAsync).toHaveBeenCalled();
   });
 
   it("shows a server error banner when an update fails", async () => {
