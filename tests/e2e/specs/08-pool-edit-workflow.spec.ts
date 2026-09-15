@@ -224,6 +224,36 @@ test.describe("Flow 08: Runner Pool Edit Workflow", () => {
       .toBe(true);
     await forgetRemoteRunner(request, busyRunner.name);
   });
+
+  test("blocks wizard advance with inline errors from proto annotations (RUN-221)", async ({
+    onboardedPage: page,
+  }) => {
+    await page.getByRole("button", { name: "+ Add Runner Pool" }).click();
+
+    // Invalid slug: blurring surfaces the inline violation (proto string.pattern,
+    // enforced client-side by protovalidate-es on the request message).
+    const nameInput = page.getByLabel("Pool Name (Slug)");
+    await nameInput.fill("Bad Name!");
+    await nameInput.blur();
+    await expect(page.getByTestId("form-error")).toBeVisible();
+
+    // Continue is blocked while the violation stands — the wizard stays on
+    // step 1 and the inline error remains.
+    await page.getByRole("button", { name: /Continue to Scope & Targets/i }).click();
+    await expect(page.getByLabel("Pool Name (Slug)")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Select All Filtered" })).toHaveCount(0);
+
+    // A valid slug clears the gate and the wizard advances.
+    await nameInput.fill("e2e-inline-pool");
+    await nameInput.blur();
+    await expect(page.getByTestId("form-error")).toHaveCount(0);
+    await page.getByRole("button", { name: /Continue to Scope & Targets/i }).click();
+    await expect(page.getByRole("button", { name: "Select All Filtered" })).toBeVisible();
+
+    // Close without creating the pool (steps 2+ have no Cancel footer).
+    await page.keyboard.press("Escape");
+    await expect(page.getByText("Create Runner Pool Wizard")).toBeHidden();
+  });
 });
 
 // registerRemoteRunner mirrors a tracked runner in the mock provider's
