@@ -62,8 +62,15 @@ test.describe("Flow 09: Log Observability", () => {
       timeout: 15_000,
     });
 
-    // The removal record appears on the /logs removals tab.
+    // The removal record appears on the /logs removals tab. Filter to
+    // reason=manual before asserting: the die-event path can append a
+    // second "reap" record for the same container milliseconds after the
+    // manual terminate (RUN-224), and the list is newest-first, so the
+    // unfiltered first row may be that reap record.
     await page.goto("/logs?tab=removals");
+    await page.getByTestId("logs-filter-reason").click();
+    await page.getByRole("option", { name: "manual", exact: true }).click();
+    await page.getByTestId("logs-filter-apply").click();
     const removalRow = page.getByTestId("logs-removal-row").first();
     await expect(removalRow).toBeVisible({ timeout: 15_000 });
     await expect(removalRow.getByTestId("logs-reason-badge")).toHaveText("manual", {
@@ -82,8 +89,13 @@ test.describe("Flow 09: Log Observability", () => {
     await expect(page.getByTestId("logs-runner-input")).not.toHaveValue("");
     await expect(page.getByText("Historical Archive")).toBeVisible();
 
-    // Row action: jump back to the boot that wrote the record.
+    // Row action: jump back to the boot that wrote the record. Re-apply the
+    // manual filter: navigation resets it, and the unfiltered first row can
+    // again be the die-event reap record (RUN-224).
     await page.goto("/logs?tab=removals");
+    await page.getByTestId("logs-filter-reason").click();
+    await page.getByRole("option", { name: "manual", exact: true }).click();
+    await page.getByTestId("logs-filter-apply").click();
     const removalRowAgain = page.getByTestId("logs-removal-row").first();
     await expect(removalRowAgain).toBeVisible({ timeout: 15_000 });
     await removalRowAgain.getByTestId("logs-removal-view-boot").click();
