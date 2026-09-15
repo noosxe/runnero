@@ -37,6 +37,7 @@ import { create } from "@bufbuild/protobuf";
 import { PoolSchema, type Pool } from "../../gen/api_pb";
 import { useCreatePool, useUpdatePool, useDiscoverTargets } from "../../lib/api/query-hooks";
 import { getSuggestedRunnerLabels } from "../../lib/utils/labels";
+import { authMethodLabel } from "../../lib/utils/auth-methods";
 import {
   Server,
   X,
@@ -646,7 +647,7 @@ export function PoolWizardModal({
                   }}
                   items={(selectableAuthProfiles ?? []).map((prof) => ({
                     value: prof.id.toString(),
-                    label: `${prof.name} (${prof.authMethod})`,
+                    label: `${prof.name} (${authMethodLabel(prof.authMethod)})`,
                   }))}
                 >
                   <SelectTrigger id="wizard-auth-profile">
@@ -656,7 +657,7 @@ export function PoolWizardModal({
                     <SelectGroup>
                       {(selectableAuthProfiles ?? []).map((prof) => (
                         <SelectItem key={prof.id.toString()} value={prof.id.toString()}>
-                          {prof.name} ({prof.authMethod})
+                          {prof.name} ({authMethodLabel(prof.authMethod)})
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -1277,8 +1278,8 @@ export function PoolWizardModal({
                 <div>
                   <h4 className="text-sm font-bold text-foreground ">{poolName}</h4>
                   <p className="text-[11px] text-muted-foreground">
-                    Provider Profile: {selectedAuthProfile?.name} ({selectedAuthProfile?.authMethod}
-                    )
+                    Provider Profile: {selectedAuthProfile?.name} (
+                    {authMethodLabel(selectedAuthProfile?.authMethod ?? "")})
                   </p>
                 </div>
                 <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary capitalize">

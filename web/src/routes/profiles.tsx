@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthProfiles, useDeleteAuthProfile } from "../lib/api/query-hooks";
 import type { AuthProfile } from "../gen/api_pb";
 import { AuthProfileModal } from "../components/profiles/auth-profile-modal";
+import { authMethodLabel } from "../lib/utils/auth-methods";
 import {
   KeyRound,
   ShieldCheck,
@@ -96,7 +97,7 @@ export function ProfilesPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-foreground">{prof.name}</span>
                   <span className="rounded-md bg-muted/50 px-2.5 py-1 text-xs font-semibold uppercase text-foreground/80">
-                    {prof.authMethod}
+                    {authMethodLabel(prof.authMethod)}
                   </span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

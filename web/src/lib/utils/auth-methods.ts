@@ -41,3 +41,18 @@ export function fromWireAuthMethod(method: string): UiAuthMethod {
       return "github_pat";
   }
 }
+
+const AUTH_METHOD_LABELS: Record<string, string> = {
+  github_app: "GitHub App",
+  pat: "GitHub PAT",
+  github_pat: "GitHub PAT",
+  gitea_token: "Gitea PAT",
+  gitea_pat: "Gitea PAT",
+  forgejo_token: "Forgejo PAT",
+  forgejo_pat: "Forgejo PAT",
+};
+
+/** authMethodLabel renders a stored wire (or UI) auth-method id for humans. Falls back to the raw id. */
+export function authMethodLabel(method: string): string {
+  return AUTH_METHOD_LABELS[method] ?? method;
+}
