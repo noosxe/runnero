@@ -379,7 +379,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
-- **Unified Client-Side Form Validation:** *[Design Phase]* — adopt TanStack Form across all web forms for blur-time field validation, submit/step gating, and inline server-error mapping (docs/30).
+- **Unified Form Validation (protovalidate + TanStack Form):** *[Design Phase]* — validation rules defined once as protovalidate annotations (hard constraints enforced server-side, previewed client-side for blur-time inline errors and submit gating), with structured violation details replacing banner parsing (docs/30).
 ---
 
 ## 📄 License
