@@ -403,8 +403,12 @@ type Pool struct {
 	// Total memory+swap allowance mirroring Docker HostConfig.MemorySwap:
 	// empty = daemon default (2x memory), "-1" = unlimited swap, otherwise a
 	// memory string >= memory_limit (equal = no extra swap). (RUN-147)
-	MemorySwapLimit          string `protobuf:"bytes,32,opt,name=memory_swap_limit,json=memorySwapLimit,proto3" json:"memory_swap_limit,omitempty"`
-	MaxRunnerLifetimeSeconds int32  `protobuf:"varint,17,opt,name=max_runner_lifetime_seconds,json=maxRunnerLifetimeSeconds,proto3" json:"max_runner_lifetime_seconds,omitempty"`
+	MemorySwapLimit string `protobuf:"bytes,32,opt,name=memory_swap_limit,json=memorySwapLimit,proto3" json:"memory_swap_limit,omitempty"`
+	// Maximum number of processes (PIDs) a runner container may spawn,
+	// mirroring Docker HostConfig.PidsLimit: 0 = unlimited (opt-out),
+	// otherwise the process ceiling (fork-bomb blast-radius bound). (RUN-148)
+	PidsLimit                int32 `protobuf:"varint,33,opt,name=pids_limit,json=pidsLimit,proto3" json:"pids_limit,omitempty"`
+	MaxRunnerLifetimeSeconds int32 `protobuf:"varint,17,opt,name=max_runner_lifetime_seconds,json=maxRunnerLifetimeSeconds,proto3" json:"max_runner_lifetime_seconds,omitempty"`
 	// Image update metadata
 	ImageUpdateAvailable bool   `protobuf:"varint,18,opt,name=image_update_available,json=imageUpdateAvailable,proto3" json:"image_update_available,omitempty"`
 	LatestImage          string `protobuf:"bytes,19,opt,name=latest_image,json=latestImage,proto3" json:"latest_image,omitempty"`
@@ -575,6 +579,13 @@ func (x *Pool) GetMemorySwapLimit() string {
 		return x.MemorySwapLimit
 	}
 	return ""
+}
+
+func (x *Pool) GetPidsLimit() int32 {
+	if x != nil {
+		return x.PidsLimit
+	}
+	return 0
 }
 
 func (x *Pool) GetMaxRunnerLifetimeSeconds() int32 {
@@ -4637,7 +4648,8 @@ const file_api_proto_rawDesc = "" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x19\n" +
 	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\x12\x1b\n" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
-	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\xf2\t\n" +
+	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\x91\n" +
+	"\n" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -4656,7 +4668,9 @@ const file_api_proto_rawDesc = "" +
 	"\x05scope\x18\x0e \x01(\tR\x05scope\x12\x1b\n" +
 	"\tcpu_limit\x18\x0f \x01(\tR\bcpuLimit\x12!\n" +
 	"\fmemory_limit\x18\x10 \x01(\tR\vmemoryLimit\x12*\n" +
-	"\x11memory_swap_limit\x18  \x01(\tR\x0fmemorySwapLimit\x12=\n" +
+	"\x11memory_swap_limit\x18  \x01(\tR\x0fmemorySwapLimit\x12\x1d\n" +
+	"\n" +
+	"pids_limit\x18! \x01(\x05R\tpidsLimit\x12=\n" +
 	"\x1bmax_runner_lifetime_seconds\x18\x11 \x01(\x05R\x18maxRunnerLifetimeSeconds\x124\n" +
 	"\x16image_update_available\x18\x12 \x01(\bR\x14imageUpdateAvailable\x12!\n" +
 	"\flatest_image\x18\x13 \x01(\tR\vlatestImage\x12\x1f\n" +

@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// DefaultPidsLimit is the shipped per-pool process ceiling (RUN-148):
+// comfortable headroom for JVM/npm-heavy jobs, a hard wall for fork bombs.
+const DefaultPidsLimit int64 = 4096
+
 // ParseCPULimit converts CPU limits like "2.0", "0.5", "1" to NanoCPUs (int64).
 // Lives beside RunnerConfig (whose field formats it defines) so both the API
 // validation layer and the Docker engine can share it (RUN-147).

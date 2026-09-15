@@ -101,6 +101,10 @@ message Pool {
   // empty = daemon default (2x memory), "-1" = unlimited swap, otherwise a
   // memory string >= memory_limit (equal = no extra swap). (RUN-147)
   string memory_swap_limit = 32;
+  // Maximum number of processes (PIDs) a runner container may spawn,
+  // mirroring Docker HostConfig.PidsLimit: 0 = unlimited (opt-out),
+  // otherwise the process ceiling (fork-bomb blast-radius bound). (RUN-148)
+  int32 pids_limit = 33;
   int32 max_runner_lifetime_seconds = 17;
 
   // Image update metadata

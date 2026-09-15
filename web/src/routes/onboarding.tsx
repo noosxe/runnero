@@ -142,6 +142,26 @@ export function OnboardingPage() {
         return "";
     }
   })();
+
+  // PIDs cap (RUN-148): the shipped default (4096) preselects; 0 = unlimited.
+  const [pidsMode, setPidsMode] = useState<"default" | "strict" | "unlimited" | "custom">(
+    "default",
+  );
+  const [pidsCustom, setPidsCustom] = useState("");
+  const pidsLimit = (() => {
+    switch (pidsMode) {
+      case "default":
+        return 4096;
+      case "strict":
+        return 1024;
+      case "unlimited":
+        return 0;
+      case "custom": {
+        const n = Number.parseInt(pidsCustom, 10);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      }
+    }
+  })();
   const [allowDocker, setAllowDocker] = useState(true);
   const [renovateEnabled, setRenovateEnabled] = useState(false);
   const [renovateCron, setRenovateCron] = useState("0 2 * * *");
@@ -398,6 +418,7 @@ export function OnboardingPage() {
             cpuLimit: cpuLimit.trim() || "2.0",
             memoryLimit: memoryLimit.trim() || "4GB",
             memorySwapLimit,
+            pidsLimit,
             maxRunnerLifetimeSeconds: 7200,
             targetUrls: repositoryUrl.trim() ? [repositoryUrl.trim()] : [],
           }),
@@ -1175,6 +1196,41 @@ export function OnboardingPage() {
                         className="mt-2"
                       />
                     )}
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="onb-pids">PIDs Limit</FieldLabel>
+                    <Select
+                      value={pidsMode}
+                      onValueChange={(v) => setPidsMode(v as typeof pidsMode)}
+                    >
+                      <SelectTrigger id="onb-pids" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="default">4096 · default</SelectItem>
+                          <SelectItem value="strict">1024 · strict</SelectItem>
+                          <SelectItem value="unlimited">Unlimited</SelectItem>
+                          <SelectItem value="custom">Custom…</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    {pidsMode === "custom" && (
+                      <Input
+                        id="onb-pids-custom"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="max processes, e.g. 8192 (empty = unlimited)"
+                        value={pidsCustom}
+                        onChange={(e) => setPidsCustom(e.target.value)}
+                        className="mt-2"
+                      />
+                    )}
+                    <p className="text-muted-foreground text-xs">
+                      Maximum processes per runner container. Bounds the blast radius of runaway
+                      builds (fork bombs, recursive scripts) on the host.
+                    </p>
                   </Field>
                 </div>
 

@@ -110,6 +110,7 @@ type RunnerPool struct {
 	PollFallback             bool           `json:"poll_fallback"`
 	PollIntervalSeconds      int64          `json:"poll_interval_seconds"`
 	MemorySwapLimit          sql.NullString `json:"memory_swap_limit"`
+	PidsLimit                sql.NullInt64  `json:"pids_limit"`
 }
 
 type Session struct {

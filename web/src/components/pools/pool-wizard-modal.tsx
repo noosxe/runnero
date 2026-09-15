@@ -142,6 +142,19 @@ export function PoolWizardModal({
   const [swapCustom, setSwapCustom] = useState(
     pool?.memorySwapLimit && pool.memorySwapLimit !== "-1" ? pool.memorySwapLimit : "",
   );
+  // PIDs mode (RUN-148): "default" = 4096 (shipped default), "strict" =
+  // 1024, "unlimited" = 0 (explicit opt-out), "custom" carries an explicit
+  // process ceiling.
+  const [pidsMode, setPidsMode] = useState<"default" | "strict" | "unlimited" | "custom">(() => {
+    if (!pool) return "default";
+    if (pool.pidsLimit === 0) return "unlimited";
+    if (pool.pidsLimit === 4096) return "default";
+    if (pool.pidsLimit === 1024) return "strict";
+    return "custom";
+  });
+  const [pidsCustom, setPidsCustom] = useState(
+    pool?.pidsLimit && ![4096, 1024].includes(pool.pidsLimit) ? String(pool.pidsLimit) : "",
+  );
   // Lifetime is not wizard-editable; edit mode preserves the stored value
   // instead of silently resetting it to the create-mode default (docs/22 §7.2).
   const [maxRunnerLifetimeSeconds] = useState(pool?.maxRunnerLifetimeSeconds ?? 7200);
@@ -218,6 +231,19 @@ export function PoolWizardModal({
     }
   };
 
+  const describePids = (mode: typeof pidsMode, custom: string) => {
+    switch (mode) {
+      case "default":
+        return "4096 (default)";
+      case "strict":
+        return "1024 (strict)";
+      case "unlimited":
+        return "unlimited";
+      case "custom":
+        return custom.trim() || "?";
+    }
+  };
+
   const memorySwapLimit = (() => {
     switch (swapMode) {
       case "match":
@@ -228,6 +254,21 @@ export function PoolWizardModal({
         return swapCustom.trim();
       case "default2x":
         return "";
+    }
+  })();
+
+  const pidsLimit = (() => {
+    switch (pidsMode) {
+      case "default":
+        return 4096;
+      case "strict":
+        return 1024;
+      case "unlimited":
+        return 0;
+      case "custom": {
+        const n = Number.parseInt(pidsCustom, 10);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      }
     }
   })();
 
@@ -279,6 +320,21 @@ export function PoolWizardModal({
       describeSwap(swapMode, swapCustom, memoryLimit),
       true,
     );
+    add(
+      "PIDs Limit",
+      describePids(
+        !pool || pool.pidsLimit === 0
+          ? "unlimited"
+          : pool.pidsLimit === 4096
+            ? "default"
+            : pool.pidsLimit === 1024
+              ? "strict"
+              : "custom",
+        pool?.pidsLimit && ![4096, 1024].includes(pool.pidsLimit) ? String(pool.pidsLimit) : "",
+      ),
+      describePids(pidsMode, pidsCustom),
+      true,
+    );
     add("Min Idle Runners", String(pool.minIdleRunners), String(minIdleRunners));
     add("Max Concurrency", String(pool.maxConcurrency), String(maxConcurrency));
     add(
@@ -309,6 +365,9 @@ export function PoolWizardModal({
     memorySwapLimit,
     swapMode,
     swapCustom,
+    pidsMode,
+    pidsCustom,
+    pidsLimit,
     minIdleRunners,
     maxConcurrency,
     renovateEnabled,
@@ -466,6 +525,7 @@ export function PoolWizardModal({
       cpuLimit: cpuLimit.trim() || "2.0",
       memoryLimit: memoryLimit.trim() || "4GB",
       memorySwapLimit,
+      pidsLimit,
       maxRunnerLifetimeSeconds,
       targetUrls: selectedTargetUrls,
     });
@@ -1032,6 +1092,37 @@ export function PoolWizardModal({
                     runner is killed instead of thrashing host swap.
                   </p>
                 </Field>
+                <Field>
+                  <FieldLabel htmlFor="wizard-pids">PIDs Limit</FieldLabel>
+                  <Select value={pidsMode} onValueChange={(v) => setPidsMode(v as typeof pidsMode)}>
+                    <SelectTrigger id="wizard-pids" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="default">4096 · default</SelectItem>
+                        <SelectItem value="strict">1024 · strict</SelectItem>
+                        <SelectItem value="unlimited">Unlimited</SelectItem>
+                        <SelectItem value="custom">Custom…</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {pidsMode === "custom" && (
+                    <Input
+                      id="wizard-pids-custom"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="max processes, e.g. 8192 (empty = unlimited)"
+                      value={pidsCustom}
+                      onChange={(e) => setPidsCustom(e.target.value)}
+                      className="mt-2"
+                    />
+                  )}
+                  <p className="text-muted-foreground text-xs">
+                    Maximum processes per runner container. Bounds the blast radius of runaway
+                    builds (fork bombs, recursive scripts) on the host.
+                  </p>
+                </Field>
               </div>
 
               {/* Docker Socket Privilege */}
@@ -1231,6 +1322,12 @@ export function PoolWizardModal({
                   <span className="text-muted-foreground block">CPU / RAM</span>
                   <span className="font-bold text-foreground ">
                     {cpuLimit} / {describeSwap(swapMode, swapCustom, memoryLimit)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">PIDs Limit</span>
+                  <span className="font-bold text-foreground ">
+                    {describePids(pidsMode, pidsCustom)}
                   </span>
                 </div>
                 <div>
