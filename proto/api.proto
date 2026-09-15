@@ -97,6 +97,10 @@ message Pool {
   string scope = 14;              // "repo", "org", or "global"
   string cpu_limit = 15;
   string memory_limit = 16;
+  // Total memory+swap allowance mirroring Docker HostConfig.MemorySwap:
+  // empty = daemon default (2x memory), "-1" = unlimited swap, otherwise a
+  // memory string >= memory_limit (equal = no extra swap). (RUN-147)
+  string memory_swap_limit = 32;
   int32 max_runner_lifetime_seconds = 17;
 
   // Image update metadata

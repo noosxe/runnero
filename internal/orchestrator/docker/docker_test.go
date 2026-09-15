@@ -405,56 +405,6 @@ func TestDockerClient_SpawnFailureCleanup(t *testing.T) {
 	}
 }
 
-func TestParseLimits(t *testing.T) {
-	// 1. CPU Limits
-	nano, err := docker.ParseCPULimit("2.5")
-	if err != nil || nano != 2500000000 {
-		t.Errorf("expected 2.5e9 nano cpus, got %d (err=%v)", nano, err)
-	}
-	nano, err = docker.ParseCPULimit("")
-	if err != nil || nano != 0 {
-		t.Errorf("expected 0 for empty cpu, got %d", nano)
-	}
-	_, err = docker.ParseCPULimit("-1")
-	if err == nil {
-		t.Errorf("expected error for negative cpu limit")
-	}
-	_, err = docker.ParseCPULimit("invalid")
-	if err == nil {
-		t.Errorf("expected error for invalid cpu limit")
-	}
-
-	// 2. Memory Limits
-	memTests := []struct {
-		input    string
-		expected int64
-	}{
-		{"4g", 4 * 1024 * 1024 * 1024},
-		{"512m", 512 * 1024 * 1024},
-		{"1024k", 1024 * 1024},
-		{"1000b", 1000},
-		{"", 0},
-	}
-	for _, tc := range memTests {
-		bytes, err := docker.ParseMemoryLimit(tc.input)
-		if err != nil {
-			t.Errorf("ParseMemoryLimit(%q) failed: %v", tc.input, err)
-		}
-		if bytes != tc.expected {
-			t.Errorf("ParseMemoryLimit(%q) = %d, expected %d", tc.input, bytes, tc.expected)
-		}
-	}
-
-	_, err = docker.ParseMemoryLimit("bad-mem")
-	if err == nil {
-		t.Errorf("expected error for bad memory limit")
-	}
-	_, err = docker.ParseMemoryLimit("-100m")
-	if err == nil {
-		t.Errorf("expected error for negative memory limit")
-	}
-}
-
 func TestDockerClient_AuditRunners(t *testing.T) {
 	ctx := context.Background()
 
@@ -1113,4 +1063,77 @@ func TestDockerClient_ImageHandoff_InFlightJobUnchanged(t *testing.T) {
 	if containers[cid2].status != "running" {
 		t.Errorf("expected runner 2 to remain running")
 	}
+}
+
+// TestDockerClient_SpawnRunner_MemorySwap verifies the MemorySwap wiring
+// (RUN-147): swap = memory means no extra swap, "-1" is unlimited, unset
+// leaves the daemon default, and a bad swap string fails the spawn.
+func TestDockerClient_SpawnRunner_MemorySwap(t *testing.T) {
+	ctx := context.Background()
+
+	newSpawnMock := func() (*docker.Client, **container.HostConfig) {
+		var created *container.HostConfig
+		mockAPI := &mockDockerAPI{
+			containerCreateFn: func(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+				created = options.HostConfig
+				return client.ContainerCreateResult{ID: "c-swap"}, nil
+			},
+			containerStartFn: func(ctx context.Context, id string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
+				return client.ContainerStartResult{}, nil
+			},
+		}
+		cli, err := docker.NewClient(ctx, docker.WithAPIClient(mockAPI))
+		if err != nil {
+			t.Fatalf("NewClient failed: %v", err)
+		}
+		return cli, &created
+	}
+
+	t.Run("swap equal to memory means no extra swap", func(t *testing.T) {
+		cli, hostCfg := newSpawnMock()
+		if _, err := cli.SpawnRunner(ctx, orchestrator.RunnerConfig{
+			PoolName: "swap-pool", MemoryLimit: "2g", MemorySwapLimit: "2g",
+		}); err != nil {
+			t.Fatalf("SpawnRunner failed: %v", err)
+		}
+		if (**hostCfg).Memory != 2*1024*1024*1024 {
+			t.Fatalf("expected 2GiB memory, got %d", (**hostCfg).Memory)
+		}
+		if (**hostCfg).MemorySwap != 2*1024*1024*1024 {
+			t.Fatalf("expected MemorySwap=2GiB (no extra swap), got %d", (**hostCfg).MemorySwap)
+		}
+	})
+
+	t.Run("unlimited sentinel passes -1", func(t *testing.T) {
+		cli, hostCfg := newSpawnMock()
+		if _, err := cli.SpawnRunner(ctx, orchestrator.RunnerConfig{
+			PoolName: "swap-pool", MemoryLimit: "2g", MemorySwapLimit: "-1",
+		}); err != nil {
+			t.Fatalf("SpawnRunner failed: %v", err)
+		}
+		if (**hostCfg).MemorySwap != -1 {
+			t.Fatalf("expected MemorySwap=-1, got %d", (**hostCfg).MemorySwap)
+		}
+	})
+
+	t.Run("unset swap leaves daemon default", func(t *testing.T) {
+		cli, hostCfg := newSpawnMock()
+		if _, err := cli.SpawnRunner(ctx, orchestrator.RunnerConfig{
+			PoolName: "swap-pool", MemoryLimit: "2g",
+		}); err != nil {
+			t.Fatalf("SpawnRunner failed: %v", err)
+		}
+		if (**hostCfg).MemorySwap != 0 {
+			t.Fatalf("expected MemorySwap=0 (daemon default), got %d", (**hostCfg).MemorySwap)
+		}
+	})
+
+	t.Run("bad swap string fails the spawn", func(t *testing.T) {
+		cli, _ := newSpawnMock()
+		if _, err := cli.SpawnRunner(ctx, orchestrator.RunnerConfig{
+			PoolName: "swap-pool", MemoryLimit: "2g", MemorySwapLimit: "nope",
+		}); err == nil {
+			t.Fatal("expected spawn to fail with unparseable memory_swap_limit")
+		}
+	})
 }

@@ -113,6 +113,10 @@ type RunnerConfig struct {
 	Image         string   `json:"image"`
 	CPULimit      string   `json:"cpu_limit"`
 	MemoryLimit   string   `json:"memory_limit"`
+	// MemorySwapLimit mirrors Docker HostConfig.MemorySwap (the TOTAL
+	// memory+swap allowance): "" = daemon default (2x memory), "-1" =
+	// unlimited, otherwise a memory string >= MemoryLimit (RUN-147).
+	MemorySwapLimit string `json:"memory_swap_limit"`
 	AllowDocker   bool     `json:"allow_docker"`
 }
 
@@ -235,6 +239,7 @@ pools:
     max_runner_lifetime_seconds: 7200 # max busy wall-clock per job, anchored at pickup (docs/23); idle standbys are never lifetime-terminated
     cpu_limit: "2.0"
     memory_limit: "4g"
+    memory_swap_limit: "4g" # RUN-147: total mem+swap; equal to memory_limit = no extra swap (omit to get the Docker default of 2x)
     renovate:
       enabled: true
       cron_schedule: "0 2 * * *" # Run at 2 AM daily

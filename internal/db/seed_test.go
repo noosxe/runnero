@@ -42,6 +42,7 @@ pools:
     max_runner_lifetime_seconds: 7200
     cpu_limit: "2.0"
     memory_limit: "4g"
+    memory_swap_limit: "6g"
     renovate:
       enabled: true
       cron_schedule: "0 2 * * *"
@@ -116,6 +117,19 @@ func TestSeedImportAndSanitizedExport(t *testing.T) {
 	pools, err := database.ListRunnerPools(ctx)
 	if err != nil || len(pools) != 2 {
 		t.Fatalf("ListRunnerPools count = %d, want 2", len(pools))
+	}
+
+	// Verify per-pool memory swap (RUN-147): explicit value passes through,
+	// omitted value hardens to swap = memory (no extra swap).
+	swapByName := map[string]string{}
+	for _, p := range pools {
+		swapByName[p.Name] = p.MemorySwapLimit.String
+	}
+	if got := swapByName["frontend-repo-runners"]; got != "6g" {
+		t.Errorf("frontend-repo-runners memory_swap_limit = %q, want '6g'", got)
+	}
+	if got := swapByName["gitea-project-runners"]; got != "8g" {
+		t.Errorf("gitea-project-runners memory_swap_limit = %q, want '8g' (hardened default: swap = memory)", got)
 	}
 
 	// Verify global settings

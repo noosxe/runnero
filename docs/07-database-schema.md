@@ -51,6 +51,7 @@ CREATE TABLE runner_pools (
     max_runner_lifetime_seconds INTEGER NOT NULL DEFAULT 7200, -- max busy wall-clock per job, anchored at first pickup (docs/23)
     cpu_limit TEXT,
     memory_limit TEXT,
+    memory_swap_limit TEXT, -- RUN-147: total mem+swap (Docker MemorySwap semantics); NULL = daemon default 2x, '-1' = unlimited
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(auth_profile_id) REFERENCES auth_profiles(id)

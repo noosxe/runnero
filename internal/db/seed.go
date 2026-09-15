@@ -70,7 +70,21 @@ type SeedPool struct {
 	MaxRunnerLifetimeSeconds int64         `yaml:"max_runner_lifetime_seconds"`
 	CPULimit                 string        `yaml:"cpu_limit,omitempty"`
 	MemoryLimit              string        `yaml:"memory_limit,omitempty"`
+	MemorySwapLimit          string        `yaml:"memory_swap_limit,omitempty"`
 	Renovate                 *SeedRenovate `yaml:"renovate,omitempty"`
+}
+
+// effectiveMemorySwap returns the swap allowance to persist for a seeded
+// pool (RUN-147): an explicit value passes through; when the seed omits it
+// but sets a memory limit, the pool is hardened to swap = memory (no extra
+// swap) — the same shipped default the wizard preselects. With no memory
+// limit there is nothing to harden, so the field stays empty (daemon
+// default of 2x memory applies — Docker ignores MemorySwap without Memory).
+func (p SeedPool) effectiveMemorySwap() string {
+	if p.MemorySwapLimit != "" {
+		return p.MemorySwapLimit
+	}
+	return p.MemoryLimit
 }
 
 type SeedRenovate struct {
@@ -373,6 +387,7 @@ func (d *DB) ImportSeedConfig(ctx context.Context, cfg *SeedConfig, mode ImportM
 				MaxRunnerLifetimeSeconds: lifetime,
 				CpuLimit:                 sql.NullString{String: pool.CPULimit, Valid: pool.CPULimit != ""},
 				MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
+				MemorySwapLimit:          sql.NullString{String: pool.effectiveMemorySwap(), Valid: pool.effectiveMemorySwap() != ""},
 				ID:                       existingPool.ID,
 			})
 			if err != nil {
@@ -394,6 +409,7 @@ func (d *DB) ImportSeedConfig(ctx context.Context, cfg *SeedConfig, mode ImportM
 				MaxRunnerLifetimeSeconds: lifetime,
 				CpuLimit:                 sql.NullString{String: pool.CPULimit, Valid: pool.CPULimit != ""},
 				MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
+				MemorySwapLimit:          sql.NullString{String: pool.effectiveMemorySwap(), Valid: pool.effectiveMemorySwap() != ""},
 			})
 			if err != nil {
 				return fmt.Errorf("creating pool %q: %w", pool.Name, err)
@@ -553,6 +569,7 @@ func (d *DB) ExportSanitizedConfig(ctx context.Context) (*SeedConfig, error) {
 			MaxRunnerLifetimeSeconds: p.MaxRunnerLifetimeSeconds,
 			CPULimit:                 p.CpuLimit.String,
 			MemoryLimit:              p.MemoryLimit.String,
+			MemorySwapLimit:          p.MemorySwapLimit.String,
 		}
 
 		renovate, err := d.GetRenovateConfigByPoolId(ctx, p.ID)

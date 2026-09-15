@@ -1855,6 +1855,9 @@ func (c *PoolController) spawnSingleRunner(ctx context.Context, p db.RunnerPool,
 	if p.MemoryLimit.Valid {
 		config.MemoryLimit = p.MemoryLimit.String
 	}
+	if p.MemorySwapLimit.Valid {
+		config.MemorySwapLimit = p.MemorySwapLimit.String
+	}
 
 	id, err := c.engine.SpawnRunner(ctx, config)
 	if err != nil {

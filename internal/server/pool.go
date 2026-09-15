@@ -14,6 +14,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/noosxe/runnero/internal/cron"
 	"github.com/noosxe/runnero/internal/db"
+	"github.com/noosxe/runnero/internal/limits"
 	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
 	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
 	"github.com/noosxe/runnero/internal/provider"
@@ -263,6 +264,9 @@ func spawnIdentityChanged(existing db.RunnerPool, existingTargets []string, para
 	if existing.CpuLimit != params.CpuLimit || existing.MemoryLimit != params.MemoryLimit {
 		return true
 	}
+	if existing.MemorySwapLimit != params.MemorySwapLimit {
+		return true
+	}
 	return !slices.Equal(existingTargets, newTargets)
 }
 
@@ -290,6 +294,7 @@ func poolConfigChanges(existing db.RunnerPool, existingTargets []string, updated
 	add("poll_interval_seconds", existing.PollIntervalSeconds, updated.PollIntervalSeconds, existing.PollIntervalSeconds != updated.PollIntervalSeconds)
 	add("cpu_limit", existing.CpuLimit.String, updated.CpuLimit.String, existing.CpuLimit != updated.CpuLimit)
 	add("memory_limit", existing.MemoryLimit.String, updated.MemoryLimit.String, existing.MemoryLimit != updated.MemoryLimit)
+	add("memory_swap_limit", existing.MemorySwapLimit.String, updated.MemorySwapLimit.String, existing.MemorySwapLimit != updated.MemorySwapLimit)
 	if req.Renovate != nil && renovateBeforeErr == nil {
 		afterCron := strings.TrimSpace(req.Renovate.CronSchedule)
 		afterImage := strings.TrimSpace(req.Renovate.Image)
@@ -375,6 +380,7 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 		Scope:                    p.Scope,
 		CpuLimit:                 p.CpuLimit.String,
 		MemoryLimit:              p.MemoryLimit.String,
+		MemorySwapLimit:          p.MemorySwapLimit.String,
 		MaxRunnerLifetimeSeconds: int32(p.MaxRunnerLifetimeSeconds),
 		PollFallback:             p.PollFallback,
 		PollIntervalSeconds:      int32(p.PollIntervalSeconds),
@@ -485,6 +491,29 @@ func validatePoolInput(p *supervisorv1.Pool) error {
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("max_runner_lifetime_seconds must be non-negative"))
 	}
 
+	// Memory swap cap (RUN-147): semantics mirror Docker HostConfig.MemorySwap
+	// (the TOTAL memory+swap allowance). Empty = daemon default (2x memory);
+	// "-1" = unlimited swap; otherwise a memory string that must parse and be
+	// >= memory_limit (equal = no extra swap).
+	if swap := strings.TrimSpace(p.MemorySwapLimit); swap != "" {
+		if strings.TrimSpace(p.MemoryLimit) == "" {
+			return connect.NewError(connect.CodeInvalidArgument, errors.New("memory_swap_limit requires memory_limit to be set"))
+		}
+		if swap != "-1" {
+			memBytes, err := limits.ParseMemoryLimit(p.MemoryLimit)
+			if err != nil {
+				return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid memory_limit: %w", err))
+			}
+			swapBytes, err := limits.ParseMemoryLimit(swap)
+			if err != nil {
+				return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid memory_swap_limit: %w", err))
+			}
+			if swapBytes < memBytes {
+				return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("memory_swap_limit (%s) must be >= memory_limit (%s); equal means no extra swap", swap, p.MemoryLimit))
+			}
+		}
+	}
+
 	// Demand polling validation (docs/24 §5.7): Gitea has no repo-scoped
 	// queued-jobs API (docs/24 §4); Forgejo polls natively regardless of the flag.
 	if p.PollFallback && provider == "gitea" {
@@ -588,6 +617,7 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 			MaxRunnerLifetimeSeconds: int64(pool.MaxRunnerLifetimeSeconds),
 			CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
 			MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
+			MemorySwapLimit:          sql.NullString{String: pool.MemorySwapLimit, Valid: pool.MemorySwapLimit != ""},
 			PollFallback:             pool.PollFallback,
 			PollIntervalSeconds:      defaultPollInterval(pool.PollIntervalSeconds),
 		},
@@ -668,6 +698,7 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		MaxRunnerLifetimeSeconds: int64(pool.MaxRunnerLifetimeSeconds),
 		CpuLimit:                 sql.NullString{String: pool.CpuLimit, Valid: pool.CpuLimit != ""},
 		MemoryLimit:              sql.NullString{String: pool.MemoryLimit, Valid: pool.MemoryLimit != ""},
+		MemorySwapLimit:          sql.NullString{String: pool.MemorySwapLimit, Valid: pool.MemorySwapLimit != ""},
 		PollFallback:             pool.PollFallback,
 		// The interval is a DB-level knob with no UI field (docs/24 §5.4): a client
 		// that omits it (proto zero) preserves the stored cadence.

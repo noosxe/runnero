@@ -127,6 +127,21 @@ export function PoolWizardModal({
   const [pollFallback, setPollFallback] = useState(pool?.pollFallback ?? false);
   const [cpuLimit, setCpuLimit] = useState(pool?.cpuLimit || "2.0");
   const [memoryLimit, setMemoryLimit] = useState(pool?.memoryLimit || "4GB");
+  // Memory swap mode (RUN-147): "match" hardens to swap = memory (no extra
+  // swap — the shipped default), "default2x" keeps the Docker daemon default,
+  // "unlimited" passes -1, "custom" carries an explicit total allowance.
+  const [swapMode, setSwapMode] = useState<"match" | "default2x" | "unlimited" | "custom">(
+    pool
+      ? pool.memorySwapLimit === "-1"
+        ? "unlimited"
+        : pool.memorySwapLimit !== ""
+          ? "custom"
+          : "default2x"
+      : "match",
+  );
+  const [swapCustom, setSwapCustom] = useState(
+    pool?.memorySwapLimit && pool.memorySwapLimit !== "-1" ? pool.memorySwapLimit : "",
+  );
   // Lifetime is not wizard-editable; edit mode preserves the stored value
   // instead of silently resetting it to the create-mode default (docs/22 §7.2).
   const [maxRunnerLifetimeSeconds] = useState(pool?.maxRunnerLifetimeSeconds ?? 7200);
@@ -189,6 +204,33 @@ export function PoolWizardModal({
   const normalizeSet = (values: string[]) =>
     Array.from(new Set(values.map((v) => v.trim()).filter(Boolean))).sort();
 
+  const describeSwap = (mode: typeof swapMode, custom: string, mem: string) => {
+    const m = mem.trim() || "4GB";
+    switch (mode) {
+      case "match":
+        return `${m} + no swap`;
+      case "default2x":
+        return `${m} + ${m} swap (2x)`;
+      case "unlimited":
+        return `${m} + unlimited swap`;
+      case "custom":
+        return `${m} + ${custom.trim() || "?"} swap`;
+    }
+  };
+
+  const memorySwapLimit = (() => {
+    switch (swapMode) {
+      case "match":
+        return memoryLimit.trim() || "4GB";
+      case "unlimited":
+        return "-1";
+      case "custom":
+        return swapCustom.trim();
+      case "default2x":
+        return "";
+    }
+  })();
+
   const changes = useMemo(() => {
     if (!isEdit || !pool) return [];
     const diffs: Array<{ field: string; before: string; after: string; identity: boolean }> = [];
@@ -223,6 +265,20 @@ export function PoolWizardModal({
     }
     add("CPU Limit", pool.cpuLimit, cpuLimit.trim(), true);
     add("Memory Limit", pool.memoryLimit, memoryLimit.trim(), true);
+    add(
+      "Memory Swap",
+      describeSwap(
+        pool.memorySwapLimit === "-1"
+          ? "unlimited"
+          : pool.memorySwapLimit !== ""
+            ? "custom"
+            : "default2x",
+        pool.memorySwapLimit === "-1" ? "" : (pool.memorySwapLimit ?? ""),
+        pool.memoryLimit || "4GB",
+      ),
+      describeSwap(swapMode, swapCustom, memoryLimit),
+      true,
+    );
     add("Min Idle Runners", String(pool.minIdleRunners), String(minIdleRunners));
     add("Max Concurrency", String(pool.maxConcurrency), String(maxConcurrency));
     add(
@@ -250,6 +306,9 @@ export function PoolWizardModal({
     allowDocker,
     cpuLimit,
     memoryLimit,
+    memorySwapLimit,
+    swapMode,
+    swapCustom,
     minIdleRunners,
     maxConcurrency,
     renovateEnabled,
@@ -406,6 +465,7 @@ export function PoolWizardModal({
       scope,
       cpuLimit: cpuLimit.trim() || "2.0",
       memoryLimit: memoryLimit.trim() || "4GB",
+      memorySwapLimit,
       maxRunnerLifetimeSeconds,
       targetUrls: selectedTargetUrls,
     });
@@ -933,7 +993,6 @@ export function PoolWizardModal({
                     onChange={(e) => setCpuLimit(e.target.value)}
                   />
                 </Field>
-
                 <Field>
                   <FieldLabel htmlFor="wizard-mem">Memory Limit</FieldLabel>
                   <Input
@@ -942,6 +1001,36 @@ export function PoolWizardModal({
                     value={memoryLimit}
                     onChange={(e) => setMemoryLimit(e.target.value)}
                   />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="wizard-swap">Memory Swap</FieldLabel>
+                  <Select value={swapMode} onValueChange={(v) => setSwapMode(v as typeof swapMode)}>
+                    <SelectTrigger id="wizard-swap" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="match">None — match memory (hardened)</SelectItem>
+                        <SelectItem value="default2x">2x memory (Docker default)</SelectItem>
+                        <SelectItem value="unlimited">Unlimited</SelectItem>
+                        <SelectItem value="custom">Custom…</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {swapMode === "custom" && (
+                    <Input
+                      id="wizard-swap-custom"
+                      type="text"
+                      placeholder="total memory+swap, e.g. 12GB"
+                      value={swapCustom}
+                      onChange={(e) => setSwapCustom(e.target.value)}
+                      className="mt-2"
+                    />
+                  )}
+                  <p className="text-muted-foreground text-xs">
+                    Total memory+swap allowance per runner. Matching memory means a memory-starved
+                    runner is killed instead of thrashing host swap.
+                  </p>
                 </Field>
               </div>
 
@@ -1141,7 +1230,7 @@ export function PoolWizardModal({
                 <div>
                   <span className="text-muted-foreground block">CPU / RAM</span>
                   <span className="font-bold text-foreground ">
-                    {cpuLimit} / {memoryLimit}
+                    {cpuLimit} / {describeSwap(swapMode, swapCustom, memoryLimit)}
                   </span>
                 </div>
                 <div>

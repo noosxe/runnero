@@ -194,6 +194,8 @@ describe("PoolWizardModal", () => {
     ]);
     expect(submitted.minIdleRunners).toBe(2);
     expect(submitted.maxConcurrency).toBe(8);
+    // RUN-147: the hardened swap default ships swap = memory.
+    expect(submitted.memorySwapLimit).toBe("4GB");
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
@@ -399,6 +401,66 @@ describe("PoolWizardModal (edit mode)", () => {
     expect(
       screen.getByText(/2 idle runners will be recycled to apply the new configuration/i),
     ).toBeInTheDocument();
+  });
+
+  it("shows the effective swap allowance on the review step (RUN-147)", async () => {
+    render(
+      <PoolWizardModal
+        isOpen={true}
+        onClose={vi.fn()}
+        authProfiles={defaultAuthProfiles}
+        hostOs="linux"
+        hostArch="amd64"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Pool Name \(Slug\)/i), {
+      target: { value: "swap-default-pool" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
+    fireEvent.click(screen.getByText("Select All Filtered"));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
+
+    // The hardened default is preselected for new pools: no extra swap.
+    // jsdom renders the Radix SelectValue as the raw item value.
+    expect(screen.getByLabelText(/Memory Swap/i)).toHaveTextContent(/match/i);
+
+    fireEvent.click(screen.getByRole("button", { name: /Review & Confirm/i }));
+    // Default memory is 4GB: the effective allowance states zero extra swap.
+    expect(screen.getByText(/4GB \+ no swap/)).toBeInTheDocument();
+  });
+
+  it("prefills unlimited swap mode from a -1 pool value (RUN-147)", () => {
+    render(
+      <PoolWizardModal
+        isOpen={true}
+        onClose={vi.fn()}
+        mode="edit"
+        pool={makeEditPool({ memorySwapLimit: "-1" })}
+        authProfiles={defaultAuthProfiles}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
+    expect(screen.getByLabelText(/Memory Swap/i)).toHaveTextContent(/Unlimited/i);
+  });
+
+  it("prefills unlimited swap mode from a -1 pool value (RUN-147)", () => {
+    render(
+      <PoolWizardModal
+        isOpen={true}
+        onClose={vi.fn()}
+        mode="edit"
+        pool={makeEditPool({ memorySwapLimit: "-1" })}
+        authProfiles={defaultAuthProfiles}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
+    // jsdom renders the Radix SelectValue as the raw item value.
+    expect(screen.getByLabelText(/Memory Swap/i)).toHaveTextContent(/unlimited/i);
   });
 
   it("shows the rename banner when the pool name changes", () => {

@@ -1631,3 +1631,87 @@ func TestDeletePoolDrainModePassThrough(t *testing.T) {
 		t.Fatalf("expected both drain modes in pool.delete audit logs: %v", audited)
 	}
 }
+
+// TestPoolServiceMemorySwapValidation covers the memory_swap_limit rules
+// (RUN-147) through CreatePool: empty = daemon default (2x memory); "-1" =
+// unlimited (requires memory_limit); otherwise the value must parse and be
+// >= memory_limit (equal = no extra swap).
+func TestPoolServiceMemorySwapValidation(t *testing.T) {
+	ctx := context.Background()
+	database, jwtSecret := setupTestDB(t)
+	srv := server.New(server.Options{
+		Port:             8080,
+		AuthDB:           database,
+		PoolDB:           database,
+		JWTSigningSecret: jwtSecret,
+	})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	})); err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	cookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
+
+	authProfile, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
+		Name:           "swap-auth-profile",
+		AuthMethod:     "pat",
+		TokenEncrypted: sql.NullString{String: "encrypted-token", Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateAuthProfile failed: %v", err)
+	}
+
+	client := supervisorv1connect.NewPoolServiceClient(ts.Client(), ts.URL)
+
+	cases := []struct {
+		name        string
+		memoryLimit string
+		swapLimit   string
+		wantCode    connect.Code
+	}{
+		{"swap equal to memory means no extra swap", "8GB", "8GB", connect.Code(0)},
+		{"swap above memory grants headroom", "8GB", "12GB", connect.Code(0)},
+		{"unlimited sentinel with memory", "8GB", "-1", connect.Code(0)},
+		{"swap without memory is rejected", "", "8GB", connect.CodeInvalidArgument},
+		{"unlimited without memory is rejected", "", "-1", connect.CodeInvalidArgument},
+		{"swap below memory is rejected", "8GB", "4GB", connect.CodeInvalidArgument},
+		{"unparseable swap is rejected", "8GB", "banana", connect.CodeInvalidArgument},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := connect.NewRequest(&supervisorv1.CreatePoolRequest{
+				Pool: &supervisorv1.Pool{
+					Name:            fmt.Sprintf("swap-pool-%d", i),
+					Provider:        "github",
+					RepositoryUrl:   "https://github.com/acme/repo",
+					AuthProfileId:   authProfile.ID,
+					Scope:           "repo",
+					RunnerImage:     "ghcr.io/noosxe/runnero:latest",
+					MemoryLimit:     tc.memoryLimit,
+					MemorySwapLimit: tc.swapLimit,
+				},
+			})
+			req.Header().Set("Cookie", "session_token="+cookie)
+			_, err := client.CreatePool(ctx, req)
+			gotCode := connect.Code(0)
+			if err != nil {
+				gotCode = connect.CodeOf(err)
+			}
+			if gotCode != tc.wantCode {
+				t.Fatalf("memory_limit=%q swap=%q: want %v, got %v", tc.memoryLimit, tc.swapLimit, tc.wantCode, err)
+			}
+		})
+	}
+}
