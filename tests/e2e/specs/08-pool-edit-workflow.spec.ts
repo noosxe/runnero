@@ -259,7 +259,7 @@ async function poolRunnerRows(page: Page): Promise<Array<{ name: string; state: 
 // scoped to default-pool's card.
 async function openDefaultPoolDetail(page: Page) {
   await page
-    .locator("div.group", { has: page.getByRole("heading", { name: "default-pool", exact: true }) })
+    .getByTestId("pool-card-default-pool")
     .getByRole("link", { name: /View Pool Details/i })
     .click();
 }
