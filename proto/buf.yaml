@@ -1,4 +1,8 @@
 version: v1
+# protovalidate rule annotations (docs/30 §5.2): rules ride the descriptors,
+# evaluated server-side by protovalidate-go and client-side by protovalidate-es.
+deps:
+  - buf.build/bufbuild/protovalidate
 breaking:
   use:
     - FILE

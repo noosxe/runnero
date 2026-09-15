@@ -1,12 +1,16 @@
-version: v1
+version: v2
 plugins:
-  - plugin: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go
     out: internal/pb/supervisor/v1
     opt: paths=source_relative
-  - plugin: buf.build/connectrpc/go
+  - remote: buf.build/connectrpc/go
     out: internal/pb/supervisor/v1
     opt: paths=source_relative
-  - plugin: buf.build/bufbuild/es
+  # include_imports: api.proto now imports buf/validate/validate.proto
+  # (protovalidate rules, docs/30 §5.2); protobuf-es generated code references
+  # the dependency's descriptor module, so it must be generated too. The Go
+  # buf/validate types come from the official gen module instead (go.mod).
+  - remote: buf.build/bufbuild/es
     out: web/src/gen
     opt: target=ts
-
+    include_imports: true

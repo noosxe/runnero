@@ -328,6 +328,58 @@ message GetSystemStatsResponse {
   double success_rate_percent = 8;
 ```
 
+## Validation contract (protovalidate, RUN-216 / docs/30)
+
+Validation rules live in `proto/api.proto` as
+[protovalidate](https://protovalidate.com) annotations and are enforced on
+every unary RPC by a Connect interceptor (`internal/server/validate.go`,
+innermost — after authentication). Rules are classified (docs/30 §5.1):
+
+- **Class A — schema rules** (format, range, required, cross-field CEL):
+  declared as annotations on the request messages. Evaluated by protovalidate-go
+  server-side and protovalidate-es client-side; drift between the two is
+  impossible by construction. Violations use protovalidate's canonical rule ids
+  (`string.min_len`, `int64.gt`, …) plus explicit ids for CEL rules
+  (`pool.min_idle.max_concurrency`, `pool.poll_interval.range`,
+  `pool.update.id_required`, `auth_profile.app_id.required`,
+  `auth_profile.private_key.required`, `auth_profile.token.required`).
+- **Class B — parser/stateful rules** (quantity-string parsing, cron syntax,
+  URL parsing, uniqueness, immutability): cannot be expressed in the schema;
+  enforced in Go handlers and delivered through the identical channel with
+  stable rule ids from the registry in `internal/server/violations.go`
+  (`pool.memory_swap.gte_memory`, `pool.renovate.cron_invalid`,
+  `pool.name.duplicate`, …). The registry is API contract — never rename ids
+  without updating this doc and the web's registry mirror together.
+- **Class C — UI-state rules** (wizard step gating, custom-mode requires a
+  value) have no wire representation and live only in TanStack Form
+  (docs/30 §5.1).
+
+### Wire shape
+
+Any rule violation rejects the RPC with `CodeInvalidArgument` (uniqueness
+keeps `CodeAlreadyExists`) and attaches **one** Connect error detail of type
+`buf.validate.Violations`:
+
+```proto
+message Violations {
+  repeated Violation violations = 1;
+}
+message Violation {
+  optional FieldPath field = 5;   // structured path, e.g. [pool, memory_limit]
+  optional string rule_id = 2;    // stable id from the registries above
+  optional string message = 3;    // user-facing text
+}
+```
+
+Clients that ignore details see today's behavior unchanged: the error message
+is the violations' user-facing texts joined with `"; "`. The web maps each
+violation to its form field by the last `field` path element and keys
+behavior on `rule_id`, never on message text (docs/30 §5.4).
+
+Enforcement is fail-closed: rule-evaluation failures (CEL compilation,
+uninspectable envelopes) reject the request with a generic message and log
+the cause server-side — a request never passes unvalidated.
+
 ## LogService (RUN-218, docs/29 §5.1)
 
 Read side of the persisted log store (RUN-186): live runner streaming plus

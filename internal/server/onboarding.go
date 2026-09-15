@@ -124,8 +124,10 @@ func (s *OnboardingService) GetAppSettings(ctx context.Context, _ *connect.Reque
 // SetAppSetting updates or sets a specific application setting key/value pair.
 func (s *OnboardingService) SetAppSetting(ctx context.Context, req *connect.Request[supervisorv1.SetAppSettingRequest]) (*connect.Response[supervisorv1.SetAppSettingResponse], error) {
 	key := strings.TrimSpace(req.Msg.Key)
+	// Trim-aware: min_len sees the raw wire string; the setting is stored with
+	// the trimmed key.
 	if key == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("app setting key must not be empty"))
+		return nil, invalidArgument(newViolation(RuleAppSettingKeyRequired, "key", "app setting key must not be empty"))
 	}
 
 	setting, err := s.db.SetAppSetting(ctx, db.SetAppSettingParams{

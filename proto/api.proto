@@ -2,6 +2,15 @@ syntax = "proto3";
 
 package supervisor.v1;
 
+// Validation rules are protovalidate annotations (docs/30 §5.2): enforced
+// server-side by the Connect validation interceptor (internal/server/validate.go),
+// previewed client-side by protovalidate-es on the same messages. Class B rules
+// (quantity parsing, cron, uniqueness) stay in Go and return violations through
+// the same buf.validate.Violations error-details channel with stable rule ids
+// (internal/server/violations.go registry).
+
+import "buf/validate/validate.proto";
+
 option go_package = "github.com/noosxe/runnero/internal/pb/supervisor/v1;supervisorv1";
 
 // ----------------------------------------
@@ -10,18 +19,18 @@ option go_package = "github.com/noosxe/runnero/internal/pb/supervisor/v1;supervi
 
 service AuthService {
   // Setup the initial local administrator account
-  rpc SetupAdmin (SetupAdminRequest) returns (SetupAdminResponse);
+  rpc SetupAdmin(SetupAdminRequest) returns (SetupAdminResponse);
 
   // Login with local credentials to receive a session token
-  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
 
   // Verify current session
-  rpc GetSession (GetSessionRequest) returns (GetSessionResponse);
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
 }
 
 message SetupAdminRequest {
-  string username = 1;
-  string password = 2;
+  string username = 1 [(buf.validate.field).string.min_len = 1];
+  string password = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 message SetupAdminResponse {
@@ -29,8 +38,10 @@ message SetupAdminResponse {
 }
 
 message LoginRequest {
-  string username = 1;
-  string password = 2;
+  // No pattern here on purpose: login must accept whatever SetupAdmin once
+  // accepted (docs/30 §5.2) — empty-gating only.
+  string username = 1 [(buf.validate.field).string.min_len = 1];
+  string password = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 message LoginResponse {
@@ -52,20 +63,20 @@ message GetSessionResponse {
 // ----------------------------------------
 
 service PoolService {
-  rpc ListPools (ListPoolsRequest) returns (ListPoolsResponse);
-  rpc CreatePool (CreatePoolRequest) returns (CreatePoolResponse);
-  rpc UpdatePool (UpdatePoolRequest) returns (UpdatePoolResponse);
-  rpc DeletePool (DeletePoolRequest) returns (DeletePoolResponse);
+  rpc ListPools(ListPoolsRequest) returns (ListPoolsResponse);
+  rpc CreatePool(CreatePoolRequest) returns (CreatePoolResponse);
+  rpc UpdatePool(UpdatePoolRequest) returns (UpdatePoolResponse);
+  rpc DeletePool(DeletePoolRequest) returns (DeletePoolResponse);
   // WatchPools provides near-realtime server-streaming push of pool states and runner counts
-  rpc WatchPools (WatchPoolsRequest) returns (stream WatchPoolsResponse);
+  rpc WatchPools(WatchPoolsRequest) returns (stream WatchPoolsResponse);
   // ListRunners lists active container instances for a pool
-  rpc ListRunners (ListRunnersRequest) returns (ListRunnersResponse);
+  rpc ListRunners(ListRunnersRequest) returns (ListRunnersResponse);
   // TerminateRunner manually kills an active runner container instance
-  rpc TerminateRunner (TerminateRunnerRequest) returns (TerminateRunnerResponse);
+  rpc TerminateRunner(TerminateRunnerRequest) returns (TerminateRunnerResponse);
   // WatchRunners provides near-realtime server-streaming push of active runner instances
-  rpc WatchRunners (WatchRunnersRequest) returns (stream WatchRunnersResponse);
+  rpc WatchRunners(WatchRunnersRequest) returns (stream WatchRunnersResponse);
   // DiscoverTargets queries available repositories or organizations from an auth profile
-  rpc DiscoverTargets (DiscoverTargetsRequest) returns (DiscoverTargetsResponse);
+  rpc DiscoverTargets(DiscoverTargetsRequest) returns (DiscoverTargetsResponse);
 }
 
 enum PoolHealthStatus {
@@ -77,12 +88,23 @@ enum PoolHealthStatus {
 }
 
 message Pool {
+  // Cross-field rule (docs/30 §5.1): min_idle may not exceed the concurrency
+  // cap; max_concurrency 0 means unlimited.
+  option (buf.validate.message).cel = {
+    id: "pool.min_idle.max_concurrency"
+    message: "min_idle_runners must not exceed max_concurrency (0 = unlimited)"
+    expression: "this.max_concurrency == 0 || this.min_idle_runners <= this.max_concurrency"
+  };
   int64 id = 1;
-  string name = 2;
+  // Slug, mirroring the wizard's own client-side rule (/^[a-z0-9-]+$/).
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    pattern: "^[a-z0-9-]+$"
+  }];
   string provider = 3;
   string repository_url = 4;
-  int32 min_idle_runners = 5;
-  int32 max_concurrency = 6;
+  int32 min_idle_runners = 5 [(buf.validate.field).int32.gte = 0];
+  int32 max_concurrency = 6 [(buf.validate.field).int32.gte = 0];
   repeated string labels = 7;
   string runner_image = 8;
   bool allow_docker = 9;
@@ -93,8 +115,8 @@ message Pool {
   int32 idle_runners = 12;
 
   // Resource configuration
-  int64 auth_profile_id = 13;
-  string scope = 14;              // "repo", "org", or "global"
+  int64 auth_profile_id = 13 [(buf.validate.field).int64.gt = 0];
+  string scope = 14; // "repo", "org", or "global"
   string cpu_limit = 15;
   string memory_limit = 16;
   // Total memory+swap allowance mirroring Docker HostConfig.MemorySwap:
@@ -104,8 +126,8 @@ message Pool {
   // Maximum number of processes (PIDs) a runner container may spawn,
   // mirroring Docker HostConfig.PidsLimit: 0 = unlimited (opt-out),
   // otherwise the process ceiling (fork-bomb blast-radius bound). (RUN-148)
-  int32 pids_limit = 33;
-  int32 max_runner_lifetime_seconds = 17;
+  int32 pids_limit = 33 [(buf.validate.field).int32.gte = 0];
+  int32 max_runner_lifetime_seconds = 17 [(buf.validate.field).int32.gte = 0];
 
   // Image update metadata
   bool image_update_available = 18;
@@ -124,7 +146,13 @@ message Pool {
 
   // Demand polling fallback (docs/24)
   bool poll_fallback = 27;
-  int32 poll_interval_seconds = 28;  // 0 means server default (30s)
+  int32 poll_interval_seconds = 28 [ // 0 means server default (30s)
+    (buf.validate.field).cel = {
+      id: "pool.poll_interval.range"
+      message: "poll_interval_seconds must be between 15 and 3600"
+      expression: "this == 0 || (this >= 15 && this <= 3600)"
+    }
+  ];
 
   // Demand-poll diagnostics (read-only, populated by server, docs/24 §5.9)
   string last_poll_at = 29;
@@ -145,7 +173,7 @@ message ListPoolsResponse {
 }
 
 message CreatePoolRequest {
-  Pool pool = 1;
+  Pool pool = 1 [(buf.validate.field).required = true];
 }
 
 message CreatePoolResponse {
@@ -153,7 +181,12 @@ message CreatePoolResponse {
 }
 
 message UpdatePoolRequest {
-  Pool pool = 1;
+  option (buf.validate.message).cel = {
+    id: "pool.update.id_required"
+    message: "pool id must be specified for update"
+    expression: "has(this.pool) && this.pool.id > 0"
+  };
+  Pool pool = 1 [(buf.validate.field).required = true];
 }
 
 message UpdatePoolResponse {
@@ -245,8 +278,8 @@ message DiscoveredTarget {
 message AppInstallation {
   int64 id = 1;
   string account_login = 2;
-  string account_type = 3;  // "User" or "Organization"
-  string html_url = 4;      // Direct configuration URL on GitHub
+  string account_type = 3; // "User" or "Organization"
+  string html_url = 4; // Direct configuration URL on GitHub
   string repository_selection = 5; // "all" or "selected"
 }
 
@@ -261,19 +294,19 @@ message DiscoverTargetsResponse {
 // ----------------------------------------
 
 service AuthProfileService {
-  rpc ListAuthProfiles (ListAuthProfilesRequest) returns (ListAuthProfilesResponse);
-  rpc CreateAuthProfile (CreateAuthProfileRequest) returns (CreateAuthProfileResponse);
-  rpc UpdateAuthProfile (UpdateAuthProfileRequest) returns (UpdateAuthProfileResponse);
-  rpc DeleteAuthProfile (DeleteAuthProfileRequest) returns (DeleteAuthProfileResponse);
+  rpc ListAuthProfiles(ListAuthProfilesRequest) returns (ListAuthProfilesResponse);
+  rpc CreateAuthProfile(CreateAuthProfileRequest) returns (CreateAuthProfileResponse);
+  rpc UpdateAuthProfile(UpdateAuthProfileRequest) returns (UpdateAuthProfileResponse);
+  rpc DeleteAuthProfile(DeleteAuthProfileRequest) returns (DeleteAuthProfileResponse);
 }
 
 message AuthProfile {
   int64 id = 1;
   string name = 2;
-  string auth_method = 3;         // "github_app", "gitea_token", "forgejo_token", "pat"
-  int64 app_id = 4;               // GitHub App only
-  bool has_private_key = 5;       // Read-only indicator (never exposes raw key)
-  bool has_token = 6;             // Read-only indicator (never exposes raw token)
+  string auth_method = 3; // "github_app", "gitea_token", "forgejo_token", "pat"
+  int64 app_id = 4; // GitHub App only
+  bool has_private_key = 5; // Read-only indicator (never exposes raw key)
+  bool has_token = 6; // Read-only indicator (never exposes raw token)
   string install_url = 7;
   int32 installations_count = 8;
 }
@@ -285,25 +318,62 @@ message ListAuthProfilesResponse {
 }
 
 message CreateAuthProfileRequest {
-  string name = 1;
-  string auth_method = 2;
-  int64 app_id = 3;               // GitHub App only
-  bytes private_key = 4;          // GitHub App private key PEM (write-only)
-  string token = 5;               // PAT or Gitea/Forgejo token (write-only)
+  // Conditional credential requirements (docs/30 §5.1): what each auth_method
+  // must carry. Keep-existing update semantics live server-side (class B).
+  option (buf.validate.message).cel = {
+    id: "auth_profile.app_id.required"
+    message: "github_app authentication requires a valid positive app_id"
+    expression: "this.auth_method != 'github_app' || this.app_id > 0"
+  };
+  option (buf.validate.message).cel = {
+    id: "auth_profile.private_key.required"
+    message: "github_app authentication requires private_key"
+    expression: "this.auth_method != 'github_app' || this.private_key.size() > 0"
+  };
+  option (buf.validate.message).cel = {
+    id: "auth_profile.token.required"
+    message: "gitea_token, forgejo_token and pat authentication require token"
+    expression: "!(this.auth_method in ['gitea_token', 'forgejo_token', 'pat']) || this.token.size() > 0"
+  };
+  string name = 1 [(buf.validate.field).string.min_len = 1];
+  string auth_method = 2 [(buf.validate.field).string = {
+    in: [
+      "github_app",
+      "gitea_token",
+      "forgejo_token",
+      "pat"
+    ]
+  }];
+  int64 app_id = 3; // GitHub App only
+  bytes private_key = 4; // GitHub App private key PEM (write-only)
+  string token = 5; // PAT or Gitea/Forgejo token (write-only)
 }
 
 message CreateAuthProfileResponse {
   AuthProfile profile = 1;
 }
 
-
 message UpdateAuthProfileRequest {
-  int64 id = 1;                   // Target profile (required, > 0)
-  string name = 2;                // New display name (required, unique)
-  string auth_method = 3;         // "github_app", "gitea_token", "forgejo_token", "pat"
-  int64 app_id = 4;               // GitHub App only (required > 0 for github_app)
-  bytes private_key = 5;          // Write-only; empty = keep existing key
-  string token = 6;               // Write-only; empty = keep existing token
+  // private_key/token stay optional here: empty means "keep existing"
+  // (server-side class B checks cover method-change cases).
+  option (buf.validate.message).cel = {
+    id: "auth_profile.app_id.required"
+    message: "github_app authentication requires a valid positive app_id"
+    expression: "this.auth_method != 'github_app' || this.app_id > 0"
+  };
+  int64 id = 1 [(buf.validate.field).int64.gt = 0]; // Target profile
+  string name = 2 [(buf.validate.field).string.min_len = 1]; // New display name (required, unique)
+  string auth_method = 3 [(buf.validate.field).string = {
+    in: [
+      "github_app",
+      "gitea_token",
+      "forgejo_token",
+      "pat"
+    ]
+  }];
+  int64 app_id = 4; // GitHub App only (required > 0 for github_app)
+  bytes private_key = 5; // Write-only; empty = keep existing key
+  string token = 6; // Write-only; empty = keep existing token
 }
 
 message UpdateAuthProfileResponse {
@@ -323,10 +393,10 @@ message DeleteAuthProfileResponse {
 // ----------------------------------------
 
 service OnboardingService {
-  rpc GetOnboardingStatus (GetOnboardingStatusRequest) returns (GetOnboardingStatusResponse);
-  rpc GetAppSettings (GetAppSettingsRequest) returns (GetAppSettingsResponse);
-  rpc SetAppSetting (SetAppSettingRequest) returns (SetAppSettingResponse);
-  rpc CompleteOnboarding (CompleteOnboardingRequest) returns (CompleteOnboardingResponse);
+  rpc GetOnboardingStatus(GetOnboardingStatusRequest) returns (GetOnboardingStatusResponse);
+  rpc GetAppSettings(GetAppSettingsRequest) returns (GetAppSettingsResponse);
+  rpc SetAppSetting(SetAppSettingRequest) returns (SetAppSettingResponse);
+  rpc CompleteOnboarding(CompleteOnboardingRequest) returns (CompleteOnboardingResponse);
 }
 
 message GetOnboardingStatusRequest {}
@@ -335,8 +405,8 @@ message GetOnboardingStatusResponse {
   bool admin_created = 1;
   bool auth_profile_exists = 2;
   bool pool_exists = 3;
-  bool setup_complete = 4;        // true when admin_created AND (onboarding_completed OR pool_exists)
-  bool onboarding_completed = 5;  // true if CompleteOnboarding was invoked
+  bool setup_complete = 4; // true when admin_created AND (onboarding_completed OR pool_exists)
+  bool onboarding_completed = 5; // true if CompleteOnboarding was invoked
   string host_arch = 6;
   string host_os = 7;
 }
@@ -360,7 +430,7 @@ message GetAppSettingsResponse {
 }
 
 message SetAppSettingRequest {
-  string key = 1;
+  string key = 1 [(buf.validate.field).string.min_len = 1];
   string value = 2;
 }
 
@@ -374,11 +444,11 @@ message SetAppSettingResponse {
 // ----------------------------------------
 
 service AnalyticsService {
-  rpc GetJobHistory (GetJobHistoryRequest) returns (GetJobHistoryResponse);
-  rpc GetJobRecord (GetJobRecordRequest) returns (GetJobRecordResponse);
-  rpc GetSystemStats (GetSystemStatsRequest) returns (GetSystemStatsResponse);
+  rpc GetJobHistory(GetJobHistoryRequest) returns (GetJobHistoryResponse);
+  rpc GetJobRecord(GetJobRecordRequest) returns (GetJobRecordResponse);
+  rpc GetSystemStats(GetSystemStatsRequest) returns (GetSystemStatsResponse);
   // WatchDashboard provides near-realtime server-streaming push of dashboard statistics, pool states, and recent jobs
-  rpc WatchDashboard (WatchDashboardRequest) returns (stream WatchDashboardResponse);
+  rpc WatchDashboard(WatchDashboardRequest) returns (stream WatchDashboardResponse);
 }
 
 message JobRecord {
@@ -462,19 +532,19 @@ message WatchDashboardResponse {
 
 service LogService {
   // Live streaming logs of an active runner container
-  rpc StreamRunnerLogs (StreamRunnerLogsRequest) returns (stream LogChunk);
+  rpc StreamRunnerLogs(StreamRunnerLogsRequest) returns (stream LogChunk);
 
   // Historical logs for completed/exited runners
-  rpc GetRunnerLogs (GetRunnerLogsRequest) returns (GetRunnerLogsResponse);
+  rpc GetRunnerLogs(GetRunnerLogsRequest) returns (GetRunnerLogsResponse);
 
   // List retained supervisor boot files (docs/29 §5.1)
-  rpc ListSupervisorLogs (ListSupervisorLogsRequest) returns (ListSupervisorLogsResponse);
+  rpc ListSupervisorLogs(ListSupervisorLogsRequest) returns (ListSupervisorLogsResponse);
 
   // Server-stream one supervisor boot file, optionally live-following the current boot
-  rpc StreamSupervisorLog (StreamSupervisorLogRequest) returns (stream LogChunk);
+  rpc StreamSupervisorLog(StreamSupervisorLogRequest) returns (stream LogChunk);
 
   // Paginated, filtered removal decision records (reverse-chronological)
-  rpc ListRemovalRecords (ListRemovalRecordsRequest) returns (ListRemovalRecordsResponse);
+  rpc ListRemovalRecords(ListRemovalRecordsRequest) returns (ListRemovalRecordsResponse);
 }
 
 message StreamRunnerLogsRequest {
@@ -563,13 +633,13 @@ message ListRemovalRecordsResponse {
 
 service RenovateService {
   // Manually trigger a Renovate run for a pool
-  rpc TriggerRenovateRun (TriggerRenovateRunRequest) returns (TriggerRenovateRunResponse);
+  rpc TriggerRenovateRun(TriggerRenovateRunRequest) returns (TriggerRenovateRunResponse);
 
   // Get current status of Renovate runs for a pool
-  rpc GetRenovateStatus (GetRenovateStatusRequest) returns (GetRenovateStatusResponse);
+  rpc GetRenovateStatus(GetRenovateStatusRequest) returns (GetRenovateStatusResponse);
 
   // List historical Renovate runs
-  rpc ListRenovateHistory (ListRenovateHistoryRequest) returns (ListRenovateHistoryResponse);
+  rpc ListRenovateHistory(ListRenovateHistoryRequest) returns (ListRenovateHistoryResponse);
 }
 
 message RenovateRun {
@@ -616,16 +686,16 @@ message ListRenovateHistoryResponse {
 
 service ImageUpdateService {
   // Check whether a newer image is available for a pool
-  rpc CheckImageUpdate (CheckImageUpdateRequest) returns (CheckImageUpdateResponse);
+  rpc CheckImageUpdate(CheckImageUpdateRequest) returns (CheckImageUpdateResponse);
 
   // Manually trigger pulling updated image
-  rpc PullImage (PullImageRequest) returns (PullImageResponse);
+  rpc PullImage(PullImageRequest) returns (PullImageResponse);
 
   // List pending image updates across pools
-  rpc ListImageUpdates (ListImageUpdatesRequest) returns (ListImageUpdatesResponse);
+  rpc ListImageUpdates(ListImageUpdatesRequest) returns (ListImageUpdatesResponse);
 
   // Acknowledge / dismiss an image update notification
-  rpc DismissImageUpdate (DismissImageUpdateRequest) returns (DismissImageUpdateResponse);
+  rpc DismissImageUpdate(DismissImageUpdateRequest) returns (DismissImageUpdateResponse);
 }
 
 message ImageUpdate {

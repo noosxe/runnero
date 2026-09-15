@@ -86,28 +86,15 @@ func (s *AuthProfileService) populateAppMetadata(ctx context.Context, proto *sup
 
 func validateCreateAuthProfileRequest(req *supervisorv1.CreateAuthProfileRequest) error {
 	if req == nil {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("request payload is required"))
+		return invalidArgument(newViolation(RuleAuthProfilePayloadRequired, "", "request payload is required"))
 	}
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("auth profile name must not be empty"))
-	}
-
-	method := strings.ToLower(strings.TrimSpace(req.AuthMethod))
-	switch method {
-	case "github_app":
-		if req.AppId <= 0 {
-			return connect.NewError(connect.CodeInvalidArgument, errors.New("github_app authentication requires a valid positive app_id"))
-		}
-		if len(req.PrivateKey) == 0 {
-			return connect.NewError(connect.CodeInvalidArgument, errors.New("github_app authentication requires private_key"))
-		}
-	case "gitea_token", "forgejo_token", "pat":
-		if strings.TrimSpace(req.Token) == "" {
-			return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s authentication requires token", method))
-		}
-	default:
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unsupported auth_method %q; must be 'github_app', 'gitea_token', 'forgejo_token', or 'pat'", req.AuthMethod))
+	// Method and per-method credential requirements are protovalidate
+	// annotations on CreateAuthProfileRequest (class A, docs/30 §5.1), enforced
+	// by the interceptor before handlers run. The name check stays here because
+	// it is trim-aware: min_len sees the raw wire string, while the profile is
+	// stored with the trimmed name.
+	if strings.TrimSpace(req.Name) == "" {
+		return invalidArgument(newViolation(RuleAuthProfileNameRequired, "name", "auth profile name must not be empty"))
 	}
 
 	return nil
@@ -119,25 +106,14 @@ func validateCreateAuthProfileRequest(req *supervisorv1.CreateAuthProfileRequest
 // sees the stored profile.
 func validateUpdateAuthProfileRequest(req *supervisorv1.UpdateAuthProfileRequest) error {
 	if req == nil {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("request payload is required"))
+		return invalidArgument(newViolation(RuleAuthProfilePayloadRequired, "", "request payload is required"))
 	}
-	if req.Id <= 0 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("invalid auth profile id"))
-	}
+	// id/method/app_id rules are annotations on UpdateAuthProfileRequest (class
+	// A, docs/30 §5.1); the interceptor enforces them. The name check is
+	// trim-aware (handlers store the trimmed name); the checks below in
+	// computeUpdateAuthProfilePlan stay class B: they need the stored row.
 	if strings.TrimSpace(req.Name) == "" {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("auth profile name must not be empty"))
-	}
-
-	method := strings.ToLower(strings.TrimSpace(req.AuthMethod))
-	switch method {
-	case "github_app":
-		if req.AppId <= 0 {
-			return connect.NewError(connect.CodeInvalidArgument, errors.New("github_app authentication requires a valid positive app_id"))
-		}
-	case "gitea_token", "forgejo_token", "pat":
-		// Token presence is decided against the stored profile (blank = keep).
-	default:
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unsupported auth_method %q; must be 'github_app', 'gitea_token', 'forgejo_token', or 'pat'", req.AuthMethod))
+		return invalidArgument(newViolation(RuleAuthProfileNameRequired, "name", "auth profile name must not be empty"))
 	}
 
 	return nil
@@ -182,7 +158,7 @@ func computeUpdateAuthProfilePlan(req *supervisorv1.UpdateAuthProfileRequest, ex
 		case hasExistingKey && existing.AuthMethod == method:
 			plan.params.PrivateKeyEncrypted = existing.PrivateKeyEncrypted
 		case existing.AuthMethod != method:
-			return updatePlan{}, connect.NewError(connect.CodeInvalidArgument, errors.New("changing auth_method to github_app requires private_key"))
+			return updatePlan{}, invalidArgument(newViolation(RuleAuthProfilePrivateKeyChangeRequired, "private_key", "changing auth_method to github_app requires private_key"))
 		default:
 			// Degenerate row: github_app without a stored key self-heals on update.
 			return updatePlan{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("auth profile has no stored private key; supply private_key to set it"))
@@ -197,7 +173,7 @@ func computeUpdateAuthProfilePlan(req *supervisorv1.UpdateAuthProfileRequest, ex
 		case hasExistingToken && existing.AuthMethod == method:
 			plan.params.TokenEncrypted = existing.TokenEncrypted
 		case existing.AuthMethod != method:
-			return updatePlan{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("changing auth_method to %s requires token", method))
+			return updatePlan{}, invalidArgument(newViolation(RuleAuthProfileTokenChangeRequired, "token", "changing auth_method to %s requires token", method))
 		default:
 			// Degenerate row: token method without a stored token self-heals on update.
 			return updatePlan{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("auth profile has no stored token; supply token to set it"))
@@ -234,7 +210,7 @@ func (s *AuthProfileService) CreateAuthProfile(ctx context.Context, req *connect
 
 	if s.validator != nil {
 		if err := s.validator.ValidateCredentials(ctx, req.Msg); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("credential validation failed: %w", err))
+			return nil, invalidArgument(newViolation(RuleAuthProfileCredentialInvalid, "", "credential validation failed: %v", err))
 		}
 	}
 
@@ -324,7 +300,7 @@ func (s *AuthProfileService) UpdateAuthProfile(ctx context.Context, req *connect
 			Token:      req.Msg.Token,
 		}
 		if err := s.validator.ValidateCredentials(ctx, checkReq); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("credential validation failed: %w", err))
+			return nil, invalidArgument(newViolation(RuleAuthProfileCredentialInvalid, "", "credential validation failed: %v", err))
 		}
 	}
 
@@ -353,7 +329,7 @@ func (s *AuthProfileService) UpdateAuthProfile(ctx context.Context, req *connect
 	updated, err := s.db.UpdateAuthProfile(ctx, plan.params)
 	if err != nil {
 		if db.IsUniqueConstraintError(err) {
-			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("auth profile name %q already exists", plan.params.Name))
+			return nil, alreadyExists(newViolation(RuleAuthProfileNameDuplicate, "name", "auth profile name %q already exists", plan.params.Name))
 		}
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("updating auth profile: %w", err))
 	}
