@@ -4,7 +4,6 @@ import {
   Field,
   FieldContent,
   FieldDescription,
-  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
@@ -34,8 +33,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { create } from "@bufbuild/protobuf";
-import { PoolSchema, type Pool } from "../../gen/api_pb";
+import {
+  CreatePoolRequestSchema,
+  PoolSchema,
+  UpdatePoolRequestSchema,
+  type Pool,
+} from "../../gen/api_pb";
 import { useCreatePool, useUpdatePool, useDiscoverTargets } from "../../lib/api/query-hooks";
+import { useStore } from "@tanstack/react-form";
+import {
+  FormError,
+  TextField,
+  groupByField,
+  useAppForm,
+  validateMessage,
+  violationsFromConnectError,
+} from "../../lib/forms";
 import { getSuggestedRunnerLabels } from "../../lib/utils/labels";
 import { authMethodLabel } from "../../lib/utils/auth-methods";
 import {
@@ -59,6 +72,86 @@ import {
   Pencil,
 } from "lucide-react";
 
+interface WizardFormValues {
+  name: string;
+  minIdleRunners: string;
+  maxConcurrency: string;
+  labels: string;
+  runnerImage: string;
+  cpuLimit: string;
+  memoryLimit: string;
+  swapCustom: string;
+  pidsCustom: string;
+  renovateCron: string;
+  renovateImage: string;
+}
+
+/** Parse a numeric text input; "" or garbage → 0 (annotations decide validity). */
+function toIntOrZero(raw: string): number {
+  const parsed = Number.parseInt(raw.trim(), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+// Free-form form key → wizard step (gating buckets, docs/30 §5.4).
+const FIELD_STEP: Record<keyof WizardFormValues, 1 | 2 | 3 | 4> = {
+  name: 1,
+  minIdleRunners: 3,
+  maxConcurrency: 3,
+  labels: 3,
+  runnerImage: 3,
+  cpuLimit: 3,
+  memoryLimit: 3,
+  swapCustom: 3,
+  pidsCustom: 3,
+  renovateCron: 4,
+  renovateImage: 4,
+};
+
+// Form key → DOM id (focus-first-invalid).
+const FIELD_DOM_ID: Record<keyof WizardFormValues, string> = {
+  name: "wizard-pool-name",
+  minIdleRunners: "wizard-min-idle",
+  maxConcurrency: "wizard-max-concurrency",
+  labels: "wizard-labels",
+  runnerImage: "wizard-runner-image",
+  cpuLimit: "wizard-cpu",
+  memoryLimit: "wizard-mem",
+  swapCustom: "wizard-swap-custom",
+  pidsCustom: "wizard-pids-custom",
+  renovateCron: "wizard-renovate-cron",
+  renovateImage: "wizard-renovate-image",
+};
+
+// Proto field name (last path element of a violation) → form key. Fields with
+// no wizard input (selections, targets) fall into their step bucket instead.
+const PROTO_FIELD_TO_FORM: Record<string, keyof WizardFormValues> = {
+  name: "name",
+  min_idle_runners: "minIdleRunners",
+  max_concurrency: "maxConcurrency",
+  labels: "labels",
+  runner_image: "runnerImage",
+  cpu_limit: "cpuLimit",
+  memory_limit: "memoryLimit",
+  memory_swap_limit: "swapCustom",
+  pids_limit: "pidsCustom",
+  cron_schedule: "renovateCron",
+  image: "renovateImage",
+};
+
+const PROTO_FIELD_STEP: Record<string, 1 | 2 | 3 | 4> = {
+  // message-level CEL path element
+  pool: 3,
+  repository_url: 2,
+  target_urls: 2,
+  auth_profile_id: 1,
+  allow_docker: 3,
+  poll_fallback: 3,
+};
+
+const MESSAGE_LEVEL_STEP: Record<string, 1 | 2 | 3 | 4> = {
+  "pool.min_idle.max_concurrency": 3,
+  "pool.update.id_required": 4,
+};
 export interface PoolWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -93,8 +186,51 @@ export function PoolWizardModal({
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [error, setError] = useState<string | null>(null);
 
+  // Free-form inputs live on the app form (docs/30 §5.4). Rules are NOT
+  // re-implemented here: blur/step/submit handlers build the exact request
+  // message the wizard submits and run protovalidate on it (class A — the
+  // same engine and annotations as the server), plus the two UI-state rules
+  // (class C, docs/30 §5.1) for the custom swap/pids modes. Selections and
+  // toggles stay local state: constrained controls whose wire fields carry
+  // no format rules.
+  const form = useAppForm({
+    defaultValues: {
+      name: pool?.name ?? "",
+      minIdleRunners: String(pool?.minIdleRunners ?? 1),
+      maxConcurrency: String(pool?.maxConcurrency ?? 5),
+      labels: pool ? pool.labels.join(",") : suggestedLabels,
+      runnerImage: pool?.runnerImage || "ghcr.io/noosxe/runnero:latest",
+      cpuLimit: pool?.cpuLimit || "2.0",
+      memoryLimit: pool?.memoryLimit || "4GB",
+      swapCustom:
+        pool?.memorySwapLimit && pool.memorySwapLimit !== "-1" ? pool.memorySwapLimit : "",
+      pidsCustom:
+        pool?.pidsLimit && ![4096, 1024].includes(pool.pidsLimit) ? String(pool.pidsLimit) : "",
+      renovateCron: pool?.renovate?.cronSchedule || "0 2 * * *",
+      renovateImage: pool?.renovate?.image || "renovate/renovate:latest",
+    },
+  });
+  // Reactive subscription: the wizard re-renders on value changes (controlled
+  // shims + gates read fresh values), matching the useState behavior it
+  // replaced.
+  const formValues = useStore(form.store, (state) => state.values);
+  // Re-render on meta writes too: blur-time evaluations set field errors via
+  // setFieldMeta without touching values.
+  useStore(form.store, (state) => state.fieldMeta);
+
+  // Read-shims: pre-existing JSX keeps compiling while state moved to the form.
+  const poolName = formValues.name;
+  const minIdleRunners = toIntOrZero(formValues.minIdleRunners);
+  const maxConcurrency = toIntOrZero(formValues.maxConcurrency);
+  const runnerImage = formValues.runnerImage;
+  const cpuLimit = formValues.cpuLimit;
+  const memoryLimit = formValues.memoryLimit;
+  const swapCustom = formValues.swapCustom;
+  const pidsCustom = formValues.pidsCustom;
+  const renovateCron = formValues.renovateCron;
+  const renovateImage = formValues.renovateImage;
+
   // Step 1: Identity & Credentials (edit mode prefills from the pool, docs/22 §7.2)
-  const [poolName, setPoolName] = useState(pool?.name ?? "");
   const [authProfileId, setAuthProfileId] = useState<string>(
     pool
       ? pool.authProfileId.toString()
@@ -113,21 +249,11 @@ export function PoolWizardModal({
   });
 
   // Step 3: Specs & Quotas
-  const [minIdleRunners, setMinIdleRunners] = useState(pool?.minIdleRunners ?? 1);
-  const [maxConcurrency, setMaxConcurrency] = useState(pool?.maxConcurrency ?? 5);
-  const [customLabels, setCustomLabels] = useState<string | null>(
-    pool ? pool.labels.join(",") : null,
-  );
-  const labels = customLabels ?? suggestedLabels;
-  const [runnerImage, setRunnerImage] = useState(
-    pool?.runnerImage || "ghcr.io/noosxe/runnero:latest",
-  );
+  const labels = formValues.labels;
   const [allowDocker, setAllowDocker] = useState(pool?.allowDocker ?? true);
   // Demand polling fallback (docs/24 §5.9): GitHub pools only; Forgejo polls
   // natively and Gitea has no repo-scoped queued-jobs API.
   const [pollFallback, setPollFallback] = useState(pool?.pollFallback ?? false);
-  const [cpuLimit, setCpuLimit] = useState(pool?.cpuLimit || "2.0");
-  const [memoryLimit, setMemoryLimit] = useState(pool?.memoryLimit || "4GB");
   // Memory swap mode (RUN-147): "match" hardens to swap = memory (no extra
   // swap — the shipped default), "default2x" keeps the Docker daemon default,
   // "unlimited" passes -1, "custom" carries an explicit total allowance.
@@ -135,37 +261,28 @@ export function PoolWizardModal({
     pool
       ? pool.memorySwapLimit === "-1"
         ? "unlimited"
-        : pool.memorySwapLimit !== ""
+        : pool.memorySwapLimit
           ? "custom"
           : "default2x"
       : "match",
-  );
-  const [swapCustom, setSwapCustom] = useState(
-    pool?.memorySwapLimit && pool.memorySwapLimit !== "-1" ? pool.memorySwapLimit : "",
   );
   // PIDs mode (RUN-148): "default" = 4096 (shipped default), "strict" =
   // 1024, "unlimited" = 0 (explicit opt-out), "custom" carries an explicit
   // process ceiling.
   const [pidsMode, setPidsMode] = useState<"default" | "strict" | "unlimited" | "custom">(() => {
     if (!pool) return "default";
+    if (pool.pidsLimit == null) return "default"; // unset wire value ≠ a picked mode
     if (pool.pidsLimit === 0) return "unlimited";
     if (pool.pidsLimit === 4096) return "default";
     if (pool.pidsLimit === 1024) return "strict";
     return "custom";
   });
-  const [pidsCustom, setPidsCustom] = useState(
-    pool?.pidsLimit && ![4096, 1024].includes(pool.pidsLimit) ? String(pool.pidsLimit) : "",
-  );
   // Lifetime is not wizard-editable; edit mode preserves the stored value
   // instead of silently resetting it to the create-mode default (docs/22 §7.2).
   const [maxRunnerLifetimeSeconds] = useState(pool?.maxRunnerLifetimeSeconds ?? 7200);
 
   // Renovate Config
   const [renovateEnabled, setRenovateEnabled] = useState(pool?.renovate?.enabled ?? false);
-  const [renovateCron, setRenovateCron] = useState(pool?.renovate?.cronSchedule || "0 2 * * *");
-  const [renovateImage, setRenovateImage] = useState(
-    pool?.renovate?.image || "renovate/renovate:latest",
-  );
 
   // Auth Profile and Provider Resolution.
   // Provider is immutable after creation (docs/22 §5.3): in edit mode the
@@ -204,12 +321,8 @@ export function PoolWizardModal({
 
   const isDockerLocked = deducedProvider === "gitea" || deducedProvider === "forgejo";
 
-  // Slug validation for pool name: lowercase letters, numbers, and hyphens only
-  const isNameSlugValid = useMemo(() => {
-    const trimmed = poolName.trim();
-    if (!trimmed) return false;
-    return /^[a-z0-9-]+$/.test(trimmed);
-  }, [poolName]);
+  // Slug validation lives in proto now (string.pattern on Pool.name, class A):
+  // the violation map carries it; no client-side re-implementation (docs/30).
 
   // Edit-mode change detection (docs/22 §5.2, §7.2): drives the review-step
   // changed-fields diff and the runner-impact banners.
@@ -310,12 +423,8 @@ export function PoolWizardModal({
     add(
       "Memory Swap",
       describeSwap(
-        pool.memorySwapLimit === "-1"
-          ? "unlimited"
-          : pool.memorySwapLimit !== ""
-            ? "custom"
-            : "default2x",
-        pool.memorySwapLimit === "-1" ? "" : (pool.memorySwapLimit ?? ""),
+        pool.memorySwapLimit === "-1" ? "unlimited" : pool.memorySwapLimit ? "custom" : "default2x",
+        pool.memorySwapLimit && pool.memorySwapLimit !== "-1" ? pool.memorySwapLimit : "",
         pool.memoryLimit || "4GB",
       ),
       describeSwap(swapMode, swapCustom, memoryLimit),
@@ -324,13 +433,15 @@ export function PoolWizardModal({
     add(
       "PIDs Limit",
       describePids(
-        !pool || pool.pidsLimit === 0
-          ? "unlimited"
-          : pool.pidsLimit === 4096
-            ? "default"
-            : pool.pidsLimit === 1024
-              ? "strict"
-              : "custom",
+        !pool || pool.pidsLimit == null
+          ? "default"
+          : pool.pidsLimit === 0
+            ? "unlimited"
+            : pool.pidsLimit === 4096
+              ? "default"
+              : pool.pidsLimit === 1024
+                ? "strict"
+                : "custom",
         pool?.pidsLimit && ![4096, 1024].includes(pool.pidsLimit) ? String(pool.pidsLimit) : "",
       ),
       describePids(pidsMode, pidsCustom),
@@ -436,66 +547,20 @@ export function PoolWizardModal({
     setSelectedTargetUrls([]);
   };
 
-  // Step Navigation Handlers
-  const handleNextFromStep1 = () => {
-    setError(null);
-    if (!poolName.trim()) {
-      setError("Pool name is required");
-      return;
-    }
-    if (!isNameSlugValid) {
-      setError(
-        "Pool name must contain only lowercase alphanumeric characters and hyphens (e.g. arm64-ci-pool)",
-      );
-      return;
-    }
-    if (!selectedAuthProfile) {
-      setError("Please select a Git Auth Profile");
-      return;
-    }
-    setCurrentStep(2);
-  };
-
-  const handleNextFromStep2 = () => {
-    setError(null);
-    if (selectedTargetUrls.length === 0) {
-      setError(`Please select at least one ${scope === "repo" ? "repository" : "organization"}`);
-      return;
-    }
-    setCurrentStep(3);
-  };
-
-  const handleNextFromStep3 = () => {
-    setError(null);
-    if (minIdleRunners > maxConcurrency) {
-      setError("Min idle warm runners cannot exceed max concurrency");
-      return;
-    }
-    setCurrentStep(4);
-  };
-
-  const handleSubmitPool = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (selectedTargetUrls.length === 0) {
-      setError("At least one target URL is required");
-      return;
-    }
-
+  // Build the exact wire message the wizard submits (docs/30 §5.4): blur,
+  // step-change, and submit evaluation all run protovalidate on THIS message,
+  // so the preview can never drift from what goes over the wire.
+  const buildPoolPayload = (): Pool | null => {
     const editingPool = isEdit ? pool : undefined;
-    if (isEdit && !editingPool) {
-      setError("No pool to update");
-      return;
-    }
-
+    if (isEdit && !editingPool) return null;
+    if (!selectedAuthProfile) return null;
     const effectiveLabels = labels.trim() || suggestedLabels;
     const parsedLabels = effectiveLabels
       .split(",")
       .map((l) => l.trim())
       .filter(Boolean);
 
-    const poolPayload = create(PoolSchema, {
+    return create(PoolSchema, {
       ...(editingPool ? { id: editingPool.id } : {}),
       name: poolName.trim(),
       provider: deducedProvider,
@@ -530,22 +595,176 @@ export function PoolWizardModal({
       maxRunnerLifetimeSeconds,
       targetUrls: selectedTargetUrls,
     });
+  };
+
+  /**
+   * The shared violation map (docs/30 §5.4): one evaluation produces BOTH the
+   * inline per-field messages and the per-step gating buckets — gate and
+   * message read the same map and can never disagree. Class A comes from
+   * protovalidate on the wire message; class C (custom mode ⇒ value) is the
+   * UI-state rule layer; selection guards stay step-local.
+   */
+  const runEvaluation = (): {
+    fieldErrors: Partial<Record<keyof WizardFormValues, string[]>>;
+    stepIssues: Record<1 | 2 | 3 | 4, string[]>;
+  } => {
+    const fieldErrors: Partial<Record<keyof WizardFormValues, string[]>> = {};
+    const stepIssues: Record<1 | 2 | 3 | 4, string[]> = { 1: [], 2: [], 3: [], 4: [] };
+
+    // Class C (docs/30 §5.1): swap/pids mode is client-only state — the wire
+    // meaning of "" stays valid (RUN-147), so the custom-mode pairing is a
+    // form rule, never a data-format rule.
+    if (swapMode === "custom" && !formValues.swapCustom.trim()) {
+      (fieldErrors.swapCustom ??= []).push("Custom swap mode requires a memory string (e.g. 8GB).");
+    }
+    if (pidsMode === "custom" && !formValues.pidsCustom.trim()) {
+      (fieldErrors.pidsCustom ??= []).push(
+        "Custom PIDs mode requires a process ceiling (e.g. 512).",
+      );
+    }
+
+    const poolPayload = buildPoolPayload();
+    if (poolPayload) {
+      const schema = isEdit ? UpdatePoolRequestSchema : CreatePoolRequestSchema;
+      const violations = validateMessage(schema, create(schema, { pool: poolPayload }));
+      const { byField, messageLevel } = groupByField(violations);
+      for (const [protoField, messages] of byField) {
+        const formKey = PROTO_FIELD_TO_FORM[protoField];
+        if (formKey) {
+          (fieldErrors[formKey] ??= []).push(...messages);
+          continue;
+        }
+        const step = PROTO_FIELD_STEP[protoField] ?? 4;
+        stepIssues[step].push(...messages);
+      }
+      for (const violation of messageLevel) {
+        const step = MESSAGE_LEVEL_STEP[violation.ruleId] ?? 4;
+        stepIssues[step].push(violation.message);
+      }
+    }
+
+    // Selection guards (not wire rules — no annotations on these flows).
+    if (!selectedAuthProfile) {
+      stepIssues[1].push("Please select a Git Auth Profile");
+    }
+    if (selectedTargetUrls.length === 0) {
+      stepIssues[2].push(
+        `Please select at least one ${scope === "repo" ? "repository" : "organization"}`,
+      );
+    }
+
+    // Project field errors into their step buckets so gating uses one map.
+    for (const [formKey, messages] of Object.entries(fieldErrors)) {
+      if (messages && messages.length > 0) {
+        stepIssues[FIELD_STEP[formKey as keyof WizardFormValues]].push(...messages);
+      }
+    }
+    applyFieldErrors(fieldErrors);
+    return { fieldErrors, stepIssues };
+  };
+
+  const applyFieldErrors = (fieldErrors: Partial<Record<keyof WizardFormValues, string[]>>) => {
+    for (const key of Object.keys(FIELD_DOM_ID)) {
+      const formKey = key as keyof WizardFormValues;
+      const messages = fieldErrors[formKey] ?? [];
+      form.setFieldMeta(formKey, (prev) => ({
+        ...prev,
+        // v1.33 derives meta.errors from errorMap entries — write there.
+        errorMap: { ...(prev?.errorMap ?? {}), onBlur: messages[0] },
+      }));
+    }
+  };
+
+  const focusFirstInvalid = (fieldErrors: Partial<Record<keyof WizardFormValues, string[]>>) => {
+    for (const key of Object.keys(FIELD_DOM_ID)) {
+      const formKey = key as keyof WizardFormValues;
+      if ((fieldErrors[formKey] ?? []).length > 0) {
+        document.getElementById(FIELD_DOM_ID[formKey])?.focus();
+        return;
+      }
+    }
+  };
+
+  // Step Navigation Handlers: advance only when the shared violation map is
+  // clean for this step; otherwise surface the first issue and focus the
+  // offending input — gate and messages come from the same evaluation.
+  const handleAdvanceFrom = (step: 1 | 2 | 3) => {
+    setError(null);
+    const { fieldErrors, stepIssues } = runEvaluation();
+    if (stepIssues[step].length > 0) {
+      setError(stepIssues[step][0]);
+      focusFirstInvalid(fieldErrors);
+      return;
+    }
+    setCurrentStep((step + 1) as 1 | 2 | 3 | 4);
+  };
+
+  const handleNextFromStep1 = () => handleAdvanceFrom(1);
+  const handleNextFromStep2 = () => handleAdvanceFrom(2);
+  const handleNextFromStep3 = () => handleAdvanceFrom(3);
+
+  const handleSubmitPool = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // Final gate: the same shared violation map the fields and steps read.
+    const { fieldErrors, stepIssues } = runEvaluation();
+    applyFieldErrors(fieldErrors);
+    const allIssues = ([1, 2, 3, 4] as const).flatMap((step) => stepIssues[step]);
+    if (allIssues.length > 0) {
+      setError(allIssues[0]);
+      focusFirstInvalid(fieldErrors);
+      return;
+    }
+
+    const poolPayload = buildPoolPayload();
+    if (!poolPayload) return;
 
     try {
-      if (editingPool) {
+      if (isEdit && pool) {
         await updatePoolMutation.mutateAsync({ pool: poolPayload });
       } else {
         await createPoolMutation.mutateAsync({ pool: poolPayload });
       }
       onClose();
     } catch (err: unknown) {
+      // Server is the authority (docs/30 §5.4): typed buf.validate.Violations
+      // details re-enter the SAME inline mapping; anything unmapped keeps the
+      // banner fallback.
+      const violations = violationsFromConnectError(err);
+      if (!violations) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : isEdit
+              ? "Failed to update runner pool"
+              : "Failed to create runner pool",
+        );
+        return;
+      }
+      const { byField, messageLevel } = groupByField(violations);
+      const serverFieldErrors: Partial<Record<keyof WizardFormValues, string[]>> = {};
+      const banner: string[] = messageLevel.map((violation) => violation.message);
+      for (const [protoField, messages] of byField) {
+        const formKey = PROTO_FIELD_TO_FORM[protoField];
+        if (formKey) {
+          serverFieldErrors[formKey] = messages;
+        } else {
+          banner.push(...messages);
+        }
+      }
+      applyFieldErrors(serverFieldErrors);
+      // Mapped messages also show in the banner: their field may live on a
+      // step the user is not on (e.g. duplicate name → step 1) — the banner
+      // guarantees visibility.
       setError(
-        err instanceof Error
-          ? err.message
+        banner.length > 0 || Object.keys(serverFieldErrors).length > 0
+          ? [banner, ...Object.values(serverFieldErrors)].flat().join("; ")
           : isEdit
             ? "Failed to update runner pool"
             : "Failed to create runner pool",
       );
+      focusFirstInvalid(serverFieldErrors);
     }
   };
 
@@ -617,25 +836,17 @@ export function PoolWizardModal({
         {currentStep === 1 && (
           <div className="mt-5 flex flex-col gap-4">
             <FieldGroup className="gap-4">
-              <Field data-invalid={Boolean(poolName) && !isNameSlugValid}>
-                <FieldLabel htmlFor="wizard-pool-name">Pool Name (Slug)</FieldLabel>
-                <Input
-                  id="wizard-pool-name"
-                  aria-invalid={Boolean(poolName) && !isNameSlugValid}
-                  type="text"
-                  placeholder="e.g. arm64-ci-pool"
-                  value={poolName}
-                  onChange={(e) => setPoolName(e.target.value.toLowerCase())}
-                />
-                <FieldDescription className="text-[11px]">
-                  Lowercase letters, digits, and hyphens only. Used as container identifier prefix.
-                </FieldDescription>
-                {poolName && !isNameSlugValid && (
-                  <FieldError className="text-[11px] font-medium">
-                    Invalid slug format: must contain only a-z, 0-9, and hyphens.
-                  </FieldError>
+              <form.AppField name="name">
+                {() => (
+                  <TextField
+                    label="Pool Name (Slug)"
+                    id="wizard-pool-name"
+                    placeholder="e.g. arm64-ci-pool"
+                    description="Lowercase letters, digits, and hyphens only. Used as container identifier prefix."
+                    onBlurExtra={runEvaluation}
+                  />
                 )}
-              </Field>
+              </form.AppField>
 
               <Field>
                 <FieldLabel htmlFor="wizard-auth-profile">Git Authentication Profile</FieldLabel>
@@ -683,7 +894,7 @@ export function PoolWizardModal({
               </Button>
               <Button
                 onClick={handleNextFromStep1}
-                disabled={!poolName.trim() || !isNameSlugValid || !selectedAuthProfile}
+                disabled={!poolName.trim() || !selectedAuthProfile}
               >
                 <span>Continue to Scope & Targets</span>
                 <ChevronRight data-icon="inline-end" />
@@ -987,82 +1198,77 @@ export function PoolWizardModal({
           <div className="mt-5 flex flex-col gap-4">
             <FieldGroup className="gap-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="wizard-min-idle">Min Idle Warm Runners</FieldLabel>
-                  <Input
-                    id="wizard-min-idle"
-                    type="number"
-                    min={0}
-                    max={20}
-                    value={minIdleRunners}
-                    onChange={(e) => setMinIdleRunners(Number(e.target.value))}
-                  />
-                  <FieldDescription className="text-[11px]">
-                    Set to 0 for scale-to-zero mode (ephemeral on-demand only).
-                  </FieldDescription>
-                </Field>
+                <form.AppField name="minIdleRunners">
+                  {() => (
+                    <TextField
+                      label="Min Idle Warm Runners"
+                      id="wizard-min-idle"
+                      type="number"
+                      min={0}
+                      max={20}
+                      description="Set to 0 for scale-to-zero mode (ephemeral on-demand only)."
+                      onBlurExtra={runEvaluation}
+                    />
+                  )}
+                </form.AppField>
 
-                <Field>
-                  <FieldLabel htmlFor="wizard-max-concurrency">Max Concurrency</FieldLabel>
-                  <Input
-                    id="wizard-max-concurrency"
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={maxConcurrency}
-                    onChange={(e) => setMaxConcurrency(Number(e.target.value))}
-                  />
-                  <FieldDescription className="text-[11px]">
-                    Total maximum simultaneous runner containers allowed across all targets.
-                  </FieldDescription>
-                </Field>
+                <form.AppField name="maxConcurrency">
+                  {() => (
+                    <TextField
+                      label="Max Concurrency"
+                      id="wizard-max-concurrency"
+                      type="number"
+                      min={1}
+                      max={50}
+                      description="Total maximum simultaneous runner containers allowed across all targets."
+                      onBlurExtra={runEvaluation}
+                    />
+                  )}
+                </form.AppField>
 
-                <Field className="sm:col-span-2">
-                  <FieldLabel htmlFor="wizard-labels">Runner Labels</FieldLabel>
-                  <Input
-                    id="wizard-labels"
-                    type="text"
-                    value={labels}
-                    onChange={(e) => setCustomLabels(e.target.value)}
-                  />
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>Comma-separated list matched in workflow runs.</span>
-                    {customLabels !== null && (
-                      <Button variant="link" size="xs" onClick={() => setCustomLabels(null)}>
-                        Reset to suggested ({suggestedLabels})
-                      </Button>
-                    )}
-                  </div>
-                </Field>
+                <form.AppField name="labels">
+                  {() => (
+                    <div className="sm:col-span-2 flex flex-col gap-1">
+                      <TextField
+                        label="Runner Labels"
+                        id="wizard-labels"
+                        description="Comma-separated list matched in workflow runs."
+                        onBlurExtra={runEvaluation}
+                      />
+                      {labels !== suggestedLabels && (
+                        <Button
+                          variant="link"
+                          size="xs"
+                          className="self-start"
+                          onClick={() => form.setFieldValue("labels", suggestedLabels)}
+                        >
+                          Reset to suggested ({suggestedLabels})
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </form.AppField>
 
-                <Field>
-                  <FieldLabel htmlFor="wizard-runner-image">Runner Image</FieldLabel>
-                  <Input
-                    id="wizard-runner-image"
-                    type="text"
-                    value={runnerImage}
-                    onChange={(e) => setRunnerImage(e.target.value)}
-                  />
-                </Field>
+                <form.AppField name="runnerImage">
+                  {() => (
+                    <TextField
+                      label="Runner Image"
+                      id="wizard-runner-image"
+                      onBlurExtra={runEvaluation}
+                    />
+                  )}
+                </form.AppField>
 
-                <Field>
-                  <FieldLabel htmlFor="wizard-cpu">CPU Limit</FieldLabel>
-                  <Input
-                    id="wizard-cpu"
-                    type="text"
-                    value={cpuLimit}
-                    onChange={(e) => setCpuLimit(e.target.value)}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="wizard-mem">Memory Limit</FieldLabel>
-                  <Input
-                    id="wizard-mem"
-                    type="text"
-                    value={memoryLimit}
-                    onChange={(e) => setMemoryLimit(e.target.value)}
-                  />
-                </Field>
+                <form.AppField name="cpuLimit">
+                  {() => (
+                    <TextField label="CPU Limit" id="wizard-cpu" onBlurExtra={runEvaluation} />
+                  )}
+                </form.AppField>
+                <form.AppField name="memoryLimit">
+                  {() => (
+                    <TextField label="Memory Limit" id="wizard-mem" onBlurExtra={runEvaluation} />
+                  )}
+                </form.AppField>
                 <Field>
                   <FieldLabel htmlFor="wizard-swap">Memory Swap</FieldLabel>
                   <Select value={swapMode} onValueChange={(v) => setSwapMode(v as typeof swapMode)}>
@@ -1079,14 +1285,33 @@ export function PoolWizardModal({
                     </SelectContent>
                   </Select>
                   {swapMode === "custom" && (
-                    <Input
-                      id="wizard-swap-custom"
-                      type="text"
-                      placeholder="total memory+swap, e.g. 12GB"
-                      value={swapCustom}
-                      onChange={(e) => setSwapCustom(e.target.value)}
-                      className="mt-2"
-                    />
+                    <form.AppField name="swapCustom">
+                      {(field) => {
+                        const errors = (field.state.meta.errors as unknown as string[]).filter(
+                          Boolean,
+                        );
+                        return (
+                          <div className="mt-2">
+                            <Input
+                              id="wizard-swap-custom"
+                              type="text"
+                              placeholder="total memory+swap, e.g. 12GB"
+                              value={field.state.value}
+                              onBlur={() => {
+                                field.handleBlur();
+                                runEvaluation();
+                              }}
+                              onChange={(e) => field.handleChange(e.target.value)}
+                              aria-invalid={errors.length > 0}
+                              aria-describedby={
+                                errors.length > 0 ? "wizard-swap-custom-error" : undefined
+                              }
+                            />
+                            <FormError id="wizard-swap-custom-error" messages={errors} />
+                          </div>
+                        );
+                      }}
+                    </form.AppField>
                   )}
                   <p className="text-muted-foreground text-xs">
                     Total memory+swap allowance per runner. Matching memory means a memory-starved
@@ -1109,15 +1334,34 @@ export function PoolWizardModal({
                     </SelectContent>
                   </Select>
                   {pidsMode === "custom" && (
-                    <Input
-                      id="wizard-pids-custom"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="max processes, e.g. 8192 (empty = unlimited)"
-                      value={pidsCustom}
-                      onChange={(e) => setPidsCustom(e.target.value)}
-                      className="mt-2"
-                    />
+                    <form.AppField name="pidsCustom">
+                      {(field) => {
+                        const errors = (field.state.meta.errors as unknown as string[]).filter(
+                          Boolean,
+                        );
+                        return (
+                          <div className="mt-2">
+                            <Input
+                              id="wizard-pids-custom"
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="max processes, e.g. 8192"
+                              value={field.state.value}
+                              onBlur={() => {
+                                field.handleBlur();
+                                runEvaluation();
+                              }}
+                              onChange={(e) => field.handleChange(e.target.value)}
+                              aria-invalid={errors.length > 0}
+                              aria-describedby={
+                                errors.length > 0 ? "wizard-pids-custom-error" : undefined
+                              }
+                            />
+                            <FormError id="wizard-pids-custom-error" messages={errors} />
+                          </div>
+                        );
+                      }}
+                    </form.AppField>
                   )}
                   <p className="text-muted-foreground text-xs">
                     Maximum processes per runner container. Bounds the blast radius of runaway
@@ -1188,26 +1432,26 @@ export function PoolWizardModal({
 
                 {renovateEnabled && (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-border ">
-                    <Field>
-                      <FieldLabel htmlFor="wizard-renovate-cron">Cron Schedule</FieldLabel>
-                      <Input
-                        id="wizard-renovate-cron"
-                        type="text"
-                        value={renovateCron}
-                        onChange={(e) => setRenovateCron(e.target.value)}
-                        placeholder="0 2 * * *"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="wizard-renovate-image">Renovate Image</FieldLabel>
-                      <Input
-                        id="wizard-renovate-image"
-                        type="text"
-                        value={renovateImage}
-                        onChange={(e) => setRenovateImage(e.target.value)}
-                        placeholder="renovate/renovate:latest"
-                      />
-                    </Field>
+                    <form.AppField name="renovateCron">
+                      {() => (
+                        <TextField
+                          label="Cron Schedule"
+                          id="wizard-renovate-cron"
+                          placeholder="0 2 * * *"
+                          onBlurExtra={runEvaluation}
+                        />
+                      )}
+                    </form.AppField>
+                    <form.AppField name="renovateImage">
+                      {() => (
+                        <TextField
+                          label="Renovate Image"
+                          id="wizard-renovate-image"
+                          placeholder="renovate/renovate:latest"
+                          onBlurExtra={runEvaluation}
+                        />
+                      )}
+                    </form.AppField>
                   </div>
                 )}
               </div>

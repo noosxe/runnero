@@ -632,3 +632,55 @@ web/src/
 4. **Clean Stream Teardown**: Closing log viewer components triggers `AbortController.abort()`, releasing server streams and Docker follow readers immediately.
 5. **Real-Time Operational State & Diagnostics**: The UI surfaces pool orchestrator intent, health state (`HEALTHY`, `PROVISIONING`, `DEGRADED`, `PAUSED`), and structured error codes (`ERR_AUTH_FAILED`, `ERR_DOCKER_DAEMON`, etc.) immediately, eliminating silent runner pool provisioning failures.
 
+
+---
+
+## 9. Form Validation Toolkit (protovalidate + TanStack Form, RUN-216 / docs/30)
+
+The web holds **zero hand-written validation rules**. Rules live in
+`proto/api.proto` as protovalidate annotations and are enforced server-side
+(docs/08); the browser evaluates the *same* annotations on the *same* typed
+request messages via `@bufbuild/protovalidate` as a fast, fail-first preview
+(docs/30 §5.1–5.4).
+
+### 9.1 Toolkit layout (`web/src/lib/forms/`)
+
+```
+lib/forms/
+  protovalidate.ts    # one validator; validateMessage(schema, msg) → ViolationView[]
+  violations.ts       # RULE_ID registry mirror + violationsFromConnectError(err)
+  contexts.ts         # createFormHookContexts (field/form contexts)
+  use-app-form.ts     # createFormHook → useAppForm (the ONLY form hook)
+  fields/             # TextField, CheckboxField, FormError — shadcn bindings
+  submit-button.tsx   # submit gate (aria-disabled, markup contract)
+```
+
+`useAppForm` is the standard for every surface with free-form inputs
+(docs/30 §6); hand-rolled `useState` field stacks are legacy and get migrated
+when touched.
+
+### 9.2 Uniform behaviors
+
+- **Timing** (docs/30 §5.5): text/number inputs evaluate on `onBlur` and on
+  submit; selects/checkboxes on change; cross-field rules re-evaluate when any
+  member changes; the server round-trip re-maps violations on catch.
+- **Markup contract** (§5.6): `Field[data-invalid]`, `Input[aria-invalid]`,
+  `aria-describedby`, and `FormError[data-testid="form-error"][role=alert]`.
+- **One violation map**: the same evaluation feeds inline field errors, step
+  gating, and the submit gate — gate and messages cannot disagree.
+- **Server round-trip**: `ConnectError` details of type `buf.validate.Violations`
+  re-enter the identical field mapping (keyed by the last field-path element and
+  stable `rule_id`s from `violations.ts`); anything unmapped falls back to the
+  error banner. Banner text always mirrors the mapped messages so cross-step
+  rejections stay visible.
+- **Class C rules** (UI-state with no wire representation — e.g. custom swap
+  mode requires a value, RUN-147) live in the form layer, never as data-format
+  re-implementations.
+
+### 9.3 Test expectations
+
+- jsdom (Vitest): blur shows the inline error; submit/step gating blocks;
+  server detail rejections map inline/banner; the RUN-147 custom-swap-empty
+  case cannot reach the server.
+- E2E (Playwright): block-advance and inline-error assertions in the wizard
+  specs (`08-pool-edit-workflow.spec.ts`).

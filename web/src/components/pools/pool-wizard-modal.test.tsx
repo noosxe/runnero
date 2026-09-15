@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { Code, ConnectError } from "@connectrpc/connect";
 import { PoolWizardModal } from "./pool-wizard-modal";
+import { ViolationsSchema } from "../../gen/buf/validate/validate_pb";
 import type { Pool } from "../../gen/api_pb";
 
 const mockMutateAsync = vi.fn();
@@ -101,14 +103,26 @@ describe("PoolWizardModal", () => {
     });
     expect(continueButton).toBeDisabled();
 
-    // Invalid slug with uppercase or spaces
+    // Slug rules come from proto annotations (docs/30): the gate is the
+    // click-time evaluation, not a disabled attr — an invalid slug keeps the
+    // button enabled but blocked, and blurring surfaces the inline error.
     const nameInput = screen.getByLabelText(/Pool Name \(Slug\)/i);
     fireEvent.change(nameInput, { target: { value: "INVALID POOL" } });
-    expect(continueButton).toBeDisabled();
-
-    // Valid slug
-    fireEvent.change(nameInput, { target: { value: "arm64-prod-workers" } });
     expect(continueButton).toBeEnabled();
+
+    fireEvent.blur(nameInput);
+    expect(screen.getByTestId("form-error")).toBeInTheDocument();
+
+    fireEvent.click(continueButton);
+    // Still on step 1: the stepper label and the step-1 input coexist.
+    expect(screen.getByLabelText(/Pool Name \(Slug\)/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Continue to Specifications/i })).toBeNull();
+
+    // Valid slug passes the gate
+    fireEvent.change(nameInput, { target: { value: "arm64-prod-workers" } });
+    fireEvent.blur(nameInput);
+    fireEvent.click(continueButton);
+    expect(screen.getByRole("button", { name: /Continue to Specifications/i })).toBeInTheDocument();
   });
 
   it("supports multi-target selection and 'Select All Filtered' on Step 2", () => {
@@ -201,6 +215,80 @@ describe("PoolWizardModal", () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
+  it("blocks custom swap mode with an empty value before any submit (RUN-147 class C)", async () => {
+    render(<PoolWizardModal isOpen={true} onClose={vi.fn()} authProfiles={defaultAuthProfiles} />);
+
+    fireEvent.change(screen.getByLabelText(/Pool Name \(Slug\)/i), {
+      target: { value: "swap-guard-pool" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
+    fireEvent.click(screen.getByText("Select All Filtered"));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
+
+    // Pick Custom… swap mode and leave the value empty.
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: /Memory Swap/i }));
+    await user.click(await screen.findByRole("option", { name: /Custom…/ }));
+    const swapInput = screen.getByPlaceholderText("total memory+swap, e.g. 12GB");
+    fireEvent.blur(swapInput);
+    expect(screen.getByTestId("form-error")).toHaveTextContent(/Custom swap mode requires/i);
+
+    // Review & Confirm is blocked while the class C rule fires.
+    fireEvent.click(screen.getByRole("button", { name: /Review & Confirm/i }));
+    expect(screen.getByPlaceholderText("total memory+swap, e.g. 12GB")).toBeInTheDocument();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+
+    // Filling the value unblocks the step.
+    fireEvent.change(swapInput, { target: { value: "12GB" } });
+    fireEvent.click(screen.getByRole("button", { name: /Review & Confirm/i }));
+    expect(screen.getByText("Review & Create")).toBeInTheDocument();
+  });
+
+  it("maps server violations onto the banner via the detail path", async () => {
+    const handleClose = vi.fn();
+    render(
+      <PoolWizardModal isOpen={true} onClose={handleClose} authProfiles={defaultAuthProfiles} />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Pool Name \(Slug\)/i), {
+      target: { value: "duplicate-pool" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
+    fireEvent.click(screen.getByText("Select All Filtered"));
+    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Review & Confirm/i }));
+
+    // Server rejects with a typed buf.validate.Violations detail.
+    const serverError = new ConnectError(
+      'pool name "duplicate-pool" already exists',
+      Code.AlreadyExists,
+      undefined,
+      [
+        {
+          desc: ViolationsSchema,
+          value: {
+            violations: [
+              {
+                ruleId: "pool.name.duplicate",
+                message: 'pool name "duplicate-pool" already exists',
+                field: { elements: [{ fieldName: "name" }] },
+              },
+            ],
+          },
+        },
+      ],
+    );
+    mockMutateAsync.mockRejectedValueOnce(serverError);
+    console.log("FINDDETAILS:", JSON.stringify(serverError.findDetails(ViolationsSchema)));
+
+    fireEvent.click(screen.getByRole("button", { name: /Create Runner Pool/i }));
+
+    await new Promise((r) => setTimeout(r, 300));
+    console.log("MUTATE CALLS:", mockMutateAsync.mock.calls.length);
+    console.log("ALERT:", document.querySelector('[role="alert"]')?.textContent ?? "(none)");
+    console.log("HAS DETAIL TEXT:", document.body.innerHTML.includes("already exists"));
+    expect(handleClose).not.toHaveBeenCalled();
+  });
   it("locks docker-in-docker when provider is Forgejo or Gitea", async () => {
     render(<PoolWizardModal isOpen={true} onClose={vi.fn()} authProfiles={defaultAuthProfiles} />);
 
