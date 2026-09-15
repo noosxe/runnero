@@ -287,7 +287,7 @@ export function PoolsPage() {
             const utilization = Math.min(100, Math.round((p.activeRunners / maxConcurrency) * 100));
 
             return (
-              <Card key={p.id.toString()} className="relative">
+              <Card key={p.id.toString()} data-testid={`pool-card-${p.name}`} className="relative">
                 <CardContent>
                   {/* Pool Header */}
                   <div className="flex items-start justify-between gap-2">
