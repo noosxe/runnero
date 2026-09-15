@@ -116,6 +116,15 @@ const (
 	// LogServiceGetRunnerLogsProcedure is the fully-qualified name of the LogService's GetRunnerLogs
 	// RPC.
 	LogServiceGetRunnerLogsProcedure = "/supervisor.v1.LogService/GetRunnerLogs"
+	// LogServiceListSupervisorLogsProcedure is the fully-qualified name of the LogService's
+	// ListSupervisorLogs RPC.
+	LogServiceListSupervisorLogsProcedure = "/supervisor.v1.LogService/ListSupervisorLogs"
+	// LogServiceStreamSupervisorLogProcedure is the fully-qualified name of the LogService's
+	// StreamSupervisorLog RPC.
+	LogServiceStreamSupervisorLogProcedure = "/supervisor.v1.LogService/StreamSupervisorLog"
+	// LogServiceListRemovalRecordsProcedure is the fully-qualified name of the LogService's
+	// ListRemovalRecords RPC.
+	LogServiceListRemovalRecordsProcedure = "/supervisor.v1.LogService/ListRemovalRecords"
 	// RenovateServiceTriggerRenovateRunProcedure is the fully-qualified name of the RenovateService's
 	// TriggerRenovateRun RPC.
 	RenovateServiceTriggerRenovateRunProcedure = "/supervisor.v1.RenovateService/TriggerRenovateRun"
@@ -1007,6 +1016,12 @@ type LogServiceClient interface {
 	StreamRunnerLogs(context.Context, *connect.Request[v1.StreamRunnerLogsRequest]) (*connect.ServerStreamForClient[v1.LogChunk], error)
 	// Historical logs for completed/exited runners
 	GetRunnerLogs(context.Context, *connect.Request[v1.GetRunnerLogsRequest]) (*connect.Response[v1.GetRunnerLogsResponse], error)
+	// List retained supervisor boot files (docs/29 §5.1)
+	ListSupervisorLogs(context.Context, *connect.Request[v1.ListSupervisorLogsRequest]) (*connect.Response[v1.ListSupervisorLogsResponse], error)
+	// Server-stream one supervisor boot file, optionally live-following the current boot
+	StreamSupervisorLog(context.Context, *connect.Request[v1.StreamSupervisorLogRequest]) (*connect.ServerStreamForClient[v1.LogChunk], error)
+	// Paginated, filtered removal decision records (reverse-chronological)
+	ListRemovalRecords(context.Context, *connect.Request[v1.ListRemovalRecordsRequest]) (*connect.Response[v1.ListRemovalRecordsResponse], error)
 }
 
 // NewLogServiceClient constructs a client for the supervisor.v1.LogService service. By default, it
@@ -1032,13 +1047,34 @@ func NewLogServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(logServiceMethods.ByName("GetRunnerLogs")),
 			connect.WithClientOptions(opts...),
 		),
+		listSupervisorLogs: connect.NewClient[v1.ListSupervisorLogsRequest, v1.ListSupervisorLogsResponse](
+			httpClient,
+			baseURL+LogServiceListSupervisorLogsProcedure,
+			connect.WithSchema(logServiceMethods.ByName("ListSupervisorLogs")),
+			connect.WithClientOptions(opts...),
+		),
+		streamSupervisorLog: connect.NewClient[v1.StreamSupervisorLogRequest, v1.LogChunk](
+			httpClient,
+			baseURL+LogServiceStreamSupervisorLogProcedure,
+			connect.WithSchema(logServiceMethods.ByName("StreamSupervisorLog")),
+			connect.WithClientOptions(opts...),
+		),
+		listRemovalRecords: connect.NewClient[v1.ListRemovalRecordsRequest, v1.ListRemovalRecordsResponse](
+			httpClient,
+			baseURL+LogServiceListRemovalRecordsProcedure,
+			connect.WithSchema(logServiceMethods.ByName("ListRemovalRecords")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // logServiceClient implements LogServiceClient.
 type logServiceClient struct {
-	streamRunnerLogs *connect.Client[v1.StreamRunnerLogsRequest, v1.LogChunk]
-	getRunnerLogs    *connect.Client[v1.GetRunnerLogsRequest, v1.GetRunnerLogsResponse]
+	streamRunnerLogs    *connect.Client[v1.StreamRunnerLogsRequest, v1.LogChunk]
+	getRunnerLogs       *connect.Client[v1.GetRunnerLogsRequest, v1.GetRunnerLogsResponse]
+	listSupervisorLogs  *connect.Client[v1.ListSupervisorLogsRequest, v1.ListSupervisorLogsResponse]
+	streamSupervisorLog *connect.Client[v1.StreamSupervisorLogRequest, v1.LogChunk]
+	listRemovalRecords  *connect.Client[v1.ListRemovalRecordsRequest, v1.ListRemovalRecordsResponse]
 }
 
 // StreamRunnerLogs calls supervisor.v1.LogService.StreamRunnerLogs.
@@ -1051,12 +1087,33 @@ func (c *logServiceClient) GetRunnerLogs(ctx context.Context, req *connect.Reque
 	return c.getRunnerLogs.CallUnary(ctx, req)
 }
 
+// ListSupervisorLogs calls supervisor.v1.LogService.ListSupervisorLogs.
+func (c *logServiceClient) ListSupervisorLogs(ctx context.Context, req *connect.Request[v1.ListSupervisorLogsRequest]) (*connect.Response[v1.ListSupervisorLogsResponse], error) {
+	return c.listSupervisorLogs.CallUnary(ctx, req)
+}
+
+// StreamSupervisorLog calls supervisor.v1.LogService.StreamSupervisorLog.
+func (c *logServiceClient) StreamSupervisorLog(ctx context.Context, req *connect.Request[v1.StreamSupervisorLogRequest]) (*connect.ServerStreamForClient[v1.LogChunk], error) {
+	return c.streamSupervisorLog.CallServerStream(ctx, req)
+}
+
+// ListRemovalRecords calls supervisor.v1.LogService.ListRemovalRecords.
+func (c *logServiceClient) ListRemovalRecords(ctx context.Context, req *connect.Request[v1.ListRemovalRecordsRequest]) (*connect.Response[v1.ListRemovalRecordsResponse], error) {
+	return c.listRemovalRecords.CallUnary(ctx, req)
+}
+
 // LogServiceHandler is an implementation of the supervisor.v1.LogService service.
 type LogServiceHandler interface {
 	// Live streaming logs of an active runner container
 	StreamRunnerLogs(context.Context, *connect.Request[v1.StreamRunnerLogsRequest], *connect.ServerStream[v1.LogChunk]) error
 	// Historical logs for completed/exited runners
 	GetRunnerLogs(context.Context, *connect.Request[v1.GetRunnerLogsRequest]) (*connect.Response[v1.GetRunnerLogsResponse], error)
+	// List retained supervisor boot files (docs/29 §5.1)
+	ListSupervisorLogs(context.Context, *connect.Request[v1.ListSupervisorLogsRequest]) (*connect.Response[v1.ListSupervisorLogsResponse], error)
+	// Server-stream one supervisor boot file, optionally live-following the current boot
+	StreamSupervisorLog(context.Context, *connect.Request[v1.StreamSupervisorLogRequest], *connect.ServerStream[v1.LogChunk]) error
+	// Paginated, filtered removal decision records (reverse-chronological)
+	ListRemovalRecords(context.Context, *connect.Request[v1.ListRemovalRecordsRequest]) (*connect.Response[v1.ListRemovalRecordsResponse], error)
 }
 
 // NewLogServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1078,12 +1135,36 @@ func NewLogServiceHandler(svc LogServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(logServiceMethods.ByName("GetRunnerLogs")),
 		connect.WithHandlerOptions(opts...),
 	)
+	logServiceListSupervisorLogsHandler := connect.NewUnaryHandler(
+		LogServiceListSupervisorLogsProcedure,
+		svc.ListSupervisorLogs,
+		connect.WithSchema(logServiceMethods.ByName("ListSupervisorLogs")),
+		connect.WithHandlerOptions(opts...),
+	)
+	logServiceStreamSupervisorLogHandler := connect.NewServerStreamHandler(
+		LogServiceStreamSupervisorLogProcedure,
+		svc.StreamSupervisorLog,
+		connect.WithSchema(logServiceMethods.ByName("StreamSupervisorLog")),
+		connect.WithHandlerOptions(opts...),
+	)
+	logServiceListRemovalRecordsHandler := connect.NewUnaryHandler(
+		LogServiceListRemovalRecordsProcedure,
+		svc.ListRemovalRecords,
+		connect.WithSchema(logServiceMethods.ByName("ListRemovalRecords")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/supervisor.v1.LogService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LogServiceStreamRunnerLogsProcedure:
 			logServiceStreamRunnerLogsHandler.ServeHTTP(w, r)
 		case LogServiceGetRunnerLogsProcedure:
 			logServiceGetRunnerLogsHandler.ServeHTTP(w, r)
+		case LogServiceListSupervisorLogsProcedure:
+			logServiceListSupervisorLogsHandler.ServeHTTP(w, r)
+		case LogServiceStreamSupervisorLogProcedure:
+			logServiceStreamSupervisorLogHandler.ServeHTTP(w, r)
+		case LogServiceListRemovalRecordsProcedure:
+			logServiceListRemovalRecordsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1099,6 +1180,18 @@ func (UnimplementedLogServiceHandler) StreamRunnerLogs(context.Context, *connect
 
 func (UnimplementedLogServiceHandler) GetRunnerLogs(context.Context, *connect.Request[v1.GetRunnerLogsRequest]) (*connect.Response[v1.GetRunnerLogsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.LogService.GetRunnerLogs is not implemented"))
+}
+
+func (UnimplementedLogServiceHandler) ListSupervisorLogs(context.Context, *connect.Request[v1.ListSupervisorLogsRequest]) (*connect.Response[v1.ListSupervisorLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.LogService.ListSupervisorLogs is not implemented"))
+}
+
+func (UnimplementedLogServiceHandler) StreamSupervisorLog(context.Context, *connect.Request[v1.StreamSupervisorLogRequest], *connect.ServerStream[v1.LogChunk]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.LogService.StreamSupervisorLog is not implemented"))
+}
+
+func (UnimplementedLogServiceHandler) ListRemovalRecords(context.Context, *connect.Request[v1.ListRemovalRecordsRequest]) (*connect.Response[v1.ListRemovalRecordsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.LogService.ListRemovalRecords is not implemented"))
 }
 
 // RenovateServiceClient is a client for the supervisor.v1.RenovateService service.

@@ -30,13 +30,18 @@ type LogService struct {
 	supervisorv1connect.UnimplementedLogServiceHandler
 	dataDir     string
 	logStreamer LogStreamer
+	bootLog     BootLogFile
 }
 
-// NewLogService constructs a LogService instance.
-func NewLogService(dataDir string, logStreamer LogStreamer) *LogService {
+// NewLogService constructs a LogService instance. bootLog (optional) reports
+// the boot file the supervisor is currently appending to (docs/29 §5.1);
+// without it, live-following boot logs is refused and the newest file is
+// treated as current on a best-effort basis in listings.
+func NewLogService(dataDir string, logStreamer LogStreamer, bootLog BootLogFile) *LogService {
 	return &LogService{
 		dataDir:     dataDir,
 		logStreamer: logStreamer,
+		bootLog:     bootLog,
 	}
 }
 
@@ -171,10 +176,23 @@ func parseDockerTimestamp(raw string) (string, string) {
 }
 
 // GetRunnerLogs reads stored gzipped JSONL logs from DATA_DIR/logs/ for a completed runner.
+// Reads are bounded: the runner id is path-validated (docs/29 §5.2) and only the
+// last tail_lines entries are decoded (default 500, cap 5000) so captures at the
+// retention size cap cannot become unbounded responses (docs/29 §5.1).
 func (s *LogService) GetRunnerLogs(ctx context.Context, req *connect.Request[supervisorv1.GetRunnerLogsRequest]) (*connect.Response[supervisorv1.GetRunnerLogsResponse], error) {
-	runnerID := strings.TrimSpace(req.Msg.RunnerId)
-	if runnerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("runner_id must not be empty"))
+	runnerID, err := safeLogResourceName(req.Msg.RunnerId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if req.Msg.TailLines < 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("tail_lines must not be negative"))
+	}
+
+	tail := int(req.Msg.TailLines)
+	if tail == 0 {
+		tail = bootFileReplayDefault
+	} else if tail > bootFileReplayMax {
+		tail = bootFileReplayMax
 	}
 
 	srcPath := runnerLogPath(s.dataDir, runnerID)
@@ -193,7 +211,9 @@ func (s *LogService) GetRunnerLogs(ctx context.Context, req *connect.Request[sup
 	}
 	defer func() { _ = gzReader.Close() }()
 
-	var chunks []*supervisorv1.LogChunk
+	// Ring buffer: decode the whole capture (required — gzip stream) but
+	// retain only the last `tail` entries in the response.
+	chunks := make([]*supervisorv1.LogChunk, 0, min(tail, 64))
 	scanner := bufio.NewScanner(gzReader)
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -213,6 +233,9 @@ func (s *LogService) GetRunnerLogs(ctx context.Context, req *connect.Request[sup
 			Stream:    entry.Stream,
 			Content:   entry.Content,
 		})
+		if len(chunks) > tail {
+			chunks = chunks[1:]
+		}
 	}
 
 	if err := scanner.Err(); err != nil {

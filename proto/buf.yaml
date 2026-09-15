@@ -8,3 +8,6 @@ lint:
   except:
     - PACKAGE_DIRECTORY_MATCH
     - RPC_RESPONSE_STANDARD_NAME
+    # LogChunk is the deliberate shared log-entry message: streamed by both
+    # StreamRunnerLogs and StreamSupervisorLog (docs/29 §5.1).
+    - RPC_REQUEST_RESPONSE_UNIQUE

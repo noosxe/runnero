@@ -78,6 +78,17 @@ func (s *BootFileSink) Path() string {
 	return filepath.Join(s.dir, s.base+rotationSuffix(s.seq)+".ndjson")
 }
 
+// CurrentBootFile reports the base name of the file being appended to
+// (docs/29 §5.2 server.BootLogFile seam). Nil-safe: a nil sink answers "".
+func (s *BootFileSink) CurrentBootFile() string {
+	if s == nil {
+		return ""
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.base + rotationSuffix(s.seq) + ".ndjson"
+}
+
 func rotationSuffix(seq int) string {
 	if seq == 0 {
 		return ""
