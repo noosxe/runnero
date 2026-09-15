@@ -161,6 +161,13 @@ stop:
 ## restart: restart the deployment stack (stop, then launch)
 restart: stop launch
 
+
+## rebuild: rebuild the local supervisor image and restart the deployment stack
+rebuild:
+	make build-image-supervisor
+	docker compose -f docker-compose.yml down
+	docker compose -f docker-compose.yml up -d
+
 ## logs: follow the deployment stack's logs
 logs:
 	docker compose -f docker-compose.yml logs -f
