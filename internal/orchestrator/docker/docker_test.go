@@ -1186,4 +1186,3 @@ func TestDockerClient_SpawnRunner_PidsLimit(t *testing.T) {
 		}
 	})
 }
-

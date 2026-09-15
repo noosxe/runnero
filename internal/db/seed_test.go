@@ -3,11 +3,11 @@ package db
 import (
 	"bytes"
 	"context"
+	"github.com/noosxe/runnero/internal/limits"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"github.com/noosxe/runnero/internal/limits"
 )
 
 const sampleYAML = `version: "1.0"

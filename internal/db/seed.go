@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/noosxe/runnero/internal/limits"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"github.com/noosxe/runnero/internal/limits"
 
 	"gopkg.in/yaml.v3"
 )
@@ -597,7 +597,7 @@ func (d *DB) ExportSanitizedConfig(ctx context.Context) (*SeedConfig, error) {
 			// Export only when set (RUN-148): NULL legacy rows omit the field so a
 			// re-import hardens them to the shipped default; explicit values —
 			// including the 0/unlimited opt-out — roundtrip verbatim.
-			PidsLimit:                pidsLimitSeedPtr(p),
+			PidsLimit: pidsLimitSeedPtr(p),
 		}
 
 		renovate, err := d.GetRenovateConfigByPoolId(ctx, p.ID)
