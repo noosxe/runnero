@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "./components/layout/app-shell";
 import { DashboardPage } from "./routes/dashboard";
 import { PoolsPage } from "./routes/pools";
+import { LogsPage, type LogsPageSearch } from "./routes/logs";
 import { PoolDetailPage } from "./routes/pool-detail";
 import { HistoryPage } from "./routes/history";
 import { HistoryDetailPage } from "./routes/history-detail";
@@ -128,6 +129,20 @@ const historyDetailRoute = createRoute({
   component: HistoryDetailPage,
 });
 
+const logsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: "/logs",
+  validateSearch: (search: Record<string, unknown>): LogsPageSearch => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+    runner: typeof search.runner === "string" ? search.runner : undefined,
+    boot: typeof search.boot === "string" ? search.boot : undefined,
+  }),
+  component: function LogsRouteComponent() {
+    const search = logsRoute.useSearch();
+    return <LogsPage search={search} />;
+  },
+});
+
 const profilesRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "/profiles",
@@ -156,6 +171,7 @@ const routeTree = rootRoute.addChildren([
     poolDetailRoute,
     historyRoute,
     historyDetailRoute,
+    logsRoute,
     profilesRoute,
     renovateRoute,
     settingsRoute,
