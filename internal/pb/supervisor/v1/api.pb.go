@@ -396,10 +396,14 @@ type Pool struct {
 	ActiveRunners int32 `protobuf:"varint,11,opt,name=active_runners,json=activeRunners,proto3" json:"active_runners,omitempty"`
 	IdleRunners   int32 `protobuf:"varint,12,opt,name=idle_runners,json=idleRunners,proto3" json:"idle_runners,omitempty"`
 	// Resource configuration
-	AuthProfileId            int64  `protobuf:"varint,13,opt,name=auth_profile_id,json=authProfileId,proto3" json:"auth_profile_id,omitempty"`
-	Scope                    string `protobuf:"bytes,14,opt,name=scope,proto3" json:"scope,omitempty"` // "repo", "org", or "global"
-	CpuLimit                 string `protobuf:"bytes,15,opt,name=cpu_limit,json=cpuLimit,proto3" json:"cpu_limit,omitempty"`
-	MemoryLimit              string `protobuf:"bytes,16,opt,name=memory_limit,json=memoryLimit,proto3" json:"memory_limit,omitempty"`
+	AuthProfileId int64  `protobuf:"varint,13,opt,name=auth_profile_id,json=authProfileId,proto3" json:"auth_profile_id,omitempty"`
+	Scope         string `protobuf:"bytes,14,opt,name=scope,proto3" json:"scope,omitempty"` // "repo", "org", or "global"
+	CpuLimit      string `protobuf:"bytes,15,opt,name=cpu_limit,json=cpuLimit,proto3" json:"cpu_limit,omitempty"`
+	MemoryLimit   string `protobuf:"bytes,16,opt,name=memory_limit,json=memoryLimit,proto3" json:"memory_limit,omitempty"`
+	// Total memory+swap allowance mirroring Docker HostConfig.MemorySwap:
+	// empty = daemon default (2x memory), "-1" = unlimited swap, otherwise a
+	// memory string >= memory_limit (equal = no extra swap). (RUN-147)
+	MemorySwapLimit          string `protobuf:"bytes,32,opt,name=memory_swap_limit,json=memorySwapLimit,proto3" json:"memory_swap_limit,omitempty"`
 	MaxRunnerLifetimeSeconds int32  `protobuf:"varint,17,opt,name=max_runner_lifetime_seconds,json=maxRunnerLifetimeSeconds,proto3" json:"max_runner_lifetime_seconds,omitempty"`
 	// Image update metadata
 	ImageUpdateAvailable bool   `protobuf:"varint,18,opt,name=image_update_available,json=imageUpdateAvailable,proto3" json:"image_update_available,omitempty"`
@@ -562,6 +566,13 @@ func (x *Pool) GetCpuLimit() string {
 func (x *Pool) GetMemoryLimit() string {
 	if x != nil {
 		return x.MemoryLimit
+	}
+	return ""
+}
+
+func (x *Pool) GetMemorySwapLimit() string {
+	if x != nil {
+		return x.MemorySwapLimit
 	}
 	return ""
 }
@@ -4626,7 +4637,7 @@ const file_api_proto_rawDesc = "" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x19\n" +
 	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\x12\x1b\n" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
-	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\xc6\t\n" +
+	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\xf2\t\n" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -4644,7 +4655,8 @@ const file_api_proto_rawDesc = "" +
 	"\x0fauth_profile_id\x18\r \x01(\x03R\rauthProfileId\x12\x14\n" +
 	"\x05scope\x18\x0e \x01(\tR\x05scope\x12\x1b\n" +
 	"\tcpu_limit\x18\x0f \x01(\tR\bcpuLimit\x12!\n" +
-	"\fmemory_limit\x18\x10 \x01(\tR\vmemoryLimit\x12=\n" +
+	"\fmemory_limit\x18\x10 \x01(\tR\vmemoryLimit\x12*\n" +
+	"\x11memory_swap_limit\x18  \x01(\tR\x0fmemorySwapLimit\x12=\n" +
 	"\x1bmax_runner_lifetime_seconds\x18\x11 \x01(\x05R\x18maxRunnerLifetimeSeconds\x124\n" +
 	"\x16image_update_available\x18\x12 \x01(\bR\x14imageUpdateAvailable\x12!\n" +
 	"\flatest_image\x18\x13 \x01(\tR\vlatestImage\x12\x1f\n" +

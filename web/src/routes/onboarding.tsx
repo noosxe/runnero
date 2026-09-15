@@ -126,6 +126,22 @@ export function OnboardingPage() {
   const [maxConcurrency, setMaxConcurrency] = useState(5);
   const [cpuLimit, setCpuLimit] = useState("2.0");
   const [memoryLimit, setMemoryLimit] = useState("4GB");
+  // Memory swap mode (RUN-147): "match" hardens to swap = memory (no extra
+  // swap — the shipped default); "default2x" keeps the Docker daemon default.
+  const [swapMode, setSwapMode] = useState<"match" | "default2x" | "unlimited" | "custom">("match");
+  const [swapCustom, setSwapCustom] = useState("");
+  const memorySwapLimit = (() => {
+    switch (swapMode) {
+      case "match":
+        return memoryLimit.trim() || "4GB";
+      case "unlimited":
+        return "-1";
+      case "custom":
+        return swapCustom.trim();
+      case "default2x":
+        return "";
+    }
+  })();
   const [allowDocker, setAllowDocker] = useState(true);
   const [renovateEnabled, setRenovateEnabled] = useState(false);
   const [renovateCron, setRenovateCron] = useState("0 2 * * *");
@@ -381,6 +397,7 @@ export function OnboardingPage() {
             scope,
             cpuLimit: cpuLimit.trim() || "2.0",
             memoryLimit: memoryLimit.trim() || "4GB",
+            memorySwapLimit,
             maxRunnerLifetimeSeconds: 7200,
             targetUrls: repositoryUrl.trim() ? [repositoryUrl.trim()] : [],
           }),
@@ -1131,6 +1148,34 @@ export function OnboardingPage() {
                       required
                     />
                   </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="mem-swap">Memory Swap</FieldLabel>
+                    <Select
+                      value={swapMode}
+                      onValueChange={(v) => setSwapMode(v as typeof swapMode)}
+                    >
+                      <SelectTrigger id="mem-swap" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="match">None — match memory (hardened)</SelectItem>
+                        <SelectItem value="default2x">2x memory (Docker default)</SelectItem>
+                        <SelectItem value="unlimited">Unlimited</SelectItem>
+                        <SelectItem value="custom">Custom…</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {swapMode === "custom" && (
+                      <Input
+                        id="mem-swap-custom"
+                        type="text"
+                        placeholder="total memory+swap, e.g. 8GB"
+                        value={swapCustom}
+                        onChange={(e) => setSwapCustom(e.target.value)}
+                        className="mt-2"
+                      />
+                    )}
+                  </Field>
                 </div>
 
                 {/* Docker Policy (docs/05 §4 enforcement) */}
@@ -1346,6 +1391,19 @@ export function OnboardingPage() {
                         <span>Docker Access:</span>
                         <span className="font-semibold text-success">
                           {effectiveAllowDocker ? "Enabled" : "Disabled"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Memory:</span>
+                        <span className="font-semibold text-foreground ">
+                          {memoryLimit || "4GB"} +{" "}
+                          {swapMode === "match"
+                            ? "no swap"
+                            : swapMode === "default2x"
+                              ? `${memoryLimit || "4GB"} swap (2x)`
+                              : swapMode === "unlimited"
+                                ? "unlimited swap"
+                                : `${swapCustom || "?"} swap`}
                         </span>
                       </div>
                       <div className="flex justify-between">

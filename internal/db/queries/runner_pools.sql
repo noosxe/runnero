@@ -13,10 +13,11 @@ INSERT INTO runner_pools (
     max_runner_lifetime_seconds,
     cpu_limit,
     memory_limit,
+    memory_swap_limit,
     poll_fallback,
     poll_interval_seconds
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 ) RETURNING *;
 
 -- name: GetRunnerPoolById :one
@@ -49,6 +50,7 @@ SET name = ?,
     max_runner_lifetime_seconds = ?,
     cpu_limit = ?,
     memory_limit = ?,
+    memory_swap_limit = ?,
     poll_fallback = ?,
     poll_interval_seconds = ?,
     updated_at = CURRENT_TIMESTAMP

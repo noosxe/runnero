@@ -22,9 +22,13 @@ type RunnerConfig struct {
 	Image       string   `json:"image"`
 	CPULimit    string   `json:"cpu_limit"`
 	MemoryLimit string   `json:"memory_limit"`
-	AllowDocker bool     `json:"allow_docker"`
-	Env         []string `json:"env,omitempty"`
-	PoolName    string   `json:"pool_name,omitempty"`
+	// MemorySwapLimit mirrors Docker HostConfig.MemorySwap: the TOTAL
+	// memory+swap allowance. "" = daemon default (2x memory), "-1" =
+	// unlimited, otherwise a memory string >= MemoryLimit (RUN-147).
+	MemorySwapLimit string   `json:"memory_swap_limit"`
+	AllowDocker     bool     `json:"allow_docker"`
+	Env             []string `json:"env,omitempty"`
+	PoolName        string   `json:"pool_name,omitempty"`
 	// PoolID is the stable database identifier of the owning runner pool; it
 	// survives renames, unlike PoolName (docs/22 §5.4, RUN-126).
 	PoolID       int64  `json:"pool_id,omitempty"`
