@@ -237,8 +237,10 @@ func (s *AuthService) SetupAdmin(ctx context.Context, req *connect.Request[super
 	username := strings.TrimSpace(req.Msg.Username)
 	password := req.Msg.Password
 
-	if username == "" || password == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("username and password must not be empty"))
+	// Trim-aware username check: min_len sees the raw wire string, but the
+	// account is stored with the trimmed value (password emptiness is class A).
+	if username == "" {
+		return nil, invalidArgument(newViolation(RuleAuthUsernameRequired, "username", "username must not be empty"))
 	}
 
 	count, err := s.db.CountAdminUsers(ctx)
@@ -303,8 +305,10 @@ func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisor
 	username := strings.TrimSpace(req.Msg.Username)
 	password := req.Msg.Password
 
-	if username == "" || password == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("username and password must not be empty"))
+	// Trim-aware username check: min_len sees the raw wire string, but lookups
+	// use the trimmed value (password emptiness is class A).
+	if username == "" {
+		return nil, invalidArgument(newViolation(RuleAuthUsernameRequired, "username", "username must not be empty"))
 	}
 
 	user, err := s.db.GetAdminUserByUsername(ctx, username)

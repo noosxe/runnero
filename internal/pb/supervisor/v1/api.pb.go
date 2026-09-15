@@ -7,6 +7,7 @@
 package supervisorv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -173,9 +174,11 @@ func (x *SetupAdminResponse) GetSuccess() bool {
 }
 
 type LoginRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// No pattern here on purpose: login must accept whatever SetupAdmin once
+	// accepted (docs/30 §5.2) — empty-gating only.
+	Username      string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Password      string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -381,17 +384,18 @@ func (x *GetSessionResponse) GetHostOs() string {
 }
 
 type Pool struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Provider       string                 `protobuf:"bytes,3,opt,name=provider,proto3" json:"provider,omitempty"`
-	RepositoryUrl  string                 `protobuf:"bytes,4,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
-	MinIdleRunners int32                  `protobuf:"varint,5,opt,name=min_idle_runners,json=minIdleRunners,proto3" json:"min_idle_runners,omitempty"`
-	MaxConcurrency int32                  `protobuf:"varint,6,opt,name=max_concurrency,json=maxConcurrency,proto3" json:"max_concurrency,omitempty"`
-	Labels         []string               `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty"`
-	RunnerImage    string                 `protobuf:"bytes,8,opt,name=runner_image,json=runnerImage,proto3" json:"runner_image,omitempty"`
-	AllowDocker    bool                   `protobuf:"varint,9,opt,name=allow_docker,json=allowDocker,proto3" json:"allow_docker,omitempty"`
-	Renovate       *RenovateConfig        `protobuf:"bytes,10,opt,name=renovate,proto3" json:"renovate,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Slug, mirroring the wizard's own client-side rule (/^[a-z0-9-]+$/).
+	Name           string          `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Provider       string          `protobuf:"bytes,3,opt,name=provider,proto3" json:"provider,omitempty"`
+	RepositoryUrl  string          `protobuf:"bytes,4,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
+	MinIdleRunners int32           `protobuf:"varint,5,opt,name=min_idle_runners,json=minIdleRunners,proto3" json:"min_idle_runners,omitempty"`
+	MaxConcurrency int32           `protobuf:"varint,6,opt,name=max_concurrency,json=maxConcurrency,proto3" json:"max_concurrency,omitempty"`
+	Labels         []string        `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty"`
+	RunnerImage    string          `protobuf:"bytes,8,opt,name=runner_image,json=runnerImage,proto3" json:"runner_image,omitempty"`
+	AllowDocker    bool            `protobuf:"varint,9,opt,name=allow_docker,json=allowDocker,proto3" json:"allow_docker,omitempty"`
+	Renovate       *RenovateConfig `protobuf:"bytes,10,opt,name=renovate,proto3" json:"renovate,omitempty"`
 	// Runtime stats (read-only, populated by server)
 	ActiveRunners int32 `protobuf:"varint,11,opt,name=active_runners,json=activeRunners,proto3" json:"active_runners,omitempty"`
 	IdleRunners   int32 `protobuf:"varint,12,opt,name=idle_runners,json=idleRunners,proto3" json:"idle_runners,omitempty"`
@@ -423,7 +427,7 @@ type Pool struct {
 	LastReconciledAt   string           `protobuf:"bytes,26,opt,name=last_reconciled_at,json=lastReconciledAt,proto3" json:"last_reconciled_at,omitempty"`
 	// Demand polling fallback (docs/24)
 	PollFallback        bool  `protobuf:"varint,27,opt,name=poll_fallback,json=pollFallback,proto3" json:"poll_fallback,omitempty"`
-	PollIntervalSeconds int32 `protobuf:"varint,28,opt,name=poll_interval_seconds,json=pollIntervalSeconds,proto3" json:"poll_interval_seconds,omitempty"` // 0 means server default (30s)
+	PollIntervalSeconds int32 `protobuf:"varint,28,opt,name=poll_interval_seconds,json=pollIntervalSeconds,proto3" json:"poll_interval_seconds,omitempty"`
 	// Demand-poll diagnostics (read-only, populated by server, docs/24 §5.9)
 	LastPollAt          string `protobuf:"bytes,29,opt,name=last_poll_at,json=lastPollAt,proto3" json:"last_poll_at,omitempty"`
 	LastPollQueuedCount int32  `protobuf:"varint,30,opt,name=last_poll_queued_count,json=lastPollQueuedCount,proto3" json:"last_poll_queued_count,omitempty"`
@@ -2223,9 +2227,9 @@ func (x *CreateAuthProfileResponse) GetProfile() *AuthProfile {
 
 type UpdateAuthProfileRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`                                  // Target profile (required, > 0)
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                               // New display name (required, unique)
-	AuthMethod    string                 `protobuf:"bytes,3,opt,name=auth_method,json=authMethod,proto3" json:"auth_method,omitempty"` // "github_app", "gitea_token", "forgejo_token", "pat"
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`    // Target profile
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"` // New display name (required, unique)
+	AuthMethod    string                 `protobuf:"bytes,3,opt,name=auth_method,json=authMethod,proto3" json:"auth_method,omitempty"`
 	AppId         int64                  `protobuf:"varint,4,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`               // GitHub App only (required > 0 for github_app)
 	PrivateKey    []byte                 `protobuf:"bytes,5,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"` // Write-only; empty = keep existing key
 	Token         string                 `protobuf:"bytes,6,opt,name=token,proto3" json:"token,omitempty"`                             // Write-only; empty = keep existing token
@@ -5149,15 +5153,15 @@ var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
 	"\n" +
-	"\tapi.proto\x12\rsupervisor.v1\"K\n" +
-	"\x11SetupAdminRequest\x12\x1a\n" +
-	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\".\n" +
+	"\tapi.proto\x12\rsupervisor.v1\x1a\x1bbuf/validate/validate.proto\"]\n" +
+	"\x11SetupAdminRequest\x12#\n" +
+	"\busername\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\busername\x12#\n" +
+	"\bpassword\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bpassword\".\n" +
 	"\x12SetupAdminResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"F\n" +
-	"\fLoginRequest\x12\x1a\n" +
-	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"E\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"X\n" +
+	"\fLoginRequest\x12#\n" +
+	"\busername\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\busername\x12#\n" +
+	"\bpassword\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bpassword\"E\n" +
 	"\rLoginResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\"\x13\n" +
@@ -5166,30 +5170,29 @@ const file_api_proto_rawDesc = "" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x19\n" +
 	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\x12\x1b\n" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
-	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\x91\n" +
-	"\n" +
+	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\x8d\r\n" +
 	"\x04Pool\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12)\n" +
+	"\x04name\x18\x02 \x01(\tB\x15\xbaH\x12r\x10\x10\x012\f^[a-z0-9-]+$R\x04name\x12\x1a\n" +
 	"\bprovider\x18\x03 \x01(\tR\bprovider\x12%\n" +
-	"\x0erepository_url\x18\x04 \x01(\tR\rrepositoryUrl\x12(\n" +
-	"\x10min_idle_runners\x18\x05 \x01(\x05R\x0eminIdleRunners\x12'\n" +
-	"\x0fmax_concurrency\x18\x06 \x01(\x05R\x0emaxConcurrency\x12\x16\n" +
+	"\x0erepository_url\x18\x04 \x01(\tR\rrepositoryUrl\x121\n" +
+	"\x10min_idle_runners\x18\x05 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\x0eminIdleRunners\x120\n" +
+	"\x0fmax_concurrency\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\x0emaxConcurrency\x12\x16\n" +
 	"\x06labels\x18\a \x03(\tR\x06labels\x12!\n" +
 	"\frunner_image\x18\b \x01(\tR\vrunnerImage\x12!\n" +
 	"\fallow_docker\x18\t \x01(\bR\vallowDocker\x129\n" +
 	"\brenovate\x18\n" +
 	" \x01(\v2\x1d.supervisor.v1.RenovateConfigR\brenovate\x12%\n" +
 	"\x0eactive_runners\x18\v \x01(\x05R\ractiveRunners\x12!\n" +
-	"\fidle_runners\x18\f \x01(\x05R\vidleRunners\x12&\n" +
-	"\x0fauth_profile_id\x18\r \x01(\x03R\rauthProfileId\x12\x14\n" +
+	"\fidle_runners\x18\f \x01(\x05R\vidleRunners\x12/\n" +
+	"\x0fauth_profile_id\x18\r \x01(\x03B\a\xbaH\x04\"\x02 \x00R\rauthProfileId\x12\x14\n" +
 	"\x05scope\x18\x0e \x01(\tR\x05scope\x12\x1b\n" +
 	"\tcpu_limit\x18\x0f \x01(\tR\bcpuLimit\x12!\n" +
 	"\fmemory_limit\x18\x10 \x01(\tR\vmemoryLimit\x12*\n" +
-	"\x11memory_swap_limit\x18  \x01(\tR\x0fmemorySwapLimit\x12\x1d\n" +
+	"\x11memory_swap_limit\x18  \x01(\tR\x0fmemorySwapLimit\x12&\n" +
 	"\n" +
-	"pids_limit\x18! \x01(\x05R\tpidsLimit\x12=\n" +
-	"\x1bmax_runner_lifetime_seconds\x18\x11 \x01(\x05R\x18maxRunnerLifetimeSeconds\x124\n" +
+	"pids_limit\x18! \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\tpidsLimit\x12F\n" +
+	"\x1bmax_runner_lifetime_seconds\x18\x11 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\x18maxRunnerLifetimeSeconds\x124\n" +
 	"\x16image_update_available\x18\x12 \x01(\bR\x14imageUpdateAvailable\x12!\n" +
 	"\flatest_image\x18\x13 \x01(\tR\vlatestImage\x12\x1f\n" +
 	"\vtarget_urls\x18\x14 \x03(\tR\n" +
@@ -5201,25 +5204,28 @@ const file_api_proto_rawDesc = "" +
 	"\x0flast_error_code\x18\x18 \x01(\tR\rlastErrorCode\x120\n" +
 	"\x14last_error_timestamp\x18\x19 \x01(\tR\x12lastErrorTimestamp\x12,\n" +
 	"\x12last_reconciled_at\x18\x1a \x01(\tR\x10lastReconciledAt\x12#\n" +
-	"\rpoll_fallback\x18\x1b \x01(\bR\fpollFallback\x122\n" +
-	"\x15poll_interval_seconds\x18\x1c \x01(\x05R\x13pollIntervalSeconds\x12 \n" +
+	"\rpoll_fallback\x18\x1b \x01(\bR\fpollFallback\x12\xb2\x01\n" +
+	"\x15poll_interval_seconds\x18\x1c \x01(\x05B~\xbaH{\xba\x01x\n" +
+	"\x18pool.poll_interval.range\x121poll_interval_seconds must be between 15 and 3600\x1a)this == 0 || (this >= 15 && this <= 3600)R\x13pollIntervalSeconds\x12 \n" +
 	"\flast_poll_at\x18\x1d \x01(\tR\n" +
 	"lastPollAt\x123\n" +
 	"\x16last_poll_queued_count\x18\x1e \x01(\x05R\x13lastPollQueuedCount\x12&\n" +
-	"\x0flast_poll_error\x18\x1f \x01(\tR\rlastPollError\"e\n" +
+	"\x0flast_poll_error\x18\x1f \x01(\tR\rlastPollError:\xb4\x01\xbaH\xb0\x01\x1a\xad\x01\n" +
+	"\x1dpool.min_idle.max_concurrency\x12@min_idle_runners must not exceed max_concurrency (0 = unlimited)\x1aJthis.max_concurrency == 0 || this.min_idle_runners <= this.max_concurrency\"e\n" +
 	"\x0eRenovateConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12#\n" +
 	"\rcron_schedule\x18\x02 \x01(\tR\fcronSchedule\x12\x14\n" +
 	"\x05image\x18\x03 \x01(\tR\x05image\"\x12\n" +
 	"\x10ListPoolsRequest\">\n" +
 	"\x11ListPoolsResponse\x12)\n" +
-	"\x05pools\x18\x01 \x03(\v2\x13.supervisor.v1.PoolR\x05pools\"<\n" +
-	"\x11CreatePoolRequest\x12'\n" +
-	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"=\n" +
+	"\x05pools\x18\x01 \x03(\v2\x13.supervisor.v1.PoolR\x05pools\"D\n" +
+	"\x11CreatePoolRequest\x12/\n" +
+	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolB\x06\xbaH\x03\xc8\x01\x01R\x04pool\"=\n" +
 	"\x12CreatePoolResponse\x12'\n" +
-	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"<\n" +
-	"\x11UpdatePoolRequest\x12'\n" +
-	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"=\n" +
+	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"\xae\x01\n" +
+	"\x11UpdatePoolRequest\x12/\n" +
+	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolB\x06\xbaH\x03\xc8\x01\x01R\x04pool:h\xbaHe\x1ac\n" +
+	"\x17pool.update.id_required\x12$pool id must be specified for update\x1a\"has(this.pool) && this.pool.id > 0\"=\n" +
 	"\x12UpdatePoolResponse\x12'\n" +
 	"\x04pool\x18\x01 \x01(\v2\x13.supervisor.v1.PoolR\x04pool\"J\n" +
 	"\x11DeletePoolRequest\x12\x0e\n" +
@@ -5304,26 +5310,32 @@ const file_api_proto_rawDesc = "" +
 	"\x13installations_count\x18\b \x01(\x05R\x12installationsCount\"\x19\n" +
 	"\x17ListAuthProfilesRequest\"R\n" +
 	"\x18ListAuthProfilesResponse\x126\n" +
-	"\bprofiles\x18\x01 \x03(\v2\x1a.supervisor.v1.AuthProfileR\bprofiles\"\x9d\x01\n" +
-	"\x18CreateAuthProfileRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1f\n" +
-	"\vauth_method\x18\x02 \x01(\tR\n" +
+	"\bprofiles\x18\x01 \x03(\v2\x1a.supervisor.v1.AuthProfileR\bprofiles\"\xc4\x05\n" +
+	"\x18CreateAuthProfileRequest\x12\x1b\n" +
+	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12S\n" +
+	"\vauth_method\x18\x02 \x01(\tB2\xbaH/r-R\n" +
+	"github_appR\vgitea_tokenR\rforgejo_tokenR\x03patR\n" +
 	"authMethod\x12\x15\n" +
 	"\x06app_id\x18\x03 \x01(\x03R\x05appId\x12\x1f\n" +
 	"\vprivate_key\x18\x04 \x01(\fR\n" +
 	"privateKey\x12\x14\n" +
-	"\x05token\x18\x05 \x01(\tR\x05token\"Q\n" +
+	"\x05token\x18\x05 \x01(\tR\x05token:\xe7\x03\xbaH\xe3\x03\x1a\x8f\x01\n" +
+	"\x1cauth_profile.app_id.required\x12:github_app authentication requires a valid positive app_id\x1a3this.auth_method != 'github_app' || this.app_id > 0\x1a\x94\x01\n" +
+	"!auth_profile.private_key.required\x12.github_app authentication requires private_key\x1a?this.auth_method != 'github_app' || this.private_key.size() > 0\x1a\xb7\x01\n" +
+	"\x1bauth_profile.token.required\x12?gitea_token, forgejo_token and pat authentication require token\x1aW!(this.auth_method in ['gitea_token', 'forgejo_token', 'pat']) || this.token.size() > 0\"Q\n" +
 	"\x19CreateAuthProfileResponse\x124\n" +
-	"\aprofile\x18\x01 \x01(\v2\x1a.supervisor.v1.AuthProfileR\aprofile\"\xad\x01\n" +
-	"\x18UpdateAuthProfileRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n" +
-	"\vauth_method\x18\x03 \x01(\tR\n" +
+	"\aprofile\x18\x01 \x01(\v2\x1a.supervisor.v1.AuthProfileR\aprofile\"\x8c\x03\n" +
+	"\x18UpdateAuthProfileRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\x02id\x12\x1b\n" +
+	"\x04name\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12S\n" +
+	"\vauth_method\x18\x03 \x01(\tB2\xbaH/r-R\n" +
+	"github_appR\vgitea_tokenR\rforgejo_tokenR\x03patR\n" +
 	"authMethod\x12\x15\n" +
 	"\x06app_id\x18\x04 \x01(\x03R\x05appId\x12\x1f\n" +
 	"\vprivate_key\x18\x05 \x01(\fR\n" +
 	"privateKey\x12\x14\n" +
-	"\x05token\x18\x06 \x01(\tR\x05token\"Q\n" +
+	"\x05token\x18\x06 \x01(\tR\x05token:\x96\x01\xbaH\x92\x01\x1a\x8f\x01\n" +
+	"\x1cauth_profile.app_id.required\x12:github_app authentication requires a valid positive app_id\x1a3this.auth_method != 'github_app' || this.app_id > 0\"Q\n" +
 	"\x19UpdateAuthProfileResponse\x124\n" +
 	"\aprofile\x18\x01 \x01(\v2\x1a.supervisor.v1.AuthProfileR\aprofile\"*\n" +
 	"\x18DeleteAuthProfileRequest\x12\x0e\n" +
@@ -5350,9 +5362,9 @@ const file_api_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x03 \x01(\tR\tupdatedAt\"T\n" +
 	"\x16GetAppSettingsResponse\x12:\n" +
-	"\bsettings\x18\x01 \x03(\v2\x1e.supervisor.v1.AppSettingEntryR\bsettings\">\n" +
-	"\x14SetAppSettingRequest\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\bsettings\x18\x01 \x03(\v2\x1e.supervisor.v1.AppSettingEntryR\bsettings\"G\n" +
+	"\x14SetAppSettingRequest\x12\x19\n" +
+	"\x03key\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\"?\n" +
 	"\x15SetAppSettingResponse\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +

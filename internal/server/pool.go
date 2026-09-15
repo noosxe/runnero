@@ -421,27 +421,29 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 	return protoPool
 }
 
+// validatePoolInput enforces the pool rules the proto schema cannot express
+// (class B, docs/30 §5.1): quantity-string parsing, URL parsing, cron syntax,
+// cross-resource state. Format, range, and cross-field rules live as
+// protovalidate annotations on supervisorv1.Pool (class A) and are enforced
+// by the validation interceptor before handlers run, so checks removed from
+// here are not missing — they moved into proto/api.proto.
 func validatePoolInput(p *supervisorv1.Pool) error {
 	if p == nil {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("pool payload is required"))
-	}
-	name := strings.TrimSpace(p.Name)
-	if name == "" {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("pool name must not be empty"))
+		return invalidArgument(newViolation(RulePoolPayloadRequired, "pool", "pool payload is required"))
 	}
 
 	provider := strings.ToLower(strings.TrimSpace(p.Provider))
 	switch provider {
 	case "github", "gitea", "forgejo":
 	default:
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unsupported provider %q; must be 'github', 'gitea', or 'forgejo'", p.Provider))
+		return invalidArgument(newViolation(RulePoolProviderUnsupported, "provider", "unsupported provider %q; must be 'github', 'gitea', or 'forgejo'", p.Provider))
 	}
 
 	if strings.TrimSpace(p.RepositoryUrl) == "" {
 		if len(p.TargetUrls) > 0 {
 			p.RepositoryUrl = strings.TrimSpace(p.TargetUrls[0])
 		} else {
-			return connect.NewError(connect.CodeInvalidArgument, errors.New("repository_url or target_urls must not be empty"))
+			return invalidArgument(newViolation(RulePoolTargetRequired, "repository_url", "repository_url or target_urls must not be empty"))
 		}
 	}
 
@@ -450,7 +452,7 @@ func validatePoolInput(p *supervisorv1.Pool) error {
 		scope = "repo"
 	}
 	if scope != "repo" && scope != "org" && scope != "global" {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid pool scope %q: must be 'repo' or 'org'", p.Scope))
+		return invalidArgument(newViolation(RulePoolScopeInvalid, "scope", "invalid pool scope %q: must be 'repo' or 'org'", p.Scope))
 	}
 
 	targets := p.TargetUrls
@@ -465,76 +467,56 @@ func validatePoolInput(p *supervisorv1.Pool) error {
 		}
 		u, err := url.Parse(t)
 		if err != nil || u.Host == "" {
-			return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target url %q", target))
+			return invalidArgument(newViolation(RulePoolTargetURLInvalid, "target_urls", "invalid target url %q", target))
 		}
 		trimmedPath := strings.Trim(u.Path, "/")
 		parts := strings.Split(trimmedPath, "/")
 		if scope == "repo" && (trimmedPath == "" || len(parts) < 2) {
-			return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("target %q is not a repository URL (pool scope is 'repo'); mixing repositories and organizations is not allowed", target))
+			return invalidArgument(newViolation(RulePoolTargetScopeMismatch, "target_urls", "target %q is not a repository URL (pool scope is 'repo'); mixing repositories and organizations is not allowed", target))
 		}
 		if scope == "org" && len(parts) >= 2 {
-			return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("target %q is a repository URL (pool scope is 'org'); mixing repositories and organizations is not allowed", target))
+			return invalidArgument(newViolation(RulePoolTargetScopeMismatch, "target_urls", "target %q is a repository URL (pool scope is 'org'); mixing repositories and organizations is not allowed", target))
 		}
 	}
 
 	// Gitea and Forgejo require allow_docker=true (docs/05 §4)
 	if (provider == "gitea" || provider == "forgejo") && !p.AllowDocker {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("gitea and forgejo pools require allow_docker=true (docs/05 §4)"))
+		return invalidArgument(newViolation(RulePoolAllowDockerRequired, "allow_docker", "gitea and forgejo pools require allow_docker=true (docs/05 §4)"))
 	}
 
-	if p.AuthProfileId <= 0 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("auth_profile_id must be a valid positive identifier"))
-	}
-
-	if p.MinIdleRunners < 0 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("min_idle_runners must be non-negative"))
-	}
-	if p.MaxConcurrency < 0 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("max_concurrency must be non-negative"))
-	}
-	if p.MaxRunnerLifetimeSeconds < 0 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("max_runner_lifetime_seconds must be non-negative"))
-	}
-
-	// Memory swap cap (RUN-147): semantics mirror Docker HostConfig.MemorySwap
-	// (the TOTAL memory+swap allowance). Empty = daemon default (2x memory);
-	// "-1" = unlimited swap; otherwise a memory string that must parse and be
-	// >= memory_limit (equal = no extra swap).
+	// Memory swap cap (RUN-147): quantity strings need the Go parser (class B).
+	// Semantics mirror Docker HostConfig.MemorySwap (the TOTAL memory+swap
+	// allowance). Empty = daemon default (2x memory); "-1" = unlimited swap;
+	// otherwise a memory string that must parse and be >= memory_limit
+	// (equal = no extra swap).
 	if swap := strings.TrimSpace(p.MemorySwapLimit); swap != "" {
 		if strings.TrimSpace(p.MemoryLimit) == "" {
-			return connect.NewError(connect.CodeInvalidArgument, errors.New("memory_swap_limit requires memory_limit to be set"))
+			return invalidArgument(newViolation(RulePoolMemorySwapRequiresMemory, "memory_swap_limit", "memory_swap_limit requires memory_limit to be set"))
 		}
 		if swap != "-1" {
 			memBytes, err := limits.ParseMemoryLimit(p.MemoryLimit)
 			if err != nil {
-				return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid memory_limit: %w", err))
+				return invalidArgument(newViolation(RulePoolMemoryLimitParse, "memory_limit", "invalid memory_limit: %v", err))
 			}
 			swapBytes, err := limits.ParseMemoryLimit(swap)
 			if err != nil {
-				return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid memory_swap_limit: %w", err))
+				return invalidArgument(newViolation(RulePoolMemorySwapParse, "memory_swap_limit", "invalid memory_swap_limit: %v", err))
 			}
 			if swapBytes < memBytes {
-				return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("memory_swap_limit (%s) must be >= memory_limit (%s); equal means no extra swap", swap, p.MemoryLimit))
+				return invalidArgument(newViolation(RulePoolMemorySwapGTEMemory, "memory_swap_limit", "memory_swap_limit (%s) must be >= memory_limit (%s); equal means no extra swap", swap, p.MemoryLimit))
 			}
 		}
 	}
 
-	// PIDs cap (RUN-148): 0 = unlimited (opt-out); negative values are invalid.
-	if p.PidsLimit < 0 {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("pids_limit must be >= 0 (0 = unlimited)"))
-	}
 	// Demand polling validation (docs/24 §5.7): Gitea has no repo-scoped
 	// queued-jobs API (docs/24 §4); Forgejo polls natively regardless of the flag.
 	if p.PollFallback && provider == "gitea" {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("poll_fallback is not supported for gitea pools (no repo-scoped queued-jobs API)"))
-	}
-	if p.PollIntervalSeconds != 0 && (p.PollIntervalSeconds < 15 || p.PollIntervalSeconds > 3600) {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("poll_interval_seconds must be between 15 and 3600"))
+		return invalidArgument(newViolation(RulePoolPollFallbackUnsupported, "poll_fallback", "poll_fallback is not supported for gitea pools (no repo-scoped queued-jobs API)"))
 	}
 
 	if p.Renovate != nil && p.Renovate.Enabled && strings.TrimSpace(p.Renovate.CronSchedule) != "" {
 		if _, err := cron.ParseSchedule(strings.TrimSpace(p.Renovate.CronSchedule)); err != nil {
-			return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid renovate cron schedule: %w", err))
+			return invalidArgument(newViolation(RulePoolRenovateCronInvalid, "renovate.cron_schedule", "invalid renovate cron schedule: %v", err))
 		}
 	}
 
@@ -579,7 +561,7 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 	if pool.Renovate != nil {
 		if pool.Renovate.Enabled && strings.TrimSpace(pool.Renovate.CronSchedule) != "" {
 			if _, err := cron.ParseSchedule(strings.TrimSpace(pool.Renovate.CronSchedule)); err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid renovate cron schedule: %w", err))
+				return nil, invalidArgument(newViolation(RulePoolRenovateCronInvalid, "renovate.cron_schedule", "invalid renovate cron schedule: %v", err))
 			}
 		}
 		img := strings.TrimSpace(pool.Renovate.Image)
@@ -636,10 +618,10 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 	})
 	if err != nil {
 		if db.IsUniqueConstraintError(err) {
-			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("pool name %q already exists", strings.TrimSpace(pool.Name)))
+			return nil, alreadyExists(newViolation(RulePoolNameDuplicate, "name", "pool name %q already exists", strings.TrimSpace(pool.Name)))
 		}
 		if strings.Contains(err.Error(), "FOREIGN KEY") {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("auth_profile_id %d does not exist", pool.AuthProfileId))
+			return nil, invalidArgument(newViolation(RulePoolAuthProfileNotFound, "auth_profile_id", "auth_profile_id %d does not exist", pool.AuthProfileId))
 		}
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("creating runner pool: %w", err))
 	}
@@ -671,9 +653,8 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 	if err := validatePoolInput(pool); err != nil {
 		return nil, err
 	}
-	if pool.Id <= 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("pool id must be specified for update"))
-	}
+	// pool.Id <= 0 is enforced by the pool.update.id_required CEL annotation —
+	// the interceptor rejects it before handlers run (docs/30 §5.3).
 
 	existing, err := s.db.GetRunnerPoolById(ctx, pool.Id)
 	if err != nil {
@@ -682,7 +663,7 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 
 	provider := strings.ToLower(strings.TrimSpace(pool.Provider))
 	if provider != existing.Provider {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(
+		return nil, invalidArgument(newViolation(RulePoolProviderImmutable, "provider",
 			"provider is immutable: pool %d was created as %q; recreate the pool to change provider", pool.Id, existing.Provider))
 	}
 
@@ -766,10 +747,10 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 	})
 	if err != nil {
 		if db.IsUniqueConstraintError(err) {
-			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("pool name %q already exists", params.Name))
+			return nil, alreadyExists(newViolation(RulePoolNameDuplicate, "name", "pool name %q already exists", params.Name))
 		}
 		if strings.Contains(err.Error(), "FOREIGN KEY") {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("auth_profile_id %d does not exist", pool.AuthProfileId))
+			return nil, invalidArgument(newViolation(RulePoolAuthProfileNotFound, "auth_profile_id", "auth_profile_id %d does not exist", pool.AuthProfileId))
 		}
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("updating runner pool: %w", err))
 	}

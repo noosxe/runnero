@@ -317,6 +317,9 @@ func (s *Server) ConnectHandlerOptions() []connect.HandlerOption {
 	if s.authDB != nil && len(s.jwtSecret) > 0 {
 		opts = append(opts, connect.WithInterceptors(NewAuthInterceptor(s.authDB, s.jwtSecret)))
 	}
+	// Validation runs innermost (after auth): unauthenticated callers get the
+	// auth code on protected RPCs rather than rule feedback (docs/30 §5.3).
+	opts = append(opts, connect.WithInterceptors(NewValidationInterceptor()))
 	return opts
 }
 
