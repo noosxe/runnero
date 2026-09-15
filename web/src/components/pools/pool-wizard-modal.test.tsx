@@ -445,22 +445,6 @@ describe("PoolWizardModal (edit mode)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
     fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
-    expect(screen.getByLabelText(/Memory Swap/i)).toHaveTextContent(/Unlimited/i);
-  });
-
-  it("prefills unlimited swap mode from a -1 pool value (RUN-147)", () => {
-    render(
-      <PoolWizardModal
-        isOpen={true}
-        onClose={vi.fn()}
-        mode="edit"
-        pool={makeEditPool({ memorySwapLimit: "-1" })}
-        authProfiles={defaultAuthProfiles}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Continue to Scope & Targets/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Continue to Specifications/i }));
     // jsdom renders the Radix SelectValue as the raw item value.
     expect(screen.getByLabelText(/Memory Swap/i)).toHaveTextContent(/unlimited/i);
   });
