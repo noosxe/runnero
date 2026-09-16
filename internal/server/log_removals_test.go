@@ -30,14 +30,14 @@ type logTestEnv struct {
 func newLogTestEnv(t *testing.T, dataDir, bootCurrent string) *logTestEnv {
 	t.Helper()
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		DataDir:          dataDir,
-		JWTSigningSecret: jwtSecret,
-		BootLog:          &mockBootLogFile{current: bootCurrent},
+		Port:    8080,
+		AuthDB:  database,
+		DataDir: dataDir,
+		Session: testSessionConfig(),
+		BootLog: &mockBootLogFile{current: bootCurrent},
 	})
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)

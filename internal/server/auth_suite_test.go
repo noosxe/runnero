@@ -22,7 +22,6 @@ type AuthEngineTestSuite struct {
 	suite.Suite
 	ctx        context.Context
 	database   *db.DB
-	jwtSecret  []byte
 	server     *server.Server
 	testServer *httptest.Server
 	authClient supervisorv1connect.AuthServiceClient
@@ -38,13 +37,12 @@ func (s *AuthEngineTestSuite) SetupTest() {
 		EncryptionKey: derived.DBEncryptionKey,
 	})
 	s.Require().NoError(err)
-	s.jwtSecret = derived.JWTSigningSecret
 
 	s.server = server.New(server.Options{
-		Port:             8080,
-		AuthDB:           s.database,
-		PoolDB:           s.database,
-		JWTSigningSecret: s.jwtSecret,
+		Port:    8080,
+		AuthDB:  s.database,
+		PoolDB:  s.database,
+		Session: testSessionConfig(),
 	})
 
 	s.testServer = httptest.NewServer(s.server.Handler())
@@ -182,7 +180,6 @@ type PoolQuotaTestSuite struct {
 	suite.Suite
 	ctx        context.Context
 	database   *db.DB
-	jwtSecret  []byte
 	server     *server.Server
 	testServer *httptest.Server
 	poolClient supervisorv1connect.PoolServiceClient
@@ -199,13 +196,12 @@ func (s *PoolQuotaTestSuite) SetupTest() {
 		EncryptionKey: derived.DBEncryptionKey,
 	})
 	s.Require().NoError(err)
-	s.jwtSecret = derived.JWTSigningSecret
 
 	s.server = server.New(server.Options{
-		Port:             8080,
-		AuthDB:           s.database,
-		PoolDB:           s.database,
-		JWTSigningSecret: s.jwtSecret,
+		Port:    8080,
+		AuthDB:  s.database,
+		PoolDB:  s.database,
+		Session: testSessionConfig(),
 	})
 
 	s.testServer = httptest.NewServer(s.server.Handler())

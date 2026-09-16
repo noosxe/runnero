@@ -34,7 +34,7 @@ services:
       - SUPERVISOR_DB_ENCRYPTION_KEY=${SUPERVISOR_DB_ENCRYPTION_KEY}
       - SUPERVISOR_PORT=8090
       # Enable Secure attribute on session cookies behind TLS proxy
-      - SUPERVISOR_SECURE_COOKIE=true
+      - SUPERVISOR_SECURE_COOKIES=always
       - SUPERVISOR_DATA_DIR=/data
       - SUPERVISOR_DOCKER_HOST=unix:///var/run/docker.sock
     volumes:

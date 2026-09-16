@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/knadh/koanf/parsers/toml"
@@ -25,20 +26,25 @@ const EnvPrefix = "SUPERVISOR_"
 
 // Environment variable names for the supervisor contract.
 const (
-	EnvDBEncryptionKey      = EnvPrefix + "DB_ENCRYPTION_KEY"
-	EnvPort                 = EnvPrefix + "PORT"
-	EnvDBPath               = EnvPrefix + "DB_PATH"
-	EnvLogLevel             = EnvPrefix + "LOG_LEVEL"
-	EnvDockerHost           = EnvPrefix + "DOCKER_HOST"
-	EnvDataDir              = EnvPrefix + "DATA_DIR"
-	EnvBackupIntervalHours  = EnvPrefix + "BACKUP_INTERVAL_HOURS"
-	EnvBackupRetention      = EnvPrefix + "BACKUP_RETENTION_COUNT"
-	EnvConfigFile           = EnvPrefix + "CONFIG"
-	EnvSecureCookie         = EnvPrefix + "SECURE_COOKIE"
-	EnvEnrichJobConclusions = EnvPrefix + "ENRICH_JOB_CONCLUSIONS"
-	EnvWebhookGitHubSecret  = EnvPrefix + "WEBHOOK_GITHUB_SECRET"
-	EnvWebhookGiteaSecret   = EnvPrefix + "WEBHOOK_GITEA_SECRET"
-	EnvWebhookForgejoSecret = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
+	EnvDBEncryptionKey        = EnvPrefix + "DB_ENCRYPTION_KEY"
+	EnvPort                   = EnvPrefix + "PORT"
+	EnvDBPath                 = EnvPrefix + "DB_PATH"
+	EnvLogLevel               = EnvPrefix + "LOG_LEVEL"
+	EnvDockerHost             = EnvPrefix + "DOCKER_HOST"
+	EnvDataDir                = EnvPrefix + "DATA_DIR"
+	EnvBackupIntervalHours    = EnvPrefix + "BACKUP_INTERVAL_HOURS"
+	EnvBackupRetention        = EnvPrefix + "BACKUP_RETENTION_COUNT"
+	EnvConfigFile             = EnvPrefix + "CONFIG"
+	EnvSecureCookie           = EnvPrefix + "SECURE_COOKIE"
+	EnvSecureCookies          = EnvPrefix + "SECURE_COOKIES"
+	EnvSessionIdleTimeout     = EnvPrefix + "SESSION_IDLE_TIMEOUT"
+	EnvSessionAbsoluteTimeout = EnvPrefix + "SESSION_ABSOLUTE_TIMEOUT"
+	EnvBcryptCost             = EnvPrefix + "BCRYPT_COST"
+	EnvTrustedProxy           = EnvPrefix + "TRUSTED_PROXY"
+	EnvEnrichJobConclusions   = EnvPrefix + "ENRICH_JOB_CONCLUSIONS"
+	EnvWebhookGitHubSecret    = EnvPrefix + "WEBHOOK_GITHUB_SECRET"
+	EnvWebhookGiteaSecret     = EnvPrefix + "WEBHOOK_GITEA_SECRET"
+	EnvWebhookForgejoSecret   = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
 
 	// Durable log persistence (RUN-186, docs/28 §5.5).
 	EnvLogPersistenceEnabled      = EnvPrefix + "LOG_PERSISTENCE_ENABLED"
@@ -69,6 +75,14 @@ const (
 	DefaultBackupIntervalHours  = 6
 	DefaultBackupRetentionCount = 7
 
+	// Web session defaults (RUN-230, docs/32 sections 3-4): two clocks
+	// (sliding idle + absolute cap), Secure-cookie auto-detection, bcrypt
+	// cost 12 (guide default; validated range 4-31).
+	DefaultSessionIdleTimeout     = "168h" // 7 days, sliding
+	DefaultSessionAbsoluteTimeout = "720h" // 30 days, fixed cap
+	DefaultSecureCookieMode       = "auto"
+	DefaultBcryptCost             = 12
+
 	// Embedded Tailscale defaults (RUN-155, docs/26 §4).
 	DefaultTailscaleHostname          = "runnero"
 	DefaultTailscaleStateDirName      = "tailscale"
@@ -93,20 +107,25 @@ const MinEncryptionKeyBytes = 32
 // keys double as the YAML/TOML file keys and (with dashes) the CLI flag
 // names, keeping all three layers spelled identically.
 var envKeys = map[string]string{
-	EnvDBEncryptionKey:      "db-encryption-key",
-	EnvPort:                 "port",
-	EnvDBPath:               "db-path",
-	EnvLogLevel:             "log-level",
-	EnvDockerHost:           "docker-host",
-	EnvDataDir:              "data-dir",
-	EnvBackupIntervalHours:  "backup-interval-hours",
-	EnvBackupRetention:      "backup-retention-count",
-	EnvEnrichJobConclusions: "enrich-job-conclusions",
-	EnvConfigFile:           "config",
-	EnvSecureCookie:         "secure-cookie",
-	EnvWebhookGitHubSecret:  "webhook-github-secret",
-	EnvWebhookGiteaSecret:   "webhook-gitea-secret",
-	EnvWebhookForgejoSecret: "webhook-forgejo-secret",
+	EnvDBEncryptionKey:        "db-encryption-key",
+	EnvPort:                   "port",
+	EnvDBPath:                 "db-path",
+	EnvLogLevel:               "log-level",
+	EnvDockerHost:             "docker-host",
+	EnvDataDir:                "data-dir",
+	EnvBackupIntervalHours:    "backup-interval-hours",
+	EnvBackupRetention:        "backup-retention-count",
+	EnvEnrichJobConclusions:   "enrich-job-conclusions",
+	EnvConfigFile:             "config",
+	EnvSecureCookie:           "secure-cookie",
+	EnvSecureCookies:          "secure-cookies",
+	EnvSessionIdleTimeout:     "session-idle-timeout",
+	EnvSessionAbsoluteTimeout: "session-absolute-timeout",
+	EnvBcryptCost:             "bcrypt-cost",
+	EnvTrustedProxy:           "trusted-proxy",
+	EnvWebhookGitHubSecret:    "webhook-github-secret",
+	EnvWebhookGiteaSecret:     "webhook-gitea-secret",
+	EnvWebhookForgejoSecret:   "webhook-forgejo-secret",
 
 	EnvTailscaleAuthKey:           "tailscale-auth-key",
 	EnvTailscaleHostname:          "tailscale-hostname",
@@ -134,11 +153,21 @@ type Config struct {
 	BackupIntervalHours  int    `koanf:"backup-interval-hours"`
 	BackupRetentionCount int    `koanf:"backup-retention-count"`
 	ConfigFile           string `koanf:"config"`
-	SecureCookie         bool   `koanf:"secure-cookie"`
-	EnrichJobConclusions bool   `koanf:"enrich-job-conclusions"`
-	WebhookGitHubSecret  string `koanf:"webhook-github-secret"`
-	WebhookGiteaSecret   string `koanf:"webhook-gitea-secret"`
-	WebhookForgejoSecret string `koanf:"webhook-forgejo-secret"`
+	SecureCookie         bool   `koanf:"secure-cookie"` // deprecated; superseded by SecureCookies (parsed back-compat)
+
+	// Web session settings (RUN-230, docs/32 sections 3-6). The duration
+	// fields decode from duration strings ("168h") via the decoder hook in
+	// Load; SecureCookies carries the resolved mode (always auto/always/
+	// never after normalize; see SecureCookieMode* constants).
+	SessionIdleTimeout     time.Duration `koanf:"session-idle-timeout"`
+	SessionAbsoluteTimeout time.Duration `koanf:"session-absolute-timeout"`
+	SecureCookies          string        `koanf:"secure-cookies"`
+	BcryptCost             int           `koanf:"bcrypt-cost"`
+	TrustedProxy           bool          `koanf:"trusted-proxy"`
+	EnrichJobConclusions   bool          `koanf:"enrich-job-conclusions"`
+	WebhookGitHubSecret    string        `koanf:"webhook-github-secret"`
+	WebhookGiteaSecret     string        `koanf:"webhook-gitea-secret"`
+	WebhookForgejoSecret   string        `koanf:"webhook-forgejo-secret"`
 
 	// Embedded Tailscale integration (RUN-155, docs/26 §4). TailscaleFunnel
 	// and TailscaleUI hold the raw string values because a malformed boolean
@@ -222,6 +251,9 @@ func Load(opts Options) (*Config, error) {
 			Result:           &cfg,
 			WeaklyTypedInput: true, // environment values arrive as strings
 			ErrorUnused:      true, // surface misspelled keys instead of ignoring them
+			DecodeHook: mapstructure.ComposeDecodeHookFunc(
+				mapstructure.StringToTimeDurationHookFunc(), // session timeout knobs arrive as duration strings
+			),
 		},
 	}); err != nil {
 		return nil, fmt.Errorf("decoding configuration (check key names and value types): %w", err)
@@ -248,18 +280,23 @@ func Load(opts Options) (*Config, error) {
 // key is reported by validation rather than silently defaulted.
 func defaults() map[string]any {
 	return map[string]any{
-		"port":                   DefaultPort,
-		"db-path":                "",
-		"log-level":              DefaultLogLevel,
-		"docker-host":            DefaultDockerHost,
-		"data-dir":               DefaultDataDir,
-		"backup-interval-hours":  DefaultBackupIntervalHours,
-		"backup-retention-count": DefaultBackupRetentionCount,
-		"db-encryption-key":      "",
-		"enrich-job-conclusions": true,
-		"webhook-github-secret":  "",
-		"webhook-gitea-secret":   "",
-		"webhook-forgejo-secret": "",
+		"port":                     DefaultPort,
+		"db-path":                  "",
+		"log-level":                DefaultLogLevel,
+		"docker-host":              DefaultDockerHost,
+		"data-dir":                 DefaultDataDir,
+		"backup-interval-hours":    DefaultBackupIntervalHours,
+		"backup-retention-count":   DefaultBackupRetentionCount,
+		"db-encryption-key":        "",
+		"enrich-job-conclusions":   true,
+		"session-idle-timeout":     DefaultSessionIdleTimeout,
+		"session-absolute-timeout": DefaultSessionAbsoluteTimeout,
+		"secure-cookies":           "", // empty resolves in normalize: legacy bool, else auto
+		"bcrypt-cost":              DefaultBcryptCost,
+		"trusted-proxy":            false,
+		"webhook-github-secret":    "",
+		"webhook-gitea-secret":     "",
+		"webhook-forgejo-secret":   "",
 
 		"log-persistence-enabled":            DefaultLogPersistenceEnabled,
 		"log-supervisor-rotation-bytes":      DefaultLogSupervisorRotationBytes,
@@ -316,6 +353,17 @@ func (c *Config) normalize() {
 	c.DBPath = strings.TrimSpace(c.DBPath)
 	c.DockerHost = strings.TrimSpace(c.DockerHost)
 	c.WebhookGitHubSecret = strings.TrimSpace(c.WebhookGitHubSecret)
+	// Legacy SUPERVISOR_SECURE_COOKIE=true maps to the strictest explicit
+	// mode; false (and unset) falls through to auto-detection (docs/32
+	// section 6). An explicit SUPERVISOR_SECURE_COOKIES value always wins.
+	if c.SecureCookies == "" {
+		if c.SecureCookie {
+			c.SecureCookies = SecureCookieModeAlways
+		} else {
+			c.SecureCookies = SecureCookieModeAuto
+		}
+	}
+	c.SecureCookies = strings.ToLower(strings.TrimSpace(c.SecureCookies))
 	c.WebhookGiteaSecret = strings.TrimSpace(c.WebhookGiteaSecret)
 	c.WebhookForgejoSecret = strings.TrimSpace(c.WebhookForgejoSecret)
 	c.TailscaleAuthKey = strings.TrimSpace(c.TailscaleAuthKey)
@@ -362,4 +410,21 @@ func parseTailscaleBool(raw string) (bool, error) {
 		return true, nil
 	}
 	return strconv.ParseBool(raw)
+}
+
+// Secure-cookie modes (RUN-230, docs/32 section 3.4). auto attaches the
+// Secure attribute only when the request arrived over HTTPS (direct TLS, or
+// X-Forwarded-Proto: https behind a configured trusted proxy); always and
+// never pin it for HTTPS-only and plain-HTTP LAN installs respectively.
+const (
+	SecureCookieModeAuto   = "auto"
+	SecureCookieModeAlways = "always"
+	SecureCookieModeNever  = "never"
+)
+
+// SessionClocks returns the parsed two-clock session lifetimes (docs/32
+// section 3.1). Call only on a validated config (Validate enforces
+// positivity and the absolute >= idle constraint).
+func (c *Config) SessionClocks() (idle, absolute time.Duration) {
+	return c.SessionIdleTimeout, c.SessionAbsoluteTimeout
 }

@@ -11,7 +11,8 @@ This document defines the SQLite database schemas managed via **Goose** migratio
 CREATE TABLE admin_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL, -- Hashed via bcrypt/argon2
+    password_hash TEXT NOT NULL, -- Hashed via bcrypt (cost configurable, default 12)
+    role TEXT NOT NULL DEFAULT 'admin', -- 'admin'; 'viewer' reserved for a future observer-users design
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -19,9 +20,12 @@ CREATE TABLE admin_users (
 CREATE TABLE sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-    token_hash TEXT NOT NULL UNIQUE, -- SHA-256 hash of JWT for revocation lookup
-    expires_at DATETIME NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE, -- SHA-256 hash of the opaque 32-byte random token (docs/32 section 3.2)
+    expires_at DATETIME NOT NULL, -- sliding idle deadline (docs/32 section 3.1)
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    absolute_expires_at DATETIME NOT NULL, -- fixed lifetime cap, never extended
+    user_agent TEXT NOT NULL DEFAULT '',   -- device label source for the session list
+    last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- slides with renewal
     FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE
 );
 
@@ -99,6 +103,7 @@ CREATE TABLE audit_logs (
     resource_type TEXT,          -- e.g., 'runner_pool', 'auth_profile'
     resource_id INTEGER,
     details TEXT,                -- JSON blob with contextual data
+    source_ip TEXT,              -- client IP captured at auth decision points (docs/32 section 4.1)
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE SET NULL
 );

@@ -27,7 +27,7 @@ func (m *mockSystemStats) SystemRunnerStats() (active int32, idle int32) {
 
 func TestAnalyticsJobHistoryAndStats(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	stats := &mockSystemStats{
 		active: 5,
@@ -35,11 +35,11 @@ func TestAnalyticsJobHistoryAndStats(t *testing.T) {
 	}
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		AnalyticsDB:      database,
-		SystemStats:      stats,
-		JWTSigningSecret: jwtSecret,
+		Port:        8080,
+		AuthDB:      database,
+		AnalyticsDB: database,
+		SystemStats: stats,
+		Session:     testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -281,19 +281,19 @@ func TestAnalyticsServiceWatchDashboard(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	stats := &mockSystemStats{
 		active: 8,
 		idle:   2,
 	}
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		AnalyticsDB:      database,
-		SystemStats:      stats,
-		JWTSigningSecret: jwtSecret,
+		Port:        8080,
+		AuthDB:      database,
+		PoolDB:      database,
+		AnalyticsDB: database,
+		SystemStats: stats,
+		Session:     testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -407,14 +407,14 @@ func TestWatchDashboardAndWatchPoolsAgreeOnPoolTargets(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		AnalyticsDB:      database,
-		JWTSigningSecret: jwtSecret,
+		Port:        8080,
+		AuthDB:      database,
+		PoolDB:      database,
+		AnalyticsDB: database,
+		Session:     testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())

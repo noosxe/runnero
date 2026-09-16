@@ -31,15 +31,15 @@ type validationEnv struct {
 func setupValidationEnv(t *testing.T) *validationEnv {
 	t.Helper()
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	stats := newMockStatsProvider()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: stats,
+		Session:   testSessionConfig(),
 	})
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)

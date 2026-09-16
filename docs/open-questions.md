@@ -29,6 +29,8 @@ Before proceeding with the implementation of the AIO Supervisor, the following a
 ## 6. Session Token Mechanism
 - `AuthService.Login` returns a `token` and `GetSession` validates it, but the docs never specify: JWT vs opaque session tokens? Token expiry duration and refresh strategy? Cookie-based vs `Authorization` header transport? How does ConnectRPC binary mode carry authentication context per-request (interceptors, metadata)?
 > **✅ Resolved**: JWT tokens transported via `HttpOnly` secure cookies with `SameSite=Strict`. 24h expiry, configurable. Sessions tracked in the `sessions` database table for audit and forced revocation. ConnectRPC interceptors read the cookie automatically. See updated `08-rpc-protocols.md` and `07-database-schema.md`.
+>
+> **🔄 Superseded (RUN-230, docs/32)**: opaque 32-byte random tokens (no JWT), two-clock expiry — sliding idle (default 168h) + absolute cap (default 720h) — with sliding renewal; cookie-only transport (the `Authorization: Bearer` fallback is removed); `Max-Age` tracks the idle deadline; Secure attribute is three-mode (`SUPERVISOR_SECURE_COOKIES`).
 
 ## 7. Multi-Admin & RBAC Model
 - The `admin_users` table supports multiple rows and `GetSessionResponse` includes `is_admin`, implying multiple roles exist. Do we support multiple admin accounts? Are there non-admin viewer roles? If yes, what permissions does each role have? If not, should we simplify the schema and proto to remove `is_admin`?

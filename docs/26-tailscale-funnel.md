@@ -102,7 +102,7 @@ Three listeners total when enabled:
    webhook routes, and health endpoints. The existing supervisor
    authentication (bootstrap admin, login, session cookies) still applies —
    tailnet membership is network reachability, **not** an authorization
-   bypass. Because the listener is HTTPS, `SUPERVISOR_SECURE_COOKIE=true`
+   bypass. Because the listener is HTTPS, `SUPERVISOR_SECURE_COOKIES=always`
    works over the tailnet (and only breaks plain-HTTP LAN logins exactly as
    documented today).
 

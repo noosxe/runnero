@@ -94,15 +94,15 @@ func (m *mockStatsProvider) DrainPool(ctx context.Context, poolID int64, poolNam
 
 func TestPoolServiceCRUDAndValidation(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	stats := newMockStatsProvider()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: stats,
+		Session:   testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -388,15 +388,15 @@ func TestPoolServiceWatchPools(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	stats := newMockStatsProvider()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: stats,
+		Session:   testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -524,7 +524,7 @@ func (m *mockRunnerManager) TerminateRunner(ctx context.Context, poolID int64, c
 
 func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	runnerMgr := newMockRunnerManager()
 
 	runnerMgr.runners[1] = []server.RunnerInstanceInfo{
@@ -547,11 +547,11 @@ func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 	}
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		RunnerMgr:        runnerMgr,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		RunnerMgr: runnerMgr,
+		Session:   testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -647,7 +647,7 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	runnerMgr := newMockRunnerManager()
 	streamRunners := []server.RunnerInstanceInfo{
 		{
@@ -661,11 +661,11 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 	}
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		RunnerMgr:        runnerMgr,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		RunnerMgr: runnerMgr,
+		Session:   testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -747,7 +747,7 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 
 func TestPoolServiceDiscoverTargets(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	// Create auth profile
 	prof, err := database.CreateEncryptedAuthProfile(ctx, "test-gh-profile", "pat", sql.NullInt64{}, "", "secret-token")
@@ -800,10 +800,10 @@ func TestPoolServiceDiscoverTargets(t *testing.T) {
 	}))
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		PoolDB:  database,
+		Session: testSessionConfig(),
 	})
 	path, handler := supervisorv1connect.NewPoolServiceHandler(poolSvc, srv.ConnectHandlerOptions()...)
 	srv.MountConnectHandler(path, handler)
@@ -897,7 +897,7 @@ func TestPoolServiceDiscoverTargets(t *testing.T) {
 // installation, so upstream order is not even stable across refetches.
 func TestPoolServiceDiscoverTargetsSortsTargetsByName(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	prof, err := database.CreateEncryptedAuthProfile(ctx, "sort-gh-profile", "pat", sql.NullInt64{}, "", "secret-token")
 	if err != nil {
@@ -924,10 +924,10 @@ func TestPoolServiceDiscoverTargetsSortsTargetsByName(t *testing.T) {
 	}))
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		PoolDB:  database,
+		Session: testSessionConfig(),
 	})
 
 	path, handler := supervisorv1connect.NewPoolServiceHandler(poolSvc, srv.ConnectHandlerOptions()...)
@@ -989,7 +989,7 @@ func TestPoolServiceDiscoverTargetsSortsTargetsByName(t *testing.T) {
 
 func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	authProf, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
 		Name:           "diag-auth",
@@ -1027,11 +1027,11 @@ func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 	}
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: stats,
+		Session:   testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -1116,16 +1116,16 @@ func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 
 // startPoolEditTestServer spins up a full PoolService HTTP stack with admin
 // auth and returns an authenticated client plus the session cookie value.
-func startPoolEditTestServer(t *testing.T, database *db.DB, jwtSecret []byte, stats server.PoolStatsProvider) (*httptest.Server, supervisorv1connect.PoolServiceClient, string) {
+func startPoolEditTestServer(t *testing.T, database *db.DB, stats server.PoolStatsProvider) (*httptest.Server, supervisorv1connect.PoolServiceClient, string) {
 	t.Helper()
 	ctx := context.Background()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: stats,
+		Session:   testSessionConfig(),
 	})
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
@@ -1184,9 +1184,9 @@ func updatePool(t *testing.T, client supervisorv1connect.PoolServiceClient, rawC
 
 func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	stats := newMockStatsProvider()
-	_, client, rawCookie := startPoolEditTestServer(t, database, jwtSecret, stats)
+	_, client, rawCookie := startPoolEditTestServer(t, database, stats)
 
 	profile, err := database.CreateAuthProfile(ctx, db.CreateAuthProfileParams{
 		Name:           "edit-profile",
@@ -1383,15 +1383,15 @@ func targetIDsEqual(a, b []int64) bool {
 // matrix and the interval default/preserve semantics on create/update.
 func TestPoolServiceDemandPollingValidation(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	stats := newMockStatsProvider()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: stats,
+		Session:   testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -1519,15 +1519,15 @@ type drainCall struct {
 // (docs/25 §4.1, §4.2, §4.4).
 func TestDeletePoolDrainModePassThrough(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	stats := newMockStatsProvider()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		JWTSigningSecret: jwtSecret,
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: stats,
+		Session:   testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -1638,12 +1638,12 @@ func TestDeletePoolDrainModePassThrough(t *testing.T) {
 // >= memory_limit (equal = no extra swap).
 func TestPoolServiceMemorySwapValidation(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		PoolDB:  database,
+		Session: testSessionConfig(),
 	})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -1720,12 +1720,12 @@ func TestPoolServiceMemorySwapValidation(t *testing.T) {
 // through CreatePool: 0 = unlimited (opt-out), negative values rejected.
 func TestPoolServicePidsLimitValidation(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		PoolDB:  database,
+		Session: testSessionConfig(),
 	})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()

@@ -71,7 +71,7 @@ protocol exposure at all.
     from disk so swept files disappear from the UI immediately.
   - **Bounded responses:** every read is line/byte-capped server-side;
     a 16 MiB capture must not become a 16 MiB JSON response.
-  - **Same auth domain:** all new RPCs ride the existing session-JWT
+  - **Same auth domain:** all new RPCs ride the existing session-cookie
     Connect auth; no new credentials or tokens.
   - **Graceful degradation:** absent/rotated/malformed artifacts yield
     empty results or skipped lines, never 500s.
@@ -223,7 +223,7 @@ back/forward free.
 - The UI is a **live view of the files**: lists are directory reads, so
   the hourly/boot sweeper's deletions appear immediately; the UI adds no
   retention of its own and no second copy of the data.
-- Access rides the existing session-JWT Connect auth — the same trust
+- Access rides the existing session-cookie Connect auth — the same trust
   domain that already yields full admin over pools and runners. A UI
   reader could previously read these bytes via `docker exec`; nothing is
   being exposed to a *weaker* principal.

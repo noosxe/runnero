@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -52,6 +54,11 @@ Run it with no subcommand to start the daemon.`,
 	var flagConfig, flagLogLevel, flagDataDir, flagDBPath, flagDockerHost string
 	var flagPort int
 	var flagSecureCookie bool
+	var flagSecureCookies string
+	var flagSessionIdleTimeout time.Duration
+	var flagSessionAbsoluteTimeout time.Duration
+	var flagBcryptCost int
+	var flagTrustedProxy bool
 	f := root.PersistentFlags()
 	f.StringVarP(&flagConfig, "config", "c", "", "path to the configuration file (YAML or TOML)")
 	f.StringVar(&flagLogLevel, "log-level", "info", "log level (debug, info, warn, error)")
@@ -59,7 +66,12 @@ Run it with no subcommand to start the daemon.`,
 	f.StringVar(&flagDBPath, "db-path", "", "path to the SQLite database file (defaults to <data-dir>/supervisor.db)")
 	f.IntVar(&flagPort, "port", config.DefaultPort, "HTTP port for the API and web control interface")
 	f.StringVar(&flagDockerHost, "docker-host", "", "Docker daemon endpoint (defaults to the local Docker socket)")
-	f.BoolVar(&flagSecureCookie, "secure-cookie", false, "set Secure attribute on session cookies (recommended behind HTTPS reverse proxy)")
+	f.BoolVar(&flagSecureCookie, "secure-cookie", false, "deprecated: legacy boolean for session-cookie Secure; superseded by --secure-cookies (maps true to always)")
+	f.StringVar(&flagSecureCookies, "secure-cookies", config.DefaultSecureCookieMode, "session cookie Secure attribute mode: auto (HTTPS requests only), always, never (plain-HTTP LAN)")
+	f.DurationVar(&flagSessionIdleTimeout, "session-idle-timeout", mustDuration(config.DefaultSessionIdleTimeout), "sliding idle timeout: sessions unused this long are deleted")
+	f.DurationVar(&flagSessionAbsoluteTimeout, "session-absolute-timeout", mustDuration(config.DefaultSessionAbsoluteTimeout), "absolute session lifetime cap (fixed at login, never extended)")
+	f.IntVar(&flagBcryptCost, "bcrypt-cost", config.DefaultBcryptCost, "bcrypt cost for new or changed passwords (4-31)")
+	f.BoolVar(&flagTrustedProxy, "trusted-proxy", false, "trust X-Forwarded-For / X-Forwarded-Proto from the reverse proxy (client IP and HTTPS detection)")
 
 	root.AddCommand(
 		newDaemonCommand(),
@@ -87,4 +99,14 @@ func bindFlagsToConfig(cmd *cobra.Command, _ []string) error {
 	}
 	cfg = loaded
 	return logging.Setup(logging.Options{Level: cfg.LogLevel})
+}
+
+// mustDuration parses a compile-time default duration string; it panics on
+// a typo because a broken built-in default is a programming error.
+func mustDuration(raw string) time.Duration {
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		panic(fmt.Sprintf("invalid built-in duration default %q: %v", raw, err))
+	}
+	return d
 }

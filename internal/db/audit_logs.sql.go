@@ -27,10 +27,11 @@ INSERT INTO audit_logs (
     action,
     resource_type,
     resource_id,
-    details
+    details,
+    source_ip
 ) VALUES (
-    ?, ?, ?, ?, ?
-) RETURNING id, user_id, "action", resource_type, resource_id, details, created_at
+    ?, ?, ?, ?, ?, ?
+) RETURNING id, user_id, "action", resource_type, resource_id, details, created_at, source_ip
 `
 
 type CreateAuditLogParams struct {
@@ -39,6 +40,7 @@ type CreateAuditLogParams struct {
 	ResourceType sql.NullString `json:"resource_type"`
 	ResourceID   sql.NullInt64  `json:"resource_id"`
 	Details      sql.NullString `json:"details"`
+	SourceIp     sql.NullString `json:"source_ip"`
 }
 
 func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error) {
@@ -48,6 +50,7 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 		arg.ResourceType,
 		arg.ResourceID,
 		arg.Details,
+		arg.SourceIp,
 	)
 	var i AuditLog
 	err := row.Scan(
@@ -58,12 +61,13 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 		&i.ResourceID,
 		&i.Details,
 		&i.CreatedAt,
+		&i.SourceIp,
 	)
 	return i, err
 }
 
 const getAuditLogById = `-- name: GetAuditLogById :one
-SELECT id, user_id, "action", resource_type, resource_id, details, created_at FROM audit_logs
+SELECT id, user_id, "action", resource_type, resource_id, details, created_at, source_ip FROM audit_logs
 WHERE id = ? LIMIT 1
 `
 
@@ -78,12 +82,13 @@ func (q *Queries) GetAuditLogById(ctx context.Context, id int64) (AuditLog, erro
 		&i.ResourceID,
 		&i.Details,
 		&i.CreatedAt,
+		&i.SourceIp,
 	)
 	return i, err
 }
 
 const listAuditLogs = `-- name: ListAuditLogs :many
-SELECT id, user_id, "action", resource_type, resource_id, details, created_at FROM audit_logs
+SELECT id, user_id, "action", resource_type, resource_id, details, created_at, source_ip FROM audit_logs
 ORDER BY id DESC
 LIMIT ? OFFSET ?
 `
@@ -110,6 +115,7 @@ func (q *Queries) ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([
 			&i.ResourceID,
 			&i.Details,
 			&i.CreatedAt,
+			&i.SourceIp,
 		); err != nil {
 			return nil, err
 		}
@@ -125,7 +131,7 @@ func (q *Queries) ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([
 }
 
 const listAuditLogsByUserId = `-- name: ListAuditLogsByUserId :many
-SELECT id, user_id, "action", resource_type, resource_id, details, created_at FROM audit_logs
+SELECT id, user_id, "action", resource_type, resource_id, details, created_at, source_ip FROM audit_logs
 WHERE user_id = ?
 ORDER BY id DESC
 LIMIT ? OFFSET ?
@@ -154,6 +160,7 @@ func (q *Queries) ListAuditLogsByUserId(ctx context.Context, arg ListAuditLogsBy
 			&i.ResourceID,
 			&i.Details,
 			&i.CreatedAt,
+			&i.SourceIp,
 		); err != nil {
 			return nil, err
 		}

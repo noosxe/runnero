@@ -57,7 +57,7 @@ func (m *mockCronScheduler) NextRun(poolID int64) (time.Time, error) {
 
 func TestRenovateServiceLifecycle(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	mockExec := &mockRenovateExecutor{}
 	scheduledTime := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second)
@@ -77,7 +77,7 @@ func TestRenovateServiceLifecycle(t *testing.T) {
 		RenovateDB:       database,
 		RenovateExecutor: mockExec,
 		CronScheduler:    mockCron,
-		JWTSigningSecret: jwtSecret,
+		Session:          testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -247,13 +247,13 @@ func TestRenovateServiceLifecycle(t *testing.T) {
 
 func TestPoolServiceRenovateConfig(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		PoolDB:  database,
+		Session: testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())

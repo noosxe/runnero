@@ -19,11 +19,11 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 - **Real-Time Streaming Logs & Interactive Terminal:** Unbuffered ConnectRPC server-sent streaming (`StreamRunnerLogs`, `StreamSystemMetrics`) pushing real-time container output directly to an embedded xterm.js terminal emulator with auto-scroll and quick-copy.
 - **Dependency Automation via Renovate:** Built-in scheduled Renovate task runner for autonomous dependency updates, configured via cron expressions with isolated ephemeral container execution.
 - **Unified Table Toolkit with Sorting:** All web tables (dashboard, job history, logs boots and removal records, pool runners, renovate runs and pools, settings) run on a shared headless core built on `@tanstack/react-table` v9 with the shadcn integration pattern — server-authoritative paging and filtering preserved, plus client-side column sorting on job history and pool runners ([docs/31-tanstack-table-migration.md](docs/31-tanstack-table-migration.md)).
-- **Single Master Key, Derived Secrets:** The single required `SUPERVISOR_DB_ENCRYPTION_KEY` expands via HKDF-SHA256 into two distinct, deterministic secrets — an AES-256 database encryption key for credentials at rest and a HMAC secret for JWT session tokens.
+- **Single Master Key, Derived Secrets:** The single required `SUPERVISOR_DB_ENCRYPTION_KEY` expands via HKDF-SHA256 into the AES-256 database encryption key for credentials at rest, under its own domain-separated label. Session authentication needs no secret: tokens are opaque 32-byte random values validated by hash lookup.
 - **Embedded SQLite & Auto-Migrations:** Pure-Go SQLite persistence via `modernc.org/sqlite` (strictly CGO-free) with automated Goose migrations on boot, rolling snapshot backups (`SUPERVISOR_BACKUP_INTERVAL_HOURS`), and strict corruption detection.
 - **Unified Multi-Provider Runner Image (`runnero`):** Multi-stage container image bundling GitHub Actions runner, Gitea `act_runner`, and Forgejo `forgejo-runner` with automatic provider detection, non-root user execution (`UID 1001`), and active signal traps for clean deregistration.
 - **Automated Health Probes:** Serves `GET /healthz` (liveness: process and SQLite accessible) and `GET /readyz` (readiness: database, audit loop, and Docker daemon reachability; reports `degraded` during Docker outages while remaining responsive).
-- **Reverse-Proxy TLS & Hardened Cookies:** Designed for TLS termination via external reverse proxies (Caddy, Traefik, Nginx) with unbuffered HTTP/2 streaming support and configurable `SUPERVISOR_SECURE_COOKIE` enforcing `Secure; HttpOnly; SameSite=Strict` attributes.
+- **Hardened Opaque Sessions & Reverse-Proxy TLS:** Designed for TLS termination via external reverse proxies (Caddy, Traefik, Nginx) with unbuffered HTTP/2 streaming support; sessions are opaque DB-backed tokens in `HttpOnly; SameSite=Strict` cookies with a sliding idle timeout and an absolute lifetime cap, and a three-mode `SUPERVISOR_SECURE_COOKIES` (auto/always/never) with trusted-proxy-aware HTTPS detection.
 - **Intelligent Gatekeeper CI/CD Filtering:** Unified path-based filtering architecture (`dorny/paths-filter@v3`) across all 5 GitHub Actions workflows (`go.yml`, `web.yml`, `lint.yml`, `build.yml`, `supervisor-build.yml`), diffing PR file changes in ~4s and skipping unimpacted heavy test, lint, and build matrices without dropping required branch status checks.
 - **Automated Dependabot Ecosystem Maintenance:** Automated weekly dependency updates via GitHub Dependabot across `github-actions`, `gomod`, `npm` (`/web`), and `docker` ecosystems, featuring grouped minor/patch updates and an enforced 1-day supply chain cool-off period on frontend npm packages to defend against zero-day registry compromises.
 - **Modular Moby Engine SDK (M16):** Decoupled container orchestration engine utilizing `github.com/moby/moby/client` and `github.com/moby/moby/api`, eliminating monolithic Docker daemon transitive dependencies, removing legacy `replace` directives, and resolving upstream daemon CVE alerts.
@@ -279,7 +279,7 @@ The supervisor daemon layers configuration in increasing precedence: **built-in 
 
 | Variable | Type | Required | Default | Description |
 | :--- | :---: | :---: | :--- | :--- |
-| `SUPERVISOR_DB_ENCRYPTION_KEY` | String | **Yes** | — | Master key (min 32 bytes) used for AES-256 database encryption and HKDF JWT secret derivation. |
+| `SUPERVISOR_DB_ENCRYPTION_KEY` | String | **Yes** | — | Master key (min 32 bytes) used for AES-256 database encryption (HKDF-derived). |
 | `SUPERVISOR_PORT` | Int | No | `8090` | HTTP port for the ConnectRPC API and embedded web control interface. |
 | `SUPERVISOR_DATA_DIR` | String | No | `/data` | Data directory for SQLite database, snapshot backups, and gzipped execution logs. |
 | `SUPERVISOR_DB_PATH` | String | No | `/data/supervisor.db` | Explicit file path for the SQLite database. |
@@ -288,7 +288,12 @@ The supervisor daemon layers configuration in increasing precedence: **built-in 
 | `SUPERVISOR_BACKUP_INTERVAL_HOURS` | Int | No | `6` | Frequency of automated rolling SQLite snapshot backups in hours. |
 | `SUPERVISOR_BACKUP_RETENTION_COUNT` | Int | No | `7` | Number of automated SQLite backups retained before pruning. |
 | `SUPERVISOR_CONFIG` | String | No | — | Path to an optional YAML or TOML configuration file. |
-| `SUPERVISOR_SECURE_COOKIE` | Bool | No | `false` | Enables the `Secure` attribute on auth cookies. Set to `true` when behind HTTPS. |
+| `SUPERVISOR_SECURE_COOKIES` | String | No | `auto` | Session-cookie `Secure` attribute mode: `auto` (HTTPS requests only), `always`, `never` (plain-HTTP LAN). |
+| `SUPERVISOR_SECURE_COOKIE` | Bool | No | `false` | Deprecated legacy boolean, still honored (`true` = `always`); superseded by `SUPERVISOR_SECURE_COOKIES`. |
+| `SUPERVISOR_SESSION_IDLE_TIMEOUT` | Duration | No | `168h` | Sliding idle timeout: sessions unused this long are deleted; activity past half the window slides the deadline (capped). |
+| `SUPERVISOR_SESSION_ABSOLUTE_TIMEOUT` | Duration | No | `720h` | Absolute session lifetime cap, fixed at login and never extended; must not be shorter than the idle timeout. |
+| `SUPERVISOR_BCRYPT_COST` | Int | No | `12` | Bcrypt cost for new or changed passwords (4-31). Existing hashes compare at their stored cost. |
+| `SUPERVISOR_TRUSTED_PROXY` | Bool | No | `false` | Trust `X-Forwarded-For` / `X-Forwarded-Proto` from the reverse proxy for client-IP extraction and HTTPS detection. |
 | `SUPERVISOR_ENRICH_JOB_CONCLUSIONS` | Bool | No | `true` | On job completion, queries the forge once for the runner's latest concluded job to recover the conclusion and external job id on webhookless deployments (`docs/21` §5.3). Supported for GitHub repo/org pools; failures degrade the row to `completed`. |
 | `SUPERVISOR_WEBHOOK_GITHUB_SECRET` | String | No | — | Shared HMAC secret verifying GitHub webhook signatures on `POST /hooks/github`. Setting any provider secret mounts the webhook receiver; verified `workflow_job` events then drive real-time autoscaling (`docs/03` §4). |
 | `SUPERVISOR_WEBHOOK_GITEA_SECRET` | String | No | — | Same as above for Gitea webhooks on `POST /hooks/gitea`. |
@@ -358,7 +363,7 @@ Rotation of the auth key = delete the node in the Tailscale admin console, clear
 The supervisor daemon intentionally serves unencrypted HTTP on loopback/internal networks, delegating TLS termination to reverse proxies (such as Caddy, Traefik, or Nginx).
 
 - For complete reverse proxy configurations, HTTP/2 setup, and unbuffered ConnectRPC streaming directives, consult the comprehensive guide: **[docs/10-reverse-proxy-tls.md](docs/10-reverse-proxy-tls.md)**.
-- When running behind TLS, ensure `SUPERVISOR_SECURE_COOKIE=true` is set to protect session tokens against plaintext interception.
+- When running behind TLS, set `SUPERVISOR_SECURE_COOKIES=always` (or leave the default `auto` with `SUPERVISOR_TRUSTED_PROXY=true` so HTTPS is detected via `X-Forwarded-Proto`) to protect session cookies against plaintext interception.
 
 ---
 

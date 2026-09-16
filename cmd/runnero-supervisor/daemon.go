@@ -235,6 +235,10 @@ func runDaemonContext(ctx context.Context) error {
 	registerHealthChecks(health, database, dockerClient, poolCtrl)
 
 	regClient := registry.NewClient()
+	// Session clocks come from the validated config (absolute >= idle is
+	// enforced by config.Validate, docs/32 section 6).
+	idleTimeout, absoluteTimeout := cfg.SessionClocks()
+
 	serverOpts := server.Options{
 		Port:                cfg.Port,
 		Health:              health,
@@ -255,9 +259,14 @@ func runDaemonContext(ctx context.Context) error {
 		CronScheduler:       cronScheduler,
 		DataDir:             cfg.DataDir,
 		DBEncryptionKey:     derivedKeys.DBEncryptionKey,
-		JWTSigningSecret:    derivedKeys.JWTSigningSecret,
-		IsSecureCookie:      cfg.SecureCookie,
-		BootLog:             bootLogSink,
+		Session: server.SessionConfig{
+			IdleTimeout:     idleTimeout,
+			AbsoluteTimeout: absoluteTimeout,
+			SecureMode:      cfg.SecureCookies,
+			BcryptCost:      cfg.BcryptCost,
+			TrustedProxy:    cfg.TrustedProxy,
+		},
+		BootLog: bootLogSink,
 	}
 
 	// Webhook receiver (M11, RUN-68 / RUN-153): mount POST /hooks/{provider} only

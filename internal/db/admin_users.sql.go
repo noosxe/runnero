@@ -26,7 +26,7 @@ INSERT INTO admin_users (
     password_hash
 ) VALUES (
     ?, ?
-) RETURNING id, username, password_hash, created_at, updated_at
+) RETURNING id, username, password_hash, created_at, updated_at, role
 `
 
 type CreateAdminUserParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
 	)
 	return i, err
 }
@@ -58,7 +59,7 @@ func (q *Queries) DeleteAdminUser(ctx context.Context, id int64) error {
 }
 
 const getAdminUserById = `-- name: GetAdminUserById :one
-SELECT id, username, password_hash, created_at, updated_at FROM admin_users
+SELECT id, username, password_hash, created_at, updated_at, role FROM admin_users
 WHERE id = ? LIMIT 1
 `
 
@@ -71,12 +72,13 @@ func (q *Queries) GetAdminUserById(ctx context.Context, id int64) (AdminUser, er
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getAdminUserByUsername = `-- name: GetAdminUserByUsername :one
-SELECT id, username, password_hash, created_at, updated_at FROM admin_users
+SELECT id, username, password_hash, created_at, updated_at, role FROM admin_users
 WHERE username = ? LIMIT 1
 `
 
@@ -89,12 +91,13 @@ func (q *Queries) GetAdminUserByUsername(ctx context.Context, username string) (
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
 	)
 	return i, err
 }
 
 const listAdminUsers = `-- name: ListAdminUsers :many
-SELECT id, username, password_hash, created_at, updated_at FROM admin_users
+SELECT id, username, password_hash, created_at, updated_at, role FROM admin_users
 ORDER BY id ASC
 `
 
@@ -113,6 +116,7 @@ func (q *Queries) ListAdminUsers(ctx context.Context) ([]AdminUser, error) {
 			&i.PasswordHash,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -132,7 +136,7 @@ UPDATE admin_users
 SET password_hash = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, created_at, updated_at
+RETURNING id, username, password_hash, created_at, updated_at, role
 `
 
 type UpdateAdminPasswordParams struct {
@@ -149,6 +153,7 @@ func (q *Queries) UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswo
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
 	)
 	return i, err
 }

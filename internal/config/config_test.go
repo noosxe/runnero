@@ -5,9 +5,21 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/pflag"
 )
+
+// mustParseDuration parses compile-time default strings; a broken default is
+// a programming error.
+func mustParseDuration(t *testing.T, raw string) time.Duration {
+	t.Helper()
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		t.Fatalf("parsing built-in duration default %q: %v", raw, err)
+	}
+	return d
+}
 
 // testKey is a valid (>= MinEncryptionKeyBytes) placeholder so most tests
 // can focus on the behavior under test rather than the required key.
@@ -21,13 +33,22 @@ func testFlags(t *testing.T, args ...string) *pflag.FlagSet {
 	var configPath, logLevel, dataDir, dbPath, dockerHost string
 	var port int
 	var secureCookie bool
+	var secureCookies string
+	var sessionIdle, sessionAbsolute time.Duration
+	var bcryptCost int
+	var trustedProxy bool
 	fs.StringVarP(&configPath, "config", "c", "", "path to the configuration file (YAML or TOML)")
 	fs.StringVar(&logLevel, "log-level", DefaultLogLevel, "log level")
 	fs.StringVar(&dataDir, "data-dir", DefaultDataDir, "data directory")
 	fs.StringVar(&dbPath, "db-path", "", "path to the SQLite database file")
 	fs.IntVar(&port, "port", DefaultPort, "HTTP port")
 	fs.StringVar(&dockerHost, "docker-host", "", "Docker daemon endpoint")
-	fs.BoolVar(&secureCookie, "secure-cookie", false, "set the Secure attribute on the session cookie")
+	fs.BoolVar(&secureCookie, "secure-cookie", false, "deprecated legacy Secure boolean")
+	fs.StringVar(&secureCookies, "secure-cookies", DefaultSecureCookieMode, "session-cookie Secure mode")
+	fs.DurationVar(&sessionIdle, "session-idle-timeout", mustParseDuration(t, DefaultSessionIdleTimeout), "sliding idle timeout")
+	fs.DurationVar(&sessionAbsolute, "session-absolute-timeout", mustParseDuration(t, DefaultSessionAbsoluteTimeout), "absolute cap")
+	fs.IntVar(&bcryptCost, "bcrypt-cost", DefaultBcryptCost, "bcrypt cost")
+	fs.BoolVar(&trustedProxy, "trusted-proxy", false, "trust proxy headers")
 	if err := fs.Parse(args); err != nil {
 		t.Fatalf("parsing test flags %v: %v", args, err)
 	}
@@ -535,4 +556,98 @@ func TestTailscaleBadBoolFailsOnlyWhenEnabled(t *testing.T) {
 	t.Setenv(EnvTailscaleFunnel, "maybe")
 	_, err := Load(Options{})
 	wantErrContaining(t, err, "invalid tailscale funnel setting")
+}
+
+func TestLoadSessionSettings(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+
+	t.Run("defaults", func(t *testing.T) {
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.SessionIdleTimeout != 168*time.Hour {
+			t.Errorf("idle timeout = %s, want 168h", cfg.SessionIdleTimeout)
+		}
+		if cfg.SessionAbsoluteTimeout != 720*time.Hour {
+			t.Errorf("absolute timeout = %s, want 720h", cfg.SessionAbsoluteTimeout)
+		}
+		if cfg.SecureCookies != SecureCookieModeAuto {
+			t.Errorf("secure-cookies = %q, want auto", cfg.SecureCookies)
+		}
+		if cfg.BcryptCost != DefaultBcryptCost {
+			t.Errorf("bcrypt cost = %d, want %d", cfg.BcryptCost, DefaultBcryptCost)
+		}
+		if cfg.TrustedProxy {
+			t.Error("trusted-proxy = true, want default false")
+		}
+	})
+
+	t.Run("durations from environment", func(t *testing.T) {
+		t.Setenv(EnvSessionIdleTimeout, "24h")
+		t.Setenv(EnvSessionAbsoluteTimeout, "48h")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.SessionIdleTimeout != 24*time.Hour || cfg.SessionAbsoluteTimeout != 48*time.Hour {
+			t.Errorf("clocks = %s/%s, want 24h/48h", cfg.SessionIdleTimeout, cfg.SessionAbsoluteTimeout)
+		}
+	})
+
+	t.Run("clock constraint: absolute shorter than idle rejected", func(t *testing.T) {
+		t.Setenv(EnvSessionIdleTimeout, "48h")
+		t.Setenv(EnvSessionAbsoluteTimeout, "24h")
+		if _, err := Load(Options{}); err == nil || !strings.Contains(err.Error(), "absolute") {
+			t.Fatalf("want absolute>=idle violation, got: %v", err)
+		}
+	})
+
+	t.Run("non-duration idle timeout rejected", func(t *testing.T) {
+		t.Setenv(EnvSessionIdleTimeout, "not-a-duration")
+		if _, err := Load(Options{}); err == nil {
+			t.Fatal("non-duration idle timeout accepted")
+		}
+	})
+
+	t.Run("bcrypt cost bounds", func(t *testing.T) {
+		t.Setenv(EnvBcryptCost, "2")
+		if _, err := Load(Options{}); err == nil || !strings.Contains(err.Error(), "bcrypt") {
+			t.Fatalf("want bcrypt bound violation, got: %v", err)
+		}
+		t.Setenv(EnvBcryptCost, "32")
+		if _, err := Load(Options{}); err == nil {
+			t.Fatal("bcrypt cost 32 accepted")
+		}
+	})
+
+	t.Run("secure mode validation", func(t *testing.T) {
+		t.Setenv(EnvSecureCookies, "sometimes")
+		if _, err := Load(Options{}); err == nil || !strings.Contains(err.Error(), "secure-cookies") {
+			t.Fatalf("want invalid mode rejection, got: %v", err)
+		}
+	})
+
+	t.Run("legacy boolean maps true to always", func(t *testing.T) {
+		t.Setenv(EnvSecureCookie, "true")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.SecureCookies != SecureCookieModeAlways {
+			t.Errorf("legacy true mapped to %q, want always", cfg.SecureCookies)
+		}
+	})
+
+	t.Run("explicit mode wins over legacy boolean", func(t *testing.T) {
+		t.Setenv(EnvSecureCookie, "true")
+		t.Setenv(EnvSecureCookies, "never")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.SecureCookies != SecureCookieModeNever {
+			t.Errorf("secure-cookies = %q, want never (explicit wins)", cfg.SecureCookies)
+		}
+	})
 }

@@ -245,7 +245,7 @@ sweeper pattern (log retention) and is idempotent.
 
 ## 6. Configuration
 
-| Key (env `RUNNERO_*`, flag) | Default | Notes |
+| Key (env `SUPERVISOR_*`, flag) | Default | Notes |
 |---|---|---|
 | `session_idle_timeout` | `168h` | Sliding window |
 | `session_absolute_timeout` | `720h` | ≥ idle (validated) |

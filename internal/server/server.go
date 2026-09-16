@@ -129,13 +129,9 @@ type Options struct {
 	// is refused.
 	BootLog BootLogFile
 
-	// JWTSigningSecret is the 256-bit HMAC key derived from SUPERVISOR_DB_ENCRYPTION_KEY
-	// used to cryptographically sign session JWT tokens (docs/05 §5, keys.LabelJWTSigning).
-	JWTSigningSecret []byte
-
-	// IsSecureCookie sets the Secure attribute on the session cookie. Defaults to false
-	// for local development/testing without TLS, set to true behind HTTPS.
-	IsSecureCookie bool
+	// Session carries the validated web-session knobs (docs/32 §3, §6):
+	// two-clock lifetimes, secure-cookie mode, bcrypt cost, trusted proxy.
+	Session SessionConfig
 
 	// CronScheduler provides scheduled task status and next-run queries (docs/03 §5, RUN-63, RUN-65).
 	CronScheduler CronScheduler
@@ -176,7 +172,7 @@ type Server struct {
 	health           *Health
 	staticFS         fs.FS
 	authDB           AuthDatabase
-	jwtSecret        []byte
+	sessionCfg       SessionConfig
 	webhookReceiver  WebhookHandler
 	cronScheduler    CronScheduler
 	renovateExecutor RenovateExecutor
@@ -197,7 +193,7 @@ func New(opts Options) *Server {
 		health:           opts.Health,
 		staticFS:         opts.StaticFS,
 		authDB:           opts.AuthDB,
-		jwtSecret:        opts.JWTSigningSecret,
+		sessionCfg:       opts.Session,
 		webhookReceiver:  opts.WebhookReceiver,
 		cronScheduler:    opts.CronScheduler,
 		renovateExecutor: opts.RenovateExecutor,
@@ -217,12 +213,16 @@ func New(opts Options) *Server {
 	// Middleware: enforce binary protocol on Connect RPC routes
 	e.Use(s.enforceBinaryTransportMiddleware)
 
+	// Middleware: resolve per-request client IP + scheme once (docs/32
+	// §3.4, §4.1) so auth, cookies, and audit share one source of truth.
+	e.Use(s.requestInfoMiddleware)
+
 	e.GET("/healthz", s.handleHealthz)
 	e.GET("/readyz", s.handleReadyz)
 
-	// Mount AuthService if database and secret are provided (RUN-45)
-	if s.authDB != nil && len(s.jwtSecret) > 0 {
-		authSvc := NewAuthService(s.authDB, s.jwtSecret, opts.IsSecureCookie)
+	// Mount AuthService if database is provided (RUN-45, RUN-230)
+	if s.authDB != nil {
+		authSvc := NewAuthService(s.authDB, s.sessionCfg)
 		path, handler := supervisorv1connect.NewAuthServiceHandler(authSvc, s.ConnectHandlerOptions()...)
 		s.MountConnectHandler(path, handler)
 	}
@@ -314,8 +314,8 @@ func New(opts Options) *Server {
 // and (if configured) authentication interception on protected RPCs.
 func (s *Server) ConnectHandlerOptions() []connect.HandlerOption {
 	opts := BinaryConnectHandlerOptions()
-	if s.authDB != nil && len(s.jwtSecret) > 0 {
-		opts = append(opts, connect.WithInterceptors(NewAuthInterceptor(s.authDB, s.jwtSecret)))
+	if s.authDB != nil {
+		opts = append(opts, connect.WithInterceptors(NewAuthInterceptor(s.authDB, s.sessionCfg)))
 	}
 	// Validation runs innermost (after auth): unauthenticated callers get the
 	// auth code on protected RPCs rather than rule feedback (docs/30 §5.3).

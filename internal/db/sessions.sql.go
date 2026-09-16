@@ -14,20 +14,30 @@ const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (
     user_id,
     token_hash,
-    expires_at
+    expires_at,
+    absolute_expires_at,
+    user_agent
 ) VALUES (
-    ?, ?, ?
-) RETURNING id, user_id, token_hash, expires_at, created_at
+    ?, ?, ?, ?, ?
+) RETURNING id, user_id, token_hash, expires_at, created_at, user_agent, last_seen_at, absolute_expires_at
 `
 
 type CreateSessionParams struct {
-	UserID    int64     `json:"user_id"`
-	TokenHash string    `json:"token_hash"`
-	ExpiresAt time.Time `json:"expires_at"`
+	UserID            int64     `json:"user_id"`
+	TokenHash         string    `json:"token_hash"`
+	ExpiresAt         time.Time `json:"expires_at"`
+	AbsoluteExpiresAt time.Time `json:"absolute_expires_at"`
+	UserAgent         string    `json:"user_agent"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, createSession, arg.UserID, arg.TokenHash, arg.ExpiresAt)
+	row := q.db.QueryRowContext(ctx, createSession,
+		arg.UserID,
+		arg.TokenHash,
+		arg.ExpiresAt,
+		arg.AbsoluteExpiresAt,
+		arg.UserAgent,
+	)
 	var i Session
 	err := row.Scan(
 		&i.ID,
@@ -35,6 +45,9 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.TokenHash,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.UserAgent,
+		&i.LastSeenAt,
+		&i.AbsoluteExpiresAt,
 	)
 	return i, err
 }
@@ -70,7 +83,7 @@ func (q *Queries) DeleteSessionsByUserId(ctx context.Context, userID int64) erro
 }
 
 const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
-SELECT id, user_id, token_hash, expires_at, created_at FROM sessions
+SELECT id, user_id, token_hash, expires_at, created_at, user_agent, last_seen_at, absolute_expires_at FROM sessions
 WHERE token_hash = ? LIMIT 1
 `
 
@@ -83,12 +96,15 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash string) (
 		&i.TokenHash,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.UserAgent,
+		&i.LastSeenAt,
+		&i.AbsoluteExpiresAt,
 	)
 	return i, err
 }
 
 const listSessionsByUserId = `-- name: ListSessionsByUserId :many
-SELECT id, user_id, token_hash, expires_at, created_at FROM sessions
+SELECT id, user_id, token_hash, expires_at, created_at, user_agent, last_seen_at, absolute_expires_at FROM sessions
 WHERE user_id = ?
 ORDER BY created_at DESC
 `
@@ -108,6 +124,9 @@ func (q *Queries) ListSessionsByUserId(ctx context.Context, userID int64) ([]Ses
 			&i.TokenHash,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.UserAgent,
+			&i.LastSeenAt,
+			&i.AbsoluteExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -120,4 +139,24 @@ func (q *Queries) ListSessionsByUserId(ctx context.Context, userID int64) ([]Ses
 		return nil, err
 	}
 	return items, nil
+}
+
+const touchSession = `-- name: TouchSession :exec
+UPDATE sessions
+SET expires_at = ?,
+    last_seen_at = CURRENT_TIMESTAMP
+WHERE token_hash = ?
+`
+
+type TouchSessionParams struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	TokenHash string    `json:"token_hash"`
+}
+
+// Sliding renewal (docs/32 section 3.3): extend the idle deadline and record
+// the activity instant. Callers clamp expires_at at absolute_expires_at before
+// writing: the cap is never extended.
+func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
+	_, err := q.db.ExecContext(ctx, touchSession, arg.ExpiresAt, arg.TokenHash)
+	return err
 }

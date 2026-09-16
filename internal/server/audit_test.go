@@ -68,7 +68,7 @@ func withAuth[T any](token string, msg *T) *connect.Request[T] {
 
 func TestAuditLogCoverage_MutatingActions(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	stats := newMockStatsProvider()
 	terminator := &mockTerminator{}
@@ -87,7 +87,7 @@ func TestAuditLogCoverage_MutatingActions(t *testing.T) {
 		OnboardingDB:     database,
 		RenovateDB:       database,
 		RenovateExecutor: renovateExec,
-		JWTSigningSecret: jwtSecret,
+		Session:          testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -298,7 +298,7 @@ func TestAuditLogCoverage_MutatingActions(t *testing.T) {
 
 func TestRecordAuditLogHelper(t *testing.T) {
 	ctx := context.Background()
-	database, _ := setupTestDB(t)
+	database := setupTestDB(t)
 
 	// 1. Calling with nil database should not panic
 	server.RecordAuditLog(ctx, nil, "test.action", "test_res", nil, nil)

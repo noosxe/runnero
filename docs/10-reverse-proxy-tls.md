@@ -21,7 +21,7 @@ graph LR
     end
 
     subgraph Internal Isolated Network [runnero-net]
-        Supervisor[runnero Supervisor<br/>Plain HTTP :8090<br/>SUPERVISOR_SECURE_COOKIE=true]
+        Supervisor[runnero Supervisor<br/>Plain HTTP :8090<br/>SUPERVISOR_SECURE_COOKIES=always]
         DB[(SQLite DB)]
     end
 
@@ -71,27 +71,36 @@ Terminating TLS at the reverse proxy automatically enables **HTTP/2** (and **HTT
 
 ---
 
-## 3. Session Cookie Security (`SUPERVISOR_SECURE_COOKIE`)
+## 3. Session Cookie Security (`SUPERVISOR_SECURE_COOKIES`)
 
-The supervisor manages administrator authentication sessions using an `HttpOnly` cookie named `session_token` that carries an encrypted and cryptographically signed JWT.
+The supervisor manages administrator authentication sessions using an `HttpOnly` cookie named `session_token` carrying an **opaque 32-byte random token** (docs/32 section 3); only its SHA-256 hash is stored server-side, and two clocks bound every session (a sliding idle deadline, default 168h, and an absolute cap, default 720h, fixed at login).
 
 ### Configuration Contract
-By default, the supervisor omits the `Secure` cookie attribute (`SUPERVISOR_SECURE_COOKIE=false`) to ensure local development environments operating over `http://localhost:8090` function without browser rejection.
+`Secure`-attribute handling is three-mode:
 
-When deployed in production behind a TLS reverse proxy, operators **must** enable secure cookies:
+| Mode | Behavior |
+| :--- | :--- |
+| `auto` (default) | `Secure` is attached only when the request arrived over HTTPS — direct TLS, or `X-Forwarded-Proto: https` **behind a configured trusted proxy** (`SUPERVISOR_TRUSTED_PROXY=true`). Plain-HTTP LAN installs work untouched. |
+| `always` | `Secure` is always attached (HTTPS-only deployments). |
+| `never` | `Secure` is never attached (explicit plain-HTTP opt-out). |
 
 | Setting Mechanism | Syntax / Example |
 | :--- | :--- |
-| **Environment Variable** | `SUPERVISOR_SECURE_COOKIE=true` |
-| **CLI Flag** | `runnero-supervisor daemon --secure-cookie` |
-| **YAML / TOML Settings File** | `secure-cookie: true` |
+| **Environment Variable** | `SUPERVISOR_SECURE_COOKIES=always` |
+| **CLI Flag** | `runnero-supervisor daemon --secure-cookies always` |
+| **YAML / TOML Settings File** | `secure-cookies: always` |
+
+Behind a TLS-terminating reverse proxy, either set `secure-cookies: always`, or keep `auto` and set `trusted-proxy: true` so the supervisor may honor the proxy's `X-Forwarded-Proto` header. The legacy `SUPERVISOR_SECURE_COOKIE` boolean is still honored (`true` = `always`).
 
 ### Resulting Cookie Attributes
-When `SUPERVISOR_SECURE_COOKIE=true` is enabled, the supervisor generates session cookies with strict security flags:
-
 ```http
-Set-Cookie: session_token=<signed-jwt>; Path=/; HttpOnly; Secure; SameSite=Strict
+Set-Cookie: session_token=<opaque-hex-token>; Path=/; Max-Age=<idle-seconds>; HttpOnly; Secure; SameSite=Strict
 ```
+
+- `Max-Age` tracks the sliding idle deadline so browser expiry tracks the server-side session row; renewal responses refresh it.
+- `HttpOnly`: Client-side JavaScript cannot access `document.cookie`, neutralizing cross-site scripting (XSS) session theft.
+- `SameSite=Strict`: The browser refuses to attach the cookie to cross-site requests, completely mitigating Cross-Site Request Forgery (CSRF). Strict is a deliberate choice over the weaker `Lax`: every mutation is a same-origin POST and no cross-site navigation UX is required (docs/32 section 2.2).
+- The `Authorization: Bearer` header is **not** accepted for API calls; the cookie is the only credential (docs/32 section 2.5).
 
 - `Secure`: The browser will **never** transmit the session cookie over unencrypted plain HTTP connections, defending against Man-in-the-Middle (MitM) token extraction.
 - `HttpOnly`: Client-side JavaScript cannot access `document.cookie`, neutralizing cross-site scripting (XSS) session theft.
@@ -181,7 +190,7 @@ services:
       # Listen port inside container network
       - SUPERVISOR_PORT=8090
       # Enable Secure attribute on session cookies when behind TLS reverse proxy
-      - SUPERVISOR_SECURE_COOKIE=true
+      - SUPERVISOR_SECURE_COOKIES=always
       - SUPERVISOR_DATA_DIR=/data
       - SUPERVISOR_DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
@@ -262,7 +271,7 @@ services:
     environment:
       - SUPERVISOR_DB_ENCRYPTION_KEY=${SUPERVISOR_DB_ENCRYPTION_KEY}
       - SUPERVISOR_PORT=8090
-      - SUPERVISOR_SECURE_COOKIE=true
+      - SUPERVISOR_SECURE_COOKIES=always
       - SUPERVISOR_DATA_DIR=/data
       - SUPERVISOR_DOCKER_HOST=unix:///var/run/docker.sock
     volumes:

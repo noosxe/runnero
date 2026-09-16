@@ -27,8 +27,8 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Version failed: %v", err)
 	}
-	if ver != 8 {
-		t.Fatalf("database version = %d, want 8", ver)
+	if ver != 9 {
+		t.Fatalf("database version = %d, want 9", ver)
 	}
 
 	// Verify all 10 tables and their columns field-for-field per docs/07.
@@ -153,8 +153,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 
 	// Initial state: version 6
 	ver, err := database.Version(ctx, nil)
-	if err != nil || ver != 8 {
-		t.Fatalf("Version after boot = %d (err: %v), want 8", ver, err)
+	if err != nil || ver != 9 {
+		t.Fatalf("Version after boot = %d (err: %v), want 9", ver, err)
 	}
 
 	// Rollback all migrations down to version 0
@@ -189,8 +189,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 	}
 
 	verUp, err := database.Version(ctx, nil)
-	if err != nil || verUp != 8 {
-		t.Fatalf("Version after Migrate up = %d (err: %v), want 8", verUp, err)
+	if err != nil || verUp != 9 {
+		t.Fatalf("Version after Migrate up = %d (err: %v), want 9", verUp, err)
 	}
 
 	// Verify app_settings seeded again

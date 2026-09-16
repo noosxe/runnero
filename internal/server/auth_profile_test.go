@@ -34,7 +34,7 @@ func (m *mockValidator) ValidateCredentials(_ context.Context, req *supervisorv1
 func newAuthedProfileClient(t *testing.T, validator server.CredentialValidator) (supervisorv1connect.AuthProfileServiceClient, string, *db.DB) {
 	t.Helper()
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
 		Port:                8080,
@@ -43,7 +43,7 @@ func newAuthedProfileClient(t *testing.T, validator server.CredentialValidator) 
 		AuthProfileDB:       database,
 		DBEncryptionKey:     []byte("01234567890123456789012345678901"), // 32 bytes
 		CredentialValidator: validator,
-		JWTSigningSecret:    jwtSecret,
+		Session:             testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -70,7 +70,7 @@ func newAuthedProfileClient(t *testing.T, validator server.CredentialValidator) 
 }
 func TestAuthProfileServiceCRUDAndSecurity(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	// Derive a valid 32-byte AES encryption key
 	dbEncKey := []byte("01234567890123456789012345678901") // 32 bytes
@@ -84,7 +84,7 @@ func TestAuthProfileServiceCRUDAndSecurity(t *testing.T) {
 		AuthProfileDB:       database,
 		DBEncryptionKey:     dbEncKey,
 		CredentialValidator: validator,
-		JWTSigningSecret:    jwtSecret,
+		Session:             testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -291,13 +291,13 @@ func TestAuthProfileServiceCRUDAndSecurity(t *testing.T) {
 
 func TestAuthProfileServiceUnauthenticated(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		AuthProfileDB:    database,
-		JWTSigningSecret: jwtSecret,
+		Port:          8080,
+		AuthDB:        database,
+		AuthProfileDB: database,
+		Session:       testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
