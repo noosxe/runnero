@@ -70,8 +70,8 @@ func TestUpgradeFromV8PopulatedSessions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Version after upgrade: %v", err)
 	}
-	if ver != 10 {
-		t.Fatalf("database version = %d, want 10", ver)
+	if ver != 11 {
+		t.Fatalf("database version = %d, want 11", ver)
 	}
 	// Backfills: existing rows keep their semantics under the new clocks.
 	rows := []struct {

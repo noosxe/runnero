@@ -64,6 +64,12 @@ type JobHistory struct {
 	CreatedAt        time.Time      `json:"created_at"`
 }
 
+type LoginRateFailure struct {
+	ID       int64     `json:"id"`
+	RateKey  string    `json:"rate_key"`
+	FailedAt time.Time `json:"failed_at"`
+}
+
 type PoolTarget struct {
 	ID        int64     `json:"id"`
 	PoolID    int64     `json:"pool_id"`
