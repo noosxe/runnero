@@ -45,7 +45,7 @@ func buildDockerFrame(streamType byte, message string) []byte {
 
 func TestStreamRunnerLogs_DockerMultiplexed(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	// Construct Docker multiplexed stream: stdout line then stderr line
 	tsStr := "2026-09-03T10:00:00.000000000Z"
@@ -67,11 +67,11 @@ func TestStreamRunnerLogs_DockerMultiplexed(t *testing.T) {
 
 	dataDir := t.TempDir()
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		DataDir:          dataDir,
-		LogStreamer:      streamer,
-		JWTSigningSecret: jwtSecret,
+		Port:        8080,
+		AuthDB:      database,
+		DataDir:     dataDir,
+		LogStreamer: streamer,
+		Session:     testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -133,7 +133,7 @@ func TestStreamRunnerLogs_DockerMultiplexed(t *testing.T) {
 
 func TestStreamRunnerLogs_ClientCancellation(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	// Pipe to simulate an endless follow stream
 	pipeR, pipeW := io.Pipe()
@@ -148,10 +148,10 @@ func TestStreamRunnerLogs_ClientCancellation(t *testing.T) {
 	}
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		LogStreamer:      streamer,
-		JWTSigningSecret: jwtSecret,
+		Port:        8080,
+		AuthDB:      database,
+		LogStreamer: streamer,
+		Session:     testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -195,7 +195,7 @@ func TestStreamRunnerLogs_ClientCancellation(t *testing.T) {
 
 func TestGetRunnerLogs_Historical(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 	dataDir := t.TempDir()
 
 	// Create test gzipped JSONL log file: DATA_DIR/logs/runner-done.log.jsonl.gz
@@ -230,10 +230,10 @@ func TestGetRunnerLogs_Historical(t *testing.T) {
 	_ = f.Close()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		DataDir:          dataDir,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		DataDir: dataDir,
+		Session: testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())

@@ -4,9 +4,10 @@ INSERT INTO audit_logs (
     action,
     resource_type,
     resource_id,
-    details
+    details,
+    source_ip
 ) VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 ) RETURNING *;
 
 -- name: GetAuditLogById :one

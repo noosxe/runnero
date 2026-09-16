@@ -39,20 +39,20 @@ func generateRSAPEMForLeakageTest(t *testing.T) string {
 
 func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	dbEncKey := []byte("01234567890123456789012345678901") // 32 bytes
 	stats := newMockStatsProvider()
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		PoolStats:        stats,
-		AuthProfileDB:    database,
-		DBEncryptionKey:  dbEncKey,
-		OnboardingDB:     database,
-		JWTSigningSecret: jwtSecret,
+		Port:            8080,
+		AuthDB:          database,
+		PoolDB:          database,
+		PoolStats:       stats,
+		AuthProfileDB:   database,
+		DBEncryptionKey: dbEncKey,
+		OnboardingDB:    database,
+		Session:         testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -271,7 +271,6 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 		"Gitea Secret Token":       giteaToken,
 		"Forgejo Secret Token":     forgejoToken,
 		"DB Encryption Key":        string(dbEncKey),
-		"JWT Secret":               string(jwtSecret),
 	}
 
 	for idx, msg := range protoResponses {

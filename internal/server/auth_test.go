@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/noosxe/runnero/internal/db"
@@ -15,7 +16,19 @@ import (
 	"github.com/noosxe/runnero/internal/server"
 )
 
-func setupTestDB(t *testing.T) (*db.DB, []byte) {
+// testSessionConfig is the shared session config for tests: minimum bcrypt
+// cost (hashing dominates suite time otherwise), hour-scale clocks. Renewal
+// and expiry tests build their own short-clock configs.
+func testSessionConfig() server.SessionConfig {
+	return server.SessionConfig{
+		IdleTimeout:     time.Hour,
+		AbsoluteTimeout: 24 * time.Hour,
+		SecureMode:      "auto",
+		BcryptCost:      4,
+	}
+}
+
+func setupTestDB(t *testing.T) *db.DB {
 	t.Helper()
 	derived, err := keys.Derive("01234567890123456789012345678901")
 	if err != nil {
@@ -31,17 +44,17 @@ func setupTestDB(t *testing.T) (*db.DB, []byte) {
 	}
 	t.Cleanup(func() { _ = database.Close() })
 
-	return database, derived.JWTSigningSecret
+	return database
 }
 
 func TestAuthEngineFullLifecycleAndRevocation(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		Session: testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -191,12 +204,12 @@ func (m *mockProtectedPoolService) ListPools(ctx context.Context, req *connect.R
 
 func TestAuthInterceptorProtectedEndpoints(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		JWTSigningSecret: jwtSecret,
+		Port:    8080,
+		AuthDB:  database,
+		Session: testSessionConfig(),
 	})
 
 	// Mount a protected service with srv.ConnectHandlerOptions()

@@ -103,6 +103,10 @@ type Querier interface {
 	PruneJobHistoryOlderThan(ctx context.Context, arg PruneJobHistoryOlderThanParams) ([]PruneJobHistoryOlderThanRow, error)
 	SearchJobHistory(ctx context.Context, arg SearchJobHistoryParams) ([]JobHistory, error)
 	SetAppSetting(ctx context.Context, arg SetAppSettingParams) (AppSetting, error)
+	// Sliding renewal (docs/32 section 3.3): extend the idle deadline and record
+	// the activity instant. Callers clamp expires_at at absolute_expires_at before
+	// writing: the cap is never extended.
+	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) (AdminUser, error)
 	UpdateAuthProfile(ctx context.Context, arg UpdateAuthProfileParams) (AuthProfile, error)
 	UpdateJobHistoryStatus(ctx context.Context, arg UpdateJobHistoryStatusParams) (JobHistory, error)

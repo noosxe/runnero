@@ -8,12 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/noosxe/runnero/internal/db"
 	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
 	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
@@ -21,12 +19,100 @@ import (
 )
 
 const (
-	// SessionCookieName is the HttpOnly cookie carrying the admin JWT session token (docs/05 §5, OQ #6).
+	// SessionCookieName is the HttpOnly cookie carrying the opaque session
+	// token (docs/05 §5, docs/32 §3.4).
 	SessionCookieName = "session_token"
 
-	// SessionDuration is the 24-hour lifetime of admin session tokens (OQ #6).
-	SessionDuration = 24 * time.Hour
+	// OpaqueTokenBytes is the entropy of a session token: 32 bytes from
+	// crypto/rand, hex-encoded on the wire (docs/32 §3.2). Only its
+	// SHA-256 hash is stored server-side.
+	OpaqueTokenBytes = 32
 )
+
+// roleBucket classifies a Connect procedure for the fail-closed enforcement
+// matrix (docs/32 §2.3). bucketViewer is reserved for a future observer-users
+// feature; no procedure maps to it and no code path assigns the role yet.
+type roleBucket int
+
+const (
+	bucketPublic roleBucket = iota
+	bucketViewer
+	bucketAdmin
+)
+
+// procedureRoles is the static procedure-to-role matrix — the single
+// enforcement point for authentication and authorization (docs/32 §2.1,
+// §2.3). Rules:
+//
+//   - every procedure in proto/api.proto MUST be classified exactly once;
+//     the coverage test (auth_matrix_test.go) asserts this against the
+//     generated protobuf file descriptor, so a new RPC cannot ship
+//     unclassified;
+//   - an unclassified procedure is rejected with CodeInternal at request
+//     time (fail closed);
+//   - bucketAdmin requires the calling user to carry the admin role.
+var procedureRoles = map[string]roleBucket{
+	// Public: bootstrap, login, and the pre-auth status probe. Public
+	// procedures still upgrade their context with the user when a valid
+	// session cookie is present (docs/32 §3.3).
+	supervisorv1connect.AuthServiceSetupAdminProcedure:                bucketPublic,
+	supervisorv1connect.AuthServiceLoginProcedure:                     bucketPublic,
+	supervisorv1connect.OnboardingServiceGetOnboardingStatusProcedure: bucketPublic,
+
+	// Admin: the bootstrap admin is the only user that exists today, so
+	// every remaining procedure — reads included — shares the admin bucket
+	// (docs/32 §2.3).
+	supervisorv1connect.AuthServiceGetSessionProcedure:                bucketAdmin,
+	supervisorv1connect.OnboardingServiceCompleteOnboardingProcedure:  bucketAdmin,
+	supervisorv1connect.OnboardingServiceGetAppSettingsProcedure:      bucketAdmin,
+	supervisorv1connect.OnboardingServiceSetAppSettingProcedure:       bucketAdmin,
+	supervisorv1connect.PoolServiceListPoolsProcedure:                 bucketAdmin,
+	supervisorv1connect.PoolServiceCreatePoolProcedure:                bucketAdmin,
+	supervisorv1connect.PoolServiceUpdatePoolProcedure:                bucketAdmin,
+	supervisorv1connect.PoolServiceDeletePoolProcedure:                bucketAdmin,
+	supervisorv1connect.PoolServiceWatchPoolsProcedure:                bucketAdmin,
+	supervisorv1connect.PoolServiceListRunnersProcedure:               bucketAdmin,
+	supervisorv1connect.PoolServiceWatchRunnersProcedure:              bucketAdmin,
+	supervisorv1connect.PoolServiceTerminateRunnerProcedure:           bucketAdmin,
+	supervisorv1connect.PoolServiceDiscoverTargetsProcedure:           bucketAdmin,
+	supervisorv1connect.AuthProfileServiceListAuthProfilesProcedure:   bucketAdmin,
+	supervisorv1connect.AuthProfileServiceCreateAuthProfileProcedure:  bucketAdmin,
+	supervisorv1connect.AuthProfileServiceUpdateAuthProfileProcedure:  bucketAdmin,
+	supervisorv1connect.AuthProfileServiceDeleteAuthProfileProcedure:  bucketAdmin,
+	supervisorv1connect.AnalyticsServiceGetJobHistoryProcedure:        bucketAdmin,
+	supervisorv1connect.AnalyticsServiceGetJobRecordProcedure:         bucketAdmin,
+	supervisorv1connect.AnalyticsServiceGetSystemStatsProcedure:       bucketAdmin,
+	supervisorv1connect.AnalyticsServiceWatchDashboardProcedure:       bucketAdmin,
+	supervisorv1connect.ImageUpdateServiceListImageUpdatesProcedure:   bucketAdmin,
+	supervisorv1connect.ImageUpdateServiceCheckImageUpdateProcedure:   bucketAdmin,
+	supervisorv1connect.ImageUpdateServicePullImageProcedure:          bucketAdmin,
+	supervisorv1connect.ImageUpdateServiceDismissImageUpdateProcedure: bucketAdmin,
+	supervisorv1connect.LogServiceGetRunnerLogsProcedure:              bucketAdmin,
+	supervisorv1connect.LogServiceStreamRunnerLogsProcedure:           bucketAdmin,
+	supervisorv1connect.LogServiceListSupervisorLogsProcedure:         bucketAdmin,
+	supervisorv1connect.LogServiceStreamSupervisorLogProcedure:        bucketAdmin,
+	supervisorv1connect.LogServiceListRemovalRecordsProcedure:         bucketAdmin,
+	supervisorv1connect.RenovateServiceGetRenovateStatusProcedure:     bucketAdmin,
+	supervisorv1connect.RenovateServiceTriggerRenovateRunProcedure:    bucketAdmin,
+	supervisorv1connect.RenovateServiceListRenovateHistoryProcedure:   bucketAdmin,
+}
+
+// SessionConfig carries the validated web-session knobs (docs/32 §3, §6).
+type SessionConfig struct {
+	// IdleTimeout is the sliding idle deadline: sessions that see no
+	// activity for this long are deleted (docs/32 §3.1).
+	IdleTimeout time.Duration
+	// AbsoluteTimeout is the fixed lifetime cap fixed at issuance and
+	// never extended; it bounds every stolen-cookie scenario.
+	AbsoluteTimeout time.Duration
+	// SecureMode is one of config.SecureCookieMode* (auto/always/never).
+	SecureMode string
+	// BcryptCost is the hashing cost for new/changed passwords (4-31).
+	BcryptCost int
+	// TrustedProxy enables trusting X-Forwarded-For / X-Forwarded-Proto
+	// for client-IP extraction and Secure=auto detection.
+	TrustedProxy bool
+}
 
 // AuthDatabase defines the database subset required by the authentication engine and interceptor.
 // *db.DB satisfies this interface directly.
@@ -34,27 +120,27 @@ type AuthDatabase interface {
 	CountAdminUsers(ctx context.Context) (int64, error)
 	CreateAdminUser(ctx context.Context, arg db.CreateAdminUserParams) (db.AdminUser, error)
 	GetAdminUserByUsername(ctx context.Context, username string) (db.AdminUser, error)
+	GetAdminUserById(ctx context.Context, id int64) (db.AdminUser, error)
 	CreateSession(ctx context.Context, arg db.CreateSessionParams) (db.Session, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (db.Session, error)
+	TouchSession(ctx context.Context, arg db.TouchSessionParams) error
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
 	CreateAuditLog(ctx context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error)
 }
 
-// Claims represents the JWT claims payload for administrator sessions.
-type Claims struct {
-	UserID   int64  `json:"uid"`
-	Username string `json:"name"`
-	jwt.RegisteredClaims
-}
-
 type contextKey string
 
-const userContextKey contextKey = "supervisor.auth.user"
+const (
+	userContextKey contextKey = "supervisor.auth.user"
+	requestInfoKey contextKey = "supervisor.request.info"
+)
 
 // UserContext carries authenticated administrator details across the request lifecycle.
 type UserContext struct {
-	UserID   int64
-	Username string
+	UserID    int64
+	Username  string
+	Role      string
+	SessionID int64
 }
 
 // WithUserContext embeds authenticated UserContext into the request context.
@@ -68,136 +154,204 @@ func GetUserContext(ctx context.Context) (*UserContext, bool) {
 	return u, ok
 }
 
+// requestInfo carries per-request transport facts resolved once by the
+// request-info middleware (docs/32 §3.4, §4.1): the client IP (honoring
+// X-Forwarded-For only behind a trusted proxy) and whether the request
+// arrived over HTTPS (direct TLS or forwarded proto behind a trusted proxy).
+type requestInfo struct {
+	ClientIP string
+	Secure   bool
+}
+
+func withRequestInfo(ctx context.Context, info *requestInfo) context.Context {
+	return context.WithValue(ctx, requestInfoKey, info)
+}
+
+func requestInfoFromContext(ctx context.Context) (*requestInfo, bool) {
+	info, ok := ctx.Value(requestInfoKey).(*requestInfo)
+	return info, ok
+}
+
 // HashToken computes the deterministic SHA-256 hex string of a raw token string (OQ #11).
 func HashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
 }
 
-// GenerateToken creates and signs a new JWT session token for the user.
-func GenerateToken(userID int64, username string, secret []byte, duration time.Duration) (string, time.Time, error) {
-	if len(secret) == 0 {
-		return "", time.Time{}, errors.New("jwt secret must not be empty")
+// GenerateOpaqueToken creates a new 32-byte crypto/rand session token,
+// hex-encoded (docs/32 §3.2). The value appears only in the cookie; the
+// database stores its SHA-256 hash.
+func GenerateOpaqueToken() (string, error) {
+	raw := make([]byte, OpaqueTokenBytes)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("generating session token: %w", err)
 	}
-	expiresAt := time.Now().Add(duration)
-	var nonce [16]byte
-	if _, err := rand.Read(nonce[:]); err != nil {
-		return "", time.Time{}, fmt.Errorf("generating token nonce: %w", err)
-	}
-	claims := Claims{
-		UserID:   userID,
-		Username: username,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        hex.EncodeToString(nonce[:]),
-			Subject:   strconv.FormatInt(userID, 10),
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString(secret)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("signing token: %w", err)
-	}
-	return signed, expiresAt, nil
+	return hex.EncodeToString(raw), nil
 }
 
-// ValidateToken parses and cryptographically validates a JWT token string against the secret.
-func ValidateToken(tokenString string, secret []byte) (*Claims, error) {
-	if len(secret) == 0 {
-		return nil, errors.New("jwt secret must not be empty")
-	}
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return secret, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	claims, ok := token.Claims.(*Claims)
-	if !ok || !token.Valid {
-		return nil, errors.New("invalid token claims")
-	}
-	return claims, nil
-}
-
-// ExtractSessionToken extracts the session token from cookies or Authorization Bearer header.
+// ExtractSessionToken extracts the session token from the HttpOnly cookie.
+// The Authorization: Bearer fallback was removed with the opaque-session
+// redesign: the cookie is the only credential (docs/32 §2.5).
 func ExtractSessionToken(header http.Header) string {
 	r := &http.Request{Header: header}
 	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
 		return cookie.Value
 	}
-	auth := header.Get("Authorization")
-	if strings.HasPrefix(auth, "Bearer ") {
-		return strings.TrimPrefix(auth, "Bearer ")
-	}
 	return ""
 }
 
-// IsPublicProcedure determines whether a Connect procedure can be accessed without authentication.
-func IsPublicProcedure(procedure string) bool {
-	switch procedure {
-	case "/supervisor.v1.AuthService/SetupAdmin",
-		"/supervisor.v1.AuthService/Login",
-		"/supervisor.v1.OnboardingService/GetOnboardingStatus":
+// secureForRequest resolves the cookie Secure attribute for a request
+// (docs/32 §3.4): always and never pin it; auto attaches it only when the
+// request arrived over HTTPS (direct TLS, or X-Forwarded-Proto: https
+// behind a configured trusted proxy).
+func (c SessionConfig) secureForRequest(info *requestInfo) bool {
+	switch c.SecureMode {
+	case "always":
 		return true
-	default:
+	case "never":
 		return false
+	default: // "auto" (and any validated-config default)
+		return info != nil && info.Secure
+	}
+}
+
+// sessionCookie builds the session cookie (docs/32 §3.4): Path=/, HttpOnly,
+// SameSite=Strict (the deliberate deviation from the guide's Lax — docs/32
+// §2.2), Max-Age tracking the idle deadline so browser expiry tracks the
+// server row, Secure per the resolved mode. A maxAge of 0 with an empty
+// token produces the logout/deletion cookie.
+func (c SessionConfig) sessionCookie(token string, maxAge int, secure bool) *http.Cookie {
+	return &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
 // AuthInterceptor enforces valid cookie session authentication on protected procedures (unary and streaming).
 type AuthInterceptor struct {
-	authDB    AuthDatabase
-	jwtSecret []byte
+	authDB AuthDatabase
+	cfg    SessionConfig
 }
 
 // NewAuthInterceptor returns a Connect Interceptor enforcing valid cookie session authentication
-// on all protected procedures (both unary and streaming).
-func NewAuthInterceptor(authDB AuthDatabase, jwtSecret []byte) connect.Interceptor {
+// on all protected procedures (both unary and streaming), with the fail-closed
+// procedure-to-role matrix (docs/32 §2.3).
+func NewAuthInterceptor(authDB AuthDatabase, cfg SessionConfig) connect.Interceptor {
 	return &AuthInterceptor{
-		authDB:    authDB,
-		jwtSecret: jwtSecret,
+		authDB: authDB,
+		cfg:    cfg,
 	}
 }
 
-func (a *AuthInterceptor) authenticate(ctx context.Context, header http.Header, procedure string) (context.Context, error) {
-	if IsPublicProcedure(procedure) {
-		return ctx, nil
+// authenticate validates the request's session cookie, enforces the role
+// matrix, and returns the authenticated context plus an optional Set-Cookie
+// value to attach to the response (sliding renewal — docs/32 §3.3).
+func (a *AuthInterceptor) authenticate(ctx context.Context, header http.Header, procedure string) (context.Context, string, error) {
+	bucket, classified := procedureRoles[procedure]
+	if !classified {
+		// Fail closed: an unclassified procedure is a build/ship bug
+		// (docs/32 §2.3); the coverage test keeps this unreachable.
+		return nil, "", connect.NewError(connect.CodeInternal, fmt.Errorf("procedure %q is not classified in the role matrix", procedure))
 	}
 
+	info, _ := requestInfoFromContext(ctx)
 	tokenString := ExtractSessionToken(header)
 	if tokenString == "" {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: missing session token"))
+		if bucket == bucketPublic {
+			// Public procedure without a cookie: anonymous access.
+			return ctx, "", nil
+		}
+		return nil, "", connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: missing session token"))
 	}
 
-	claims, err := ValidateToken(tokenString, a.jwtSecret)
+	// A cookie is present: validate it (two clocks + user lookup), slide
+	// the idle deadline when past the half-window, and upgrade even public
+	// procedures with the authenticated context (docs/32 §3.3).
+	sess, user, renewalCookie, err := a.validateSession(ctx, tokenString, info)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("unauthorized: %w", err))
+		return nil, "", err
 	}
 
+	userCtx := &UserContext{
+		UserID:    user.ID,
+		Username:  user.Username,
+		Role:      user.Role,
+		SessionID: sess.ID,
+	}
+
+	if bucket == bucketAdmin && user.Role != "admin" {
+		RecordAuditLogWithUser(ctx, a.authDB, &user.ID, "auth.access_denied", "admin_user", &user.ID, map[string]any{
+			"username":  user.Username,
+			"procedure": procedure,
+		})
+		return nil, "", connect.NewError(connect.CodePermissionDenied, errors.New("admin role required"))
+	}
+
+	return WithUserContext(ctx, userCtx), renewalCookie, nil
+}
+
+// validateSession resolves a session token hash to a live session and user,
+// deleting rows that expired by either clock, and sliding the idle deadline
+// once the session is past half of its idle window — clamped at the absolute
+// cap, which is never extended (docs/32 §3.3). The returned cookie value
+// (empty when no renewal happened) refreshes the browser-side Max-Age.
+func (a *AuthInterceptor) validateSession(ctx context.Context, tokenString string, info *requestInfo) (db.Session, db.AdminUser, string, error) {
+	now := time.Now()
 	tokenHash := HashToken(tokenString)
+
 	sess, err := a.authDB.GetSessionByTokenHash(ctx, tokenHash)
-	if err != nil || sess.ExpiresAt.Before(time.Now()) {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: session revoked or expired"))
+	if err != nil {
+		return db.Session{}, db.AdminUser{}, "", connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: unknown session"))
+	}
+	if now.After(sess.AbsoluteExpiresAt) {
+		_ = a.authDB.DeleteSessionByTokenHash(ctx, tokenHash)
+		return db.Session{}, db.AdminUser{}, "", connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: session expired"))
+	}
+	if now.After(sess.ExpiresAt) {
+		_ = a.authDB.DeleteSessionByTokenHash(ctx, tokenHash)
+		return db.Session{}, db.AdminUser{}, "", connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: session expired"))
 	}
 
-	ctx = WithUserContext(ctx, &UserContext{
-		UserID:   claims.UserID,
-		Username: claims.Username,
-	})
-	return ctx, nil
+	user, err := a.authDB.GetAdminUserById(ctx, sess.UserID)
+	if err != nil {
+		return db.Session{}, db.AdminUser{}, "", connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: unknown user"))
+	}
+
+	// Sliding renewal: only slide once past half of the idle window so
+	// activity does not write on every request; clamp at the absolute cap.
+	setCookie := ""
+	if half := a.cfg.IdleTimeout / 2; now.After(sess.ExpiresAt.Add(-half)) {
+		newIdle := now.Add(a.cfg.IdleTimeout)
+		if newIdle.After(sess.AbsoluteExpiresAt) {
+			newIdle = sess.AbsoluteExpiresAt
+		}
+		if err := a.authDB.TouchSession(ctx, db.TouchSessionParams{ExpiresAt: newIdle, TokenHash: tokenHash}); err == nil {
+			secure := a.cfg.secureForRequest(info)
+			setCookie = a.cfg.sessionCookie(tokenString, int(a.cfg.IdleTimeout.Seconds()), secure).String()
+		}
+		// A failed touch leaves the session valid at its old deadline;
+		// log volume aside, nothing breaks — the next request retries.
+	}
+
+	return sess, user, setCookie, nil
 }
 
 func (a *AuthInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		authCtx, err := a.authenticate(ctx, req.Header(), req.Spec().Procedure)
+		authCtx, setCookie, err := a.authenticate(ctx, req.Header(), req.Spec().Procedure)
 		if err != nil {
 			return nil, err
 		}
-		return next(authCtx, req)
+		resp, err := next(authCtx, req)
+		if err == nil && setCookie != "" {
+			resp.Header().Add("Set-Cookie", setCookie)
+		}
+		return resp, err
 	}
 }
 
@@ -207,9 +361,14 @@ func (a *AuthInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) 
 
 func (a *AuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		authCtx, err := a.authenticate(ctx, conn.RequestHeader(), conn.Spec().Procedure)
+		authCtx, setCookie, err := a.authenticate(ctx, conn.RequestHeader(), conn.Spec().Procedure)
 		if err != nil {
 			return err
+		}
+		if setCookie != "" {
+			// Response headers must be set before the handler sends;
+			// streaming responses write them with the first Send.
+			conn.ResponseHeader().Add("Set-Cookie", setCookie)
 		}
 		return next(authCtx, conn)
 	}
@@ -218,18 +377,50 @@ func (a *AuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc
 // AuthService implements supervisorv1connect.AuthServiceHandler.
 type AuthService struct {
 	supervisorv1connect.UnimplementedAuthServiceHandler
-	db             AuthDatabase
-	jwtSecret      []byte
-	isSecureCookie bool
+	db  AuthDatabase
+	cfg SessionConfig
 }
 
 // NewAuthService constructs an AuthService instance.
-func NewAuthService(db AuthDatabase, jwtSecret []byte, isSecureCookie bool) *AuthService {
+func NewAuthService(authDB AuthDatabase, cfg SessionConfig) *AuthService {
 	return &AuthService{
-		db:             db,
-		jwtSecret:      jwtSecret,
-		isSecureCookie: isSecureCookie,
+		db:  authDB,
+		cfg: cfg,
 	}
+}
+
+// secureFor resolves the request-scoped Secure attribute for cookies issued
+// by this service (docs/32 §3.4).
+func (s *AuthService) secureFor(ctx context.Context) bool {
+	info, _ := requestInfoFromContext(ctx)
+	return s.cfg.secureForRequest(info)
+}
+
+// issueSession is the single session-issuance path every login method
+// converges on (docs/32 §3.2): an opaque 32-byte crypto/rand token whose
+// SHA-256 hash is stored with both clock deadlines, plus the matching
+// Set-Cookie header value with Max-Age tracking the idle deadline.
+func (s *AuthService) issueSession(ctx context.Context, user db.AdminUser, userAgent string) (string, error) {
+	tokenString, err := GenerateOpaqueToken()
+	if err != nil {
+		return "", err
+	}
+
+	now := time.Now()
+	_, err = s.db.CreateSession(ctx, db.CreateSessionParams{
+		UserID:            user.ID,
+		TokenHash:         HashToken(tokenString),
+		ExpiresAt:         now.Add(s.cfg.IdleTimeout),
+		AbsoluteExpiresAt: now.Add(s.cfg.AbsoluteTimeout),
+		UserAgent:         userAgent,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	secure := s.secureFor(ctx)
+	cookie := s.cfg.sessionCookie(tokenString, int(s.cfg.IdleTimeout.Seconds()), secure)
+	return cookie.String(), nil
 }
 
 // SetupAdmin creates the initial local administrator account. Fails if an administrator already exists.
@@ -251,7 +442,7 @@ func (s *AuthService) SetupAdmin(ctx context.Context, req *connect.Request[super
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("administrator already configured"))
 	}
 
-	hashBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashBytes, err := bcrypt.GenerateFromPassword([]byte(password), s.cfg.BcryptCost)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("hashing password: %w", err))
 	}
@@ -268,35 +459,15 @@ func (s *AuthService) SetupAdmin(ctx context.Context, req *connect.Request[super
 		"username": username,
 	})
 
-	tokenString, expiresAt, err := GenerateToken(user.ID, user.Username, s.jwtSecret, SessionDuration)
+	setCookie, err := s.issueSession(ctx, user, req.Header().Get("User-Agent"))
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("generating session token: %w", err))
-	}
-
-	tokenHash := HashToken(tokenString)
-	_, err = s.db.CreateSession(ctx, db.CreateSessionParams{
-		UserID:    user.ID,
-		TokenHash: tokenHash,
-		ExpiresAt: expiresAt,
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("recording session: %w", err))
-	}
-
-	cookie := &http.Cookie{
-		Name:     SessionCookieName,
-		Value:    tokenString,
-		Path:     "/",
-		MaxAge:   int(SessionDuration.Seconds()),
-		HttpOnly: true,
-		Secure:   s.isSecureCookie,
-		SameSite: http.SameSiteStrictMode,
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("issuing session: %w", err))
 	}
 
 	res := connect.NewResponse(&supervisorv1.SetupAdminResponse{
 		Success: true,
 	})
-	res.Header().Set("Set-Cookie", cookie.String())
+	res.Header().Set("Set-Cookie", setCookie)
 	return res, nil
 }
 
@@ -329,19 +500,9 @@ func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisor
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid username or password"))
 	}
 
-	tokenString, expiresAt, err := GenerateToken(user.ID, user.Username, s.jwtSecret, SessionDuration)
+	setCookie, err := s.issueSession(ctx, user, req.Header().Get("User-Agent"))
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("generating session token: %w", err))
-	}
-
-	tokenHash := HashToken(tokenString)
-	_, err = s.db.CreateSession(ctx, db.CreateSessionParams{
-		UserID:    user.ID,
-		TokenHash: tokenHash,
-		ExpiresAt: expiresAt,
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("recording session: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("issuing session: %w", err))
 	}
 
 	recordAuditLogWithUser(ctx, s.db, &user.ID, "auth.login", "admin_user", &user.ID, map[string]any{
@@ -349,45 +510,25 @@ func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisor
 		"status":   "success",
 	})
 
-	cookie := &http.Cookie{
-		Name:     SessionCookieName,
-		Value:    tokenString,
-		Path:     "/",
-		MaxAge:   int(SessionDuration.Seconds()),
-		HttpOnly: true,
-		Secure:   s.isSecureCookie,
-		SameSite: http.SameSiteStrictMode,
-	}
-
 	res := connect.NewResponse(&supervisorv1.LoginResponse{
 		Success:  true,
 		Username: user.Username,
 	})
-	res.Header().Set("Set-Cookie", cookie.String())
+	res.Header().Set("Set-Cookie", setCookie)
 	return res, nil
 }
 
-// GetSession validates the current session from cookie and returns the active username.
+// GetSession reports the authenticated session (the interceptor has already
+// validated the cookie and injected the user context) plus host facts.
 func (s *AuthService) GetSession(ctx context.Context, req *connect.Request[supervisorv1.GetSessionRequest]) (*connect.Response[supervisorv1.GetSessionResponse], error) {
-	tokenString := ExtractSessionToken(req.Header())
-	if tokenString == "" {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: missing session token"))
-	}
-
-	claims, err := ValidateToken(tokenString, s.jwtSecret)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("unauthorized: %w", err))
-	}
-
-	tokenHash := HashToken(tokenString)
-	sess, err := s.db.GetSessionByTokenHash(ctx, tokenHash)
-	if err != nil || sess.ExpiresAt.Before(time.Now()) {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: session revoked or expired"))
+	user, ok := GetUserContext(ctx)
+	if !ok {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthorized: missing session"))
 	}
 
 	return connect.NewResponse(&supervisorv1.GetSessionResponse{
-		Username: claims.Username,
-		IsAdmin:  true,
+		Username: user.Username,
+		IsAdmin:  user.Role == "admin",
 		HostArch: HostArch(),
 		HostOs:   HostOS(),
 	}), nil

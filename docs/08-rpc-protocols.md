@@ -40,7 +40,7 @@ message LoginRequest {
   string password = 2;
 }
 
-// Note: The JWT session token is set via Set-Cookie header (HttpOnly, Secure,
+// Note: The opaque session token (docs/32) is set via Set-Cookie header (HttpOnly, Secure,
 // SameSite=Strict), not returned in the response body.
 message LoginResponse {
   bool success = 1;
@@ -466,7 +466,7 @@ ConnectRPC server-streaming RPCs (`LogService.StreamRunnerLogs`, `LogService.Str
 When operating behind a reverse proxy:
 - **Disable Buffering**: Proxies must not buffer responses (e.g. Caddy `flush_interval -1`, Traefik `flushInterval: -1`, Nginx `proxy_buffering off;`).
 - **HTTP/2 Transport**: Terminates TLS at the proxy and allows multiplexing streaming RPCs without running into browser per-host connection limits.
-- **Secure Cookie**: Ensure `SUPERVISOR_SECURE_COOKIE=true` is set when TLS is terminated at the proxy.
+- **Secure Cookie**: Set `SUPERVISOR_SECURE_COOKIES=always`, or keep the default `auto` plus `SUPERVISOR_TRUSTED_PROXY=true` (enabling `X-Forwarded-Proto` trust) when TLS is terminated at the proxy.
 
 For detailed configuration examples and deployment manifests, see [docs/10-reverse-proxy-tls.md](10-reverse-proxy-tls.md).
 

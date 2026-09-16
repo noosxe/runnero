@@ -15,6 +15,7 @@ type AdminUser struct {
 	PasswordHash string    `json:"password_hash"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	Role         string    `json:"role"`
 }
 
 type AppSetting struct {
@@ -31,6 +32,7 @@ type AuditLog struct {
 	ResourceID   sql.NullInt64  `json:"resource_id"`
 	Details      sql.NullString `json:"details"`
 	CreatedAt    time.Time      `json:"created_at"`
+	SourceIp     sql.NullString `json:"source_ip"`
 }
 
 type AuthProfile struct {
@@ -114,9 +116,12 @@ type RunnerPool struct {
 }
 
 type Session struct {
-	ID        int64     `json:"id"`
-	UserID    int64     `json:"user_id"`
-	TokenHash string    `json:"token_hash"`
-	ExpiresAt time.Time `json:"expires_at"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                int64     `json:"id"`
+	UserID            int64     `json:"user_id"`
+	TokenHash         string    `json:"token_hash"`
+	ExpiresAt         time.Time `json:"expires_at"`
+	CreatedAt         time.Time `json:"created_at"`
+	UserAgent         string    `json:"user_agent"`
+	LastSeenAt        time.Time `json:"last_seen_at"`
+	AbsoluteExpiresAt time.Time `json:"absolute_expires_at"`
 }

@@ -16,15 +16,15 @@ import (
 
 func TestOnboardingStatusLifecycle(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		PoolDB:           database,
-		AuthProfileDB:    database,
-		OnboardingDB:     database,
-		JWTSigningSecret: jwtSecret,
+		Port:          8080,
+		AuthDB:        database,
+		PoolDB:        database,
+		AuthProfileDB: database,
+		OnboardingDB:  database,
+		Session:       testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -105,13 +105,13 @@ func TestOnboardingStatusLifecycle(t *testing.T) {
 
 func TestAppSettingsGetAndSet(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		OnboardingDB:     database,
-		JWTSigningSecret: jwtSecret,
+		Port:         8080,
+		AuthDB:       database,
+		OnboardingDB: database,
+		Session:      testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())
@@ -183,13 +183,13 @@ func TestAppSettingsGetAndSet(t *testing.T) {
 
 func TestCompleteOnboarding(t *testing.T) {
 	ctx := context.Background()
-	database, jwtSecret := setupTestDB(t)
+	database := setupTestDB(t)
 
 	srv := server.New(server.Options{
-		Port:             8080,
-		AuthDB:           database,
-		OnboardingDB:     database,
-		JWTSigningSecret: jwtSecret,
+		Port:         8080,
+		AuthDB:       database,
+		OnboardingDB: database,
+		Session:      testSessionConfig(),
 	})
 
 	ts := httptest.NewServer(srv.Handler())

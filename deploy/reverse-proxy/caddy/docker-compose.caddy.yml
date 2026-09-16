@@ -29,7 +29,7 @@ services:
       # Listen port inside container network
       - SUPERVISOR_PORT=8090
       # Enable Secure attribute on session cookies when behind TLS reverse proxy
-      - SUPERVISOR_SECURE_COOKIE=true
+      - SUPERVISOR_SECURE_COOKIES=always
       - SUPERVISOR_DATA_DIR=/data
       - SUPERVISOR_DOCKER_HOST=unix:///var/run/docker.sock
     volumes:

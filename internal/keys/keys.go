@@ -6,27 +6,20 @@ import (
 	"fmt"
 )
 
-// Context labels for HKDF expansion (the RFC 5869 "info" parameter). Each
-// secret gets a distinct, self-describing label so the two outputs are
-// domain-separated: the same master key under different labels always
-// produces unrelated keys, and no other label in this package may ever
-// collide with these. The /v1 suffix leaves room for a future rotation —
-// a v2 label derives fresh secrets without disturbing v1-derived ones
+// Context label for HKDF expansion (the RFC 5869 "info" parameter). The
+// label is self-describing so the output is domain-separated: future
+// secrets derived from the same master key for other purposes must use
+// their own labels, and no other label in this package may ever collide
+// with this one. The /v1 suffix leaves room for a future rotation — a v2
+// label derives a fresh secret without disturbing v1-derived material
 // during a migration.
-const (
-	LabelDBEncryption = "runnero/supervisor/db-encryption/aes-256/v1"
-	LabelJWTSigning   = "runnero/supervisor/jwt-signing/hmac-sha256/v1"
-)
+const LabelDBEncryption = "runnero/supervisor/db-encryption/aes-256/v1"
 
-// Sizes of the derived secrets and the floor on their shared master key.
+// Sizes of the derived secret and the floor on the shared master key.
 const (
 	// DBEncryptionKeySize is 32 bytes: a full AES-256 key for encrypting
 	// sensitive values at rest in SQLite (docs/05 §5).
 	DBEncryptionKeySize = 32
-	// JWTSigningKeySize is 32 bytes: a 256-bit key for HMAC-SHA-256
-	// session-token signing, matching the hash's output size for full
-	// strength.
-	JWTSigningKeySize = 32
 	// MinMasterKeyBytes mirrors config.MinEncryptionKeyBytes: the master
 	// key seeds every runtime secret, so it must carry at least 256 bits
 	// of key material. It is re-checked here (defense in depth) so the
@@ -35,16 +28,13 @@ const (
 	MinMasterKeyBytes = 32
 )
 
-// Derived holds the two runtime secrets derived from the master key. The
-// fields are independent: each is a separate HKDF output of the master key
-// under its own context label, so neither can be computed from the other.
+// Derived holds the runtime secrets expanded from the master key. One
+// secret exists today; future additions each derive under their own
+// context label so no output can be computed from another.
 type Derived struct {
 	// DBEncryptionKey is the AES-256 key for encrypting credentials stored
 	// in the database (consumed by internal/db, RUN-12..RUN-18).
 	DBEncryptionKey []byte
-	// JWTSigningSecret signs admin session tokens (consumed by
-	// internal/server). No separate JWT_SECRET env var exists (OQ #3).
-	JWTSigningSecret []byte
 }
 
 // Derive expands the configured master key (SUPERVISOR_DB_ENCRYPTION_KEY,
@@ -56,10 +46,10 @@ type Derived struct {
 // binary, HKDF-Extract normalizes it into a pseudorandom key, and the
 // fixed rule — "raw bytes of exactly what was configured" — is all
 // determinism requires: the same configured value must always derive the
-// same secrets so existing ciphertexts and issued JWTs stay valid across
-// restarts. The salt is nil (RFC 5869 permits an absent salt; domain
-// separation comes from the context labels). Derived secrets and the
-// master key are never logged.
+// same secret so existing ciphertexts stay valid across restarts. The
+// salt is nil (RFC 5869 permits an absent salt; domain separation comes
+// from the context label). Derived secrets and the master key are never
+// logged.
 func Derive(masterKey string) (*Derived, error) {
 	ikm := []byte(masterKey)
 	if n := len(ikm); n < MinMasterKeyBytes {
@@ -70,20 +60,15 @@ func Derive(masterKey string) (*Derived, error) {
 	if err != nil {
 		return nil, fmt.Errorf("deriving database encryption key: %w", err)
 	}
-	jwtSecret, err := derive(ikm, LabelJWTSigning, JWTSigningKeySize)
-	if err != nil {
-		return nil, fmt.Errorf("deriving JWT signing secret: %w", err)
-	}
 
-	logger.Debug("runtime secrets derived from master key",
+	logger.Debug("runtime secret derived from master key",
 		"db_encryption_key_bytes", len(dbKey),
-		"jwt_signing_secret_bytes", len(jwtSecret),
 	)
-	return &Derived{DBEncryptionKey: dbKey, JWTSigningSecret: jwtSecret}, nil
+	return &Derived{DBEncryptionKey: dbKey}, nil
 }
 
-// derive performs the RFC 5869 extract-then-expand for one label. Both
-// secrets share this single code path, differing only in label and size.
+// derive performs the RFC 5869 extract-then-expand for one label. Every
+// secret shares this single code path, differing only in label and size.
 func derive(ikm []byte, label string, size int) ([]byte, error) {
 	return hkdf.Key(sha256.New, ikm, nil, label, size)
 }

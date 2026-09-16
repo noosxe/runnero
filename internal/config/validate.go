@@ -74,6 +74,22 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	switch c.SecureCookies {
+	case SecureCookieModeAuto, SecureCookieModeAlways, SecureCookieModeNever:
+	default:
+		return fmt.Errorf("invalid secure-cookies mode %q: want auto, always, or never (key 'secure-cookies', env %s; the legacy %s boolean still works)", c.SecureCookies, EnvSecureCookies, EnvSecureCookie)
+	}
+
+	if c.SessionIdleTimeout <= 0 {
+		return fmt.Errorf("session idle timeout must be positive, got %s (key 'session-idle-timeout', env %s)", c.SessionIdleTimeout, EnvSessionIdleTimeout)
+	}
+	if c.SessionAbsoluteTimeout < c.SessionIdleTimeout {
+		return fmt.Errorf("session absolute timeout (%s) must not be shorter than the sliding idle timeout (%s): the cap bounds every session lifetime (key 'session-absolute-timeout', env %s)", c.SessionAbsoluteTimeout, c.SessionIdleTimeout, EnvSessionAbsoluteTimeout)
+	}
+	if c.BcryptCost < 4 || c.BcryptCost > 31 {
+		return fmt.Errorf("invalid bcrypt cost %d: must be between 4 and 31 (key 'bcrypt-cost', env %s)", c.BcryptCost, EnvBcryptCost)
+	}
+
 	return c.validateDBEncryptionKey()
 
 }
