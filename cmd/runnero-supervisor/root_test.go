@@ -25,6 +25,10 @@ import (
 func validKeyEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("SUPERVISOR_DB_ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef")
+	// Wiring tests never measure bcrypt strength; a low cost keeps the
+	// per-boot equalization-hash prewarm (docs/32 section 4.3) off the
+	// suite's critical path, especially under -race.
+	t.Setenv("SUPERVISOR_BCRYPT_COST", "4")
 }
 
 // TestMain installs a package-wide tripwire (RUN-143): the production
