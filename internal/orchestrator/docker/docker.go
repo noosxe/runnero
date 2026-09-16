@@ -53,6 +53,7 @@ type Client struct {
 	docker        APIClient
 	host          string
 	dockerHostID  string // Groundwork for multi-host Docker pools (OQ #22)
+	ownerInstance string // supervisor instance id stamped as com.runnero.owner (RUN-240, docs/33 §3.4)
 	healthTracker *orchestrator.DockerHealthTracker
 	mu            sync.RWMutex
 }
@@ -65,6 +66,7 @@ type options struct {
 	certPath      string
 	verifyTLS     bool
 	dockerHostID  string
+	ownerInstance string
 	apiClient     APIClient
 	healthTracker *orchestrator.DockerHealthTracker
 	alertHandler  func(orchestrator.DockerAlert)
@@ -74,6 +76,15 @@ type options struct {
 func WithHost(host string) Option {
 	return func(o *options) {
 		o.host = host
+	}
+}
+
+// WithOwnerInstance sets the supervisor instance id stamped onto spawned
+// containers as the com.runnero.owner label (RUN-240, docs/33 §3.4).
+// Purely informational forensics metadata - never an authorization check.
+func WithOwnerInstance(instanceID string) Option {
+	return func(o *options) {
+		o.ownerInstance = instanceID
 	}
 }
 
@@ -138,6 +149,7 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 			docker:        cfg.apiClient,
 			host:          cfg.host,
 			dockerHostID:  cfg.dockerHostID,
+			ownerInstance: cfg.ownerInstance,
 			healthTracker: tracker,
 		}, nil
 	}
@@ -164,6 +176,7 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		docker:        cli,
 		host:          cfg.host,
 		dockerHostID:  cfg.dockerHostID,
+		ownerInstance: cfg.ownerInstance,
 		healthTracker: tracker,
 	}, nil
 }
@@ -243,6 +256,9 @@ func (c *Client) spawn(ctx context.Context, config orchestrator.RunnerConfig, ta
 	}
 	if config.RepoURL != "" {
 		labels[orchestrator.LabelTargetURL] = config.RepoURL
+	}
+	if c.ownerInstance != "" {
+		labels[orchestrator.LabelOwner] = c.ownerInstance
 	}
 
 	env := config.Env
@@ -474,6 +490,7 @@ func (c *Client) AuditRunners(ctx context.Context) ([]orchestrator.RunnerStatus,
 			IPAddress: ipAddress,
 			SpawnedAt: spawnedAt,
 			TargetURL: cnt.Labels[orchestrator.LabelTargetURL],
+			Owner:     cnt.Labels[orchestrator.LabelOwner],
 		})
 	}
 

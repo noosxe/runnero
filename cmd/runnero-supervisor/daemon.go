@@ -162,9 +162,17 @@ func runDaemonContext(ctx context.Context) error {
 	// either expiry clock and audit rows beyond the retention horizon.
 	go sweepAuthMaintenance(daemonCtx, database, cfg.AuditRetention, logger)
 	var dockerOpts []docker.Option
+	// Instance identity (RUN-240, docs/33 §3.4): a persistent UUID stamped as
+	// com.runnero.owner on every spawned container, so operators can tell
+	// which supervisor spawned what. Metadata only, never authorization.
+	instanceID, err := database.EnsureInstanceID(ctx)
+	if err != nil {
+		return fmt.Errorf("daemon: instance id: %w", err)
+	}
 	if cfg.DockerHost != "" {
 		dockerOpts = append(dockerOpts, docker.WithHost(cfg.DockerHost))
 	}
+	dockerOpts = append(dockerOpts, docker.WithOwnerInstance(instanceID))
 	dockerClient, err := docker.NewClient(ctx, dockerOpts...)
 	if err != nil {
 		return fmt.Errorf("daemon: docker client: %w", err)

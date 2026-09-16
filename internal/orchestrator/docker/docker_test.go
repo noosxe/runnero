@@ -371,6 +371,68 @@ func TestDockerClient_SpawnTask(t *testing.T) {
 	}
 }
 
+// TestDockerClient_OwnerLabel verifies the RUN-240 / docs/33 §3.4 owner
+// stamp: a client constructed with WithOwnerInstance labels every spawned
+// container (runner and task alike) with com.runnero.owner; a client
+// without the option leaves the label unset.
+func TestDockerClient_OwnerLabel(t *testing.T) {
+	ctx := context.Background()
+
+	newCapture := func() (*docker.Client, **container.Config) {
+		var created *container.Config
+		mockAPI := &mockDockerAPI{
+			containerCreateFn: func(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+				created = options.Config
+				return client.ContainerCreateResult{ID: "c-owner"}, nil
+			},
+			containerStartFn: func(ctx context.Context, id string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
+				return client.ContainerStartResult{}, nil
+			},
+		}
+		cli, err := docker.NewClient(ctx, docker.WithAPIClient(mockAPI), docker.WithOwnerInstance("0aa2e04a-6e91-4e04-9f38-2f1304d5f9a2"))
+		if err != nil {
+			t.Fatalf("NewClient failed: %v", err)
+		}
+		return cli, &created
+	}
+
+	cli, created := newCapture()
+	if _, err := cli.SpawnRunner(ctx, orchestrator.RunnerConfig{PoolName: "owner-pool"}); err != nil {
+		t.Fatalf("SpawnRunner failed: %v", err)
+	}
+	if got := (*created).Labels[orchestrator.LabelOwner]; got != "0aa2e04a-6e91-4e04-9f38-2f1304d5f9a2" {
+		t.Errorf("runner owner label = %q, want the configured instance id", got)
+	}
+	if _, err := cli.SpawnTask(ctx, orchestrator.RunnerConfig{PoolName: "owner-pool"}); err != nil {
+		t.Fatalf("SpawnTask failed: %v", err)
+	}
+	if got := (*created).Labels[orchestrator.LabelOwner]; got != "0aa2e04a-6e91-4e04-9f38-2f1304d5f9a2" {
+		t.Errorf("task owner label = %q, want the configured instance id", got)
+	}
+
+	// Without the option the label must stay unset (older callers, tests).
+	var bare *container.Config
+	bareAPI := &mockDockerAPI{
+		containerCreateFn: func(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+			bare = options.Config
+			return client.ContainerCreateResult{ID: "c-bare"}, nil
+		},
+		containerStartFn: func(ctx context.Context, id string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
+			return client.ContainerStartResult{}, nil
+		},
+	}
+	plain, err := docker.NewClient(ctx, docker.WithAPIClient(bareAPI))
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	if _, err := plain.SpawnRunner(ctx, orchestrator.RunnerConfig{PoolName: "owner-pool"}); err != nil {
+		t.Fatalf("SpawnRunner failed: %v", err)
+	}
+	if got := bare.Labels[orchestrator.LabelOwner]; got != "" {
+		t.Errorf("owner label must be unset without WithOwnerInstance, got %q", got)
+	}
+}
+
 func TestDockerClient_SpawnFailureCleanup(t *testing.T) {
 	ctx := context.Background()
 

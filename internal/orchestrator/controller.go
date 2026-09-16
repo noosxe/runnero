@@ -115,6 +115,10 @@ type ForeignPool struct {
 	PoolID    int64    `json:"pool_id"`
 	PoolName  string   `json:"pool_name"`
 	RunnerIDs []string `json:"runner_ids"`
+	// Owners are the distinct com.runnero.owner instance ids observed on
+	// the foreign runners (RUN-240, docs/33 §3.4); empty when the labels
+	// predate the owner stamp or the spawning supervisor had none.
+	Owners []string `json:"owners,omitempty"`
 }
 
 // PoolTargetsRepository abstracts loading pool targets from the database.
@@ -2245,7 +2249,6 @@ func (c *PoolController) poolHasTombstone(ctx context.Context, poolID int64) (bo
 // entirely alone: they belong to another supervisor instance on this engine.
 // The warning fires once per pool per boot; later cycles stay silent.
 func (c *PoolController) skipForeignPool(ctx context.Context, poolID int64, poolName string) {
-	c.recordForeignPool(poolID, poolName)
 
 	c.foreignMu.Lock()
 	warned := c.foreignWarned[poolID]
@@ -2256,15 +2259,24 @@ func (c *PoolController) skipForeignPool(ctx context.Context, poolID int64, pool
 	}
 
 	runnerIDs := []string{}
+	owners := map[string]bool{}
 	if c.reconciler != nil {
 		for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
 			if len(runnerIDs) < 10 {
 				runnerIDs = append(runnerIDs, r.ID)
 			}
+			if r.Owner != "" {
+				owners[r.Owner] = true
+			}
 		}
 	}
+	ownerList := make([]string, 0, len(owners))
+	for o := range owners {
+		ownerList = append(ownerList, o)
+	}
+	c.recordForeignPoolOwners(poolID, poolName, ownerList)
 	c.logger.Warn("foreign runner pool on engine, skipping drain (docs/33 §3.2)",
-		"pool", poolName, "pool_id", poolID, "runners", runnerIDs,
+		"pool", poolName, "pool_id", poolID, "runners", runnerIDs, "owners", ownerList,
 		"hint", "these runners belong to another supervisor instance; "+
 			"they are left untouched - take ownership via SUPERVISOR_ENGINE_OWNERSHIP=adopt-all or remove them manually")
 }
@@ -2273,12 +2285,20 @@ func (c *PoolController) skipForeignPool(ctx context.Context, poolID int64, pool
 // without logging (used on tombstone-lookup failures, which log their own
 // error).
 func (c *PoolController) recordForeignPool(poolID int64, poolName string) {
+	c.recordForeignPoolOwners(poolID, poolName, nil)
+}
+
+// recordForeignPoolOwners stores the discovery for the ForeignPools status
+// view without logging (used on tombstone-lookup failures, which log their
+// own error). First discovery wins for the runner/owner snapshot; later
+// cycles keep the pool foreign without churn.
+func (c *PoolController) recordForeignPoolOwners(poolID int64, poolName string, owners []string) {
 	c.foreignMu.Lock()
 	defer c.foreignMu.Unlock()
 	if _, exists := c.foreignPools[poolID]; exists {
 		return
 	}
-	c.foreignPools[poolID] = ForeignPool{PoolID: poolID, PoolName: poolName}
+	c.foreignPools[poolID] = ForeignPool{PoolID: poolID, PoolName: poolName, Owners: owners}
 }
 
 // ForeignPools returns the pools discovered as foreign (no ownership
