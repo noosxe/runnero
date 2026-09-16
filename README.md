@@ -381,6 +381,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **[Design Phase] Web Auth Hardening (Opaque Sessions):** Replace the JWT session token with opaque DB-backed 32-byte random sessions — two-clock expiry (sliding idle + absolute cap) with sliding renewal, server-side logout, per-username+IP brute-force lockout, timing-equalized login, trusted-proxy-aware client IPs, session management UI, and a fail-closed procedure→role matrix. Design: [docs/32-web-auth-sessions.md](docs/32-web-auth-sessions.md).
 ---
 
 ## 📄 License
