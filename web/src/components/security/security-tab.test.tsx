@@ -40,6 +40,10 @@ vi.mock("../../lib/api/query-hooks", () => ({
     mutate: mockRevokeOthersMutate,
     isPending: false,
   }),
+  useChangePassword: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 describe("SecurityTab", () => {

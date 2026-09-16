@@ -25,6 +25,12 @@ service AuthService {
   // Login with local credentials to receive a session token
   rpc Login(LoginRequest) returns (LoginResponse);
 
+  // Change the signed-in user's own password (docs/32 §4.4). Verifies the
+  // current password, applies the class-C 12-character floor to the new
+  // one, and revokes every other session of the user; the current session
+  // survives so the caller stays signed in.
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+
   // Verify current session
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
 
@@ -109,6 +115,23 @@ message LoginRequest {
 message LoginResponse {
   bool success = 1;
   string username = 2;
+}
+
+message ChangePasswordRequest {
+  // The caller's current password, verified server-side with a bcrypt
+  // comparison (docs/32 §4.4). Empty-gating only — no pattern, so legacy
+  // passwords set before the 12-character floor still authenticate here.
+  string current_password = 1 [(buf.validate.field).string.min_len = 1];
+  // Class-C floor (docs/32 §4.4): 12 characters at every password-set path.
+  // No composition rules, no forced rotation.
+  string new_password = 2 [(buf.validate.field).string.min_len = 12];
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
+  // Other sessions of the user invalidated by this change (the current
+  // session always survives).
+  int64 revoked_sessions = 2;
 }
 
 message GetSessionRequest {}

@@ -80,6 +80,10 @@ vi.mock("../lib/api/query-hooks", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
+  useChangePassword: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 describe("SettingsPage", () => {

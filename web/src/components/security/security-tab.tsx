@@ -19,6 +19,7 @@ import type { SessionInfo } from "../../gen/api_pb";
 import type { AppTableFeatures } from "../../lib/tables/use-app-table";
 import { MonitorSmartphone, ShieldOff } from "lucide-react";
 import { timestampDate, type Timestamp } from "@bufbuild/protobuf/wkt";
+import { ChangePasswordCard } from "./change-password-card";
 
 const columnHelper = createColumnHelper<AppTableFeatures, SessionInfo>();
 
@@ -120,59 +121,62 @@ export function SecurityTab() {
   const others = (sessions ?? []).filter((s) => !s.isCurrent).length;
 
   return (
-    <Card>
-      <CardHeader className="border-b border-border/60">
-        <CardTitle className="text-base font-bold">Active Sessions</CardTitle>
-        <CardDescription className="text-xs">
-          Every browser or client signed in with your account. Revoking a session signs that device
-          out server-side; the current session is marked.
-        </CardDescription>
-        {others > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-fit"
-            disabled={revokeOthers.isPending}
-            onClick={() => setConfirmOpen(true)}
-          >
-            <MonitorSmartphone className="size-4" />
-            Revoke all other sessions ({others})
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        <DataTable
-          table={table}
-          empty={<span className="text-sm text-muted-foreground">Loading sessions…</span>}
-        />
-        {isLoading && (
-          <p className="mt-2 text-xs text-muted-foreground" aria-busy="true">
-            Loading…
-          </p>
-        )}
-      </CardContent>
-
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Revoke all other sessions?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Every device except this one will be signed out. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmOpen(false);
-                revokeOthers.mutate();
-              }}
+    <div className="flex flex-col gap-6">
+      <ChangePasswordCard />
+      <Card>
+        <CardHeader className="border-b border-border/60">
+          <CardTitle className="text-base font-bold">Active Sessions</CardTitle>
+          <CardDescription className="text-xs">
+            Every browser or client signed in with your account. Revoking a session signs that
+            device out server-side; the current session is marked.
+          </CardDescription>
+          {others > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              disabled={revokeOthers.isPending}
+              onClick={() => setConfirmOpen(true)}
             >
-              Revoke others
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Card>
+              <MonitorSmartphone className="size-4" />
+              Revoke all other sessions ({others})
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            table={table}
+            empty={<span className="text-sm text-muted-foreground">Loading sessions…</span>}
+          />
+          {isLoading && (
+            <p className="mt-2 text-xs text-muted-foreground" aria-busy="true">
+              Loading…
+            </p>
+          )}
+        </CardContent>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Revoke all other sessions?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Every device except this one will be signed out. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmOpen(false);
+                  revokeOthers.mutate();
+                }}
+              >
+                Revoke others
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </Card>
+    </div>
   );
 }

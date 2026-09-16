@@ -51,8 +51,12 @@ const (
 	// These are trim-aware presence checks: min_len sees the raw wire string,
 	// but handlers store trimmed values, so whitespace-only input would
 	// otherwise become an empty stored value.
-	RuleAuthUsernameRequired  = "auth.username.required"
-	RuleAppSettingKeyRequired = "app_setting.key.required"
+	RuleAuthUsernameRequired = "auth.username.required"
+	// ChangePassword (internal/server/auth.go): the current-password check
+	// runs a bcrypt comparison whose failure is surfaced as a field-attached
+	// violation so form clients can mark the field (docs/30 §5.3 channel).
+	RuleAuthPasswordCurrentMismatch = "auth.password.current_mismatch"
+	RuleAppSettingKeyRequired       = "app_setting.key.required"
 )
 
 // newViolation builds one buf.validate.Violation: a stable rule id from the

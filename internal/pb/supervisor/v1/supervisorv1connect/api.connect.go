@@ -51,6 +51,9 @@ const (
 	AuthServiceSetupAdminProcedure = "/supervisor.v1.AuthService/SetupAdmin"
 	// AuthServiceLoginProcedure is the fully-qualified name of the AuthService's Login RPC.
 	AuthServiceLoginProcedure = "/supervisor.v1.AuthService/Login"
+	// AuthServiceChangePasswordProcedure is the fully-qualified name of the AuthService's
+	// ChangePassword RPC.
+	AuthServiceChangePasswordProcedure = "/supervisor.v1.AuthService/ChangePassword"
 	// AuthServiceGetSessionProcedure is the fully-qualified name of the AuthService's GetSession RPC.
 	AuthServiceGetSessionProcedure = "/supervisor.v1.AuthService/GetSession"
 	// AuthServiceLogoutProcedure is the fully-qualified name of the AuthService's Logout RPC.
@@ -165,6 +168,11 @@ type AuthServiceClient interface {
 	SetupAdmin(context.Context, *connect.Request[v1.SetupAdminRequest]) (*connect.Response[v1.SetupAdminResponse], error)
 	// Login with local credentials to receive a session token
 	Login(context.Context, *connect.Request[v1.LoginRequest]) (*connect.Response[v1.LoginResponse], error)
+	// Change the signed-in user's own password (docs/32 §4.4). Verifies the
+	// current password, applies the class-C 12-character floor to the new
+	// one, and revokes every other session of the user; the current session
+	// survives so the caller stays signed in.
+	ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error)
 	// Verify current session
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// Delete the caller's current session row and clear the session cookie.
@@ -199,6 +207,12 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+AuthServiceLoginProcedure,
 			connect.WithSchema(authServiceMethods.ByName("Login")),
+			connect.WithClientOptions(opts...),
+		),
+		changePassword: connect.NewClient[v1.ChangePasswordRequest, v1.ChangePasswordResponse](
+			httpClient,
+			baseURL+AuthServiceChangePasswordProcedure,
+			connect.WithSchema(authServiceMethods.ByName("ChangePassword")),
 			connect.WithClientOptions(opts...),
 		),
 		getSession: connect.NewClient[v1.GetSessionRequest, v1.GetSessionResponse](
@@ -238,6 +252,7 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 type authServiceClient struct {
 	setupAdmin          *connect.Client[v1.SetupAdminRequest, v1.SetupAdminResponse]
 	login               *connect.Client[v1.LoginRequest, v1.LoginResponse]
+	changePassword      *connect.Client[v1.ChangePasswordRequest, v1.ChangePasswordResponse]
 	getSession          *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
 	logout              *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
 	listSessions        *connect.Client[v1.ListSessionsRequest, v1.ListSessionsResponse]
@@ -253,6 +268,11 @@ func (c *authServiceClient) SetupAdmin(ctx context.Context, req *connect.Request
 // Login calls supervisor.v1.AuthService.Login.
 func (c *authServiceClient) Login(ctx context.Context, req *connect.Request[v1.LoginRequest]) (*connect.Response[v1.LoginResponse], error) {
 	return c.login.CallUnary(ctx, req)
+}
+
+// ChangePassword calls supervisor.v1.AuthService.ChangePassword.
+func (c *authServiceClient) ChangePassword(ctx context.Context, req *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error) {
+	return c.changePassword.CallUnary(ctx, req)
 }
 
 // GetSession calls supervisor.v1.AuthService.GetSession.
@@ -286,6 +306,11 @@ type AuthServiceHandler interface {
 	SetupAdmin(context.Context, *connect.Request[v1.SetupAdminRequest]) (*connect.Response[v1.SetupAdminResponse], error)
 	// Login with local credentials to receive a session token
 	Login(context.Context, *connect.Request[v1.LoginRequest]) (*connect.Response[v1.LoginResponse], error)
+	// Change the signed-in user's own password (docs/32 §4.4). Verifies the
+	// current password, applies the class-C 12-character floor to the new
+	// one, and revokes every other session of the user; the current session
+	// survives so the caller stays signed in.
+	ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error)
 	// Verify current session
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// Delete the caller's current session row and clear the session cookie.
@@ -316,6 +341,12 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		AuthServiceLoginProcedure,
 		svc.Login,
 		connect.WithSchema(authServiceMethods.ByName("Login")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceChangePasswordHandler := connect.NewUnaryHandler(
+		AuthServiceChangePasswordProcedure,
+		svc.ChangePassword,
+		connect.WithSchema(authServiceMethods.ByName("ChangePassword")),
 		connect.WithHandlerOptions(opts...),
 	)
 	authServiceGetSessionHandler := connect.NewUnaryHandler(
@@ -354,6 +385,8 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 			authServiceSetupAdminHandler.ServeHTTP(w, r)
 		case AuthServiceLoginProcedure:
 			authServiceLoginHandler.ServeHTTP(w, r)
+		case AuthServiceChangePasswordProcedure:
+			authServiceChangePasswordHandler.ServeHTTP(w, r)
 		case AuthServiceGetSessionProcedure:
 			authServiceGetSessionHandler.ServeHTTP(w, r)
 		case AuthServiceLogoutProcedure:
@@ -379,6 +412,10 @@ func (UnimplementedAuthServiceHandler) SetupAdmin(context.Context, *connect.Requ
 
 func (UnimplementedAuthServiceHandler) Login(context.Context, *connect.Request[v1.LoginRequest]) (*connect.Response[v1.LoginResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.AuthService.Login is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.AuthService.ChangePassword is not implemented"))
 }
 
 func (UnimplementedAuthServiceHandler) GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error) {

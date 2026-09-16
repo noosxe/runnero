@@ -39,6 +39,11 @@ service AuthService {
   
   // Revoke every caller session except the current one
   rpc RevokeOtherSessions (RevokeOtherSessionsRequest) returns (RevokeOtherSessionsResponse);
+
+  // Change the signed-in user's own password (docs/32 §4.4): verifies the
+  // current password, applies the 12-character class-C floor to the new
+  // one, and revokes every other session; the current session survives.
+  rpc ChangePassword (ChangePasswordRequest) returns (ChangePasswordResponse);
 }
 
 message SetupAdminRequest {
@@ -104,6 +109,19 @@ message RevokeOtherSessionsRequest {}
 
 message RevokeOtherSessionsResponse {
   int64 revoked = 1;  // Number of other sessions removed
+}
+
+// A wrong current password answers InvalidArgument with a typed violation
+// (rule id auth.password.current_mismatch) on the current_password field;
+// new_password carries a min_len=12 protovalidate annotation (docs/32 §4.4).
+message ChangePasswordRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
+  int64 revoked_sessions = 2;  // Other sessions invalidated by the change
 }
 
 // One of the caller's live sessions. device_label is parsed from the login
