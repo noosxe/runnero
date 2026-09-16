@@ -27,11 +27,11 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Version failed: %v", err)
 	}
-	if ver != 9 {
-		t.Fatalf("database version = %d, want 9", ver)
+	if ver != 10 {
+		t.Fatalf("database version = %d, want 10", ver)
 	}
 
-	// Verify all 10 tables and their columns field-for-field per docs/07.
+	// Verify all 11 tables and their columns field-for-field per docs/07.
 	expectedTables := map[string][]string{
 		"admin_users": {
 			"id", "username", "password_hash", "created_at", "updated_at",
@@ -66,6 +66,9 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 		},
 		"app_settings": {
 			"key", "value", "updated_at",
+		},
+		"pool_tombstones": {
+			"pool_id", "pool_name", "deleted_at",
 		},
 	}
 
@@ -153,8 +156,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 
 	// Initial state: version 6
 	ver, err := database.Version(ctx, nil)
-	if err != nil || ver != 9 {
-		t.Fatalf("Version after boot = %d (err: %v), want 9", ver, err)
+	if err != nil || ver != 10 {
+		t.Fatalf("Version after boot = %d (err: %v), want 10", ver, err)
 	}
 
 	// Rollback all migrations down to version 0
@@ -176,6 +179,7 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 	for _, table := range []string{
 		"admin_users", "sessions", "auth_profiles", "runner_pools", "pool_targets",
 		"renovate_configs", "renovate_runs", "job_history", "audit_logs", "app_settings",
+		"pool_tombstones",
 	} {
 		cols := getTableColumns(t, database, table)
 		if len(cols) > 0 {
@@ -189,8 +193,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 	}
 
 	verUp, err := database.Version(ctx, nil)
-	if err != nil || verUp != 9 {
-		t.Fatalf("Version after Migrate up = %d (err: %v), want 9", verUp, err)
+	if err != nil || verUp != 10 {
+		t.Fatalf("Version after Migrate up = %d (err: %v), want 10", verUp, err)
 	}
 
 	// Verify app_settings seeded again

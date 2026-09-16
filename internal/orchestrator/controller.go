@@ -99,6 +99,24 @@ type PoolRepository interface {
 	ListRunnerPools(ctx context.Context) ([]db.RunnerPool, error)
 }
 
+// PoolTombstoneChecker reports whether a deleted pool left a tombstone
+// (RUN-239, docs/33 section 3.1). It is an optional capability of the pool
+// repository: without it (or without a repository at all) the controller has
+// no ownership evidence and must treat every tracked-but-missing pool as
+// foreign. *db.DB implements it via generated sqlc queries.
+type PoolTombstoneChecker interface {
+	PoolTombstoneExists(ctx context.Context, poolID int64) (bool, error)
+}
+
+// ForeignPool describes a tracked pool the supervisor has no ownership
+// evidence for (docs/33 section 3.2): its runners are never stopped or
+// deregistered.
+type ForeignPool struct {
+	PoolID    int64    `json:"pool_id"`
+	PoolName  string   `json:"pool_name"`
+	RunnerIDs []string `json:"runner_ids"`
+}
+
 // PoolTargetsRepository abstracts loading pool targets from the database.
 type PoolTargetsRepository interface {
 	ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error)
@@ -196,6 +214,9 @@ type PoolController struct {
 	drainingPools           map[int64]drainEntry // pool id -> drain metadata for gracefully deleted pools (docs/25 §4.2)
 	ghostMu                 sync.Mutex
 	ghostCounters           map[int64]map[string]int // pool id -> runner name -> consecutive offline-untracked cycles (docs/20 §4.1)
+	foreignMu               sync.Mutex
+	foreignPools            map[int64]ForeignPool // pool id -> foreign discovery (RUN-239, docs/33 §3.2)
+	foreignWarned           map[int64]bool        // pool id -> warning already logged this boot
 
 	pollMu      sync.Mutex
 	lastPollAt  map[int64]time.Time // pool id -> last completed demand poll (docs/24 §5.4)
@@ -292,6 +313,8 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		poolIDsByName:           make(map[string]int64),
 		logger:                  logging.For("controller"),
 		drainingPools:           make(map[int64]drainEntry),
+		foreignPools:            make(map[int64]ForeignPool),
+		foreignWarned:           make(map[int64]bool),
 		diagnostics:             make(map[int64]PoolDiagnosticState),
 	}
 
@@ -510,6 +533,21 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 	}
 
 	for _, removed := range removedPools {
+		// Ownership gate (RUN-239, docs/33 §3.2): a tracked pool missing from
+		// the database is only "removed" if this database deleted it
+		// (tombstone). Without the tombstone the pool belongs to a foreign
+		// supervisor instance on the shared engine - its runners are never
+		// stopped or deregistered.
+		owned, err := c.poolHasTombstone(ctx, removed.id)
+		if err != nil {
+			c.logger.Error("ownership check failed, skipping removed-pool drain", "pool", removed.name, "pool_id", removed.id, "err", err)
+			c.recordForeignPool(removed.id, removed.name)
+			continue
+		}
+		if !owned {
+			c.skipForeignPool(ctx, removed.id, removed.name)
+			continue
+		}
 		// Restart and out-of-band deletes converge gracefully: idle runners
 		// are terminated now, busy runners finish their job under the
 		// DefaultDrainBackstop (docs/25 §4.5). An explicit hard drain via
@@ -2186,6 +2224,74 @@ func (c *PoolController) DrainPool(ctx context.Context, poolID int64, poolName s
 }
 
 var _ server.PoolDrainer = (*PoolController)(nil)
+
+// poolHasTombstone reports whether this database deleted the pool (RUN-239,
+// docs/33 §3.1). A missing repository or a repository without tombstone
+// capability means no ownership evidence: (false, nil). Lookup errors return
+// err so the caller can fail safe - on uncertainty nothing is destroyed.
+func (c *PoolController) poolHasTombstone(ctx context.Context, poolID int64) (bool, error) {
+	if c.db == nil {
+		return false, nil
+	}
+	checker, ok := c.db.(PoolTombstoneChecker)
+	if !ok {
+		return false, nil
+	}
+	return checker.PoolTombstoneExists(ctx, poolID)
+}
+
+// skipForeignPool records and warns about a tracked pool the supervisor has
+// no ownership evidence for (RUN-239, docs/33 §3.2). Its runners are left
+// entirely alone: they belong to another supervisor instance on this engine.
+// The warning fires once per pool per boot; later cycles stay silent.
+func (c *PoolController) skipForeignPool(ctx context.Context, poolID int64, poolName string) {
+	c.recordForeignPool(poolID, poolName)
+
+	c.foreignMu.Lock()
+	warned := c.foreignWarned[poolID]
+	c.foreignWarned[poolID] = true
+	c.foreignMu.Unlock()
+	if warned {
+		return
+	}
+
+	runnerIDs := []string{}
+	if c.reconciler != nil {
+		for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
+			if len(runnerIDs) < 10 {
+				runnerIDs = append(runnerIDs, r.ID)
+			}
+		}
+	}
+	c.logger.Warn("foreign runner pool on engine, skipping drain (docs/33 §3.2)",
+		"pool", poolName, "pool_id", poolID, "runners", runnerIDs,
+		"hint", "these runners belong to another supervisor instance; "+
+			"they are left untouched - take ownership via SUPERVISOR_ENGINE_OWNERSHIP=adopt-all or remove them manually")
+}
+
+// recordForeignPool stores the discovery for the ForeignPools status view
+// without logging (used on tombstone-lookup failures, which log their own
+// error).
+func (c *PoolController) recordForeignPool(poolID int64, poolName string) {
+	c.foreignMu.Lock()
+	defer c.foreignMu.Unlock()
+	if _, exists := c.foreignPools[poolID]; exists {
+		return
+	}
+	c.foreignPools[poolID] = ForeignPool{PoolID: poolID, PoolName: poolName}
+}
+
+// ForeignPools returns the pools discovered as foreign (no ownership
+// evidence) so status surfaces can report them (docs/33 §3.2).
+func (c *PoolController) ForeignPools() []ForeignPool {
+	c.foreignMu.Lock()
+	defer c.foreignMu.Unlock()
+	out := make([]ForeignPool, 0, len(c.foreignPools))
+	for _, fp := range c.foreignPools {
+		out = append(out, fp)
+	}
+	return out
+}
 
 // drainPool implements DrainPool. Graceful drains are idempotent per pool:
 // once recorded in the draining set, repeat calls (RPC and removed-pool

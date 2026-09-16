@@ -200,3 +200,28 @@ SELECT id, repository_url FROM runner_pools WHERE repository_url != '';
 DROP TABLE pool_targets;
 -- +goose StatementEnd
 ```
+
+## `010_pool_tombstones.sql`
+
+Pool tombstones are the ownership evidence for destructive drain decisions
+(RUN-239, docs/33 section 3.1): the removed-pool drain only proceeds for pool
+ids this database actually deleted. A pool id without a tombstone belongs to
+a foreign supervisor instance on a shared engine and is never touched. Rows
+are written transactionally with the pool delete (`DeleteRunnerPoolTombstoned`)
+and survive restarts by design.
+
+```sql
+-- +goose Up
+-- +goose StatementBegin
+CREATE TABLE pool_tombstones (
+    pool_id    INTEGER PRIMARY KEY, -- the deleted runner_pools.id
+    pool_name  TEXT NOT NULL,
+    deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE pool_tombstones;
+-- +goose StatementEnd
+```
