@@ -499,8 +499,11 @@ func TestPoolController_HandleContainerEvent_DoubleDeliveryBenign(t *testing.T) 
 	if len(spawnedIDs) != 2 {
 		t.Errorf("expected no extra spawn on duplicate delivery, got %d spawns", len(spawnedIDs))
 	}
-	if captureCalls != 2 || terminateCalls != 2 {
-		t.Errorf("expected reap attempted twice (capture=%d, terminate=%d), got capture=%d terminate=%d", 2, 2, captureCalls, terminateCalls)
+	// RUN-234: the die event's reap captured, terminated, and marked the
+	// container as removed by us. The destroy echo is suppressed before any
+	// engine call — no second capture attempt, no redundant terminate.
+	if captureCalls != 1 || terminateCalls != 1 {
+		t.Errorf("echo event must be suppressed before engine calls (RUN-234), got capture=%d terminate=%d", captureCalls, terminateCalls)
 	}
 }
 func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {

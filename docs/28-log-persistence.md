@@ -104,6 +104,17 @@ The three scattered `ContainerRemove` call sites in
 Capture-before-remove covers the normal paths (drain, idle-reap, job
 completion, create-failure rollback, orphan sweep).
 
+**Die-event echo suppression (RUN-234).** Every supervisor-initiated removal
+marks the container id; when Docker's `die` event for that id arrives, the
+reap path recognizes the echo and skips capture and record — recording
+again would emit a *guaranteed-failed* capture (we removed the container
+ourselves). This matters for forensics: without suppression, every drain
+produced a paired `reap` record with a failed capture, and genuine capture
+losses drowned in noise (during the 2026-09-16 churn, 248 of 255 reap
+records were such echoes). A reap record with a failed capture now means
+exactly one thing: *someone other than this supervisor removed the
+container before its logs could be captured* — the signal worth paging on.
+
 ### 5.3 The recreation window — boot-time reconciliation
 
 "Runner died while the supervisor was being recreated" is covered because the

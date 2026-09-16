@@ -40,6 +40,12 @@ const (
 	DefaultShutdownTimeout = 300 * time.Second
 
 	// DefaultShutdownPollInterval is the frequency to poll active containers during graceful shutdown (docs/03 §7).
+
+	// recentRemovalTTL bounds how long a supervisor-initiated container
+	// removal suppresses the echo die/destroy events (RUN-234). Matches the
+	// ReapDeduplicator's default retention window.
+	recentRemovalTTL = 5 * time.Minute
+
 	DefaultShutdownPollInterval = 5 * time.Second
 
 	// DefaultScaleToZeroGracePeriod is the idle startup/job-pickup window before an on-demand runner is considered orphaned (RUN-71).
@@ -224,6 +230,8 @@ type PoolController struct {
 	drainMu                 sync.Mutex
 	drainingPools           map[int64]drainEntry // pool id -> drain metadata for gracefully deleted pools (docs/25 §4.2)
 	ghostMu                 sync.Mutex
+	removedMu               sync.Mutex
+	recentlyRemoved         map[string]time.Time     // container id -> when we removed it (RUN-234 die-event suppression)
 	ghostCounters           map[int64]map[string]int // pool id -> runner name -> consecutive offline-untracked cycles (docs/20 §4.1)
 	foreignMu               sync.Mutex
 	foreignPools            map[int64]ForeignPool // pool id -> foreign discovery (RUN-239, docs/33 §3.2)
@@ -339,6 +347,7 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		poolIDsByName:           make(map[string]int64),
 		logger:                  logging.For("controller"),
 		drainingPools:           make(map[int64]drainEntry),
+		recentlyRemoved:         make(map[string]time.Time),
 		foreignPools:            make(map[int64]ForeignPool),
 		foreignWarned:           make(map[int64]bool),
 		diagnostics:             make(map[int64]PoolDiagnosticState),
@@ -839,6 +848,10 @@ func (c *PoolController) terminateAndRecord(ctx context.Context, o removalOpts) 
 		termErr = c.engine.TerminateRunner(ctx, o.r.ID)
 		if termErr != nil {
 			c.logger.Warn("terminating runner container", "id", o.r.ID, "reason", o.reason, "err", termErr)
+		} else {
+			// The removal succeeded: the die/destroy events Docker fires next are
+			// echoes of THIS removal, not an independent death (RUN-234).
+			c.markEngineRemoved(o.r.ID)
 		}
 	}
 	if o.untrack && c.reconciler != nil {
@@ -858,6 +871,39 @@ func (c *PoolController) terminateAndRecord(ctx context.Context, o removalOpts) 
 		Capture:      capture,
 	})
 	return capture.File, termErr
+}
+
+// markEngineRemoved records that the supervisor itself just removed a
+// container (RUN-234): the die/destroy events Docker fires afterwards are
+// echoes of our own removal, not evidence of an independent death.
+func (c *PoolController) markEngineRemoved(containerID string) {
+	if containerID == "" {
+		return
+	}
+	now := time.Now()
+	c.removedMu.Lock()
+	defer c.removedMu.Unlock()
+	// Prune expired entries opportunistically (same retention idea as the
+	// ReapDeduplicator).
+	for id, t := range c.recentlyRemoved {
+		if now.Sub(t) > recentRemovalTTL {
+			delete(c.recentlyRemoved, id)
+		}
+	}
+	c.recentlyRemoved[containerID] = now
+}
+
+// wasRemovedByUs reports whether the supervisor removed this container
+// recently enough that incoming die events are echoes of that removal
+// (RUN-234).
+func (c *PoolController) wasRemovedByUs(containerID string) bool {
+	if containerID == "" {
+		return false
+	}
+	c.removedMu.Lock()
+	defer c.removedMu.Unlock()
+	t, ok := c.recentlyRemoved[containerID]
+	return ok && time.Since(t) <= recentRemovalTTL
 }
 
 // deregErrorString flattens the provider deregistration outcome for the
@@ -940,6 +986,20 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 
 func (c *PoolController) reapContainer(ctx context.Context, containerID string, poolID int64, poolName string, exitCode int, exitKnown bool) {
 	c.closeJobRowOnDeath(ctx, containerID, poolID, exitCode, exitKnown)
+	if c.wasRemovedByUs(containerID) {
+		// Echo suppression (RUN-234): a supervisor-initiated removal (drain,
+		// idle-reap, shutdown, manual RPC) already captured, removed, and
+		// recorded this container; its die/destroy events carry no new
+		// information. Recording again would emit a guaranteed-failed capture
+		// — during the 2026-09-16 churn 248 of 255 reap records were exactly
+		// such echoes, drowning the genuinely lost captures. Finish the
+		// lifecycle bookkeeping and stop.
+		if c.reconciler != nil {
+			c.reconciler.UntrackRunner(poolID, containerID)
+		}
+		c.drainQueue(ctx)
+		return
+	}
 	var code *int
 	if exitKnown {
 		code = &exitCode
@@ -1036,12 +1096,6 @@ func (c *PoolController) Start(ctx context.Context) error {
 	}
 
 	if c.eventListener != nil {
-		if c.dataDir != "" && c.engine != nil {
-			c.eventListener.SetLogCapturer(func(ctx context.Context, id string) error {
-				_, err := c.engine.CaptureLogs(ctx, id, c.dataDir)
-				return err
-			})
-		}
 		go func() {
 			_ = c.eventListener.Listen(ctx, func(evt ContainerEvent) {
 				_ = c.HandleContainerEvent(ctx, evt)

@@ -188,3 +188,79 @@ func TestTerminateAndRecord_DisabledPersistenceIsCleanNoop(t *testing.T) {
 		t.Fatalf("removals.jsonl must not exist without persistence: %v", err)
 	}
 }
+
+// TestDieEventAfterOwnRemovalIsSuppressed is the RUN-234 regression: a
+// supervisor-initiated removal (drain, idle-reap, manual RPC — anything
+// through the choke point) already captured, removed, and recorded the
+// container. The die event Docker fires afterwards must not produce a
+// second reap record — its capture is guaranteed to fail because WE removed
+// the container, and a wall of always-failing capture records is exactly
+// what made the churn forensics (255 reap records, 248 failed captures)
+// unreadable.
+func TestDieEventAfterOwnRemovalIsSuppressed(t *testing.T) {
+	h := newRemovalHarness(t)
+	if err := h.ctrl.Boot(context.Background()); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+
+	// After the container is really gone, the Docker log API reports it as
+	// unavailable — what a post-removal capture attempt would hit.
+	if err := h.ctrl.TerminateRunner(context.Background(), 3, "drained-1"); err != nil {
+		t.Fatalf("manual termination: %v", err)
+	}
+	h.mu.Lock()
+	h.captureErr = fmt.Errorf("Error response from daemon: No such container: drained-1")
+	h.mu.Unlock()
+
+	event := orchestrator.ContainerEvent{
+		ContainerID: "drained-1", PoolName: "pool-a", PoolID: 3,
+		Action: "die", ExitCode: 143,
+		Timestamp: time.Now().UTC(),
+	}
+	if err := h.ctrl.HandleContainerEvent(context.Background(), event); err != nil {
+		t.Fatalf("die event: %v", err)
+	}
+
+	records := h.records(t)
+	if len(records) != 1 {
+		t.Fatalf("die event after own removal must not record again, got %d records: %+v", len(records), records)
+	}
+	if records[0].Reason != orchestrator.RemovalReasonManual {
+		t.Fatalf("the only record must be the original manual removal, got reason %q", records[0].Reason)
+	}
+}
+
+// TestDieEventForGenuinelyLostContainerStillRecords keeps the honest side
+// of RUN-234: when the container was removed by someone else (a second
+// supervisor, an operator) the capture truly is lost and the reap record
+// must say so — that record is the forensic signal, not noise.
+func TestDieEventForGenuinelyLostContainerStillRecords(t *testing.T) {
+	h := newRemovalHarness(t)
+	h.mu.Lock()
+	h.captureErr = fmt.Errorf("Error response from daemon: No such container: killed-9")
+	h.mu.Unlock()
+	if err := h.ctrl.Boot(context.Background()); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+
+	event := orchestrator.ContainerEvent{
+		ContainerID: "killed-9", PoolName: "pool-a", PoolID: 3,
+		Action: "die", ExitCode: 137,
+		Timestamp: time.Now().UTC(),
+	}
+	if err := h.ctrl.HandleContainerEvent(context.Background(), event); err != nil {
+		t.Fatalf("die event: %v", err)
+	}
+
+	records := h.records(t)
+	if len(records) != 1 {
+		t.Fatalf("want exactly 1 record for an externally removed runner, got %d", len(records))
+	}
+	rec := records[0]
+	if rec.Reason != orchestrator.RemovalReasonReap {
+		t.Fatalf("reason = %q, want reap", rec.Reason)
+	}
+	if rec.Capture.OK || rec.Capture.Error == "" {
+		t.Fatalf("capture failure must be recorded verbatim: %+v", rec.Capture)
+	}
+}
