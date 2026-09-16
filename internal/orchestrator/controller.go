@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/noosxe/runnero/internal/config"
 	"github.com/noosxe/runnero/internal/db"
 	"github.com/noosxe/runnero/internal/logging"
 	"github.com/noosxe/runnero/internal/provider"
@@ -190,6 +191,11 @@ type ControllerOptions struct {
 	// provider implements RunnerJobsLister; failures fail open. Enabled by
 	// the enrich-job-conclusions config default.
 	EnrichConclusions bool
+	// EngineOwnership selects the cross-instance engine safety mode (RUN-241,
+	// docs/33 §3.5): config.EngineOwnershipStrict (default, tombstone-gated
+	// destructive actions) or config.EngineOwnershipAdoptAll (one-shot escape
+	// hatch that treats every managed container as owned). Empty is strict.
+	EngineOwnership string
 }
 
 // PoolController orchestrates the lifecycle control loop across all runner pools (docs/03 §1).
@@ -214,6 +220,7 @@ type PoolController struct {
 	ghostOfflineCycles      int
 	ghostMaxDeregistrations int
 	enrichConclusions       bool
+	engineOwnership         string // cross-instance safety mode (RUN-241, docs/33 §3.5): strict default, adopt-all escape hatch
 	drainMu                 sync.Mutex
 	drainingPools           map[int64]drainEntry // pool id -> drain metadata for gracefully deleted pools (docs/25 §4.2)
 	ghostMu                 sync.Mutex
@@ -242,6 +249,20 @@ type PoolController struct {
 }
 
 // NewPoolController creates a new lifecycle control loop engine.
+// engineOwnershipMode normalizes the ControllerOptions value: empty (the
+// zero value in most constructions) resolves to strict so the safe
+// behavior is what happens by accident (RUN-241, docs/33 §3.5). Unknown
+// non-empty values are validated upstream by config.Validate and rejected
+// at boot; here they are treated as strict, failing safe.
+func engineOwnershipMode(v string) string {
+	switch v {
+	case config.EngineOwnershipAdoptAll:
+		return config.EngineOwnershipAdoptAll
+	default:
+		return config.EngineOwnershipStrict
+	}
+}
+
 func NewPoolController(opts ControllerOptions) *PoolController {
 	if opts.Interval <= 0 {
 		opts.Interval = DefaultControlLoopInterval
@@ -310,6 +331,7 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		ghostOfflineCycles:      ghostCycles,
 		ghostMaxDeregistrations: ghostMax,
 		enrichConclusions:       opts.EnrichConclusions,
+		engineOwnership:         engineOwnershipMode(opts.EngineOwnership),
 		ghostCounters:           make(map[int64]map[string]int),
 		lastPollAt:              make(map[int64]time.Time),
 		pollBackoff:             make(map[int64]int),
@@ -406,6 +428,12 @@ func (c *PoolController) Boot(ctx context.Context) error {
 	c.mu.Unlock()
 
 	c.logger.Info("executing control loop boot sequence")
+
+	if c.engineOwnership == config.EngineOwnershipAdoptAll {
+		c.logger.Warn("engine ownership escape hatch ACTIVE: every managed container on this engine is treated as owned and cross-instance protection is disabled (RUN-241, docs/33 §3.5)",
+			"mode", c.engineOwnership,
+			"hint", "SUPERVISOR_ENGINE_OWNERSHIP=adopt-all is a one-shot recovery switch - remove it after the orphans are claimed so strict protection returns on the next boot")
+	}
 
 	// 1. Rebuild state by querying supervisor-managed containers
 	if c.reconciler != nil {
@@ -537,20 +565,25 @@ func (c *PoolController) Reconcile(ctx context.Context) error {
 	}
 
 	for _, removed := range removedPools {
-		// Ownership gate (RUN-239, docs/33 §3.2): a tracked pool missing from
-		// the database is only "removed" if this database deleted it
-		// (tombstone). Without the tombstone the pool belongs to a foreign
-		// supervisor instance on the shared engine - its runners are never
-		// stopped or deregistered.
-		owned, err := c.poolHasTombstone(ctx, removed.id)
-		if err != nil {
-			c.logger.Error("ownership check failed, skipping removed-pool drain", "pool", removed.name, "pool_id", removed.id, "err", err)
-			c.recordForeignPool(removed.id, removed.name)
-			continue
-		}
-		if !owned {
-			c.skipForeignPool(ctx, removed.id, removed.name)
-			continue
+		if c.engineOwnership != config.EngineOwnershipAdoptAll {
+			// Ownership gate (RUN-239, docs/33 §3.2): a tracked pool missing from
+			// the database is only "removed" if this database deleted it
+			// (tombstone). Without the tombstone the pool belongs to a foreign
+			// supervisor instance on the shared engine - its runners are never
+			// stopped or deregistered.
+			owned, err := c.poolHasTombstone(ctx, removed.id)
+			if err != nil {
+				c.logger.Error("ownership check failed, skipping removed-pool drain", "pool", removed.name, "pool_id", removed.id, "err", err)
+				c.recordForeignPool(removed.id, removed.name)
+				continue
+			}
+			if !owned {
+				c.skipForeignPool(ctx, removed.id, removed.name)
+				continue
+			}
+			// Escape hatch (RUN-241, docs/33 §3.5): adopt-all falls through to the
+			// pre-docs/33 drain below, restoring one-shot orphan takeover after a
+			// wiped/restored data dir or engine move. Boot logs a prominent notice.
 		}
 		// Restart and out-of-band deletes converge gracefully: idle runners
 		// are terminated now, busy runners finish their job under the

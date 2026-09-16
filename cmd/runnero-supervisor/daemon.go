@@ -215,6 +215,7 @@ func runDaemonContext(ctx context.Context) error {
 		RemovalLog:        removalLog,
 		CaptureTimeout:    time.Duration(cfg.LogRunnerCaptureTimeout) * time.Second,
 		EnrichConclusions: cfg.EnrichJobConclusions,
+		EngineOwnership:   cfg.EngineOwnership,
 		TaskExitHandler:   renovateExecutor,
 	})
 

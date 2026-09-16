@@ -673,3 +673,65 @@ func TestLoadSessionSettings(t *testing.T) {
 		}
 	})
 }
+
+// TestLoadEngineOwnership covers the RUN-241 / docs/33 §3.5 escape-hatch
+// contract: strict is the default (the safe behavior happens by accident),
+// adopt-all is opt-in via environment, and anything else is rejected at
+// load time.
+func TestLoadEngineOwnership(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+
+	t.Run("defaults to strict", func(t *testing.T) {
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.EngineOwnership != EngineOwnershipStrict {
+			t.Errorf("engine-ownership = %q, want default %q", cfg.EngineOwnership, EngineOwnershipStrict)
+		}
+		if DefaultEngineOwnership != EngineOwnershipStrict {
+			t.Errorf("DefaultEngineOwnership = %q, want strict", DefaultEngineOwnership)
+		}
+	})
+
+	t.Run("adopt-all from environment", func(t *testing.T) {
+		t.Setenv(EnvEngineOwnership, "adopt-all")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.EngineOwnership != EngineOwnershipAdoptAll {
+			t.Errorf("engine-ownership = %q, want adopt-all from env", cfg.EngineOwnership)
+		}
+	})
+
+	t.Run("case-insensitive", func(t *testing.T) {
+		t.Setenv(EnvEngineOwnership, "  ADOPT-ALL ")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.EngineOwnership != EngineOwnershipAdoptAll {
+			t.Errorf("engine-ownership = %q, want normalized adopt-all", cfg.EngineOwnership)
+		}
+	})
+
+	t.Run("empty falls back to strict", func(t *testing.T) {
+		t.Setenv(EnvEngineOwnership, "")
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.EngineOwnership != EngineOwnershipStrict {
+			t.Errorf("engine-ownership = %q, want strict when unset", cfg.EngineOwnership)
+		}
+	})
+
+	t.Run("invalid mode rejected", func(t *testing.T) {
+		t.Setenv(EnvEngineOwnership, "yolo")
+		_, err := Load(Options{})
+		if err == nil || !strings.Contains(err.Error(), "engine ownership") {
+			t.Fatalf("want invalid engine ownership mode rejection, got: %v", err)
+		}
+	})
+}
