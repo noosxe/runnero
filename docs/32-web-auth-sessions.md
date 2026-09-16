@@ -189,8 +189,15 @@ limiting and audit events only — never authorization.
 
 ### 4.2 Rate limiter
 
-In-memory (single-process deployment; documented limitation: counters reset on
-restart, audit history persists):
+Durable since RUN-238 (migration `011_login_rate_failures`): the sliding
+window and backoff still live in memory, but every failed login is also
+written through to the `login_rate_failures` table and in-window rows are
+reloaded at boot — a restart no longer resets a brute-force lockout.
+Persistence is best-effort: a failed write degrades to plain in-memory
+behavior and is logged, never blocking the login path. A successful login
+deletes the key's rows (so a restart cannot resurrect a spent lockout),
+and rows outside the window are pruned (at boot and per write), keeping
+the table bounded.
 
 - key: `username + client IP`; window: sliding 15 minutes; threshold: 5 failures;
 - backoff: exponential 1, 2, 4… minutes capped at 15, surfaced as

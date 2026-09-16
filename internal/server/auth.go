@@ -459,12 +459,23 @@ type AuthService struct {
 	dummyHash []byte
 }
 
-// NewAuthService constructs an AuthService instance.
+// NewAuthService constructs an AuthService instance. When the database
+// also implements RateLimitStore (production *db.DB does), the login rate
+// limiter becomes durable: failed logins are written through and in-window
+// rows are reloaded here, so a restart cannot reset a brute-force lockout
+// (RUN-238, docs/32 section 4.2).
 func NewAuthService(authDB AuthDatabase, cfg SessionConfig) *AuthService {
+	var limiter *loginRateLimiter
+	if store, ok := authDB.(RateLimitStore); ok {
+		limiter = newDurableLoginRateLimiter(store)
+		limiter.restore(time.Now())
+	} else {
+		limiter = newLoginRateLimiter()
+	}
 	s := &AuthService{
 		db:      authDB,
 		cfg:     cfg,
-		limiter: newLoginRateLimiter(),
+		limiter: limiter,
 	}
 	// Prewarm the equalization hash off the boot path: a cost-12 bcrypt
 	// takes ~150ms normally but seconds under the race detector, and it

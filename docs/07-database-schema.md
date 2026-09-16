@@ -225,3 +225,34 @@ CREATE TABLE pool_tombstones (
 DROP TABLE pool_tombstones;
 -- +goose StatementEnd
 ```
+
+## `011_login_rate_failures.sql`
+
+Durable brute-force lockout state for the login rate limiter (RUN-238,
+docs/32 section 4.2). The in-memory sliding window survives only until a
+restart, which used to let an attacker reset their exponential backoff by
+inducing or waiting for one. Every failed login now also writes one row
+here (write-through, best-effort — the in-memory guard never depends on
+the database); on boot the limiter reloads rows inside the 15-minute
+window. A successful login deletes the key's rows so a restart cannot
+resurrect a spent lockout; rows outside the window are pruned at boot and
+per write, keeping the table bounded.
+
+```sql
+-- +goose Up
+-- +goose StatementBegin
+CREATE TABLE login_rate_failures (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    rate_key  TEXT NOT NULL,
+    failed_at DATETIME NOT NULL
+);
+
+CREATE INDEX idx_login_rate_failures_key_failed_at
+    ON login_rate_failures (rate_key, failed_at);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE login_rate_failures;
+-- +goose StatementEnd
+```

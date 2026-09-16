@@ -52,6 +52,8 @@ type Querier interface {
 	DeleteAuthProfile(ctx context.Context, id int64) error
 	DeleteJobHistoryOlderThan(ctx context.Context, completedAt sql.NullTime) error
 	DeleteJobRowByID(ctx context.Context, id int64) error
+	DeleteLoginRateFailuresBefore(ctx context.Context, failedAt time.Time) error
+	DeleteLoginRateFailuresByKey(ctx context.Context, rateKey string) error
 	// Duplicate cleanup after closing by external job id: a poll-opened transition
 	// row (empty job id) for the same runner would double-count the job.
 	DeleteOpenTransitionRowsByRunner(ctx context.Context, arg DeleteOpenTransitionRowsByRunnerParams) (int64, error)
@@ -87,6 +89,11 @@ type Querier interface {
 	GetRunnerPoolById(ctx context.Context, id int64) (RunnerPool, error)
 	GetRunnerPoolByName(ctx context.Context, name string) (RunnerPool, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (Session, error)
+	// Durable login rate limiter state (RUN-238, docs/32 section 4.2): one row
+	// per failed login attempt, keyed by username+IP (rateLimitKey). The limiter
+	// writes through on every failure, deletes a key's rows on successful login,
+	// and reloads in-window rows on boot so a restart cannot reset a lockout.
+	InsertLoginRateFailure(ctx context.Context, arg InsertLoginRateFailureParams) error
 	// Pool tombstones (RUN-239, docs/33 section 3.1): ownership evidence left
 	// behind by pool deletions. The reconcile removed-pool drain only proceeds
 	// for pool ids that carry a tombstone; ids without one belong to a foreign
@@ -105,6 +112,7 @@ type Querier interface {
 	ListEnabledRenovateConfigs(ctx context.Context) ([]RenovateConfig, error)
 	ListJobHistory(ctx context.Context, arg ListJobHistoryParams) ([]JobHistory, error)
 	ListJobHistoryByPoolId(ctx context.Context, arg ListJobHistoryByPoolIdParams) ([]JobHistory, error)
+	ListLoginRateFailuresSince(ctx context.Context, failedAt time.Time) ([]ListLoginRateFailuresSinceRow, error)
 	ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]PoolTarget, error)
 	ListPoolsByTargetUrl(ctx context.Context, targetUrl string) ([]RunnerPool, error)
 	ListRenovateConfigs(ctx context.Context) ([]RenovateConfig, error)
