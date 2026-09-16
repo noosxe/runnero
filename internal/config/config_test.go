@@ -621,6 +621,28 @@ func TestLoadSessionSettings(t *testing.T) {
 		}
 	})
 
+	t.Run("audit retention default and validation", func(t *testing.T) {
+		cfg, err := Load(Options{})
+		if err != nil {
+			t.Fatalf("loading: %v", err)
+		}
+		if cfg.AuditRetention != DefaultAuditRetention {
+			t.Errorf("audit retention = %s, want %s", cfg.AuditRetention, DefaultAuditRetention)
+		}
+		t.Setenv(EnvAuditRetention, "0s")
+		if _, err := Load(Options{}); err == nil || !strings.Contains(err.Error(), "audit") {
+			t.Fatalf("want positive audit retention enforcement, got: %v", err)
+		}
+		t.Setenv(EnvAuditRetention, "1h")
+		cfg, err = Load(Options{})
+		if err != nil {
+			t.Fatalf("loading with 1h retention: %v", err)
+		}
+		if cfg.AuditRetention != time.Hour {
+			t.Errorf("audit retention = %s, want 1h", cfg.AuditRetention)
+		}
+	})
+
 	t.Run("secure mode validation", func(t *testing.T) {
 		t.Setenv(EnvSecureCookies, "sometimes")
 		if _, err := Load(Options{}); err == nil || !strings.Contains(err.Error(), "secure-cookies") {

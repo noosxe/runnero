@@ -241,3 +241,92 @@ func TestRetentionSchedulerStartAndCancel(t *testing.T) {
 		t.Fatal("RetentionScheduler.Start did not stop after context cancel")
 	}
 }
+
+// TestAuthMaintenance verifies the docs/32 section 5.2 sweep: sessions past
+// either expiry clock are purged while live ones survive, the audit horizon
+// arithmetic purges exactly the rows older than the cutoff, and the sweep
+// is idempotent. audit_logs.created_at is DEFAULT CURRENT_TIMESTAMP, so the
+// audit horizon is exercised from both sides of "now": a huge retention
+// (nothing is old enough to purge) and a ~zero retention (everything is).
+func TestAuthMaintenance(t *testing.T) {
+	ctx := context.Background()
+	database, err := Open(Options{
+		Path:          filepath.Join(t.TempDir(), "auth-maintenance.db"),
+		EncryptionKey: bytes.Repeat([]byte{0x55}, 32),
+	})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = database.Close() }()
+
+	admin, err := database.CreateAdminUser(ctx, CreateAdminUserParams{Username: "admin", PasswordHash: "x"})
+	if err != nil {
+		t.Fatalf("CreateAdminUser: %v", err)
+	}
+
+	now := time.Now()
+	sessions := []CreateSessionParams{
+		// Live on both clocks: survives.
+		{UserID: admin.ID, TokenHash: "live", ExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(24 * time.Hour)},
+		// Idle deadline passed: purged.
+		{UserID: admin.ID, TokenHash: "idle-dead", ExpiresAt: now.Add(-time.Minute), AbsoluteExpiresAt: now.Add(24 * time.Hour)},
+		// Absolute cap passed even though the idle deadline has not: purged.
+		{UserID: admin.ID, TokenHash: "cap-dead", ExpiresAt: now.Add(time.Hour), AbsoluteExpiresAt: now.Add(-time.Minute)},
+	}
+	for _, sp := range sessions {
+		if _, err := database.CreateSession(ctx, sp); err != nil {
+			t.Fatalf("CreateSession %s: %v", sp.TokenHash, err)
+		}
+	}
+
+	for _, action := range []string{"auth.login_success", "pool.create"} {
+		if _, err := database.CreateAuditLog(ctx, CreateAuditLogParams{
+			UserID: sql.NullInt64{Int64: admin.ID, Valid: true},
+			Action: action,
+		}); err != nil {
+			t.Fatalf("CreateAuditLog %s: %v", action, err)
+		}
+	}
+
+	// Huge retention: the fresh audit rows are inside the horizon.
+	res, err := database.AuthMaintenance(ctx, 90*24*time.Hour)
+	if err != nil {
+		t.Fatalf("AuthMaintenance: %v", err)
+	}
+	if res.SessionsPurged != 2 {
+		t.Errorf("sessions purged = %d, want 2", res.SessionsPurged)
+	}
+	if res.AuditsPurged != 0 {
+		t.Errorf("audits purged = %d, want 0 (rows are fresh)", res.AuditsPurged)
+	}
+
+	if _, err := database.GetSessionByTokenHash(ctx, "live"); err != nil {
+		t.Errorf("live session should survive the sweep: %v", err)
+	}
+	for _, hash := range []string{"idle-dead", "cap-dead"} {
+		if _, err := database.GetSessionByTokenHash(ctx, hash); err != sql.ErrNoRows {
+			t.Errorf("session %q should be purged, got: %v", hash, err)
+		}
+	}
+
+	// ~Zero retention: every audit row is now beyond the horizon.
+	res2, err := database.AuthMaintenance(ctx, time.Nanosecond)
+	if err != nil {
+		t.Fatalf("second AuthMaintenance: %v", err)
+	}
+	if res2.SessionsPurged != 0 {
+		t.Errorf("second sweep sessions purged = %d, want 0 (none left)", res2.SessionsPurged)
+	}
+	if res2.AuditsPurged != 2 {
+		t.Errorf("audits purged = %d, want 2", res2.AuditsPurged)
+	}
+
+	// Idempotent: a third sweep finds nothing.
+	res3, err := database.AuthMaintenance(ctx, time.Nanosecond)
+	if err != nil {
+		t.Fatalf("third AuthMaintenance: %v", err)
+	}
+	if res3.SessionsPurged != 0 || res3.AuditsPurged != 0 {
+		t.Errorf("third sweep purged %+v, want zeros", res3)
+	}
+}

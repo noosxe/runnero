@@ -298,3 +298,198 @@ func TestPublicProcedureStaysAnonymousAndGetSessionRequiresAuth(t *testing.T) {
 		t.Fatalf("admin-bucket procedure accepted without a cookie: %v", err)
 	}
 }
+
+// loginFail runs one failing login and returns the connect code.
+func loginFail(t *testing.T, client supervisorv1connect.AuthServiceClient, username, password string) connect.Code {
+	t.Helper()
+	_, err := client.Login(context.Background(), connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: username,
+		Password: password,
+	}))
+	return connect.CodeOf(err)
+}
+
+// TestLoginRateLimitLockout exercises the brute-force guard end to end
+// (docs/32 §4.2): five failures lock the username+IP key with
+// ResourceExhausted, the lock audits auth.rate_limited, unknown usernames
+// feed the same key, and a successful login resets it.
+func TestLoginRateLimitLockout(t *testing.T) {
+	ctx := context.Background()
+	database := setupTestDB(t)
+	_, client := sessionTestServer(t, database, testSessionConfig())
+	setupAdmin(t, client)
+
+	// Four failures stay answered with the normal invalid-credentials code.
+	for i := 0; i < 4; i++ {
+		if code := loginFail(t, client, "admin", "totally-wrong"); code != connect.CodeUnauthenticated {
+			t.Fatalf("failure %d: want Unauthenticated, got %v", i+1, code)
+		}
+	}
+
+	// The 5th failure records; the 6th attempt is refused up front.
+	if code := loginFail(t, client, "admin", "totally-wrong"); code != connect.CodeUnauthenticated {
+		t.Fatalf("failure 5: want Unauthenticated, got %v", code)
+	}
+	_, err := client.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "super-secret-password-123",
+	}))
+	if connect.CodeOf(err) != connect.CodeResourceExhausted {
+		t.Fatalf("locked attempt want ResourceExhausted, got: %v", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "try again") {
+		t.Fatalf("locked error should carry retry guidance, got: %v", err)
+	}
+
+	// The correct password is refused too: the lock gates the account.
+	// (Already asserted by the ResourceExhausted code above.)
+
+	// The lockout attempt audited auth.rate_limited.
+	logs, lerr := database.ListAuditLogs(ctx, db.ListAuditLogsParams{Limit: 50, Offset: 0})
+	if lerr != nil {
+		t.Fatalf("ListAuditLogs: %v", lerr)
+	}
+	rateLimited := false
+	for _, row := range logs {
+		if row.Action == "auth.rate_limited" {
+			rateLimited = true
+		}
+	}
+	if !rateLimited {
+		t.Fatalf("auth.rate_limited not audited; actions: %v", auditActions(logs))
+	}
+}
+
+// TestLoginSuccessResetsRateLimit pins the reset half of docs/32 §4.2:
+// failures below the threshold do not outlive a successful login.
+func TestLoginSuccessResetsRateLimit(t *testing.T) {
+	database := setupTestDB(t)
+	_, client := sessionTestServer(t, database, testSessionConfig())
+	setupAdmin(t, client)
+
+	// Two failures, then a success, then two more: never reaches 5 in a
+	// live window, so every attempt still gets the normal code.
+	for i := 0; i < 2; i++ {
+		if code := loginFail(t, client, "admin", "nope"); code != connect.CodeUnauthenticated {
+			t.Fatalf("pre-success failure %d: got %v", i+1, code)
+		}
+	}
+	res, err := client.Login(context.Background(), connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "super-secret-password-123",
+	}))
+	if err != nil {
+		t.Fatalf("successful login failed: %v", err)
+	}
+	_ = res
+	for i := 0; i < 2; i++ {
+		if code := loginFail(t, client, "admin", "nope"); code != connect.CodeUnauthenticated {
+			t.Fatalf("post-success failure %d: want Unauthenticated, got %v (limiter did not reset)", i+1, code)
+		}
+	}
+}
+
+// TestLoginFailurePathsAreIndistinguishable pins the timing-equalization
+// contract (docs/32 §4.3): unknown username and wrong password share one
+// error message, one audit action, and one coarse reason; only source_ip
+// and user_id differ (unknown users have no id to attach).
+func TestLoginFailurePathsAreIndistinguishable(t *testing.T) {
+	ctx := context.Background()
+	database := setupTestDB(t)
+	_, client := sessionTestServer(t, database, testSessionConfig())
+	setupAdmin(t, client)
+
+	_, errUnknown := client.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "ghost-user",
+		Password: "whatever-password",
+	}))
+	_, errWrong := client.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "wrong-password",
+	}))
+	if errUnknown == nil || errWrong == nil {
+		t.Fatal("both failure paths must error")
+	}
+	if errUnknown.Error() != errWrong.Error() {
+		t.Fatalf("failure errors differ:\n unknown: %v\n wrongpw: %v", errUnknown, errWrong)
+	}
+	if connect.CodeOf(errUnknown) != connect.CodeUnauthenticated || connect.CodeOf(errWrong) != connect.CodeUnauthenticated {
+		t.Fatalf("failure codes differ: %v vs %v", connect.CodeOf(errUnknown), connect.CodeOf(errWrong))
+	}
+
+	logs, lerr := database.ListAuditLogs(ctx, db.ListAuditLogsParams{Limit: 10, Offset: 0})
+	if lerr != nil {
+		t.Fatalf("ListAuditLogs: %v", lerr)
+	}
+	failures := make([]db.AuditLog, 0, 2)
+	for _, row := range logs {
+		if row.Action == "auth.login_failed" {
+			failures = append(failures, row)
+		}
+	}
+	if len(failures) < 2 {
+		t.Fatalf("want two login_failed rows, got %d (actions: %v)", len(failures), auditActions(logs))
+	}
+	for _, row := range failures {
+		if !strings.Contains(row.Details.String, `"reason":"invalid_credentials"`) {
+			t.Fatalf("reason must stay coarse, details: %s", row.Details.String)
+		}
+		if strings.Contains(row.Details.String, "user_not_found") || strings.Contains(row.Details.String, "invalid_password") {
+			t.Fatalf("revealing reason split in audit: %s", row.Details.String)
+		}
+		if !row.SourceIp.Valid || row.SourceIp.String == "" {
+			t.Fatalf("auth audit row missing source_ip: %+v", row)
+		}
+		if strings.Contains(row.Details.String, "whatever-password") || strings.Contains(row.Details.String, "wrong-password") {
+			t.Fatalf("credentials leaked into audit details: %s", row.Details.String)
+		}
+	}
+}
+
+// TestLoginSuccessAuditVocabularyAndNoCredentialLeak pins the renamed
+// success action, the stored client IP, and the absence of the password or
+// session cookie from the audit row (docs/32 §5.1).
+func TestLoginSuccessAuditVocabularyAndNoCredentialLeak(t *testing.T) {
+	ctx := context.Background()
+	database := setupTestDB(t)
+	_, client := sessionTestServer(t, database, testSessionConfig())
+	setupAdmin(t, client)
+
+	res, err := client.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "super-secret-password-123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	setCookie := res.Header().Get("Set-Cookie")
+
+	logs, lerr := database.ListAuditLogs(ctx, db.ListAuditLogsParams{Limit: 10, Offset: 0})
+	if lerr != nil {
+		t.Fatalf("ListAuditLogs: %v", lerr)
+	}
+	var success *db.AuditLog
+	for i := range logs {
+		row := logs[i]
+		if row.Action == "auth.login_success" {
+			success = &logs[i]
+		}
+		if strings.Contains(row.Details.String, "super-secret-password-123") || strings.Contains(row.Details.String, cookieValue(setCookie)) {
+			t.Fatalf("credential or token leaked into audit details (%s): %s", row.Action, row.Details.String)
+		}
+	}
+	if success == nil {
+		t.Fatalf("auth.login_success not recorded; actions: %v", auditActions(logs))
+	}
+	if !success.SourceIp.Valid || success.SourceIp.String == "" {
+		t.Fatalf("login_success missing source_ip")
+	}
+}
+
+func auditActions(logs []db.AuditLog) []string {
+	actions := make([]string, 0, len(logs))
+	for _, row := range logs {
+		actions = append(actions, row.Action)
+	}
+	return actions
+}

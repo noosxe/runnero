@@ -58,6 +58,7 @@ Run it with no subcommand to start the daemon.`,
 	var flagSessionIdleTimeout time.Duration
 	var flagSessionAbsoluteTimeout time.Duration
 	var flagBcryptCost int
+	var flagAuditRetention time.Duration
 	var flagTrustedProxy bool
 	f := root.PersistentFlags()
 	f.StringVarP(&flagConfig, "config", "c", "", "path to the configuration file (YAML or TOML)")
@@ -71,6 +72,7 @@ Run it with no subcommand to start the daemon.`,
 	f.DurationVar(&flagSessionIdleTimeout, "session-idle-timeout", mustDuration(config.DefaultSessionIdleTimeout), "sliding idle timeout: sessions unused this long are deleted")
 	f.DurationVar(&flagSessionAbsoluteTimeout, "session-absolute-timeout", mustDuration(config.DefaultSessionAbsoluteTimeout), "absolute session lifetime cap (fixed at login, never extended)")
 	f.IntVar(&flagBcryptCost, "bcrypt-cost", config.DefaultBcryptCost, "bcrypt cost for new or changed passwords (4-31)")
+	f.DurationVar(&flagAuditRetention, "audit-retention", config.DefaultAuditRetention, "audit log purge horizon (default 2160h = 90 days, docs/32)")
 	f.BoolVar(&flagTrustedProxy, "trusted-proxy", false, "trust X-Forwarded-For / X-Forwarded-Proto from the reverse proxy (client IP and HTTPS detection)")
 
 	root.AddCommand(

@@ -158,6 +158,9 @@ func runDaemonContext(ctx context.Context) error {
 
 	retentionScheduler := db.NewRetentionScheduler(database, nil)
 	go retentionScheduler.Start(daemonCtx)
+	// Auth maintenance (docs/32 section 5.2): hourly purge of sessions past
+	// either expiry clock and audit rows beyond the retention horizon.
+	go sweepAuthMaintenance(daemonCtx, database, cfg.AuditRetention, logger)
 	var dockerOpts []docker.Option
 	if cfg.DockerHost != "" {
 		dockerOpts = append(dockerOpts, docker.WithHost(cfg.DockerHost))
@@ -477,6 +480,38 @@ func newBootID() (string, error) {
 		return "", fmt.Errorf("reading randomness: %w", err)
 	}
 	return hex.EncodeToString(b[:]), nil
+}
+
+// sweepAuthMaintenance enforces the docs/32 §5.2 maintenance contract: one
+// sweep at boot, then hourly. Best-effort — a failed sweep logs a warning
+// and the next tick retries; it never blocks or crashes the daemon.
+func sweepAuthMaintenance(ctx context.Context, database *db.DB, auditRetention time.Duration, log *slog.Logger) {
+	sweep := func() {
+		sweepCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		res, err := database.AuthMaintenance(sweepCtx, auditRetention)
+		cancel()
+		if err != nil {
+			log.Warn("auth maintenance sweep failed", "err", err)
+			return
+		}
+		if res.SessionsPurged > 0 || res.AuditsPurged > 0 {
+			log.Info("auth maintenance sweep purged rows",
+				"sessions", res.SessionsPurged,
+				"audit_logs", res.AuditsPurged,
+			)
+		}
+	}
+	sweep()
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sweep()
+		}
+	}
 }
 
 // sweepDurableLogs enforces the RUN-186 retention knobs (docs/28 §5.5):

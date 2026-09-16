@@ -29,6 +29,10 @@ CREATE TABLE sessions (
     FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE
 );
 
+An hourly maintenance sweep (docs/32 section 5.2) deletes session rows past
+either expiry clock; audit rows older than the retention horizon
+(`SUPERVISOR_AUDIT_RETENTION`, default 90d) are purged by the same sweep.
+
 CREATE TABLE auth_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,

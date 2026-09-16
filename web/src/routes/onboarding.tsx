@@ -74,7 +74,7 @@ import {
 /**
  * Admin credentials form (docs/30 §5.4): wire rules (min_len on
  * SetupAdminRequest/LoginRequest) evaluate via protovalidate on the exact
- * request each submit sends; the 10-char policy and the confirm match are
+ * request each submit sends; the 12-char policy and the confirm match are
  * class C UI rules (docs/30 §5.1).
  */
 interface AdminFormValues {
@@ -325,7 +325,7 @@ export function OnboardingPage() {
 
   /**
    * Shared admin evaluation (docs/30 §5.4): one protovalidate run on the
-   * exact SetupAdminRequest/LoginRequest plus class C rules (10-char policy,
+   * exact SetupAdminRequest/LoginRequest plus class C rules (12-char policy,
    * confirm match) — inline errors and the gate read the same map.
    */
   const runAdminEvaluation = (
@@ -349,8 +349,8 @@ export function OnboardingPage() {
 
     if (mode === "setup") {
       // Class C: UI password policy and the confirm-match check.
-      if (password.length < 10) {
-        (fieldErrors.password ??= []).push("Password must be at least 10 characters long");
+      if (password.length < 12) {
+        (fieldErrors.password ??= []).push("Password must be at least 12 characters long");
       }
       if (password !== confirmPassword) {
         (fieldErrors.confirmPassword ??= []).push("Passwords do not match");
@@ -864,7 +864,7 @@ export function OnboardingPage() {
                 <adminForm.AppField name="password">
                   {(field) => (
                     <field.PasswordField
-                      label="Password (min 10 characters)"
+                      label="Password (min 12 characters)"
                       id="admin-password"
                       onBlurExtra={() => runAdminEvaluation("setup")}
                     />
@@ -1137,7 +1137,7 @@ export function OnboardingPage() {
                   <Input
                     id="shutdown-timeout"
                     type="number"
-                    min={10}
+                    min={12}
                     max={3600}
                     value={shutdownTimeoutSeconds}
                     onChange={(e) => setShutdownTimeoutSeconds(Number(e.target.value))}

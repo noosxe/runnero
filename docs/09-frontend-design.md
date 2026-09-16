@@ -142,7 +142,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 |   | Username                                                                      |   |
 |   | [ admin                                                                     ] |   |
 |   +-------------------------------------------------------------------------------+   |
-|   | Password (min 10 characters)                                                  |   |
+|   | Password (min 12 characters)                                                  |   |
 |   | [ •••••••••••••••••••••                                                     ] |   |
 |   +-------------------------------------------------------------------------------+   |
 |   | Confirm Password                                                              |   |
@@ -668,7 +668,7 @@ validation needs. The logs filters (phase 4, optional) were skipped: filter
 inputs have no wire rules to share and gating there buys nothing.
 
 Class A rules (protovalidate on the request message) evaluate on blur and
-submit; class C rules (UI policy with no wire annotation — the 10-character
+submit; class C rules (UI policy with no wire annotation — the 12-character
 admin password policy, confirm-match, retention ranges, custom swap/pids
 mode pairing) live in the form layer only. Forms composing the toolkit set
 `noValidate` so native HTML5 constraints (min/max/required) never silently

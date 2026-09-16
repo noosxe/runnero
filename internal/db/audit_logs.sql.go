@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 const countAuditLogs = `-- name: CountAuditLogs :one
@@ -173,4 +174,19 @@ func (q *Queries) ListAuditLogsByUserId(ctx context.Context, arg ListAuditLogsBy
 		return nil, err
 	}
 	return items, nil
+}
+
+const purgeAuditLogsOlderThan = `-- name: PurgeAuditLogsOlderThan :execrows
+DELETE FROM audit_logs
+WHERE created_at < ?
+`
+
+// Hourly maintenance (docs/32 section 5.2): enforce the audit retention
+// horizon (default 90d).
+func (q *Queries) PurgeAuditLogsOlderThan(ctx context.Context, createdAt time.Time) (int64, error) {
+	result, err := q.db.ExecContext(ctx, purgeAuditLogsOlderThan, createdAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

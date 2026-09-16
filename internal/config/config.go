@@ -40,11 +40,13 @@ const (
 	EnvSessionIdleTimeout     = EnvPrefix + "SESSION_IDLE_TIMEOUT"
 	EnvSessionAbsoluteTimeout = EnvPrefix + "SESSION_ABSOLUTE_TIMEOUT"
 	EnvBcryptCost             = EnvPrefix + "BCRYPT_COST"
-	EnvTrustedProxy           = EnvPrefix + "TRUSTED_PROXY"
-	EnvEnrichJobConclusions   = EnvPrefix + "ENRICH_JOB_CONCLUSIONS"
-	EnvWebhookGitHubSecret    = EnvPrefix + "WEBHOOK_GITHUB_SECRET"
-	EnvWebhookGiteaSecret     = EnvPrefix + "WEBHOOK_GITEA_SECRET"
-	EnvWebhookForgejoSecret   = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
+	// EnvAuditRetention sets the audit_logs purge horizon (docs/32 section 5.2).
+	EnvAuditRetention       = EnvPrefix + "AUDIT_RETENTION"
+	EnvTrustedProxy         = EnvPrefix + "TRUSTED_PROXY"
+	EnvEnrichJobConclusions = EnvPrefix + "ENRICH_JOB_CONCLUSIONS"
+	EnvWebhookGitHubSecret  = EnvPrefix + "WEBHOOK_GITHUB_SECRET"
+	EnvWebhookGiteaSecret   = EnvPrefix + "WEBHOOK_GITEA_SECRET"
+	EnvWebhookForgejoSecret = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
 
 	// Durable log persistence (RUN-186, docs/28 §5.5).
 	EnvLogPersistenceEnabled      = EnvPrefix + "LOG_PERSISTENCE_ENABLED"
@@ -82,6 +84,8 @@ const (
 	DefaultSessionAbsoluteTimeout = "720h" // 30 days, fixed cap
 	DefaultSecureCookieMode       = "auto"
 	DefaultBcryptCost             = 12
+	// DefaultAuditRetention keeps 90 days of audit history (docs/32 section 5.2).
+	DefaultAuditRetention = 2160 * time.Hour
 
 	// Embedded Tailscale defaults (RUN-155, docs/26 §4).
 	DefaultTailscaleHostname          = "runnero"
@@ -122,6 +126,7 @@ var envKeys = map[string]string{
 	EnvSessionIdleTimeout:     "session-idle-timeout",
 	EnvSessionAbsoluteTimeout: "session-absolute-timeout",
 	EnvBcryptCost:             "bcrypt-cost",
+	EnvAuditRetention:         "audit-retention",
 	EnvTrustedProxy:           "trusted-proxy",
 	EnvWebhookGitHubSecret:    "webhook-github-secret",
 	EnvWebhookGiteaSecret:     "webhook-gitea-secret",
@@ -163,6 +168,7 @@ type Config struct {
 	SessionAbsoluteTimeout time.Duration `koanf:"session-absolute-timeout"`
 	SecureCookies          string        `koanf:"secure-cookies"`
 	BcryptCost             int           `koanf:"bcrypt-cost"`
+	AuditRetention         time.Duration `koanf:"audit-retention"`
 	TrustedProxy           bool          `koanf:"trusted-proxy"`
 	EnrichJobConclusions   bool          `koanf:"enrich-job-conclusions"`
 	WebhookGitHubSecret    string        `koanf:"webhook-github-secret"`
@@ -293,6 +299,7 @@ func defaults() map[string]any {
 		"session-absolute-timeout": DefaultSessionAbsoluteTimeout,
 		"secure-cookies":           "", // empty resolves in normalize: legacy bool, else auto
 		"bcrypt-cost":              DefaultBcryptCost,
+		"audit-retention":          DefaultAuditRetention,
 		"trusted-proxy":            false,
 		"webhook-github-secret":    "",
 		"webhook-gitea-secret":     "",

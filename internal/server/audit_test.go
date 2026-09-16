@@ -250,7 +250,7 @@ func TestAuditLogCoverage_MutatingActions(t *testing.T) {
 	expectedActions := []string{
 		"auth.setup_admin",
 		"auth.login_failed",
-		"auth.login",
+		"auth.login_success",
 		"auth_profile.create",
 		"pool.create",
 		"pool.update",
@@ -349,7 +349,7 @@ func TestRecordAuditLogHelper(t *testing.T) {
 	}
 
 	// 4. Calling RecordAuditLogWithUser with explicit user ID
-	server.RecordAuditLogWithUser(ctx, database, &adminUser.ID, "auth.login", "admin_user", &adminUser.ID, map[string]any{"username": "explicit-user"})
+	server.RecordAuditLogWithUser(ctx, database, &adminUser.ID, "auth.login_success", "admin_user", &adminUser.ID, map[string]any{"username": "explicit-user"})
 
 	logs, err = database.ListAuditLogs(ctx, db.ListAuditLogsParams{Limit: 1, Offset: 0})
 	if err != nil || len(logs) != 1 {
@@ -358,7 +358,7 @@ func TestRecordAuditLogHelper(t *testing.T) {
 	if !logs[0].UserID.Valid || logs[0].UserID.Int64 != adminUser.ID {
 		t.Errorf("expected user_id %d, got %+v", adminUser.ID, logs[0].UserID)
 	}
-	if logs[0].Action != "auth.login" {
-		t.Errorf("expected action auth.login, got %s", logs[0].Action)
+	if logs[0].Action != "auth.login_success" {
+		t.Errorf("expected action auth.login_success, got %s", logs[0].Action)
 	}
 }

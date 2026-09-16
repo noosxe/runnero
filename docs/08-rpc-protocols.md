@@ -41,7 +41,11 @@ message LoginRequest {
 }
 
 // Note: The opaque session token (docs/32) is set via Set-Cookie header (HttpOnly, Secure,
-// SameSite=Strict), not returned in the response body.
+// SameSite=Strict), not returned in the response body. Failed logins answer
+// Unauthenticated with a generic "invalid username or password"; after 5
+// failures inside 15 minutes for the same username+client-IP, logins answer
+// ResourceExhausted with a retry hint until the exponential backoff (cap
+// 15m) elapses (docs/32 section 4.2).
 message LoginResponse {
   bool success = 1;
   string username = 2;

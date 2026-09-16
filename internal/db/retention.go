@@ -115,6 +115,35 @@ func (d *DB) PruneJobHistory(ctx context.Context, activeRunners int) (*PruneResu
 	}, nil
 }
 
+// AuthMaintenanceResult summarizes one auth-maintenance sweep (docs/32 section 5.2).
+type AuthMaintenanceResult struct {
+	SessionsPurged int64 `json:"sessions_purged"`
+	AuditsPurged   int64 `json:"audits_purged"`
+}
+
+// AuthMaintenance purges sessions past either expiry clock and audit rows
+// older than the retention horizon (docs/32 section 5.2). Idempotent and
+// counted; called hourly from the supervisor daemon.
+func (d *DB) AuthMaintenance(ctx context.Context, auditRetention time.Duration) (*AuthMaintenanceResult, error) {
+	res := &AuthMaintenanceResult{}
+
+	sessionsPurged, err := d.PurgeExpiredSessions(ctx, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("purging expired sessions: %w", err)
+	}
+	res.SessionsPurged = sessionsPurged
+
+	if auditRetention > 0 {
+		auditsPurged, err := d.PurgeAuditLogsOlderThan(ctx, time.Now().Add(-auditRetention))
+		if err != nil {
+			return nil, fmt.Errorf("purging audit logs: %w", err)
+		}
+		res.AuditsPurged = auditsPurged
+	}
+
+	return res, nil
+}
+
 // Prune executes a single retention pruning cycle immediately.
 func (rs *RetentionScheduler) Prune(ctx context.Context) (*PruneResult, error) {
 	activeRunners := 0

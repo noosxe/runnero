@@ -89,6 +89,9 @@ func (c *Config) Validate() error {
 	if c.BcryptCost < 4 || c.BcryptCost > 31 {
 		return fmt.Errorf("invalid bcrypt cost %d: must be between 4 and 31 (key 'bcrypt-cost', env %s)", c.BcryptCost, EnvBcryptCost)
 	}
+	if c.AuditRetention <= 0 {
+		return fmt.Errorf("audit retention must be positive, got %s (key 'audit-retention', env %s)", c.AuditRetention, EnvAuditRetention)
+	}
 
 	return c.validateDBEncryptionKey()
 
