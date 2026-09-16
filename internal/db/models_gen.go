@@ -71,6 +71,12 @@ type PoolTarget struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type PoolTombstone struct {
+	PoolID    int64     `json:"pool_id"`
+	PoolName  string    `json:"pool_name"`
+	DeletedAt time.Time `json:"deleted_at"`
+}
+
 type RenovateConfig struct {
 	ID           int64          `json:"id"`
 	PoolID       int64          `json:"pool_id"`

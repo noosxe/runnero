@@ -251,6 +251,12 @@ func (d *DB) ImportSeedConfig(ctx context.Context, cfg *SeedConfig, mode ImportM
 			return fmt.Errorf("listing pools for overwrite: %w", err)
 		}
 		for _, p := range pools {
+			// Tombstone in the same transaction (docs/33 section 3.1): the old
+			// pool id's leftovers stay drainable as removed pools instead of
+			// looking foreign after the import rewrites the pool table.
+			if err := qtx.InsertPoolTombstone(ctx, InsertPoolTombstoneParams{PoolID: p.ID, PoolName: p.Name}); err != nil {
+				return fmt.Errorf("tombstoning pool %q: %w", p.Name, err)
+			}
 			if err := qtx.DeleteRunnerPool(ctx, p.ID); err != nil {
 				return fmt.Errorf("deleting pool %q: %w", p.Name, err)
 			}

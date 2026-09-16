@@ -17,9 +17,18 @@ import (
 )
 
 type mockPoolRepo struct {
-	pools    []db.RunnerPool
-	settings map[string]string
-	err      error
+	pools      []db.RunnerPool
+	settings   map[string]string
+	tombstones map[int64]bool
+	terr       error // tombstone lookup error (fail-safe path)
+	err        error
+}
+
+func (m *mockPoolRepo) PoolTombstoneExists(ctx context.Context, poolID int64) (bool, error) {
+	if m.terr != nil {
+		return false, m.terr
+	}
+	return m.tombstones[poolID], nil
 }
 
 func (m *mockPoolRepo) ListRunnerPools(ctx context.Context) ([]db.RunnerPool, error) {
@@ -1188,6 +1197,7 @@ func TestPoolController_PerPoolSettingsRuntimeReload(t *testing.T) {
 		settings: map[string]string{
 			"total_allowed_runners": "10",
 		},
+		tombstones: map[int64]bool{},
 	}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
@@ -1265,8 +1275,11 @@ func TestPoolController_PerPoolSettingsRuntimeReload(t *testing.T) {
 		t.Fatalf("expected active runners capped at max_concurrency=2, got %d", ctrl.TotalActiveRunners())
 	}
 
-	// 5. Acceptance: Remove pool from DB -> all its runners drained
+	// 5. Acceptance: Remove pool from DB -> all its runners drained. The
+	// delete leaves a tombstone (docs/33 §3.1) - without it the reconcile
+	// would classify the tracked pool as foreign and skip the drain.
 	repo.pools = []db.RunnerPool{} // pool deleted from DB
+	repo.tombstones[100] = true
 	if err := ctrl.Reload(ctx); err != nil {
 		t.Fatalf("Reload after deleting pool failed: %v", err)
 	}

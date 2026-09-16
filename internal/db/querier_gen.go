@@ -87,6 +87,13 @@ type Querier interface {
 	GetRunnerPoolById(ctx context.Context, id int64) (RunnerPool, error)
 	GetRunnerPoolByName(ctx context.Context, name string) (RunnerPool, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (Session, error)
+	// Pool tombstones (RUN-239, docs/33 section 3.1): ownership evidence left
+	// behind by pool deletions. The reconcile removed-pool drain only proceeds
+	// for pool ids that carry a tombstone; ids without one belong to a foreign
+	// supervisor instance on a shared engine and are never touched.
+	// Idempotent: a pool id can only be deleted once (AUTOINCREMENT ids are
+	// never reused), but the upsert keeps the write safe under replay.
+	InsertPoolTombstone(ctx context.Context, arg InsertPoolTombstoneParams) error
 	// Webhook 'in_progress' with no pre-existing row at all (docs/21 section 5.5 merge rule 4).
 	InsertWebhookRunningJob(ctx context.Context, arg InsertWebhookRunningJobParams) error
 	ListAdminUsers(ctx context.Context) ([]AdminUser, error)
@@ -105,6 +112,7 @@ type Querier interface {
 	ListRunnerPools(ctx context.Context) ([]RunnerPool, error)
 	ListSessionsByUserId(ctx context.Context, userID int64) ([]Session, error)
 	OpenJobLifecycleRow(ctx context.Context, arg OpenJobLifecycleRowParams) (JobHistory, error)
+	PoolTombstoneExists(ctx context.Context, poolID int64) (bool, error)
 	// Webhook 'in_progress' with a queued stub but no transition row: promote the
 	// stub in place (docs/21 section 5.5 merge rule 2).
 	PromoteWebhookStubToRunning(ctx context.Context, arg PromoteWebhookStubToRunningParams) (int64, error)

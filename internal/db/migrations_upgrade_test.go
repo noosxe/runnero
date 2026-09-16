@@ -61,7 +61,7 @@ func TestUpgradeFromV8PopulatedSessions(t *testing.T) {
 		}
 	}
 
-	// Upgrade to head (009) against the populated tables - the case that
+	// Upgrade to head (010) against the populated tables - the case that
 	// used to fail.
 	if err := database.Migrate(ctx, nil); err != nil {
 		t.Fatalf("migrate to head failed: %v", err)
@@ -70,8 +70,8 @@ func TestUpgradeFromV8PopulatedSessions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Version after upgrade: %v", err)
 	}
-	if ver != 9 {
-		t.Fatalf("database version = %d, want 9", ver)
+	if ver != 10 {
+		t.Fatalf("database version = %d, want 10", ver)
 	}
 	// Backfills: existing rows keep their semantics under the new clocks.
 	rows := []struct {

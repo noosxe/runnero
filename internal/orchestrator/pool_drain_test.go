@@ -8,6 +8,7 @@ package orchestrator_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -19,11 +20,19 @@ import (
 // which require a pool repository.
 func newDrainHarness(t *testing.T) (*orchestrator.PoolController, *orchestrator.MockContainerProvider, *orchestrator.Reconciler) {
 	t.Helper()
+	return newDrainHarnessWithRepo(t, nil)
+}
+
+// newDrainHarnessWithRepo wires the controller to a pool repository so tests
+// can exercise the ownership gate (RUN-239, docs/33 §3.2).
+func newDrainHarnessWithRepo(t *testing.T, repo orchestrator.PoolRepository) (*orchestrator.PoolController, *orchestrator.MockContainerProvider, *orchestrator.Reconciler) {
+	t.Helper()
 	engine := orchestrator.NewMockContainerProvider()
 	reconciler := orchestrator.NewReconciler(engine)
 	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
 		ContainerEngine: engine,
 		Reconciler:      reconciler,
+		DB:              repo,
 	})
 	return ctrl, engine, reconciler
 }
@@ -237,14 +246,18 @@ func TestDrainBackstop_CompletesWhenLastRunnerLeaves(t *testing.T) {
 // spares busy runners instead of killing them — the pre-RUN-127 hard behavior
 // is gone from the fallback path.
 func TestRemovedPoolFallbackDrainsGracefully(t *testing.T) {
-	ctrl, engine, rec := newDrainHarness(t)
+	// Pool 907 was deleted in this database while the supervisor was down:
+	// the tombstone is the ownership evidence that lets the fallback drain
+	// its leftovers (RUN-239, docs/33 §3.2, row 2 of the matrix).
+	repo := &mockPoolRepo{tombstones: map[int64]bool{907: true}}
+	ctrl, engine, rec := newDrainHarnessWithRepo(t, repo)
 	ctx := context.Background()
 
 	now := time.Now().UTC()
-	// Pool 907 does not exist in any DB (nil DB = empty pool set), so both
-	// tracked runners look like leftovers of a removed pool. The listing
-	// reports them as live so boot adoption and the first audit keep them
-	// tracked (RebuildState replaces state with the host listing).
+	// The pool row is gone from the DB (deleted while the supervisor was
+	// down), but the tombstone remains. The listing reports both runners as
+	// live so boot adoption and the first audit keep them tracked
+	// (RebuildState replaces state with the host listing).
 	idle := drainRunner("c-idle", "runnero-fallback-idle", 907, false, time.Time{})
 	busy := drainRunner("c-busy", "runnero-fallback-busy", 907, true, now.Add(-time.Hour))
 	engine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
@@ -278,5 +291,95 @@ func TestRemovedPoolFallbackDrainsGracefully(t *testing.T) {
 	}
 	if len(engine.TerminatedIDs) != 2 {
 		t.Fatalf("fallback-drained runner must be backstopped at the default cap, got %v", engine.TerminatedIDs)
+	}
+}
+
+// TestRemovedPoolForeignSkipped is the RUN-233 incident, encoded (docs/33
+// §3.2, row 3 of the matrix): a second supervisor on a shared engine adopts
+// the primary's runners, but its database never knew the pool and holds no
+// tombstone - so the reconcile must skip the drain entirely, leave both
+// runners tracked and running, and surface the discovery via ForeignPools.
+func TestRemovedPoolForeignSkipped(t *testing.T) {
+	// nil DB and tombstone-less DB both mean "no ownership evidence".
+	for _, tc := range []struct {
+		name string
+		repo *mockPoolRepo
+	}{
+		{"nil database", nil},
+		{"database without tombstone", &mockPoolRepo{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Pass a true nil interface for the nil-database case: a typed
+			// (*mockPoolRepo)(nil) would panic inside the mock, not skip.
+			var repo orchestrator.PoolRepository
+			if tc.repo != nil {
+				repo = tc.repo
+			}
+			ctrl, engine, rec := newDrainHarnessWithRepo(t, repo)
+			ctx := context.Background()
+
+			idle := drainRunner("c-idle", "runnero-foreign-idle", 907, false, time.Time{})
+			busy := drainRunner("c-busy", "runnero-foreign-busy", 907, true, time.Now().UTC().Add(-time.Hour))
+			engine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+				return []orchestrator.RunnerStatus{idle, busy}, nil
+			}
+
+			if err := ctrl.Boot(ctx); err != nil {
+				t.Fatalf("boot failed: %v", err)
+			}
+			if err := ctrl.Reconcile(ctx); err != nil {
+				t.Fatalf("reconcile failed: %v", err)
+			}
+
+			// The incident behavior - draining the foreign runners - must not happen.
+			if len(engine.TerminatedIDs) != 0 {
+				t.Fatalf("foreign runners must never be terminated, got %v", engine.TerminatedIDs)
+			}
+			if tracked := rec.TrackedPoolRunners(907); len(tracked) != 2 {
+				t.Errorf("foreign runners must stay tracked, got %d", len(tracked))
+			}
+			if foreign := ctrl.ForeignPools(); len(foreign) != 1 || foreign[0].PoolID != 907 {
+				t.Errorf("foreign pool must be surfaced, got %+v", foreign)
+			}
+
+			// Repeated cycles stay skipped and quiet: same outcome, no state churn.
+			if err := ctrl.Reconcile(ctx); err != nil {
+				t.Fatalf("second reconcile failed: %v", err)
+			}
+			if len(engine.TerminatedIDs) != 0 {
+				t.Fatalf("second reconcile must not terminate foreign runners, got %v", engine.TerminatedIDs)
+			}
+		})
+	}
+}
+
+// TestRemovedPoolTombstoneLookupFailsSafe verifies the fail-safe direction
+// (docs/33 §3.2): when the ownership check errors out, the drain is skipped
+// and the pool is recorded as foreign - uncertainty never destroys runners.
+func TestRemovedPoolTombstoneLookupFailsSafe(t *testing.T) {
+	repo := &mockPoolRepo{terr: errors.New("tombstone lookup unavailable")}
+	ctrl, engine, rec := newDrainHarnessWithRepo(t, repo)
+	ctx := context.Background()
+
+	idle := drainRunner("c-idle", "runnero-errcheck-idle", 907, false, time.Time{})
+	engine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		return []orchestrator.RunnerStatus{idle}, nil
+	}
+
+	if err := ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+	if err := ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	if len(engine.TerminatedIDs) != 0 {
+		t.Fatalf("lookup failure must skip the drain, got %v", engine.TerminatedIDs)
+	}
+	if tracked := rec.TrackedPoolRunners(907); len(tracked) != 1 {
+		t.Errorf("runner must stay tracked on lookup failure, got %d", len(tracked))
+	}
+	if foreign := ctrl.ForeignPools(); len(foreign) != 1 || foreign[0].PoolID != 907 {
+		t.Errorf("pool must be recorded as foreign on lookup failure, got %+v", foreign)
 	}
 }

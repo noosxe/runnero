@@ -28,7 +28,7 @@ type PoolDatabase interface {
 	GetRunnerPoolByName(ctx context.Context, name string) (db.RunnerPool, error)
 	CreatePool(ctx context.Context, req db.PoolCreate) (db.RunnerPool, error)
 	UpdatePool(ctx context.Context, req db.PoolUpdate) (db.RunnerPool, error)
-	DeleteRunnerPool(ctx context.Context, id int64) error
+	DeleteRunnerPoolTombstoned(ctx context.Context, id int64, name string) error
 	CreateAuditLog(ctx context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error)
 	GetRenovateConfigByPoolId(ctx context.Context, poolID int64) (db.RenovateConfig, error)
 	CreateRenovateConfig(ctx context.Context, arg db.CreateRenovateConfigParams) (db.RenovateConfig, error)
@@ -800,7 +800,11 @@ func (s *PoolService) DeletePool(ctx context.Context, req *connect.Request[super
 	}
 
 	_ = s.db.DeletePoolTargetsByPoolId(ctx, req.Msg.Id)
-	if err := s.db.DeleteRunnerPool(ctx, req.Msg.Id); err != nil {
+	// Tombstoned delete (RUN-239, docs/33 section 3.1): the tombstone is the
+	// ownership evidence that keeps the removed-pool fallback draining this
+	// pool's leftovers after restarts, while a foreign instance's pools - no
+	// tombstone - are skipped entirely.
+	if err := s.db.DeleteRunnerPoolTombstoned(ctx, req.Msg.Id, existing.Name); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("deleting runner pool: %w", err))
 	}
 
