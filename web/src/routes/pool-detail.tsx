@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { runnerColumns } from "./pool-detail-runner-columns";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
@@ -15,27 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,8 +71,6 @@ import {
   Cpu,
   HardDrive,
   Shield,
-  Clock,
-  Terminal,
   Trash2,
   AlertTriangle,
   Pencil,
@@ -99,19 +83,7 @@ import {
   DownloadCloud,
   Copy,
   Check,
-  Ellipsis,
 } from "lucide-react";
-
-function formatUptime(seconds: number | bigint): string {
-  const sec = Number(seconds);
-  if (sec < 60) return `${sec}s`;
-  const mins = Math.floor(sec / 60);
-  const remSec = sec % 60;
-  if (mins < 60) return `${mins}m ${remSec}s`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return `${hours}h ${remMins}m`;
-}
 
 export function PoolDetailPage() {
   const { poolId } = useParams({ strict: false }) as { poolId?: string };
@@ -130,6 +102,26 @@ export function PoolDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);
   const [runnerToTerminate, setRunnerToTerminate] = useState<RunnerInstance | null>(null);
+
+  // Runners table (docs/31 §5 phase 3): live-updating via polling —
+  // column identity stable per pool poll. Hook lives at the component top
+  // the component top level, never inside the conditional tab JSX.
+  const runnerColumnDefs = useMemo(
+    () =>
+      runnerColumns({
+        pool,
+        onViewLogs: setSelectedRunnerForLogs,
+        onTerminate: setRunnerToTerminate,
+      }),
+    // The setters are stable; `pool` changes per poll but rebuilding seven
+    // column defs is trivially cheap.
+    [pool],
+  );
+  const runnersTable = useAppTable({
+    columns: runnerColumnDefs,
+    data: runners ?? [],
+    getRowId: (r) => r.containerId,
+  });
   const [labelsCopied, setLabelsCopied] = useState(false);
 
   // GitHub Actions accepts a comma-separated label list on runs-on; copy the
@@ -406,106 +398,7 @@ export function PoolDetailPage() {
           ) : (
             <Card className="py-0">
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Container ID</TableHead>
-                      <TableHead>Runner Name</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead>IP Address</TableHead>
-                      <TableHead>Uptime</TableHead>
-                      <TableHead>CPU / Mem Limit</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {runners.map((r) => {
-                      const isBusy = r.status === "busy";
-                      const isIdle = r.status === "idle";
-                      const isDegraded = r.status === "degraded";
-
-                      return (
-                        <TableRow key={r.containerId}>
-                          <TableCell className="font-mono font-semibold">
-                            {r.containerId.substring(0, 12)}
-                          </TableCell>
-                          <TableCell className="font-mono font-medium">{r.name}</TableCell>
-                          <TableCell>
-                            <Badge
-                              className={cn(
-                                "uppercase tracking-wider",
-                                isBusy
-                                  ? "border-success/30 bg-success/10 text-success"
-                                  : isIdle
-                                    ? "border-primary/30 bg-primary/10 text-primary"
-                                    : isDegraded
-                                      ? "border-destructive/30 bg-destructive/10 text-destructive"
-                                      : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  "size-1.5 rounded-full",
-                                  isBusy
-                                    ? "bg-success animate-pulse"
-                                    : isIdle
-                                      ? "bg-primary"
-                                      : isDegraded
-                                        ? "bg-destructive"
-                                        : "bg-muted-foreground",
-                                )}
-                              />
-                              <span>{r.status}</span>
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-mono text-muted-foreground">
-                            {r.ipAddress || "—"}
-                          </TableCell>
-                          <TableCell className="font-mono">
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="size-3 text-muted-foreground" />
-                              {formatUptime(r.uptimeSeconds)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {r.cpuLimit || pool.cpuLimit || "Unlimited"} /{" "}
-                            {r.memoryLimit || pool.memoryLimit || "Unlimited"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                render={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    aria-label="Runner actions"
-                                  />
-                                }
-                              >
-                                <Ellipsis />
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuGroup>
-                                  <DropdownMenuItem onClick={() => setSelectedRunnerForLogs(r)}>
-                                    <Terminal />
-                                    Logs
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onClick={() => setRunnerToTerminate(r)}
-                                  >
-                                    <Trash2 />
-                                    Terminate
-                                  </DropdownMenuItem>
-                                </DropdownMenuGroup>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <DataTable table={runnersTable} />
               </div>
             </Card>
           )}
