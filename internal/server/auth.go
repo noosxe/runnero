@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -433,34 +434,50 @@ type AuthService struct {
 	db      AuthDatabase
 	cfg     SessionConfig
 	limiter *loginRateLimiter
-	// dummyHash is compared against on the unknown-username path so both
-	// login failures run one bcrypt comparison and the response timing
-	// cannot reveal whether an account exists (docs/32 §4.3).
+
+	// dummyOnce guards the one-time generation of dummyHash, which is
+	// compared against on the unknown-username path so both login failures
+	// run one bcrypt comparison and the response timing cannot reveal
+	// whether an account exists (docs/32 §4.3).
+	dummyOnce sync.Once
 	dummyHash []byte
 }
 
 // NewAuthService constructs an AuthService instance.
 func NewAuthService(authDB AuthDatabase, cfg SessionConfig) *AuthService {
-	// Generated once at startup with the configured cost; the comparison
-	// result is always discarded. If generation fails (invalid cost is
-	// rejected by config validation, so this is defense in depth), fall
-	// back to a fixed cost-12 hash of an unguessable random value - still
-	// a valid bcrypt hash to compare against.
-	dummyPwd, terr := GenerateOpaqueToken()
-	if terr != nil {
-		dummyPwd = "runnero-timing-equalizer-password"
+	s := &AuthService{
+		db:      authDB,
+		cfg:     cfg,
+		limiter: newLoginRateLimiter(),
 	}
-	dummy, err := bcrypt.GenerateFromPassword([]byte(dummyPwd), cfg.BcryptCost)
-	if err != nil {
-		// Cost 12 fallback; compare results are discarded either way.
-		dummy = []byte("$2a$12$C6UzMDM.H6dfI/f/IKcEeO7ZUBmSrHVpTGuBOqFvECCQ1cWRTfnU6")
-	}
-	return &AuthService{
-		db:        authDB,
-		cfg:       cfg,
-		limiter:   newLoginRateLimiter(),
-		dummyHash: dummy,
-	}
+	// Prewarm the equalization hash off the boot path: a cost-12 bcrypt
+	// takes ~150ms normally but seconds under the race detector, and it
+	// must never delay daemon startup. The login path waits on the same
+	// sync.Once, so the first unknown-username login reuses the finished
+	// hash or completes the prewarm itself - always the same hash.
+	go s.dummyHashBytes()
+	return s
+}
+
+// dummyHashBytes returns the startup-generated bcrypt hash used to equalize
+// the unknown-username login path. Generation happens once (off the boot
+// path, see NewAuthService); if it fails - invalid cost is rejected by
+// config validation, so this is defense in depth - the fallback is a fixed
+// cost-12 hash of an unguessable random value, still a valid bcrypt hash to
+// compare against.
+func (s *AuthService) dummyHashBytes() []byte {
+	s.dummyOnce.Do(func() {
+		dummyPwd, terr := GenerateOpaqueToken()
+		if terr != nil {
+			dummyPwd = "runnero-timing-equalizer-password"
+		}
+		dummy, err := bcrypt.GenerateFromPassword([]byte(dummyPwd), s.cfg.BcryptCost)
+		if err != nil {
+			dummy = []byte("$2a$12$C6UzMDM.H6dfI/f/IKcEeO7ZUBmSrHVpTGuBOqFvECCQ1cWRTfnU6")
+		}
+		s.dummyHash = dummy
+	})
+	return s.dummyHash
 }
 
 // secureFor resolves the request-scoped Secure attribute for cookies issued
@@ -577,7 +594,7 @@ func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisor
 		// Unknown username: burn one bcrypt comparison against the startup
 		// dummy hash and discard the result, then take the identical
 		// failure path (docs/32 §4.3).
-		_ = bcrypt.CompareHashAndPassword(s.dummyHash, []byte(password))
+		_ = bcrypt.CompareHashAndPassword(s.dummyHashBytes(), []byte(password))
 		s.loginFailure(ctx, nil, username, clientIP)
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid username or password"))
 	}
