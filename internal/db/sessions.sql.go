@@ -16,9 +16,10 @@ INSERT INTO sessions (
     token_hash,
     expires_at,
     absolute_expires_at,
-    user_agent
+    user_agent,
+    last_seen_at
 ) VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 ) RETURNING id, user_id, token_hash, expires_at, created_at, user_agent, last_seen_at, absolute_expires_at
 `
 
@@ -28,8 +29,12 @@ type CreateSessionParams struct {
 	ExpiresAt         time.Time `json:"expires_at"`
 	AbsoluteExpiresAt time.Time `json:"absolute_expires_at"`
 	UserAgent         string    `json:"user_agent"`
+	LastSeenAt        time.Time `json:"last_seen_at"`
 }
 
+// Every column is set explicitly: SQLite cannot ALTER a non-constant
+// DEFAULT onto a populated table (migration 009), so last_seen_at carries
+// a sentinel default that must never survive in data.
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
 	row := q.db.QueryRowContext(ctx, createSession,
 		arg.UserID,
@@ -37,6 +42,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		arg.ExpiresAt,
 		arg.AbsoluteExpiresAt,
 		arg.UserAgent,
+		arg.LastSeenAt,
 	)
 	var i Session
 	err := row.Scan(

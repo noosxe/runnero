@@ -287,9 +287,14 @@ active browser always carries a fresh `Max-Age` — renewal responses include
 
 ```sql
 -- sessions: two clocks + observability
+-- Constant sentinel defaults only: SQLite rejects non-constant defaults on
+-- ALTER TABLE ADD COLUMN for any table that already holds rows, so a
+-- populated production database cannot take DEFAULT CURRENT_TIMESTAMP here.
+-- Rows created afterwards set every column explicitly (CreateSession).
 ALTER TABLE sessions ADD COLUMN user_agent TEXT NOT NULL DEFAULT '';
-ALTER TABLE sessions ADD COLUMN last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE sessions ADD COLUMN absolute_expires_at DATETIME NOT NULL;
+ALTER TABLE sessions ADD COLUMN last_seen_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00';
+UPDATE sessions SET last_seen_at = created_at;                  -- last seen at issuance
+ALTER TABLE sessions ADD COLUMN absolute_expires_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00';
 -- expires_at redefined as the sliding idle deadline
 UPDATE sessions SET absolute_expires_at = expires_at;           -- old tokens die at old expiry
 -- admin_users: role foundation

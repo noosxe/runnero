@@ -43,6 +43,9 @@ type Querier interface {
 	CreateRenovateConfig(ctx context.Context, arg CreateRenovateConfigParams) (RenovateConfig, error)
 	CreateRenovateRun(ctx context.Context, arg CreateRenovateRunParams) (RenovateRun, error)
 	CreateRunnerPool(ctx context.Context, arg CreateRunnerPoolParams) (RunnerPool, error)
+	// Every column is set explicitly: SQLite cannot ALTER a non-constant
+	// DEFAULT onto a populated table (migration 009), so last_seen_at carries
+	// a sentinel default that must never survive in data.
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	DeleteAdminUser(ctx context.Context, id int64) error
 	DeleteAppSetting(ctx context.Context, key string) error
