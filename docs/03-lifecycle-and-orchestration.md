@@ -27,7 +27,15 @@ com.runnero.pool-name=<pool-name>
 com.runnero.pool-id=<pool-database-id>
 com.runnero.id=<unique-runner-id>
 com.runnero.spawned-at=<timestamp>
+com.runnero.target-url=<repository-url>   -- when known at spawn
+com.runnero.owner=<instance-uuid>        -- spawning supervisor (RUN-240, docs/33 §3.4)
 ```
+
+The `com.runnero.owner` label carries the supervisor's persistent instance id
+(UUID v4, `app_settings.instance_id`) generated on first boot. It is
+**informational forensics metadata only** - never an authorization check
+(docs/33 §3.4, §5): labels are copyable and a copied database copies the id.
+The tombstone rule (docs/33 §3.1-3.2) carries the ownership weight.
 
 Upon boot, the supervisor queries the host engine filtering for `com.runnero.managed=true` to dynamically rebuild its in-memory tracking state.
 

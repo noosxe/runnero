@@ -19,6 +19,10 @@ const (
 	LabelTaskType  = "com.runnero.task-type"
 	LabelTargetURL = "com.runnero.target-url"
 
+	// LabelOwner identifies the supervisor instance that spawned the container
+	// (RUN-240, docs/33 §3.4). Informational forensics metadata only - never
+	// an authorization check (docs/33 §5).
+	LabelOwner = "com.runnero.owner"
 	// Task types
 	TaskTypeRunner = "runner"
 	TaskTypeJob    = "task"

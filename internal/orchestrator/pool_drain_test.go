@@ -319,6 +319,7 @@ func TestRemovedPoolForeignSkipped(t *testing.T) {
 			ctx := context.Background()
 
 			idle := drainRunner("c-idle", "runnero-foreign-idle", 907, false, time.Time{})
+			idle.Owner = "other-instance-uuid"
 			busy := drainRunner("c-busy", "runnero-foreign-busy", 907, true, time.Now().UTC().Add(-time.Hour))
 			engine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
 				return []orchestrator.RunnerStatus{idle, busy}, nil
@@ -338,8 +339,12 @@ func TestRemovedPoolForeignSkipped(t *testing.T) {
 			if tracked := rec.TrackedPoolRunners(907); len(tracked) != 2 {
 				t.Errorf("foreign runners must stay tracked, got %d", len(tracked))
 			}
-			if foreign := ctrl.ForeignPools(); len(foreign) != 1 || foreign[0].PoolID != 907 {
-				t.Errorf("foreign pool must be surfaced, got %+v", foreign)
+			foreign := ctrl.ForeignPools()
+			if len(foreign) != 1 || foreign[0].PoolID != 907 {
+				t.Fatalf("foreign pool must be surfaced, got %+v", foreign)
+			}
+			if len(foreign[0].Owners) != 1 || foreign[0].Owners[0] != "other-instance-uuid" {
+				t.Errorf("foreign owners must carry the observed owner label, got %+v", foreign[0].Owners)
 			}
 
 			// Repeated cycles stay skipped and quiet: same outcome, no state churn.

@@ -65,6 +65,10 @@ type RunnerStatus struct {
 	// keys its API calls on it.
 	ForgeID   int64  `json:"forge_id,omitempty"`
 	TargetURL string `json:"target_url,omitempty"`
+	// Owner is the spawning supervisor's instance id from the com.runnero.owner
+	// label (RUN-240, docs/33 §3.4); empty for containers spawned before the
+	// label existed or by a supervisor without a configured instance id.
+	Owner string `json:"owner,omitempty"`
 }
 
 // ErrLogsUnavailable is returned by CaptureLogs when the container's logs can
