@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SettingsPage } from "./settings";
 
@@ -56,6 +57,28 @@ vi.mock("../lib/api/query-hooks", () => ({
   }),
   useDismissImageUpdate: () => ({
     mutateAsync: vi.fn(),
+  }),
+  useSessions: () => ({
+    data: [
+      {
+        id: 1n,
+        deviceLabel: "Firefox 130 on Linux",
+        createdAt: timestampFromDate(new Date("2026-09-01T10:00:00Z")),
+        lastSeenAt: timestampFromDate(new Date("2026-09-16T09:00:00Z")),
+        expiresAt: timestampFromDate(new Date("2026-09-17T10:00:00Z")),
+        absoluteExpiresAt: timestampFromDate(new Date("2026-10-01T10:00:00Z")),
+        isCurrent: true,
+      },
+    ],
+    isLoading: false,
+  }),
+  useRevokeSession: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  useRevokeOtherSessions: () => ({
+    mutate: vi.fn(),
+    isPending: false,
   }),
 }));
 
@@ -121,5 +144,15 @@ describe("SettingsPage", () => {
     expect(screen.getByText("Runner Image Update Management")).toBeInTheDocument();
     expect(screen.getByText("Pending Image Notifications")).toBeInTheDocument();
     expect(screen.getAllByText("pool-arm64-prod").length).toBeGreaterThan(0);
+  });
+
+  it("switches to the security tab and lists active sessions", () => {
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /security/i }));
+
+    expect(screen.getByText("Active Sessions")).toBeInTheDocument();
+    expect(screen.getByText("Firefox 130 on Linux")).toBeInTheDocument();
+    expect(screen.getByText("Current session")).toBeInTheDocument();
   });
 });

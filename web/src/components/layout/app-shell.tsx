@@ -196,7 +196,9 @@ function NavSidebar() {
   const initials = displayName.slice(0, 2).toUpperCase();
 
   const handleLogout = () => {
-    logout();
+    // Real Logout RPC (docs/32 section 3.5): the server deletes the session
+    // row; navigation happens immediately, the cache clears in onSettled.
+    logout.mutate();
     navigate({ to: "/login" });
   };
 

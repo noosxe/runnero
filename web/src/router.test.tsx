@@ -14,7 +14,7 @@ vi.mock("./lib/api/query-hooks", () => ({
     username: "admin",
     isAdmin: true,
   }),
-  useLogout: () => vi.fn(),
+  useLogout: () => ({ mutate: vi.fn() }),
   useSystemStats: () => ({
     data: { totalActiveRunners: 3, totalIdleRunners: 2 },
     isLoading: false,

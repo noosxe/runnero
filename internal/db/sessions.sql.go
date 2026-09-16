@@ -52,6 +52,46 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	return i, err
 }
 
+const deleteOtherSessionsByUserId = `-- name: DeleteOtherSessionsByUserId :execrows
+DELETE FROM sessions
+WHERE user_id = ? AND id != ?
+`
+
+type DeleteOtherSessionsByUserIdParams struct {
+	UserID int64 `json:"user_id"`
+	ID     int64 `json:"id"`
+}
+
+// Revoke every session owned by the caller except the current row.
+func (q *Queries) DeleteOtherSessionsByUserId(ctx context.Context, arg DeleteOtherSessionsByUserIdParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOtherSessionsByUserId, arg.UserID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteSessionByIdAndUserId = `-- name: DeleteSessionByIdAndUserId :execrows
+DELETE FROM sessions
+WHERE id = ? AND user_id = ?
+`
+
+type DeleteSessionByIdAndUserIdParams struct {
+	ID     int64 `json:"id"`
+	UserID int64 `json:"user_id"`
+}
+
+// Revoke one of the caller's sessions. The user_id guard is the query-level
+// ownership check (docs/32 section 3.5): a row owned by someone else never
+// matches, so foreign ids answer zero rows.
+func (q *Queries) DeleteSessionByIdAndUserId(ctx context.Context, arg DeleteSessionByIdAndUserIdParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteSessionByIdAndUserId, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteSessionByTokenHash = `-- name: DeleteSessionByTokenHash :exec
 DELETE FROM sessions
 WHERE token_hash = ?

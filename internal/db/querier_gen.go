@@ -52,11 +52,17 @@ type Querier interface {
 	// Duplicate cleanup after closing by external job id: a poll-opened transition
 	// row (empty job id) for the same runner would double-count the job.
 	DeleteOpenTransitionRowsByRunner(ctx context.Context, arg DeleteOpenTransitionRowsByRunnerParams) (int64, error)
+	// Revoke every session owned by the caller except the current row.
+	DeleteOtherSessionsByUserId(ctx context.Context, arg DeleteOtherSessionsByUserIdParams) (int64, error)
 	DeletePoolTarget(ctx context.Context, arg DeletePoolTargetParams) error
 	DeletePoolTargetsByPoolId(ctx context.Context, poolID int64) error
 	DeleteRenovateConfigByPoolId(ctx context.Context, poolID int64) error
 	DeleteRenovateRunsByPoolId(ctx context.Context, poolID int64) error
 	DeleteRunnerPool(ctx context.Context, id int64) error
+	// Revoke one of the caller's sessions. The user_id guard is the query-level
+	// ownership check (docs/32 section 3.5): a row owned by someone else never
+	// matches, so foreign ids answer zero rows.
+	DeleteSessionByIdAndUserId(ctx context.Context, arg DeleteSessionByIdAndUserIdParams) (int64, error)
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
 	DeleteSessionsByUserId(ctx context.Context, userID int64) error
 	GetAdminUserById(ctx context.Context, id int64) (AdminUser, error)

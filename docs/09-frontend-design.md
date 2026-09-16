@@ -432,7 +432,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 +-----------------------------------------------------------------------------------------------+
 | Supervisor Settings & Administration                                                          |
 +-----------------------------------------------------------------------------------------------+
-| Tabs: [ Global Constraints ]  [ Database Backups ]  [ Audit Logs ]  [ Runner Image Updates ]  |
+| Tabs: [ Global Constraints ]  [ Runner Image Updates ]  [ Database & Retention ]  [ Security ] |
 +-----------------------------------------------------------------------------------------------+
 | TAB: Global Constraints                                                                       |
 | +-------------------------------------------------------------------------------------------+ |

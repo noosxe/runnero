@@ -78,7 +78,14 @@ var procedureRoles = map[string]roleBucket{
 	// Admin: the bootstrap admin is the only user that exists today, so
 	// every remaining procedure — reads included — shares the admin bucket
 	// (docs/32 §2.3).
-	supervisorv1connect.AuthServiceGetSessionProcedure:                bucketAdmin,
+	supervisorv1connect.AuthServiceGetSessionProcedure: bucketAdmin,
+
+	// Session control (docs/32 §3.5): the caller manages only their own
+	// rows; ownership is enforced in SQL, the bucket gates the surface.
+	supervisorv1connect.AuthServiceLogoutProcedure:                    bucketAdmin,
+	supervisorv1connect.AuthServiceListSessionsProcedure:              bucketAdmin,
+	supervisorv1connect.AuthServiceRevokeSessionProcedure:             bucketAdmin,
+	supervisorv1connect.AuthServiceRevokeOtherSessionsProcedure:       bucketAdmin,
 	supervisorv1connect.OnboardingServiceCompleteOnboardingProcedure:  bucketAdmin,
 	supervisorv1connect.OnboardingServiceGetAppSettingsProcedure:      bucketAdmin,
 	supervisorv1connect.OnboardingServiceSetAppSettingProcedure:       bucketAdmin,
@@ -141,6 +148,9 @@ type AuthDatabase interface {
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (db.Session, error)
 	TouchSession(ctx context.Context, arg db.TouchSessionParams) error
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
+	ListSessionsByUserId(ctx context.Context, userID int64) ([]db.Session, error)
+	DeleteSessionByIdAndUserId(ctx context.Context, arg db.DeleteSessionByIdAndUserIdParams) (int64, error)
+	DeleteOtherSessionsByUserId(ctx context.Context, arg db.DeleteOtherSessionsByUserIdParams) (int64, error)
 	CreateAuditLog(ctx context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error)
 }
 

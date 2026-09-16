@@ -46,6 +46,15 @@ func (m *mockAuthDB) GetSessionByTokenHash(_ context.Context, tokenHash string) 
 }
 func (m *mockAuthDB) TouchSession(context.Context, db.TouchSessionParams) error { return nil }
 func (m *mockAuthDB) DeleteSessionByTokenHash(context.Context, string) error    { return nil }
+func (m *mockAuthDB) ListSessionsByUserId(context.Context, int64) ([]db.Session, error) {
+	return []db.Session{m.session}, nil
+}
+func (m *mockAuthDB) DeleteSessionByIdAndUserId(context.Context, db.DeleteSessionByIdAndUserIdParams) (int64, error) {
+	return 1, nil
+}
+func (m *mockAuthDB) DeleteOtherSessionsByUserId(context.Context, db.DeleteOtherSessionsByUserIdParams) (int64, error) {
+	return 0, nil
+}
 func (m *mockAuthDB) CreateAuditLog(_ context.Context, arg db.CreateAuditLogParams) (db.AuditLog, error) {
 	m.audit = append(m.audit, arg)
 	return db.AuditLog{ID: int64(len(m.audit))}, nil

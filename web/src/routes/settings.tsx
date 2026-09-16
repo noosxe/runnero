@@ -26,7 +26,8 @@ import {
   useCheckImageUpdate,
 } from "../lib/api/query-hooks";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import { Sliders, RefreshCw, Database, Save, Archive } from "lucide-react";
+import { Sliders, RefreshCw, Database, Save, Archive, ShieldCheck } from "lucide-react";
+import { SecurityTab } from "../components/security/security-tab";
 
 /**
  * Global constraints form (docs/30 §5.4): the four retention/quota values
@@ -59,7 +60,9 @@ const CONSTRAINT_BOUNDS: Record<
 };
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<"constraints" | "images" | "backups">("constraints");
+  const [activeTab, setActiveTab] = useState<"constraints" | "images" | "backups" | "security">(
+    "constraints",
+  );
 
   const { data: settings, isLoading: settingsLoading } = useAppSettings();
   const { data: pools } = usePools();
@@ -240,7 +243,24 @@ export function SettingsPage() {
           <Database className="size-4" />
           <span>Database & Retention</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("security")}
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
+            activeTab === "security"
+              ? "border-primary/50 text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <ShieldCheck className="size-4" />
+          <span>Security</span>
+        </button>
       </div>
+
+      {/* Tab: Security */}
+      {activeTab === "security" && <SecurityTab />}
 
       {/* Tab: Global Constraints */}
       {activeTab === "constraints" && (

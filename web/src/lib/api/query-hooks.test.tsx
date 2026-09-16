@@ -2,7 +2,15 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useOnboardingStatus, usePools, useSession } from "./query-hooks";
+import {
+  useOnboardingStatus,
+  usePools,
+  useSession,
+  useLogout,
+  useSessions,
+  useRevokeSession,
+  useRevokeOtherSessions,
+} from "./query-hooks";
 import { onboardingClient, poolClient, authClient } from "./transport";
 
 describe("TanStack Query hooks with ConnectRPC", () => {
@@ -121,5 +129,78 @@ describe("TanStack Query hooks with ConnectRPC", () => {
     expect(res.success).toBe(true);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["onboarding", "status"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["auth", "session"] });
+  });
+
+  it("useLogout calls the Logout RPC and clears the cached session", async () => {
+    const logoutSpy = vi.spyOn(authClient, "logout").mockResolvedValue({
+      success: true,
+    } as any);
+    queryClient.setQueryData(["auth", "session"], { username: "admin" });
+
+    const { result } = renderHook(() => useLogout(), { wrapper });
+
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(logoutSpy).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(["auth", "session"])).toBeNull();
+  });
+
+  it("useLogout clears the cached session even when the RPC fails", async () => {
+    vi.spyOn(authClient, "logout").mockRejectedValue(new Error("server unreachable"));
+
+    const { result } = renderHook(() => useLogout(), { wrapper });
+    queryClient.setQueryData(["auth", "session"], { username: "admin" });
+
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    // onSettled semantics: a dead session must never linger in the cache.
+    expect(queryClient.getQueryData(["auth", "session"])).toBeNull();
+  });
+
+  it("useSessions queries the caller's session list", async () => {
+    vi.spyOn(authClient, "listSessions").mockResolvedValue({
+      sessions: [
+        {
+          id: 1n,
+          deviceLabel: "curl 8.5.0",
+          isCurrent: true,
+        },
+      ],
+    } as any);
+
+    const { result } = renderHook(() => useSessions(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0].isCurrent).toBe(true);
+  });
+
+  it("useRevokeSession revokes by row id and refreshes the list", async () => {
+    const revokeSpy = vi
+      .spyOn(authClient, "revokeSession")
+      .mockResolvedValue({ success: true } as any);
+
+    const { result } = renderHook(() => useRevokeSession(), { wrapper });
+
+    result.current.mutate(7n);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(revokeSpy).toHaveBeenCalledWith({ sessionId: 7n });
+  });
+
+  it("useRevokeOtherSessions revokes every other row", async () => {
+    const revokeSpy = vi
+      .spyOn(authClient, "revokeOtherSessions")
+      .mockResolvedValue({ revoked: 2n } as any);
+
+    const { result } = renderHook(() => useRevokeOtherSessions(), { wrapper });
+
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(revokeSpy).toHaveBeenCalledOnce();
+    expect(result.current.data?.revoked).toBe(2n);
   });
 });
