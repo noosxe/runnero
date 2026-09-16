@@ -388,6 +388,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **Supervisor Engine Ownership:** Tombstone-gated destructive actions, instance-owner labels, and loud foreign-runner detection so two supervisors on one Docker engine can never destroy each other's runners (RUN-233, docs/33) *[Design Phase]*
 
 ---
 
