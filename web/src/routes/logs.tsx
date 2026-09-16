@@ -8,7 +8,6 @@ import {
 } from "@/lib/api/query-hooks";
 import { useStreamSupervisorLogFollow, useSupervisorBootReplay } from "@/lib/api/streaming-hooks";
 import { LogTerminal } from "@/components/terminal/log-terminal";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,18 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { cn } from "cn";
 import { ScrollText, Terminal, Radio } from "lucide-react";
 
-import { formatBytes, formatTimestamp, removalsColumns } from "./logs-removals-columns";
+import { removalsColumns } from "./logs-removals-columns";
+import { bootColumns, shortBootId } from "./logs-boot-columns";
 import { DataTable, useAppTable } from "../lib/tables";
 
 export interface LogsPageSearch {
@@ -57,10 +49,6 @@ const REMOVAL_REASONS = [
   "create-failure",
 ] as const;
 
-function shortBootId(bootId: string): string {
-  return bootId.length > 8 ? bootId.substring(0, 8) : bootId;
-}
-
 function SupervisorTab({ deepLinkBoot }: { deepLinkBoot?: string }) {
   const navigate = useNavigate();
   const boots = useSupervisorBoots();
@@ -69,6 +57,14 @@ function SupervisorTab({ deepLinkBoot }: { deepLinkBoot?: string }) {
   // on mount.
   const [selectedBoot, setSelectedBoot] = useState<string | undefined>(deepLinkBoot);
   const [follow, setFollow] = useState(false);
+
+  // Boots table (docs/31 §5 phase 3): hook lives at the component top
+  // level; row click/selection affordances flow through getRowProps.
+  const bootsTable = useAppTable({
+    columns: bootColumns(),
+    data: boots.data ?? [],
+    getRowId: (b) => b.file,
+  });
 
   // Resolve the selected boot by file name first, then by boot id, so
   // cross-tab "View boot" deep links work with either identifier.
@@ -100,57 +96,20 @@ function SupervisorTab({ deepLinkBoot }: { deepLinkBoot?: string }) {
   return (
     <div className="flex flex-col gap-4" data-testid="logs-tab-panel-supervisor">
       <div className="overflow-hidden rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Boot time</TableHead>
-              <TableHead>Boot ID</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Rotation</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {boots.isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground">
-                  Loading boot files...
-                </TableCell>
-              </TableRow>
-            ) : (boots.data?.length ?? 0) === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground">
-                  No supervisor boot files retained.
-                </TableCell>
-              </TableRow>
-            ) : (
-              boots.data?.map((b) => (
-                <TableRow
-                  key={b.file}
-                  data-testid="logs-boot-row"
-                  data-boot-file={b.file}
-                  className={cn("cursor-pointer", boot?.file === b.file && "bg-muted/50")}
-                  onClick={() => selectBoot(b.file)}
-                >
-                  <TableCell>{formatTimestamp(b.startedAt)}</TableCell>
-                  <TableCell className="font-mono text-xs">{shortBootId(b.bootId)}</TableCell>
-                  <TableCell>{formatBytes(b.sizeBytes)}</TableCell>
-                  <TableCell>{b.rotationSeq > 0 ? `#${b.rotationSeq}` : "—"}</TableCell>
-                  <TableCell>
-                    {b.isCurrent ? (
-                      <Badge
-                        data-testid="logs-boot-current-badge"
-                        className="border border-success/30 bg-success/10 text-success"
-                      >
-                        current
-                      </Badge>
-                    ) : undefined}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        <DataTable
+          table={bootsTable}
+          getRowProps={(row) => ({
+            "data-testid": "logs-boot-row",
+            "data-boot-file": row.original.file,
+            className: cn("cursor-pointer", boot?.file === row.original.file && "bg-muted/50"),
+            onClick: () => selectBoot(row.original.file),
+          })}
+          empty={
+            <div className="text-muted-foreground">
+              {boots.isLoading ? "Loading boot files..." : "No supervisor boot files retained."}
+            </div>
+          }
+        />
       </div>
 
       {boot ? (
