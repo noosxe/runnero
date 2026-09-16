@@ -1,12 +1,16 @@
 -- name: CreateSession :one
+-- Every column is set explicitly: SQLite cannot ALTER a non-constant
+-- DEFAULT onto a populated table (migration 009), so last_seen_at carries
+-- a sentinel default that must never survive in data.
 INSERT INTO sessions (
     user_id,
     token_hash,
     expires_at,
     absolute_expires_at,
-    user_agent
+    user_agent,
+    last_seen_at
 ) VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 ) RETURNING *;
 
 -- name: TouchSession :exec

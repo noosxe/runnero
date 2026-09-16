@@ -509,6 +509,7 @@ func (s *AuthService) issueSession(ctx context.Context, user db.AdminUser, userA
 
 	now := time.Now()
 	_, err = s.db.CreateSession(ctx, db.CreateSessionParams{
+		LastSeenAt:        now,
 		UserID:            user.ID,
 		TokenHash:         HashToken(tokenString),
 		ExpiresAt:         now.Add(s.cfg.IdleTimeout),

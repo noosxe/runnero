@@ -25,7 +25,7 @@ CREATE TABLE sessions (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     absolute_expires_at DATETIME NOT NULL, -- fixed lifetime cap, never extended
     user_agent TEXT NOT NULL DEFAULT '',   -- device label source for the session list
-    last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- slides with renewal
+    last_seen_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00', -- slides with renewal; set explicitly on insert (SQLite ALTER forbids non-constant defaults)
     FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE
 );
 
