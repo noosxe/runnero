@@ -80,6 +80,12 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid secure-cookies mode %q: want auto, always, or never (key 'secure-cookies', env %s; the legacy %s boolean still works)", c.SecureCookies, EnvSecureCookies, EnvSecureCookie)
 	}
 
+	switch c.EngineOwnership {
+	case EngineOwnershipStrict, EngineOwnershipAdoptAll:
+	default:
+		return fmt.Errorf("invalid engine ownership mode %q: want strict or adopt-all (key 'engine-ownership', env %s); strict is the default and keeps cross-instance protection on (docs/33 §3.5)", c.EngineOwnership, EnvEngineOwnership)
+	}
+
 	if c.SessionIdleTimeout <= 0 {
 		return fmt.Errorf("session idle timeout must be positive, got %s (key 'session-idle-timeout', env %s)", c.SessionIdleTimeout, EnvSessionIdleTimeout)
 	}

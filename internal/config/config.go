@@ -48,6 +48,13 @@ const (
 	EnvWebhookGiteaSecret   = EnvPrefix + "WEBHOOK_GITEA_SECRET"
 	EnvWebhookForgejoSecret = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
 
+	// EnvEngineOwnership selects the cross-instance engine safety mode
+	// (RUN-241, docs/33 §3.5): strict (the default) refuses to touch
+	// runners this database has no ownership evidence for; adopt-all
+	// re-enables pre-docs/33 behavior for one-shot orphan takeover. Read
+	// at boot only.
+	EnvEngineOwnership = EnvPrefix + "ENGINE_OWNERSHIP"
+
 	// Durable log persistence (RUN-186, docs/28 §5.5).
 	EnvLogPersistenceEnabled      = EnvPrefix + "LOG_PERSISTENCE_ENABLED"
 	EnvLogSupervisorRotationBytes = EnvPrefix + "LOG_SUPERVISOR_ROTATION_BYTES"
@@ -76,6 +83,14 @@ const (
 	DefaultDockerHost           = "unix:///var/run/docker.sock"
 	DefaultBackupIntervalHours  = 6
 	DefaultBackupRetentionCount = 7
+
+	// Engine ownership modes (RUN-241, docs/33 §3.5). Strict is the default
+	// so the safe behavior is what happens by accident; adopt-all is a
+	// deliberate, operator-chosen weakening for genuine orphan takeover
+	// after a wiped or restored data dir / engine move.
+	EngineOwnershipStrict   = "strict"
+	EngineOwnershipAdoptAll = "adopt-all"
+	DefaultEngineOwnership  = EngineOwnershipStrict
 
 	// Web session defaults (RUN-230, docs/32 sections 3-4): two clocks
 	// (sliding idle + absolute cap), Secure-cookie auto-detection, bcrypt
@@ -131,6 +146,7 @@ var envKeys = map[string]string{
 	EnvWebhookGitHubSecret:    "webhook-github-secret",
 	EnvWebhookGiteaSecret:     "webhook-gitea-secret",
 	EnvWebhookForgejoSecret:   "webhook-forgejo-secret",
+	EnvEngineOwnership:        "engine-ownership",
 
 	EnvTailscaleAuthKey:           "tailscale-auth-key",
 	EnvTailscaleHostname:          "tailscale-hostname",
@@ -149,11 +165,14 @@ var envKeys = map[string]string{
 // Config is the typed result of loading every configuration layer. Field
 // tags carry the canonical flat key shared by files, environment, and flags.
 type Config struct {
-	DBEncryptionKey      string `koanf:"db-encryption-key"`
-	Port                 int    `koanf:"port"`
-	DBPath               string `koanf:"db-path"`
-	LogLevel             string `koanf:"log-level"`
-	DockerHost           string `koanf:"docker-host"`
+	DBEncryptionKey string `koanf:"db-encryption-key"`
+	Port            int    `koanf:"port"`
+	DBPath          string `koanf:"db-path"`
+	LogLevel        string `koanf:"log-level"`
+	DockerHost      string `koanf:"docker-host"`
+	// EngineOwnership selects the cross-instance engine safety mode (RUN-241,
+	// docs/33 §3.5): EngineOwnershipStrict (default) or EngineOwnershipAdoptAll.
+	EngineOwnership      string `koanf:"engine-ownership"`
 	DataDir              string `koanf:"data-dir"`
 	BackupIntervalHours  int    `koanf:"backup-interval-hours"`
 	BackupRetentionCount int    `koanf:"backup-retention-count"`
@@ -304,6 +323,7 @@ func defaults() map[string]any {
 		"webhook-github-secret":    "",
 		"webhook-gitea-secret":     "",
 		"webhook-forgejo-secret":   "",
+		"engine-ownership":         DefaultEngineOwnership,
 
 		"log-persistence-enabled":            DefaultLogPersistenceEnabled,
 		"log-supervisor-rotation-bytes":      DefaultLogSupervisorRotationBytes,
@@ -371,6 +391,12 @@ func (c *Config) normalize() {
 		}
 	}
 	c.SecureCookies = strings.ToLower(strings.TrimSpace(c.SecureCookies))
+	// Engine ownership: empty resolves to strict so an explicitly emptied
+	// value keeps the safe behavior (RUN-241, docs/33 §3.5).
+	if c.EngineOwnership == "" {
+		c.EngineOwnership = DefaultEngineOwnership
+	}
+	c.EngineOwnership = strings.ToLower(strings.TrimSpace(c.EngineOwnership))
 	c.WebhookGiteaSecret = strings.TrimSpace(c.WebhookGiteaSecret)
 	c.WebhookForgejoSecret = strings.TrimSpace(c.WebhookForgejoSecret)
 	c.TailscaleAuthKey = strings.TrimSpace(c.TailscaleAuthKey)

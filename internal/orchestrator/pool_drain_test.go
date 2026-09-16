@@ -383,3 +383,50 @@ func TestRemovedPoolTombstoneLookupFailsSafe(t *testing.T) {
 		t.Errorf("pool must be recorded as foreign on lookup failure, got %+v", foreign)
 	}
 }
+
+// TestRemovedPoolAdoptAllDrains verifies the RUN-241 escape hatch (docs/33
+// §3.5): with EngineOwnership=adopt-all the tombstone gate is bypassed and
+// the pre-docs/33 removed-pool drain runs even with zero ownership
+// evidence (nil DB) - one-shot orphan takeover after a wiped data dir or
+// engine move. strict (every test above) must keep skipping.
+func TestRemovedPoolAdoptAllDrains(t *testing.T) {
+	ctrl, engine, rec := newDrainHarnessWithMode(t, nil, "adopt-all")
+	ctx := context.Background()
+
+	idle := drainRunner("c-idle", "runnero-orphan-idle", 907, false, time.Time{})
+	engine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		return []orchestrator.RunnerStatus{idle}, nil
+	}
+
+	if err := ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+	if err := ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	if len(engine.TerminatedIDs) != 1 || engine.TerminatedIDs[0] != "c-idle" {
+		t.Fatalf("adopt-all must drain the orphan pool, got %v", engine.TerminatedIDs)
+	}
+	if foreign := ctrl.ForeignPools(); len(foreign) != 0 {
+		t.Errorf("adopt-all must not record pools as foreign, got %+v", foreign)
+	}
+	if tracked := rec.TrackedPoolRunners(907); len(tracked) != 0 {
+		t.Errorf("drained runner must be untracked, got %d", len(tracked))
+	}
+}
+
+// newDrainHarnessWithMode wires the controller with an explicit engine
+// ownership mode (RUN-241, docs/33 §3.5).
+func newDrainHarnessWithMode(t *testing.T, repo orchestrator.PoolRepository, mode string) (*orchestrator.PoolController, *orchestrator.MockContainerProvider, *orchestrator.Reconciler) {
+	t.Helper()
+	engine := orchestrator.NewMockContainerProvider()
+	reconciler := orchestrator.NewReconciler(engine)
+	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		ContainerEngine: engine,
+		Reconciler:      reconciler,
+		DB:              repo,
+		EngineOwnership: mode,
+	})
+	return ctrl, engine, reconciler
+}
