@@ -4,7 +4,7 @@ import { useAppForm, applyFieldErrors } from "../lib/forms";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { WarningBadge } from "@/components/common/warning-badge";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Card,
   CardAction,
@@ -16,14 +16,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { DataTable, useAppTable } from "../lib/tables";
+import { poolImagesColumns, poolImagesEmpty } from "./settings-columns";
 import {
   useAppSettings,
   useSetAppSetting,
@@ -32,7 +26,7 @@ import {
   useCheckImageUpdate,
 } from "../lib/api/query-hooks";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import { Sliders, RefreshCw, Database, Save, Archive, Server } from "lucide-react";
+import { Sliders, RefreshCw, Database, Save, Archive } from "lucide-react";
 
 /**
  * Global constraints form (docs/30 §5.4): the four retention/quota values
@@ -72,6 +66,14 @@ export function SettingsPage() {
   const { data: updates } = useImageUpdates();
   const setSettingMutation = useSetAppSetting();
   const checkUpdateMutation = useCheckImageUpdate();
+
+  // Configured Pool Images table (docs/31 §5 phase 0): hook lives at the
+  // component top level — never inside the conditionally-rendered tab JSX.
+  const poolImagesTable = useAppTable({
+    columns: poolImagesColumns((poolId) => checkUpdateMutation.mutate(poolId)),
+    data: pools ?? [],
+    getRowId: (pool) => pool.id.toString(),
+  });
 
   // Form State for Global Constraints (docs/30 toolkit — no hand-rolled stack)
   const form = useAppForm({
@@ -405,51 +407,7 @@ export function SettingsPage() {
                 Configured Pool Images
               </h3>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pool Name</TableHead>
-                  <TableHead>Configured Image</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!pools || pools.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4}>
-                      <Empty className="py-6">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
-                            <Server />
-                          </EmptyMedia>
-                          <EmptyTitle>No pools configured.</EmptyTitle>
-                        </EmptyHeader>
-                      </Empty>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  pools.map((p) => (
-                    <TableRow key={p.id.toString()}>
-                      <TableCell className="font-semibold">{p.name}</TableCell>
-                      <TableCell className="font-mono">{p.runnerImage}</TableCell>
-                      <TableCell className="font-mono uppercase text-muted-foreground">
-                        {p.provider}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => checkUpdateMutation.mutate(p.id)}
-                        >
-                          Check Update
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <DataTable table={poolImagesTable} empty={poolImagesEmpty} />
           </Card>
         </div>
       )}
