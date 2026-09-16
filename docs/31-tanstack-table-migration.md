@@ -119,10 +119,14 @@ The v9 pagination guide's manual patterns, applied per wire shape:
   `manualPagination: true`, `rowCount` from the response; `manualFiltering:
   true` — the existing search/status inputs write through to the query key
   exactly as today. `placeholderData: keepPreviousData` already in use stays.
-- **Removal records — cursor paging** (`ListRemovalRecordsRequest.cursor`,
-  no total): `manualPagination: true` with `pageCount: -1`; next/prev driven
-  by the fetched cursor chain (the guide's cursor recipe); filter UI
-  (reason/pool/runner/since) unchanged, still server-side via query key.
+- **Removal records — accumulated cursor pages** (`ListRemovalRecordsRequest.cursor`,
+  no total): the page already pages via `useInfiniteQuery` with a
+  "Load more" button and never shows page numbers, so there is no table
+  pagination state to mirror. The table is display-only over the
+  accumulated pages (`pages.flatMap(...)`); paging stays hook-driven and
+  the filter UI (reason/pool/runner/since) unchanged, still server-side
+  via query key. (Revision from the original design, which sketched
+  `pageCount: -1` table pagination — unnecessary for a Load-more UX.)
 - **Everything else:** no pagination state at all — `manualPagination` not
   set, full row array rendered (sizes are 10s of rows, capped server-side).
 
