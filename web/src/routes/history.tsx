@@ -10,9 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { cn } from "cn";
 import {
   Empty,
   EmptyHeader,
@@ -20,55 +18,11 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-import { LinkButton } from "../lib/link-button";
 import { useJobHistory, usePools } from "../lib/api/query-hooks";
-import {
-  History,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Terminal,
-} from "lucide-react";
+import { History, Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return "—";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const mins = Math.floor(seconds / 60);
-  const remSec = Math.round(seconds % 60);
-  if (mins < 60) return `${mins}m ${remSec}s`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return `${hours}h ${remMins}m`;
-}
-
-function formatTimestamp(isoString?: string): string {
-  if (!isoString) return "—";
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return "—";
-    return d.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
-    return isoString;
-  }
-}
+import { jobHistoryColumns } from "./history-columns";
+import { DataTable, useAppTable } from "../lib/tables";
 
 export function HistoryPage() {
   const [search, setSearch] = useState("");
@@ -97,6 +51,25 @@ export function HistoryPage() {
   const totalCount = history?.totalCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
+  // Job history table (docs/31 §5 phase 2): server-side offset paging —
+  // the table only ever displays the current page. The hook lives at the
+  // component top level; the bespoke footer keeps driving `page` state.
+  const jobHistoryTable = useAppTable({
+    columns: jobHistoryColumns(),
+    data: history?.jobs ?? [],
+    getRowId: (job) => job.id.toString(),
+    manualPagination: true,
+    pageCount: totalPages,
+    state: {
+      pagination: { pageIndex: page - 1, pageSize },
+    },
+    onPaginationChange: (updater) => {
+      const next =
+        typeof updater === "function" ? updater({ pageIndex: page - 1, pageSize }) : updater;
+      setPage(next.pageIndex + 1);
+    },
+  });
+
   // Reset to page 1 when search or filters change
   const handleSearchChange = (val: string) => {
     setSearch(val);
@@ -113,8 +86,11 @@ export function HistoryPage() {
     setPage(1);
   };
 
+  // CSV export driven by the table model (docs/31 §4.1): the current
+  // page's rows as the table sees them.
   const handleExportCSV = () => {
-    if (!history?.jobs || history.jobs.length === 0) return;
+    const rows = jobHistoryTable.getRowModel().rows;
+    if (rows.length === 0) return;
     const headers = [
       "ID",
       "Status",
@@ -127,7 +103,7 @@ export function HistoryPage() {
       "Started At",
       "Completed At",
     ];
-    const rows = history.jobs.map((j) => [
+    const cells = rows.map(({ original: j }) => [
       j.id.toString(),
       j.status,
       `"${j.runnerName.replace(/"/g, '""')}"`,
@@ -139,7 +115,7 @@ export function HistoryPage() {
       j.startedAt || "",
       j.completedAt || "",
     ]);
-    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csvContent = [headers.join(","), ...cells.map((r) => r.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -286,88 +262,7 @@ export function HistoryPage() {
       ) : (
         <Card className="py-0">
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Runner Name</TableHead>
-                  <TableHead>Pool</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Queue Wait</TableHead>
-                  <TableHead>Started At</TableHead>
-                  <TableHead>Completed At</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.jobs.map((job) => {
-                  const isSuccess = job.status === "success";
-                  const isFailed = job.status === "failure" || job.status === "failed";
-                  const isRunning = job.status === "running";
-
-                  return (
-                    <TableRow key={job.id.toString()}>
-                      <TableCell className="font-mono text-muted-foreground">
-                        #{job.id.toString()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={cn(
-                            "uppercase tracking-wider",
-                            isSuccess
-                              ? "border-success/30 bg-success/10 text-success"
-                              : isFailed
-                                ? "border-destructive/30 bg-destructive/10 text-destructive"
-                                : isRunning
-                                  ? "border-primary/30 bg-primary/10 text-primary"
-                                  : "bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {isSuccess ? (
-                            <CheckCircle2 className="size-3" />
-                          ) : isFailed ? (
-                            <XCircle className="size-3" />
-                          ) : (
-                            <Clock className="size-3" />
-                          )}
-                          <span>{job.status}</span>
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono font-medium">{job.runnerName}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {job.poolName || `Pool #${job.poolId.toString()}`}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {formatDuration(job.durationSeconds)}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {job.queueTimeSeconds > 0 ? `${job.queueTimeSeconds.toFixed(1)}s` : "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {formatTimestamp(job.startedAt)}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {formatTimestamp(job.completedAt)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <LinkButton
-                          to="/history/$jobId"
-                          params={{ jobId: job.id.toString() }}
-                          variant="outline"
-                          size="xs"
-                        >
-                          <Terminal data-icon="inline-start" />
-                          <span>Logs</span>
-                        </LinkButton>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <DataTable table={jobHistoryTable} />
           </div>
 
           {/* Pagination Footer */}

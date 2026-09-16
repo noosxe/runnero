@@ -1,16 +1,24 @@
-import { coreFeatures, createTableHook, tableFeatures } from "@tanstack/react-table";
+import {
+  coreFeatures,
+  createTableHook,
+  rowPaginationFeature,
+  tableFeatures,
+} from "@tanstack/react-table";
 
 /**
- * App-wide feature set (docs/31 §3): deliberately minimal — core only.
- * Optional features (row sorting, pagination) get composed here in later
- * phases so every table shares one typed feature set instead of each
- * surface picking its own.
+ * App-wide feature set (docs/31 §3): core plus manual row pagination
+ * (phase 2 — history's offset paging; removals' Load more stays
+ * hook-driven and needs no table pagination state). Client-side sorting
+ * composes here in phase 3 so every table shares one typed feature set.
+ * All tables use manual/server modes; no paginatedRowModel is configured.
+ *
  *
  * `columnMeta` is the phantom slot giving columns typed `meta` fields;
  * the DataTable shell reads these to apply per-column cell/header classes.
  */
 export const appTableFeatures = tableFeatures({
   ...coreFeatures,
+  rowPaginationFeature,
   columnMeta: {} as {
     /** Extra class for the rendered <TableHead>. */
     headerClassName?: string;

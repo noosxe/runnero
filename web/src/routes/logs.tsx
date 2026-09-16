@@ -30,20 +30,8 @@ import {
 import { cn } from "cn";
 import { ScrollText, Terminal, Radio } from "lucide-react";
 
-function formatBytes(bytes: bigint | number): string {
-  const n = Number(bytes);
-  if (n < 1024) {
-    return `${n} B`;
-  }
-  const units = ["KiB", "MiB", "GiB"];
-  let v = n / 1024;
-  let u = 0;
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024;
-    u++;
-  }
-  return `${v.toFixed(1)} ${units[u]}`;
-}
+import { formatBytes, formatTimestamp, removalsColumns } from "./logs-removals-columns";
+import { DataTable, useAppTable } from "../lib/tables";
 
 export interface LogsPageSearch {
   tab?: string;
@@ -69,31 +57,8 @@ const REMOVAL_REASONS = [
   "create-failure",
 ] as const;
 
-// Reason badge palette mirrors the pool diagnostics status colors:
-// green = healthy exit, blue = informational, amber = capacity/lifecycle,
-// red = failure, neutral = operator/system actions.
-const REASON_BADGE_CLASS: Record<string, string> = {
-  reap: "border-success/30 bg-success/10 text-success",
-  "task-exit": "border-primary/30 bg-primary/10 text-primary",
-  "lifetime-limit": "border-warning/30 bg-warning/10 text-warning",
-  "idle-drain": "border-warning/30 bg-warning/10 text-warning",
-  shutdown: "border-border bg-muted text-muted-foreground",
-  "pool-drain": "border-border bg-muted text-muted-foreground",
-  recycle: "border-border bg-muted text-muted-foreground",
-  manual: "border-border bg-muted text-muted-foreground",
-  "create-failure": "border-destructive/30 bg-destructive/10 text-destructive",
-};
-
 function shortBootId(bootId: string): string {
   return bootId.length > 8 ? bootId.substring(0, 8) : bootId;
-}
-
-function formatTimestamp(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) {
-    return ts;
-  }
-  return d.toLocaleString();
 }
 
 function SupervisorTab({ deepLinkBoot }: { deepLinkBoot?: string }) {
@@ -235,7 +200,6 @@ function SupervisorTab({ deepLinkBoot }: { deepLinkBoot?: string }) {
 }
 
 function RemovalsTab() {
-  const navigate = useNavigate();
   const pools = usePools();
 
   const [reasonFilter, setReasonFilter] = useState("all");
@@ -252,6 +216,14 @@ function RemovalsTab() {
   });
 
   const records = useRemovalRecords(applied);
+
+  // Removal records table (docs/31 §5 phase 2): display-only over the
+  // accumulated infinite-query pages; "Load more" keeps driving paging.
+  const removalsTable = useAppTable({
+    columns: removalsColumns(),
+    data: records.data?.pages.flatMap((p) => p.records) ?? [],
+    getRowId: (rec) => `${rec.ts}-${rec.runnerId}`,
+  });
 
   const applyFilters = () => {
     setApplied({
@@ -353,109 +325,17 @@ function RemovalsTab() {
       </form>
 
       <div className="overflow-hidden rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>Pool</TableHead>
-              <TableHead>Runner</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Busy</TableHead>
-              <TableHead>Exit</TableHead>
-              <TableHead>Capture</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {records.isLoading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground">
-                  Loading removal records...
-                </TableCell>
-              </TableRow>
-            ) : records.data?.pages.every((p) => p.records.length === 0) ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground">
-                  No removal records match the current filters.
-                </TableCell>
-              </TableRow>
-            ) : (
-              records.data?.pages.flatMap((page) =>
-                page.records.map((rec) => (
-                  <TableRow key={`${rec.ts}-${rec.runnerId}`} data-testid="logs-removal-row">
-                    <TableCell className="whitespace-nowrap text-xs">
-                      {formatTimestamp(rec.ts)}
-                    </TableCell>
-                    <TableCell className="text-xs">{rec.poolName || "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {rec.runnerName || rec.runnerId}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        data-testid="logs-reason-badge"
-                        className={cn("border", REASON_BADGE_CLASS[rec.reason])}
-                      >
-                        {rec.reason}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {rec.providerBusy ? (
-                        <Badge className="border border-warning/30 bg-warning/10 text-warning">
-                          busy
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {rec.exitCode >= 0 ? rec.exitCode : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {rec.captureOk ? (
-                        <Badge className="border border-success/30 bg-success/10 text-success">
-                          {formatBytes(rec.captureBytes)}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">none</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          data-testid="logs-removal-view-capture"
-                          onClick={() =>
-                            navigate({
-                              to: "/logs",
-                              search: { tab: "runners", runner: rec.runnerId },
-                            })
-                          }
-                        >
-                          View capture
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          data-testid="logs-removal-view-boot"
-                          disabled={!rec.bootId}
-                          onClick={() =>
-                            navigate({
-                              to: "/logs",
-                              search: { tab: "supervisor", boot: rec.bootId },
-                            })
-                          }
-                        >
-                          View boot
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )),
-              )
-            )}
-          </TableBody>
-        </Table>
+        <DataTable
+          table={removalsTable}
+          getRowProps={() => ({ "data-testid": "logs-removal-row" })}
+          empty={
+            <div className="text-muted-foreground">
+              {records.isLoading
+                ? "Loading removal records..."
+                : "No removal records match the current filters."}
+            </div>
+          }
+        />
       </div>
 
       {records.hasNextPage && (

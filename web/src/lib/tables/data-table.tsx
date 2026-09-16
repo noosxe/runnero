@@ -15,6 +15,13 @@ type DataTableProps<TData extends RowData> = {
   table: ReactTable<AppTableFeatures, TData>;
   /** Rendered inside the single empty-row cell when there are no rows. */
   empty?: React.ReactNode;
+  /**
+   * Per-row attributes (e.g. `data-testid`) applied to the rendered
+   * <tr>. Return value is spread onto the TableRow for each row.
+   */
+  getRowProps?: (
+    row: import("@tanstack/react-table").Row<AppTableFeatures, TData>,
+  ) => React.HTMLAttributes<HTMLTableRowElement> & { "data-testid"?: string };
 };
 
 /**
@@ -23,7 +30,11 @@ type DataTableProps<TData extends RowData> = {
  * (badges, menus, testids). Per-column classes come from typed
  * `columnDef.meta.headerClassName` / `cellClassName`.
  */
-export function DataTable<TData extends RowData>({ table, empty }: DataTableProps<TData>) {
+export function DataTable<TData extends RowData>({
+  table,
+  empty,
+  getRowProps,
+}: DataTableProps<TData>) {
   const rows = table.getRowModel().rows;
   return (
     <Table>
@@ -51,7 +62,7 @@ export function DataTable<TData extends RowData>({ table, empty }: DataTableProp
           </TableRow>
         ) : (
           rows.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow key={row.id} {...getRowProps?.(row)}>
               {row.getAllCells().map((cell) => (
                 <TableCell key={cell.id} className={cell.column.columnDef.meta?.cellClassName}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
