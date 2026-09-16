@@ -35,6 +35,11 @@ func (m *mockAuthDB) GetAdminUserByUsername(context.Context, string) (db.AdminUs
 func (m *mockAuthDB) GetAdminUserById(_ context.Context, id int64) (db.AdminUser, error) {
 	return m.user, nil
 }
+
+func (m *mockAuthDB) UpdateAdminPassword(_ context.Context, arg db.UpdateAdminPasswordParams) (db.AdminUser, error) {
+	m.user.PasswordHash = arg.PasswordHash
+	return m.user, nil
+}
 func (m *mockAuthDB) CreateSession(_ context.Context, arg db.CreateSessionParams) (db.Session, error) {
 	return db.Session{ID: 1, UserID: arg.UserID, TokenHash: arg.TokenHash, ExpiresAt: arg.ExpiresAt, AbsoluteExpiresAt: arg.AbsoluteExpiresAt}, nil
 }

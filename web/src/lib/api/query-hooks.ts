@@ -232,6 +232,19 @@ export function useRevokeOtherSessions() {
   });
 }
 
+export function useChangePassword() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: Parameters<typeof authClient.changePassword>[0]) => {
+      return await authClient.changePassword(req);
+    },
+    onSuccess: () => {
+      // Other sessions were revoked server-side; refresh the list.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+    },
+  });
+}
+
 export function useSetupAdmin() {
   const queryClient = useQueryClient();
   return useMutation({

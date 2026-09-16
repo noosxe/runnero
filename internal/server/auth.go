@@ -36,13 +36,15 @@ const (
 // ("invalid_credentials"): the historical user_not_found/invalid_password
 // split is exactly what must not be distinguishable from the outside.
 const (
-	ActionAuthLoginSuccess   = "auth.login_success"
-	ActionAuthLoginFailed    = "auth.login_failed"
-	ActionAuthLogout         = "auth.logout"
-	ActionAuthSessionRevoked = "auth.session_revoked"
-	ActionAuthSetupAdmin     = "auth.setup_admin"
-	ActionAuthRateLimited    = "auth.rate_limited"
-	ActionAuthAccessDenied   = "auth.access_denied"
+	ActionAuthLoginSuccess         = "auth.login_success"
+	ActionAuthLoginFailed          = "auth.login_failed"
+	ActionAuthLogout               = "auth.logout"
+	ActionAuthSessionRevoked       = "auth.session_revoked"
+	ActionAuthSetupAdmin           = "auth.setup_admin"
+	ActionAuthPasswordChanged      = "auth.password_changed"
+	ActionAuthPasswordChangeFailed = "auth.password_change_failed"
+	ActionAuthRateLimited          = "auth.rate_limited"
+	ActionAuthAccessDenied         = "auth.access_denied"
 )
 
 // roleBucket classifies a Connect procedure for the fail-closed enforcement
@@ -82,10 +84,13 @@ var procedureRoles = map[string]roleBucket{
 
 	// Session control (docs/32 §3.5): the caller manages only their own
 	// rows; ownership is enforced in SQL, the bucket gates the surface.
-	supervisorv1connect.AuthServiceLogoutProcedure:                    bucketAdmin,
-	supervisorv1connect.AuthServiceListSessionsProcedure:              bucketAdmin,
-	supervisorv1connect.AuthServiceRevokeSessionProcedure:             bucketAdmin,
-	supervisorv1connect.AuthServiceRevokeOtherSessionsProcedure:       bucketAdmin,
+	supervisorv1connect.AuthServiceLogoutProcedure:              bucketAdmin,
+	supervisorv1connect.AuthServiceListSessionsProcedure:        bucketAdmin,
+	supervisorv1connect.AuthServiceRevokeSessionProcedure:       bucketAdmin,
+	supervisorv1connect.AuthServiceRevokeOtherSessionsProcedure: bucketAdmin,
+	// Password change (docs/32 §4.4): the caller changes only their own
+	// password; ownership comes from the session context.
+	supervisorv1connect.AuthServiceChangePasswordProcedure:            bucketAdmin,
 	supervisorv1connect.OnboardingServiceCompleteOnboardingProcedure:  bucketAdmin,
 	supervisorv1connect.OnboardingServiceGetAppSettingsProcedure:      bucketAdmin,
 	supervisorv1connect.OnboardingServiceSetAppSettingProcedure:       bucketAdmin,
@@ -144,6 +149,7 @@ type AuthDatabase interface {
 	CreateAdminUser(ctx context.Context, arg db.CreateAdminUserParams) (db.AdminUser, error)
 	GetAdminUserByUsername(ctx context.Context, username string) (db.AdminUser, error)
 	GetAdminUserById(ctx context.Context, id int64) (db.AdminUser, error)
+	UpdateAdminPassword(ctx context.Context, arg db.UpdateAdminPasswordParams) (db.AdminUser, error)
 	CreateSession(ctx context.Context, arg db.CreateSessionParams) (db.Session, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (db.Session, error)
 	TouchSession(ctx context.Context, arg db.TouchSessionParams) error
@@ -643,6 +649,74 @@ func (s *AuthService) loginFailure(ctx context.Context, userID *int64, username,
 		"username": username,
 		"reason":   "invalid_credentials",
 	})
+}
+
+// ChangePassword updates the signed-in user's own password (docs/32 §4.4).
+// The current password is verified with one bcrypt comparison — the row
+// always exists on this session-authenticated path, so the compare itself
+// equalizes timing and the §4.3 dummy hash is not needed. The 12-character
+// class-C floor on the new password is enforced declaratively by the
+// protovalidate interceptor. Success revokes every other session of the
+// user so old devices cannot ride out the change; the current session
+// survives and the caller stays signed in. No rate limiter here: the
+// brute-force target of §4.2 is the unauthenticated login path.
+func (s *AuthService) ChangePassword(ctx context.Context, req *connect.Request[supervisorv1.ChangePasswordRequest]) (*connect.Response[supervisorv1.ChangePasswordResponse], error) {
+	user, err := userContextFromAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	row, err := s.db.GetAdminUserById(ctx, user.UserID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load account"))
+	}
+
+	clientIP := authClientIP(ctx)
+	if err := bcrypt.CompareHashAndPassword([]byte(row.PasswordHash), []byte(req.Msg.CurrentPassword)); err != nil {
+		recordAuthAudit(ctx, s.db, &user.UserID, ActionAuthPasswordChangeFailed, clientIP, map[string]any{
+			"username": user.Username,
+			"reason":   "wrong_current_password",
+		})
+		return nil, invalidArgument(newViolation(RuleAuthPasswordCurrentMismatch, "current_password", "current password is incorrect"))
+	}
+
+	hashBytes, err := bcrypt.GenerateFromPassword([]byte(req.Msg.NewPassword), s.cfg.BcryptCost)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("hashing password: %w", err))
+	}
+
+	if _, err := s.db.UpdateAdminPassword(ctx, db.UpdateAdminPasswordParams{
+		PasswordHash: string(hashBytes),
+		ID:           user.UserID,
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update password"))
+	}
+
+	// Revoke every other session; the current row (the caller) survives.
+	revoked, revokeErr := s.db.DeleteOtherSessionsByUserId(ctx, db.DeleteOtherSessionsByUserIdParams{
+		UserID: user.UserID,
+		ID:     user.SessionID,
+	})
+	if revokeErr != nil {
+		// Fail soft: the password IS changed; failing the RPC now would tell
+		// the client it failed while it succeeded. The audit record carries
+		// the truth, and §5.2 maintenance still expires stale rows.
+		revoked = 0
+	}
+
+	details := map[string]any{
+		"username":         user.Username,
+		"revoked_sessions": revoked,
+	}
+	if revokeErr != nil {
+		details["revoked_error"] = revokeErr.Error()
+	}
+	recordAuthAudit(ctx, s.db, &user.UserID, ActionAuthPasswordChanged, clientIP, details)
+
+	return connect.NewResponse(&supervisorv1.ChangePasswordResponse{
+		Success:         true,
+		RevokedSessions: revoked,
+	}), nil
 }
 
 // GetSession reports the authenticated session (the interceptor has already
