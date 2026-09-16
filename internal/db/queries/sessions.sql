@@ -40,3 +40,15 @@ WHERE user_id = ?;
 -- clock - the sliding idle deadline or the fixed absolute cap.
 DELETE FROM sessions
 WHERE expires_at < sqlc.arg(now) OR absolute_expires_at < sqlc.arg(now);
+
+-- name: DeleteSessionByIdAndUserId :execrows
+-- Revoke one of the caller's sessions. The user_id guard is the query-level
+-- ownership check (docs/32 section 3.5): a row owned by someone else never
+-- matches, so foreign ids answer zero rows.
+DELETE FROM sessions
+WHERE id = ? AND user_id = ?;
+
+-- name: DeleteOtherSessionsByUserId :execrows
+-- Revoke every session owned by the caller except the current row.
+DELETE FROM sessions
+WHERE user_id = ? AND id != ?;

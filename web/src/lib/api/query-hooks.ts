@@ -20,6 +20,7 @@ export const queryKeys = {
   onboardingStatus: ["onboarding", "status"] as const,
   appSettings: ["onboarding", "settings"] as const,
   session: ["auth", "session"] as const,
+  sessions: ["auth", "sessions"] as const,
   pools: ["pools"] as const,
   pool: (id: bigint) => ["pools", id.toString()] as const,
   authProfiles: ["authProfiles"] as const,
@@ -183,10 +184,52 @@ export function useLogin() {
 
 export function useLogout() {
   const queryClient = useQueryClient();
-  return () => {
-    queryClient.setQueryData(queryKeys.session, null);
-    queryClient.invalidateQueries({ queryKey: queryKeys.session });
-  };
+  return useMutation({
+    mutationFn: async () => {
+      return await authClient.logout({});
+    },
+    onSettled: () => {
+      queryClient.setQueryData(queryKeys.session, null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.session });
+      queryClient.removeQueries({ queryKey: queryKeys.sessions });
+    },
+  });
+}
+
+// Session control hooks (docs/32 section 3.5): the Security tab lists the
+// caller's sessions and revokes individual rows or all others.
+export function useSessions() {
+  return useQuery({
+    queryKey: queryKeys.sessions,
+    queryFn: async () => {
+      const res = await authClient.listSessions({});
+      return res.sessions;
+    },
+  });
+}
+
+export function useRevokeSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: bigint) => {
+      return await authClient.revokeSession({ sessionId });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+    },
+  });
+}
+
+export function useRevokeOtherSessions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      return await authClient.revokeOtherSessions({});
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+    },
+  });
 }
 
 export function useSetupAdmin() {

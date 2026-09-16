@@ -9,6 +9,8 @@ syntax = "proto3";
 
 package supervisor.v1;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/noosxe/runnero/internal/pb/supervisor/v1";
 
 // ----------------------------------------
@@ -24,6 +26,19 @@ service AuthService {
   
   // Verify current session
   rpc GetSession (GetSessionRequest) returns (GetSessionResponse);
+  
+  // Delete the caller's current session row and clear the session cookie
+  rpc Logout (LogoutRequest) returns (LogoutResponse);
+  
+  // List the caller's active sessions (device label, clocks, current marker)
+  rpc ListSessions (ListSessionsRequest) returns (ListSessionsResponse);
+  
+  // Revoke one of the caller's sessions by row id; revoking the current one
+  // behaves like Logout
+  rpc RevokeSession (RevokeSessionRequest) returns (RevokeSessionResponse);
+  
+  // Revoke every caller session except the current one
+  rpc RevokeOtherSessions (RevokeOtherSessionsRequest) returns (RevokeOtherSessionsResponse);
 }
 
 message SetupAdminRequest {
@@ -56,6 +71,52 @@ message GetSessionRequest {}
 message GetSessionResponse {
   string username = 1;
   bool is_admin = 2;  // Derived: always true for users in admin_users table (no DB column)
+}
+
+// Session control (docs/32 section 3.5): all four procedures operate
+// exclusively on the calling user's rows - the ownership guard lives in the
+// SQL (WHERE user_id = caller), so a multi-user future cannot silently
+// regress it. Responses never carry token material; SessionInfo exposes
+// only the row id and display metadata.
+message LogoutRequest {}
+
+message LogoutResponse {
+  bool success = 1;  // Idempotent: deleting an already-gone row still succeeds
+}
+
+message ListSessionsRequest {}
+
+message ListSessionsResponse {
+  repeated SessionInfo sessions = 1;
+}
+
+message RevokeSessionRequest {
+  int64 session_id = 1;  // Row id, never the token
+}
+
+message RevokeSessionResponse {
+  bool success = 1;
+}
+
+// Unknown or foreign session ids answer NotFound - the query-level
+// ownership guard makes them indistinguishable.
+message RevokeOtherSessionsRequest {}
+
+message RevokeOtherSessionsResponse {
+  int64 revoked = 1;  // Number of other sessions removed
+}
+
+// One of the caller's live sessions. device_label is parsed from the login
+// user agent ("Firefox 130 on Linux"); is_current marks the row answering
+// the request.
+message SessionInfo {
+  int64 id = 1;
+  string device_label = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp last_seen_at = 4;
+  google.protobuf.Timestamp expires_at = 5;             // Sliding idle deadline
+  google.protobuf.Timestamp absolute_expires_at = 6;    // Fixed lifetime cap
+  bool is_current = 7;
 }
 
 // ----------------------------------------

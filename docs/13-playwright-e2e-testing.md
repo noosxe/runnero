@@ -104,7 +104,9 @@ tests/e2e/
     ├── 05-terminal-streaming.spec.ts
     ├── 06-renovate-management.spec.ts
     ├── 07-settings-maintenance.spec.ts
-    └── 08-pool-edit-workflow.spec.ts
+    ├── 08-pool-edit-workflow.spec.ts
+    ├── 09-log-observability.spec.ts
+    └── 10-session-control.spec.ts
 ```
 
 Specs share their authentication and onboarding state through `fixtures.ts`
@@ -176,6 +178,7 @@ The supervisor interacts with Docker over HTTP (`tcp://e2e-mock-docker:2375`):
 | **Renovate Management**| `06-renovate-management.spec.ts` | Navigates to `/renovate`. Verifies scheduled cron badge, last run status, and repository targets. Clicks "Trigger Immediate Run". Observes live job status update and history table row append. | Immediate trigger mutation works; status transitions from queued $\to$ running $\to$ success. |
 | **Settings & Ops** | `07-settings-maintenance.spec.ts` | Navigates to `/settings`. Toggles theme between Light and Dark mode (asserts `class="dark"` on `<html>`). Inspects SQLite database metrics. Clicks "Create Immediate Backup". Verifies audit log table captures recent administrator actions. | Theme persists to `localStorage`; backup download trigger completes; audit log entries match test actions. |
 | **Pool Edit Workflow** | `08-pool-edit-workflow.spec.ts` | Edits `min_idle` (control-plane, no recycle banner); edits labels (spawn identity, recycle banner) and verifies idle runners respawn; renames the pool through the wizard; verifies the duplicate-name server rejection; mirrors runners in the mock provider's registry via `/_admin/runners`, flips one busy, and verifies a spawn-identity edit recycles idle runners but spares the busy one (docs/19, docs/22 §5.2). | Wizard banners match edit class; busy runner keeps its busy state and survives the edit; recycled standbys are replaced by fresh spawns; server errors surface as banners.
+| **Session Control** | `10-session-control.spec.ts` | Opens the settings Security tab and verifies the browser's own session is listed with a parsed device label and the current-session marker; signs out through the user menu (real Logout RPC); re-visits `/settings` with the dead cookie and verifies the auth gate bounces to `/login`; signs in again and signs out once more from the dashboard (docs/32 §3.5, §7). | Session list renders; logout is server-side (the old cookie cannot reach protected routes); login form reappears after sign-out.
 
 ---
 
