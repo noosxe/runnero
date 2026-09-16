@@ -75,6 +75,8 @@ import { PoolPollStatus } from "../components/pools/pool-poll-status";
 import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { PoolDeleteModal } from "../components/pools/pool-delete-modal";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
+import { DataTable, useAppTable } from "../lib/tables";
+import { renovateRunColumns } from "./renovate-run-columns";
 import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
 import {
   ArrowLeft,
@@ -847,6 +849,14 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
     refetchInterval: 5000,
   });
   const { data: history, isLoading: historyLoading } = useRenovateHistory(pool.id, 10, 0);
+
+  // Renovate run history table (docs/31 §5 phase 1): hook lives at the
+  // component top level, never inside the conditional tab JSX.
+  const renovateRunsTable = useAppTable({
+    columns: renovateRunColumns(),
+    data: history?.runs ?? [],
+    getRowId: (run) => run.id.toString(),
+  });
   const triggerMutation = useTriggerRenovateRun();
   const updatePoolMutation = useUpdatePool();
 
@@ -1121,59 +1131,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
         ) : (
           <Card className="py-0">
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Run ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Started At</TableHead>
-                    <TableHead>Completed At</TableHead>
-                    <TableHead>Summary</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.runs.map((run) => (
-                    <TableRow key={run.id.toString()}>
-                      <TableCell className="font-mono font-semibold">
-                        #{run.id.toString()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={cn(
-                            "uppercase tracking-wider",
-                            run.status === "running"
-                              ? "border-warning/30 bg-warning/10 text-warning"
-                              : run.status === "success"
-                                ? "border-success/30 bg-success/10 text-success"
-                                : "border-destructive/30 bg-destructive/10 text-destructive",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "size-1.5 rounded-full",
-                              run.status === "running"
-                                ? "bg-warning animate-ping"
-                                : run.status === "success"
-                                  ? "bg-success"
-                                  : "bg-destructive",
-                            )}
-                          />
-                          <span>{run.status}</span>
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {run.startedAt ? new Date(run.startedAt).toLocaleString() : "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {run.completedAt ? new Date(run.completedAt).toLocaleString() : "—"}
-                      </TableCell>
-                      <TableCell className="max-w-md truncate font-mono text-muted-foreground">
-                        {run.summary || "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable table={renovateRunsTable} />
             </div>
           </Card>
         )}

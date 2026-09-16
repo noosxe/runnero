@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { cn } from "cn";
-import { Button } from "@/components/ui/button";
+import { DataTable, useAppTable } from "../lib/tables";
+import { poolRenovateColumns } from "./renovate-columns";
 import {
   Empty,
   EmptyHeader,
@@ -10,26 +10,21 @@ import {
   EmptyDescription,
   EmptyContent,
 } from "@/components/ui/empty";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
 import { LinkButton } from "../lib/link-button";
-import { Link } from "@tanstack/react-router";
-import { usePools, useRenovateStatus, useTriggerRenovateRun } from "../lib/api/query-hooks";
+import { usePools } from "../lib/api/query-hooks";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
-import { toast } from "@/components/ui/toast";
-import type { Pool } from "../gen/api_pb";
-import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
-import { Bot, Play, ArrowUpRight, Clock, Layers, Calendar } from "lucide-react";
+import { Bot, Layers, Calendar } from "lucide-react";
 
 export function RenovatePage() {
   const { data: pools, isLoading } = usePools();
+
+  // Pool renovate table (docs/31 §5 phase 1): hook lives at the component
+  // top level; row-scoped queries moved into the columns' cell components.
+  const poolRenovateTable = useAppTable({
+    columns: poolRenovateColumns(),
+    data: pools ?? [],
+    getRowId: (pool) => pool.id.toString(),
+  });
 
   const totalPools = pools?.length ?? 0;
   const enabledPools = pools?.filter((p) => p.renovate?.enabled).length ?? 0;
@@ -121,168 +116,11 @@ export function RenovatePage() {
         ) : (
           <Card className="py-0">
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pool / Repository</TableHead>
-                    <TableHead>Renovate Status</TableHead>
-                    <TableHead>Schedule</TableHead>
-                    <TableHead>Last Run Result</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pools.map((pool) => (
-                    <PoolRenovateRow key={pool.id.toString()} pool={pool} />
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable table={poolRenovateTable} />
             </div>
           </Card>
         )}
       </div>
     </div>
-  );
-}
-
-function PoolRenovateRow({ pool }: { pool: Pool }) {
-  const { data: status } = useRenovateStatus(pool.id, {
-    enabled: pool.renovate?.enabled ?? false,
-    refetchInterval: 10000,
-  });
-  const triggerMutation = useTriggerRenovateRun();
-
-  const isEnabled = pool.renovate?.enabled ?? false;
-  const isRunning = status?.lastRun?.status === "running";
-
-  const handleTrigger = async () => {
-    try {
-      const res = await triggerMutation.mutateAsync(pool.id);
-      if (res.success) {
-        toast.add({
-          title: `Run #${res.runId} triggered`,
-          description: `Renovate run queued for pool "${pool.name}".`,
-          type: "success",
-        });
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Trigger failed";
-      toast.add({
-        title: "Trigger failed",
-        description: msg,
-        type: "error",
-      });
-    }
-  };
-
-  return (
-    <TableRow>
-      <TableCell>
-        <Link
-          to="/pools/$poolId"
-          params={{ poolId: pool.id.toString() }}
-          className="font-semibold text-primary hover:underline"
-        >
-          {pool.name}
-        </Link>
-        <div className="mt-0.5 flex max-w-xs items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-          <span className="truncate">{poolTargetList(pool)[0]}</span>
-          <TargetCountBadge pool={pool} />
-        </div>
-      </TableCell>
-
-      <TableCell>
-        <Badge
-          className={cn(
-            "uppercase tracking-wider",
-            isEnabled
-              ? "border-success/30 bg-success/10 text-success"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          <span className={cn("size-1.5 rounded-full", isEnabled ? "bg-success" : "bg-muted")} />
-          <span>{isEnabled ? "Enabled" : "Disabled"}</span>
-        </Badge>
-      </TableCell>
-
-      <TableCell>
-        {isEnabled ? (
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-xs font-medium">
-              {pool.renovate?.cronSchedule || "0 3 * * 1"}
-            </span>
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Clock className="size-3" />
-              <span>Next: {status?.nextScheduledRun || "Scheduled"}</span>
-            </div>
-          </div>
-        ) : (
-          <span className="text-xs italic text-muted-foreground">Not configured</span>
-        )}
-      </TableCell>
-
-      <TableCell>
-        {status?.lastRun ? (
-          <div className="flex flex-col gap-0.5">
-            <Badge
-              className={cn(
-                "uppercase tracking-wider",
-                isRunning
-                  ? "border-warning/30 bg-warning/10 text-warning"
-                  : status.lastRun.status === "success"
-                    ? "border-success/30 bg-success/10 text-success"
-                    : "border-destructive/30 bg-destructive/10 text-destructive",
-              )}
-            >
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  isRunning
-                    ? "bg-warning animate-ping"
-                    : status.lastRun.status === "success"
-                      ? "bg-success"
-                      : "bg-destructive",
-                )}
-              />
-              <span>{status.lastRun.status}</span>
-            </Badge>
-            {status.lastRun.completedAt && (
-              <div className="font-mono text-[10px] text-muted-foreground">
-                {new Date(status.lastRun.completedAt).toLocaleDateString()}
-              </div>
-            )}
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">No runs yet</span>
-        )}
-      </TableCell>
-
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={handleTrigger}
-            disabled={triggerMutation.isPending || isRunning}
-          >
-            {triggerMutation.isPending || isRunning ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <Play data-icon="inline-start" className="fill-current" />
-            )}
-            <span>{isRunning ? "Running..." : "Trigger"}</span>
-          </Button>
-          <LinkButton
-            to="/pools/$poolId"
-            params={{ poolId: pool.id.toString() }}
-            variant="ghost"
-            size="xs"
-          >
-            <span>Manage</span>
-            <ArrowUpRight data-icon="inline-end" />
-          </LinkButton>
-        </div>
-      </TableCell>
-    </TableRow>
   );
 }

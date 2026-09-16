@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { DataTable, useAppTable } from "../lib/tables";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "cn";
 import {
   Empty,
   EmptyHeader,
@@ -12,14 +11,6 @@ import {
   EmptyDescription,
   EmptyContent,
 } from "@/components/ui/empty";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
 import { LinkButton } from "../lib/link-button";
 import {
   useSystemStats,
@@ -31,47 +22,13 @@ import {
 import { QueueLatencyChart } from "../components/analytics/queue-latency-chart";
 import { SuccessFailureWidget } from "../components/analytics/success-failure-widget";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import {
-  Activity,
-  CheckCircle2,
-  Clock,
-  Server,
-  XCircle,
-  Terminal,
-  AlertTriangle,
-} from "lucide-react";
+import { Activity, CheckCircle2, Clock, Server, AlertTriangle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { PoolHealthBadge } from "../components/pools/pool-health-badge";
 import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { PoolHealthStatus } from "../gen/api_pb";
 
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return "—";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const mins = Math.floor(seconds / 60);
-  const remSec = Math.round(seconds % 60);
-  if (mins < 60) return `${mins}m ${remSec}s`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return `${hours}h ${remMins}m`;
-}
-
-function formatTimestamp(isoString?: string): string {
-  if (!isoString) return "—";
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return "—";
-    return d.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
-    return isoString;
-  }
-}
+import { recentJobsColumns, formatDuration } from "./dashboard-columns";
 
 export function DashboardPage() {
   const [timeframeHours, setTimeframeHours] = useState(24);
@@ -81,6 +38,14 @@ export function DashboardPage() {
   const { data: authProfiles } = useAuthProfiles();
   const { data: history } = useJobHistory({ limit: 5 });
   const { data: updates } = useImageUpdates();
+
+  // Recent executions table (docs/31 §5 phase 1): hook lives at the
+  // component top level, never inside conditional JSX.
+  const recentJobsTable = useAppTable({
+    columns: recentJobsColumns(),
+    data: history?.jobs ?? [],
+    getRowId: (job) => job.id.toString(),
+  });
 
   const hasAuthProfiles = Boolean(authProfiles && authProfiles.length > 0);
   const degradedPools = pools?.filter((p) => p.healthStatus === PoolHealthStatus.DEGRADED) ?? [];
@@ -395,62 +360,7 @@ export function DashboardPage() {
           </Empty>
         ) : (
           <Card className="py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Runner Name</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Queue Wait</TableHead>
-                  <TableHead>Completed At</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.jobs.map((job) => (
-                  <TableRow key={job.id.toString()}>
-                    <TableCell>
-                      <Badge
-                        className={cn(
-                          "uppercase tracking-wider",
-                          job.status === "success"
-                            ? "border-success/30 bg-success/10 text-success"
-                            : "border-destructive/30 bg-destructive/10 text-destructive",
-                        )}
-                      >
-                        {job.status === "success" ? (
-                          <CheckCircle2 className="size-3" />
-                        ) : (
-                          <XCircle className="size-3" />
-                        )}
-                        {job.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono font-medium">{job.runnerName}</TableCell>
-                    <TableCell className="font-mono">
-                      {formatDuration(job.durationSeconds)}
-                    </TableCell>
-                    <TableCell className="font-mono text-muted-foreground">
-                      {job.queueTimeSeconds > 0 ? `${job.queueTimeSeconds.toFixed(1)}s` : "—"}
-                    </TableCell>
-                    <TableCell className="font-mono text-muted-foreground">
-                      {formatTimestamp(job.completedAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <LinkButton
-                        to="/history/$jobId"
-                        params={{ jobId: job.id.toString() }}
-                        variant="outline"
-                        size="xs"
-                      >
-                        <Terminal data-icon="inline-start" />
-                        <span>Logs</span>
-                      </LinkButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataTable table={recentJobsTable} />
           </Card>
         )}
       </div>
