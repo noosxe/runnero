@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { SortingState } from "@tanstack/react-table";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -30,6 +31,9 @@ export function HistoryPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  // Client-side sorting over the current page only (docs/31 §4.4): the
+  // server query (order + filters) is never affected.
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const { data: pools } = usePools();
 
@@ -62,7 +66,10 @@ export function HistoryPage() {
     pageCount: totalPages,
     state: {
       pagination: { pageIndex: page - 1, pageSize },
+      sorting,
     },
+    onSortingChange: setSorting,
+    sortDescFirst: false,
     onPaginationChange: (updater) => {
       const next =
         typeof updater === "function" ? updater({ pageIndex: page - 1, pageSize }) : updater;

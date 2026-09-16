@@ -1,4 +1,5 @@
 import { createColumnHelper } from "@tanstack/react-table";
+import { SortableHeader } from "../lib/tables/sortable-header";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "../lib/link-button";
 import { cn } from "cn";
@@ -94,22 +95,26 @@ export const jobHistoryColumns = () =>
       ),
     }),
     columnHelper.accessor("durationSeconds", {
-      header: "Duration",
+      header: ({ column }) => <SortableHeader column={column}>Duration</SortableHeader>,
+      sortFn: "basic",
       meta: { cellClassName: "font-mono" },
       cell: (info) => formatDuration(info.getValue()),
     }),
     columnHelper.accessor("queueTimeSeconds", {
-      header: "Queue Wait",
+      header: ({ column }) => <SortableHeader column={column}>Queue Wait</SortableHeader>,
+      sortFn: "basic",
       meta: { cellClassName: "font-mono text-muted-foreground" },
       cell: (info) => (info.getValue() > 0 ? `${info.getValue().toFixed(1)}s` : "—"),
     }),
     columnHelper.accessor("startedAt", {
-      header: "Started At",
+      header: ({ column }) => <SortableHeader column={column}>Started At</SortableHeader>,
+      sortFn: "basic", // ISO-8601: lexicographic order = chronological
       meta: { cellClassName: "font-mono text-muted-foreground" },
       cell: (info) => formatTimestamp(info.getValue()),
     }),
     columnHelper.accessor("completedAt", {
-      header: "Completed At",
+      header: ({ column }) => <SortableHeader column={column}>Completed At</SortableHeader>,
+      sortFn: "basic", // ISO-8601: lexicographic order = chronological
       meta: { cellClassName: "font-mono text-muted-foreground" },
       cell: (info) => formatTimestamp(info.getValue()),
     }),

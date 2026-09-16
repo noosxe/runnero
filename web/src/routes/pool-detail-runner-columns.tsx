@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "cn";
 import { Clock, Ellipsis, Terminal, Trash2 } from "lucide-react";
+import { SortableHeader } from "../lib/tables/sortable-header";
 import type { Pool, RunnerInstance } from "../gen/api_pb";
 import type { AppTableFeatures } from "../lib/tables/use-app-table";
 
@@ -52,7 +53,8 @@ export const runnerColumns = ({ pool, onViewLogs, onTerminate }: RunnerColumnAct
       meta: { cellClassName: "font-mono font-medium" },
     }),
     columnHelper.accessor("status", {
-      header: "State",
+      header: ({ column }) => <SortableHeader column={column}>State</SortableHeader>,
+      sortFn: "alphanumeric",
       cell: ({ row }) => {
         const isBusy = row.original.status === "busy";
         const isIdle = row.original.status === "idle";
@@ -93,7 +95,8 @@ export const runnerColumns = ({ pool, onViewLogs, onTerminate }: RunnerColumnAct
       cell: (info) => info.getValue() || "—",
     }),
     columnHelper.accessor("uptimeSeconds", {
-      header: "Uptime",
+      header: ({ column }) => <SortableHeader column={column}>Uptime</SortableHeader>,
+      sortFn: "basic",
       meta: { cellClassName: "font-mono" },
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1">

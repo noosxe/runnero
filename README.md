@@ -18,6 +18,7 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 - **Dynamic Ephemeral Scaling:** Automatically manages warm standby containers (`min_idle_runners`) ready for immediate job dispatch, auto-scales up to concurrency limits (`max_concurrency`), and aggressively prunes completed or failed containers within seconds.
 - **Real-Time Streaming Logs & Interactive Terminal:** Unbuffered ConnectRPC server-sent streaming (`StreamRunnerLogs`, `StreamSystemMetrics`) pushing real-time container output directly to an embedded xterm.js terminal emulator with auto-scroll and quick-copy.
 - **Dependency Automation via Renovate:** Built-in scheduled Renovate task runner for autonomous dependency updates, configured via cron expressions with isolated ephemeral container execution.
+- **Unified Table Toolkit with Sorting:** All web tables (dashboard, job history, logs boots and removal records, pool runners, renovate runs and pools, settings) run on a shared headless core built on `@tanstack/react-table` v9 with the shadcn integration pattern — server-authoritative paging and filtering preserved, plus client-side column sorting on job history and pool runners ([docs/31-tanstack-table-migration.md](docs/31-tanstack-table-migration.md)).
 - **Single Master Key, Derived Secrets:** The single required `SUPERVISOR_DB_ENCRYPTION_KEY` expands via HKDF-SHA256 into two distinct, deterministic secrets — an AES-256 database encryption key for credentials at rest and a HMAC secret for JWT session tokens.
 - **Embedded SQLite & Auto-Migrations:** Pure-Go SQLite persistence via `modernc.org/sqlite` (strictly CGO-free) with automated Goose migrations on boot, rolling snapshot backups (`SUPERVISOR_BACKUP_INTERVAL_HOURS`), and strict corruption detection.
 - **Unified Multi-Provider Runner Image (`runnero`):** Multi-stage container image bundling GitHub Actions runner, Gitea `act_runner`, and Forgejo `forgejo-runner` with automatic provider detection, non-root user execution (`UID 1001`), and active signal traps for clean deregistration.
@@ -380,7 +381,6 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
-- **[Design Phase] TanStack Table Migration:** Migrate all web UI tables (job history, logs, runners, renovate, settings) to a shared headless core built on `@tanstack/react-table` v9 with the shadcn integration pattern — consistent sorting, server-paging contracts, and a reusable table toolkit. Design: `docs/31-tanstack-table-migration.md`.
 ---
 
 ## 📄 License

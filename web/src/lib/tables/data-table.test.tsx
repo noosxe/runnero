@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { DataTable, useAppTable } from "./index";
+import type { SortingState } from "@tanstack/react-table";
+import { DataTable, SortableHeader, useAppTable } from "./index";
 import type { AppTableFeatures } from "./index";
 
 type Row = { id: string; label: string; count: number };
@@ -52,6 +54,35 @@ const rows: Row[] = [
   { id: "b", label: "Beta", count: 7 },
 ];
 
+const sortableColumns = () =>
+  helper.columns([
+    helper.accessor("count", {
+      header: ({ column }) => <SortableHeader column={column}>Count</SortableHeader>,
+      sortFn: "basic",
+      meta: { cellClassName: "font-mono" },
+    }),
+    helper.accessor("label", {
+      header: "Label",
+    }),
+  ]);
+
+function SortingHarness() {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const table = useAppTable({
+    columns: sortableColumns(),
+    data: rows,
+    getRowId: (row) => row.id,
+    state: { sorting },
+    onSortingChange: setSorting,
+    sortDescFirst: false,
+  });
+  return <DataTable table={table} />;
+}
+
+const clickSort = () => fireEvent.click(screen.getByRole("button", { name: "Sort by Count" }));
+
+const cellText = () => screen.getAllByText(/^(Alpha|Beta)$/).map((e) => e.textContent);
+
 describe("DataTable", () => {
   it("renders headers and row content through the column defs", () => {
     render(<Harness rows={rows} />);
@@ -92,5 +123,23 @@ describe("DataTable", () => {
     expect(buttons).toHaveLength(2);
     buttons[1]!.click();
     expect(onPick).toHaveBeenCalledWith("b");
+  });
+});
+
+describe("DataTable sorting (docs/31 §4.4)", () => {
+  it("toggles ascending, descending, then resets to insertion order", () => {
+    render(<SortingHarness />);
+    expect(cellText()).toEqual(["Alpha", "Beta"]);
+
+    // The header button node is replaced on each state change, so always
+    // re-query right before clicking.
+    clickSort(); // asc
+    expect(cellText()[0]).toBe("Alpha"); // count 3
+
+    clickSort(); // desc
+    expect(cellText()[0]).toBe("Beta"); // count 7
+
+    clickSort(); // removal — back to insertion order
+    expect(cellText()).toEqual(["Alpha", "Beta"]);
   });
 });

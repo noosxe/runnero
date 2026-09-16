@@ -699,3 +699,48 @@ shadow the shared violation map.
   case cannot reach the server.
 - E2E (Playwright): block-advance and inline-error assertions in the wizard
   specs (`08-pool-edit-workflow.spec.ts`).
+
+## 10. Table Toolkit (TanStack Table v9, RUN-225–228 / docs/31)
+
+Every table renders through the shared toolkit in `web/src/lib/tables/`
+(docs/31 §4); hand-rolled `TableHeader`/`TableBody` stacks in route files are
+legacy and get migrated when touched. The headless core is
+`@tanstack/react-table` v9 (composable feature API) with markup staying in
+the shadcn `ui/table.tsx` primitives via the `DataTable` shell.
+
+### 10.1 Toolkit layout (`web/src/lib/tables/`)
+
+```
+lib/tables/
+  use-app-table.ts     # createTableHook → useAppTable; shared feature set
+                       #   (core + rowPagination + rowSorting + sortedRowModel)
+  data-table.tsx       # <DataTable table empty getRowProps> shell: flexRender
+                       #   headers/cells, default + slot empty states
+  sortable-header.tsx  # <SortableHeader column> asc/desc/reset affordance
+  index.ts             # public surface
+```
+
+Conventions: column defs are factories or module constants using
+`createColumnHelper<AppTableFeatures, TRow>()` (two type args in v9),
+colocated in a sibling `*-columns.tsx`; per-column cell/header classes come
+from typed `columnDef.meta.cellClassName` / `headerClassName`; row-level
+attributes (testids, click handlers, selection highlight) flow through
+`DataTable`'s `getRowProps`; all table hooks live at the component top level —
+never inside conditionally rendered tab JSX.
+
+### 10.2 Data authority
+
+Paging and filtering stay server-authoritative. Job history uses manual
+offset pagination (`manualPagination`, `pageCount` from `totalCount`,
+bespoke footer driving the query); removal records stay on the accumulated
+`useInfiniteQuery` pages with the Load-more button; every other table renders
+the server-capped list as-is. Filters always write through to query keys —
+the client never slices or widens server results locally.
+
+### 10.3 Client-side sorting (docs/31 §4.4)
+
+Opt-in per column via the `SortableHeader` header renderer: history (Started
+At, Completed At, Duration, Queue Wait) and pool runners (State, Uptime).
+Sorting is client-side over the currently displayed rows only, cycles
+asc → desc → reset, and never changes the server query. All other columns and
+tables keep static headers.
