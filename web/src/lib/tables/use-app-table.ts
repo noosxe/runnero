@@ -1,7 +1,11 @@
 import {
   coreFeatures,
+  createSortedRowModel,
   createTableHook,
   rowPaginationFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_basic,
   tableFeatures,
 } from "@tanstack/react-table";
 
@@ -9,7 +13,9 @@ import {
  * App-wide feature set (docs/31 §3): core plus manual row pagination
  * (phase 2 — history's offset paging; removals' Load more stays
  * hook-driven and needs no table pagination state). Client-side sorting
- * composes here in phase 3 so every table shares one typed feature set.
+ * hook-driven and needs no table pagination state). Phase 3 adds manual
+ * client-side sorting (docs/31 §4.4): opt-in per column, current page
+ * only, server query semantics unchanged.
  * All tables use manual/server modes; no paginatedRowModel is configured.
  *
  *
@@ -19,6 +25,13 @@ import {
 export const appTableFeatures = tableFeatures({
   ...coreFeatures,
   rowPaginationFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: {
+    // Keys become the valid `sortingFn` string values on columns.
+    basic: sortFn_basic, // numbers and ISO-8601 strings (lexicographic = chronological)
+    alphanumeric: sortFn_alphanumeric, // human-readable strings
+  },
   columnMeta: {} as {
     /** Extra class for the rendered <TableHead>. */
     headerClassName?: string;

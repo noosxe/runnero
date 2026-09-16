@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { SortingState } from "@tanstack/react-table";
 import { runnerColumns } from "./pool-detail-runner-columns";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -117,10 +118,16 @@ export function PoolDetailPage() {
     // column defs is trivially cheap.
     [pool],
   );
+  // Client-side sorting over the live rows only (docs/31 §4.4): polling
+  // keeps replacing `runners`, sorting just reorders whatever is current.
+  const [runnerSorting, setRunnerSorting] = useState<SortingState>([]);
   const runnersTable = useAppTable({
     columns: runnerColumnDefs,
     data: runners ?? [],
     getRowId: (r) => r.containerId,
+    state: { sorting: runnerSorting },
+    onSortingChange: setRunnerSorting,
+    sortDescFirst: false,
   });
   const [labelsCopied, setLabelsCopied] = useState(false);
 
