@@ -47,7 +47,6 @@ type Querier interface {
 	DeleteAdminUser(ctx context.Context, id int64) error
 	DeleteAppSetting(ctx context.Context, key string) error
 	DeleteAuthProfile(ctx context.Context, id int64) error
-	DeleteExpiredSessions(ctx context.Context, expiresAt time.Time) error
 	DeleteJobHistoryOlderThan(ctx context.Context, completedAt sql.NullTime) error
 	DeleteJobRowByID(ctx context.Context, id int64) error
 	// Duplicate cleanup after closing by external job id: a poll-opened transition
@@ -101,6 +100,12 @@ type Querier interface {
 	// stub in place (docs/21 section 5.5 merge rule 2).
 	PromoteWebhookStubToRunning(ctx context.Context, arg PromoteWebhookStubToRunningParams) (int64, error)
 	PruneJobHistoryOlderThan(ctx context.Context, arg PruneJobHistoryOlderThanParams) ([]PruneJobHistoryOlderThanRow, error)
+	// Hourly maintenance (docs/32 section 5.2): enforce the audit retention
+	// horizon (default 90d).
+	PurgeAuditLogsOlderThan(ctx context.Context, createdAt time.Time) (int64, error)
+	// Hourly maintenance (docs/32 section 5.2): delete sessions past either
+	// clock - the sliding idle deadline or the fixed absolute cap.
+	PurgeExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 	SearchJobHistory(ctx context.Context, arg SearchJobHistoryParams) ([]JobHistory, error)
 	SetAppSetting(ctx context.Context, arg SetAppSettingParams) (AppSetting, error)
 	// Sliding renewal (docs/32 section 3.3): extend the idle deadline and record

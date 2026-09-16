@@ -109,7 +109,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
   it("enforces password length and confirmation in Step 1", async () => {
     render(<OnboardingPage />);
 
-    const passwordInput = screen.getByLabelText("Password (min 10 characters)");
+    const passwordInput = screen.getByLabelText("Password (min 12 characters)");
     const confirmInput = screen.getByLabelText("Confirm Password");
     const nextBtn = screen.getByRole("button", { name: /Next: Git Provider/i });
 
@@ -119,7 +119,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     fireEvent.click(nextBtn);
 
     await waitFor(() => {
-      expect(screen.getByText("Password must be at least 10 characters long")).toBeInTheDocument();
+      expect(screen.getByText("Password must be at least 12 characters long")).toBeInTheDocument();
     });
 
     // Mismatched passwords
@@ -141,7 +141,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // --- STEP 1: Admin Setup ---
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -225,7 +225,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -269,7 +269,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
 
     render(<OnboardingPage />);
 
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "validpassword123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -309,7 +309,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -416,7 +416,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
 
     render(<OnboardingPage />);
 
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "validpassword123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -442,7 +442,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -492,7 +492,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -543,7 +543,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -572,7 +572,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -627,7 +627,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1: Admin
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "longenoughpass123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {
@@ -697,7 +697,7 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     render(<OnboardingPage />);
 
     // Step 1: Admin
-    fireEvent.change(screen.getByLabelText("Password (min 10 characters)"), {
+    fireEvent.change(screen.getByLabelText("Password (min 12 characters)"), {
       target: { value: "validpassword123" },
     });
     fireEvent.change(screen.getByLabelText("Confirm Password"), {

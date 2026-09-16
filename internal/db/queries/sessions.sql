@@ -35,6 +35,8 @@ WHERE token_hash = ?;
 DELETE FROM sessions
 WHERE user_id = ?;
 
--- name: DeleteExpiredSessions :exec
+-- name: PurgeExpiredSessions :execrows
+-- Hourly maintenance (docs/32 section 5.2): delete sessions past either
+-- clock - the sliding idle deadline or the fixed absolute cap.
 DELETE FROM sessions
-WHERE expires_at < ?;
+WHERE expires_at < sqlc.arg(now) OR absolute_expires_at < sqlc.arg(now);

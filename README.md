@@ -293,6 +293,7 @@ The supervisor daemon layers configuration in increasing precedence: **built-in 
 | `SUPERVISOR_SESSION_IDLE_TIMEOUT` | Duration | No | `168h` | Sliding idle timeout: sessions unused this long are deleted; activity past half the window slides the deadline (capped). |
 | `SUPERVISOR_SESSION_ABSOLUTE_TIMEOUT` | Duration | No | `720h` | Absolute session lifetime cap, fixed at login and never extended; must not be shorter than the idle timeout. |
 | `SUPERVISOR_BCRYPT_COST` | Int | No | `12` | Bcrypt cost for new or changed passwords (4-31). Existing hashes compare at their stored cost. |
+| `SUPERVISOR_AUDIT_RETENTION` | Duration | No | `2160h` | Audit log purge horizon enforced by the hourly maintenance sweep (default 90 days). |
 | `SUPERVISOR_TRUSTED_PROXY` | Bool | No | `false` | Trust `X-Forwarded-For` / `X-Forwarded-Proto` from the reverse proxy for client-IP extraction and HTTPS detection. |
 | `SUPERVISOR_ENRICH_JOB_CONCLUSIONS` | Bool | No | `true` | On job completion, queries the forge once for the runner's latest concluded job to recover the conclusion and external job id on webhookless deployments (`docs/21` §5.3). Supported for GitHub repo/org pools; failures degrade the row to `completed`. |
 | `SUPERVISOR_WEBHOOK_GITHUB_SECRET` | String | No | — | Shared HMAC secret verifying GitHub webhook signatures on `POST /hooks/github`. Setting any provider secret mounts the webhook receiver; verified `workflow_job` events then drive real-time autoscaling (`docs/03` §4). |

@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,6 +29,19 @@ const (
 	// crypto/rand, hex-encoded on the wire (docs/32 §3.2). Only its
 	// SHA-256 hash is stored server-side.
 	OpaqueTokenBytes = 32
+)
+
+// Auth audit action vocabulary (docs/32 §5.1). Reasons stay coarse
+// ("invalid_credentials"): the historical user_not_found/invalid_password
+// split is exactly what must not be distinguishable from the outside.
+const (
+	ActionAuthLoginSuccess   = "auth.login_success"
+	ActionAuthLoginFailed    = "auth.login_failed"
+	ActionAuthLogout         = "auth.logout"
+	ActionAuthSessionRevoked = "auth.session_revoked"
+	ActionAuthSetupAdmin     = "auth.setup_admin"
+	ActionAuthRateLimited    = "auth.rate_limited"
+	ActionAuthAccessDenied   = "auth.access_denied"
 )
 
 // roleBucket classifies a Connect procedure for the fail-closed enforcement
@@ -172,6 +187,44 @@ func requestInfoFromContext(ctx context.Context) (*requestInfo, bool) {
 	return info, ok
 }
 
+// recordAuthAudit writes an auth decision to audit_logs with the resolved
+// client IP (docs/32 §5.1). resource_type is always admin_user; resource_id
+// mirrors the acting user when known. details must never carry credentials,
+// tokens, or challenge bytes (asserted by the leakage tests).
+func recordAuthAudit(ctx context.Context, database AuditLogDatabase, userID *int64, action, sourceIP string, details map[string]any) {
+	if database == nil {
+		return
+	}
+	var uid sql.NullInt64
+	if userID != nil && *userID > 0 {
+		uid = sql.NullInt64{Int64: *userID, Valid: true}
+	}
+	var detailsJSON sql.NullString
+	if details != nil {
+		if b, err := json.Marshal(details); err == nil {
+			detailsJSON = sql.NullString{String: string(b), Valid: true}
+		}
+	}
+	_, _ = database.CreateAuditLog(ctx, db.CreateAuditLogParams{
+		UserID:       uid,
+		Action:       action,
+		ResourceType: sql.NullString{String: "admin_user", Valid: true},
+		ResourceID:   uid,
+		Details:      detailsJSON,
+		SourceIp:     sql.NullString{String: sourceIP, Valid: sourceIP != ""},
+	})
+}
+
+// authClientIP resolves the request's client IP from the request-info
+// middleware for audit and rate-limit keys (docs/32 §4.1). Absent middleware
+// (tests, direct service construction) yields "".
+func authClientIP(ctx context.Context) string {
+	if info, ok := requestInfoFromContext(ctx); ok {
+		return info.ClientIP
+	}
+	return ""
+}
+
 // HashToken computes the deterministic SHA-256 hex string of a raw token string (OQ #11).
 func HashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
@@ -285,7 +338,7 @@ func (a *AuthInterceptor) authenticate(ctx context.Context, header http.Header, 
 	}
 
 	if bucket == bucketAdmin && user.Role != "admin" {
-		RecordAuditLogWithUser(ctx, a.authDB, &user.ID, "auth.access_denied", "admin_user", &user.ID, map[string]any{
+		recordAuthAudit(ctx, a.authDB, &user.ID, ActionAuthAccessDenied, authClientIP(ctx), map[string]any{
 			"username":  user.Username,
 			"procedure": procedure,
 		})
@@ -377,15 +430,36 @@ func (a *AuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc
 // AuthService implements supervisorv1connect.AuthServiceHandler.
 type AuthService struct {
 	supervisorv1connect.UnimplementedAuthServiceHandler
-	db  AuthDatabase
-	cfg SessionConfig
+	db      AuthDatabase
+	cfg     SessionConfig
+	limiter *loginRateLimiter
+	// dummyHash is compared against on the unknown-username path so both
+	// login failures run one bcrypt comparison and the response timing
+	// cannot reveal whether an account exists (docs/32 §4.3).
+	dummyHash []byte
 }
 
 // NewAuthService constructs an AuthService instance.
 func NewAuthService(authDB AuthDatabase, cfg SessionConfig) *AuthService {
+	// Generated once at startup with the configured cost; the comparison
+	// result is always discarded. If generation fails (invalid cost is
+	// rejected by config validation, so this is defense in depth), fall
+	// back to a fixed cost-12 hash of an unguessable random value - still
+	// a valid bcrypt hash to compare against.
+	dummyPwd, terr := GenerateOpaqueToken()
+	if terr != nil {
+		dummyPwd = "runnero-timing-equalizer-password"
+	}
+	dummy, err := bcrypt.GenerateFromPassword([]byte(dummyPwd), cfg.BcryptCost)
+	if err != nil {
+		// Cost 12 fallback; compare results are discarded either way.
+		dummy = []byte("$2a$12$C6UzMDM.H6dfI/f/IKcEeO7ZUBmSrHVpTGuBOqFvECCQ1cWRTfnU6")
+	}
 	return &AuthService{
-		db:  authDB,
-		cfg: cfg,
+		db:        authDB,
+		cfg:       cfg,
+		limiter:   newLoginRateLimiter(),
+		dummyHash: dummy,
 	}
 }
 
@@ -455,7 +529,7 @@ func (s *AuthService) SetupAdmin(ctx context.Context, req *connect.Request[super
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("creating admin user: %w", err))
 	}
 
-	recordAuditLogWithUser(ctx, s.db, &user.ID, "auth.setup_admin", "admin_user", &user.ID, map[string]any{
+	recordAuthAudit(ctx, s.db, &user.ID, ActionAuthSetupAdmin, authClientIP(ctx), map[string]any{
 		"username": username,
 	})
 
@@ -471,7 +545,12 @@ func (s *AuthService) SetupAdmin(ctx context.Context, req *connect.Request[super
 	return res, nil
 }
 
-// Login verifies credentials, creates an active session in SQLite, and returns an HttpOnly session cookie.
+// Login verifies credentials behind the brute-force guard and issues a
+// session on success (docs/32 §4). Both failure paths (unknown user, wrong
+// password) run exactly one bcrypt comparison, share the coarse
+// "invalid credentials" error and audit reason, and feed the same
+// username+IP rate-limit key - response shape and timing cannot reveal
+// whether an account exists.
 func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisorv1.LoginRequest]) (*connect.Response[supervisorv1.LoginResponse], error) {
 	username := strings.TrimSpace(req.Msg.Username)
 	password := req.Msg.Password
@@ -482,32 +561,41 @@ func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisor
 		return nil, invalidArgument(newViolation(RuleAuthUsernameRequired, "username", "username must not be empty"))
 	}
 
-	user, err := s.db.GetAdminUserByUsername(ctx, username)
-	if err != nil {
-		// Log failed attempt to audit_logs
-		recordAuditLogWithUser(ctx, s.db, nil, "auth.login_failed", "admin_user", nil, map[string]any{
-			"username": username,
-			"reason":   "user_not_found",
+	clientIP := authClientIP(ctx)
+	key := rateLimitKey(username, clientIP)
+
+	if retry, locked := s.limiter.retryAfter(key); locked {
+		recordAuthAudit(ctx, s.db, nil, ActionAuthRateLimited, clientIP, map[string]any{
+			"username":    username,
+			"retry_after": int(retry.Seconds()),
 		})
+		return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("too many failed login attempts, try again in %d seconds", int(retry.Seconds())))
+	}
+
+	user, lookupErr := s.db.GetAdminUserByUsername(ctx, username)
+	if lookupErr != nil {
+		// Unknown username: burn one bcrypt comparison against the startup
+		// dummy hash and discard the result, then take the identical
+		// failure path (docs/32 §4.3).
+		_ = bcrypt.CompareHashAndPassword(s.dummyHash, []byte(password))
+		s.loginFailure(ctx, nil, username, clientIP)
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid username or password"))
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		recordAuditLogWithUser(ctx, s.db, &user.ID, "auth.login_failed", "admin_user", &user.ID, map[string]any{
-			"username": username,
-			"reason":   "invalid_password",
-		})
+		s.loginFailure(ctx, &user.ID, username, clientIP)
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid username or password"))
 	}
+
+	s.limiter.reset(key)
 
 	setCookie, err := s.issueSession(ctx, user, req.Header().Get("User-Agent"))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("issuing session: %w", err))
 	}
 
-	recordAuditLogWithUser(ctx, s.db, &user.ID, "auth.login", "admin_user", &user.ID, map[string]any{
-		"username": username,
-		"status":   "success",
+	recordAuthAudit(ctx, s.db, &user.ID, ActionAuthLoginSuccess, clientIP, map[string]any{
+		"username": user.Username,
 	})
 
 	res := connect.NewResponse(&supervisorv1.LoginResponse{
@@ -516,6 +604,17 @@ func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisor
 	})
 	res.Header().Set("Set-Cookie", setCookie)
 	return res, nil
+}
+
+// loginFailure records one failed attempt in the rate limiter and the audit
+// log with the coarse reason. userID stays nil for unknown usernames, which
+// keeps the two paths indistinguishable in the response.
+func (s *AuthService) loginFailure(ctx context.Context, userID *int64, username, clientIP string) {
+	s.limiter.recordFailure(rateLimitKey(username, clientIP))
+	recordAuthAudit(ctx, s.db, userID, ActionAuthLoginFailed, clientIP, map[string]any{
+		"username": username,
+		"reason":   "invalid_credentials",
+	})
 }
 
 // GetSession reports the authenticated session (the interceptor has already

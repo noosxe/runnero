@@ -29,11 +29,6 @@ func recordAuditLog(ctx context.Context, database AuditLogDatabase, action, reso
 	RecordAuditLog(ctx, database, action, resourceType, resourceID, details)
 }
 
-// recordAuditLogWithUser is an internal alias for RecordAuditLogWithUser.
-func recordAuditLogWithUser(ctx context.Context, database AuditLogDatabase, userID *int64, action, resourceType string, resourceID *int64, details any) {
-	RecordAuditLogWithUser(ctx, database, userID, action, resourceType, resourceID, details)
-}
-
 // RecordAuditLogWithUser records an audit log row with an explicit user ID (e.g. during login or setup).
 func RecordAuditLogWithUser(ctx context.Context, database AuditLogDatabase, userID *int64, action, resourceType string, resourceID *int64, details any) {
 	if database == nil {

@@ -27,3 +27,9 @@ LIMIT ? OFFSET ?;
 
 -- name: CountAuditLogs :one
 SELECT COUNT(*) FROM audit_logs;
+
+-- name: PurgeAuditLogsOlderThan :execrows
+-- Hourly maintenance (docs/32 section 5.2): enforce the audit retention
+-- horizon (default 90d).
+DELETE FROM audit_logs
+WHERE created_at < ?;

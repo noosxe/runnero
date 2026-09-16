@@ -52,16 +52,6 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	return i, err
 }
 
-const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
-DELETE FROM sessions
-WHERE expires_at < ?
-`
-
-func (q *Queries) DeleteExpiredSessions(ctx context.Context, expiresAt time.Time) error {
-	_, err := q.db.ExecContext(ctx, deleteExpiredSessions, expiresAt)
-	return err
-}
-
 const deleteSessionByTokenHash = `-- name: DeleteSessionByTokenHash :exec
 DELETE FROM sessions
 WHERE token_hash = ?
@@ -139,6 +129,21 @@ func (q *Queries) ListSessionsByUserId(ctx context.Context, userID int64) ([]Ses
 		return nil, err
 	}
 	return items, nil
+}
+
+const purgeExpiredSessions = `-- name: PurgeExpiredSessions :execrows
+DELETE FROM sessions
+WHERE expires_at < ?1 OR absolute_expires_at < ?1
+`
+
+// Hourly maintenance (docs/32 section 5.2): delete sessions past either
+// clock - the sliding idle deadline or the fixed absolute cap.
+func (q *Queries) PurgeExpiredSessions(ctx context.Context, now time.Time) (int64, error) {
+	result, err := q.db.ExecContext(ctx, purgeExpiredSessions, now)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const touchSession = `-- name: TouchSession :exec

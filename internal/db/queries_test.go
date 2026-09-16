@@ -98,13 +98,13 @@ func TestQueriesRoundTrip(t *testing.T) {
 			t.Fatalf("ListSessionsByUserId failed: %v, count %d", err, len(byUser))
 		}
 
-		if err := database.DeleteExpiredSessions(ctx, time.Now().Add(48*time.Hour)); err != nil {
-			t.Fatalf("DeleteExpiredSessions failed: %v", err)
+		if _, err := database.PurgeExpiredSessions(ctx, time.Now().Add(48*time.Hour)); err != nil {
+			t.Fatalf("PurgeExpiredSessions failed: %v", err)
 		}
 
 		_, err = database.GetSessionByTokenHash(ctx, "token_hash_abc123")
 		if err != sql.ErrNoRows {
-			t.Fatalf("expected sql.ErrNoRows after DeleteExpiredSessions, got %v", err)
+			t.Fatalf("expected sql.ErrNoRows after PurgeExpiredSessions, got %v", err)
 		}
 	})
 
