@@ -380,6 +380,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
+- **[Design Phase] TanStack Table Migration:** Migrate all web UI tables (job history, logs, runners, renovate, settings) to a shared headless core built on `@tanstack/react-table` v9 with the shadcn integration pattern — consistent sorting, server-paging contracts, and a reusable table toolkit. Design: `docs/31-tanstack-table-migration.md`.
 ---
 
 ## 📄 License
