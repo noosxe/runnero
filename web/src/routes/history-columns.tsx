@@ -1,9 +1,9 @@
 import { createColumnHelper } from "@tanstack/react-table";
 import { SortableHeader } from "../lib/tables/sortable-header";
 import { Badge } from "@/components/ui/badge";
+import { JobStatusBadge } from "@/components/common/job-status-badge";
 import { LinkButton } from "../lib/link-button";
-import { cn } from "cn";
-import { CheckCircle2, Clock, Terminal, XCircle } from "lucide-react";
+import { Terminal } from "lucide-react";
 import type { JobRecord } from "../gen/api_pb";
 import type { AppTableFeatures } from "../lib/tables/use-app-table";
 
@@ -52,34 +52,7 @@ export const jobHistoryColumns = () =>
     }),
     columnHelper.accessor("status", {
       header: "Status",
-      cell: ({ row }) => {
-        const isSuccess = row.original.status === "success";
-        const isFailed = row.original.status === "failure" || row.original.status === "failed";
-        const isRunning = row.original.status === "running";
-        return (
-          <Badge
-            className={cn(
-              "uppercase tracking-wider",
-              isSuccess
-                ? "border-success/30 bg-success/10 text-success"
-                : isFailed
-                  ? "border-destructive/30 bg-destructive/10 text-destructive"
-                  : isRunning
-                    ? "border-primary/30 bg-primary/10 text-primary"
-                    : "bg-muted text-muted-foreground",
-            )}
-          >
-            {isSuccess ? (
-              <CheckCircle2 className="size-3" />
-            ) : isFailed ? (
-              <XCircle className="size-3" />
-            ) : (
-              <Clock className="size-3" />
-            )}
-            <span>{row.original.status}</span>
-          </Badge>
-        );
-      },
+      cell: ({ row }) => <JobStatusBadge status={row.original.status} />,
     }),
     columnHelper.accessor("runnerName", {
       header: "Runner Name",

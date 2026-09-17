@@ -1,6 +1,5 @@
 import { createColumnHelper } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "cn";
+import { JobStatusBadge } from "@/components/common/job-status-badge";
 import type { RenovateRun } from "../gen/api_pb";
 import type { AppTableFeatures } from "../lib/tables/use-app-table";
 
@@ -20,30 +19,9 @@ export const renovateRunColumns = () =>
     }),
     columnHelper.accessor("status", {
       header: "Status",
-      cell: ({ row }) => (
-        <Badge
-          className={cn(
-            "uppercase tracking-wider",
-            row.original.status === "running"
-              ? "border-warning/30 bg-warning/10 text-warning"
-              : row.original.status === "success"
-                ? "border-success/30 bg-success/10 text-success"
-                : "border-destructive/30 bg-destructive/10 text-destructive",
-          )}
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              row.original.status === "running"
-                ? "bg-warning animate-ping"
-                : row.original.status === "success"
-                  ? "bg-success"
-                  : "bg-destructive",
-            )}
-          />
-          <span>{row.original.status}</span>
-        </Badge>
-      ),
+      // Renovate runs reuse the job status vocabulary (running/success/
+      // failure) and the shared badge — one status system app-wide.
+      cell: ({ row }) => <JobStatusBadge status={row.original.status} />,
     }),
     columnHelper.accessor("startedAt", {
       header: "Started At",

@@ -49,7 +49,24 @@ Semantic tokens (preset-owned, both modes):
 App-specific additions (re-add if `apply --preset` rewrites index.css):
   --success  oklch(0.627 0.17 149.2)   status pills, healthy states
   --warning  oklch(0.666 0.179 58.318) degraded states (= preset's --chart-3 amber)
+  --notice   oklch(0.545 0.2 295)      interrupted jobs (violet; brighter in dark mode)
 ```
+
+**Job status colors** — one vocabulary (the `job_history.status` CHECK in
+migration 004), one component (`components/common/job-status-badge.tsx`,
+docs/21 §5 semantics), one color per family everywhere:
+
+| status | family | token |
+|---|---|---|
+| success | green | `success` |
+| failure, timeout | red | `destructive` |
+| completed, cancelled | gray | `muted` |
+| queued | amber | `warning` |
+| running | blue | `primary` (spinner icon) |
+| interrupted | violet | `notice` |
+
+Unknown/forward-compat statuses render the raw value in neutral gray. Renovate
+runs (running/success/failure) reuse the same badge.
 
 
 ### 1.3.1 Component System (shadcn/ui) — as built
