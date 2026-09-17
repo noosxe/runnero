@@ -132,7 +132,7 @@ func (s *AuthEngineTestSuite) TestLoginAuthenticationFlow() {
 	sessRes, err := s.authClient.GetSession(s.ctx, getReq)
 	s.Require().NoError(err)
 	s.Assert().Equal("admin", sessRes.Msg.Username)
-	s.Assert().True(sessRes.Msg.IsAdmin)
+	s.Assert().Equal("admin", sessRes.Msg.Role)
 
 	// 5. Revoked session: delete session from DB, subsequent GetSession fails
 	tokenHash := server.HashToken(rawCookie)

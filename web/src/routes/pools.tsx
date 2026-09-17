@@ -46,8 +46,11 @@ import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targe
 import { PoolHealthStatus, type Pool } from "../gen/api_pb";
 
 export function PoolsPage() {
+  const isAdmin = useIsAdmin();
   const { data: pools, isLoading } = usePools();
-  const { data: authProfiles, isLoading: authProfilesLoading } = useAuthProfiles();
+  // Admin-bucket read gated for viewers (docs/35 section 2.2): the
+  // missing-auth-profile banner is an admin concern.
+  const { data: authProfiles, isLoading: authProfilesLoading } = useAuthProfiles(isAdmin);
   const { data: session } = useSession();
   const { isConnected } = useWatchPools();
   const hasAuthProfiles = Boolean(authProfiles && authProfiles.length > 0);
@@ -57,7 +60,6 @@ export function PoolsPage() {
   const [scopeFilter, setScopeFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
 
-  const isAdmin = useIsAdmin();
   // Create Pool Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
 

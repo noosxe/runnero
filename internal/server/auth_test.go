@@ -172,7 +172,7 @@ func TestAuthEngineFullLifecycleAndRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSession with cookie failed: %v", err)
 	}
-	if getRes.Msg.Username != "admin" || !getRes.Msg.IsAdmin {
+	if getRes.Msg.Username != "admin" || getRes.Msg.Role != "admin" {
 		t.Errorf("unexpected GetSession response: %+v", getRes.Msg)
 	}
 	if getRes.Msg.HostArch != server.HostArch() || getRes.Msg.HostOs != server.HostOS() {

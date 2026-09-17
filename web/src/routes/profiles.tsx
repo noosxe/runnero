@@ -36,7 +36,9 @@ export function ProfilesPage() {
   // its entirety (docs/35 section 2.2). The server denies viewers anyway;
   // the gate only avoids rendering a broken editing surface.
   const isAdmin = useIsAdmin();
-  const { data: profiles, isLoading } = useAuthProfiles();
+  // Admin-bucket read: never fired for viewers, whose early return below
+  // renders the admin-role empty state (docs/35 section 2.4).
+  const { data: profiles, isLoading } = useAuthProfiles(isAdmin);
   const deleteProfileMutation = useDeleteAuthProfile();
 
   const [modal, setModal] = useState<ProfileModalState | null>(null);
@@ -53,7 +55,7 @@ export function ProfilesPage() {
 
   if (!isAdmin) {
     return (
-      <Empty className="border border-dashed">
+      <Empty className="border border-dashed" data-testid="admin-required">
         <EmptyHeader>
           <EmptyTitle>Admin role required</EmptyTitle>
           <EmptyDescription>

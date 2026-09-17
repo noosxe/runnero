@@ -46,6 +46,7 @@ vi.mock("./lib/api/query-hooks", () => ({
     data: [],
     isLoading: false,
   }),
+  useIsAdmin: () => true,
   useAuthProfiles: () => ({
     data: [{ id: 1n, name: "test-auth-profile" }],
     isLoading: false,

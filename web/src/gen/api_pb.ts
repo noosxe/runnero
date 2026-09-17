@@ -669,8 +669,10 @@ export type GetSessionResponse = Message<"supervisor.v1.GetSessionResponse"> & {
   username: string;
 
   /**
-   * Deprecated: computed as role == "admin"; kept so older consumers keep
-   * working. New code reads `role` (docs/35 §2.4).
+   * Back-compat only: computed as role == "admin"; new code reads `role`
+   * (docs/35 §2.4). Deliberately not marked Deprecated - the field stays
+   * populated on the wire for existing external consumers, and Go's
+   * deprecation lint would flag every in-repo touch point.
    *
    * @generated from field: bool is_admin = 2;
    */
