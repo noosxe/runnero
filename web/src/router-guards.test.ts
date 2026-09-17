@@ -209,4 +209,32 @@ describe("Route Guards & Redirect Matrix Logic", () => {
       });
     });
   });
+
+  describe("Guard error handling (RUN-243 fail-closed)", () => {
+    it("fetchOnboardingStatus rejects on RPC failure — never synthesizes adminCreated=false", async () => {
+      vi.spyOn(onboardingClient, "getOnboardingStatus").mockRejectedValue(
+        new Error("connection lost"),
+      );
+
+      await expect(fetchOnboardingStatus(testQueryClient)).rejects.toThrow("connection lost");
+    });
+
+    it("guarded beforeLoads propagate the error instead of redirecting to /onboarding or /login", async () => {
+      vi.spyOn(onboardingClient, "getOnboardingStatus").mockRejectedValue(
+        new Error("connection lost"),
+      );
+
+      // A redirect rejection carries { options: { to } }; a propagated error is a
+      // plain Error the router renders via GuardErrorPage.
+      await expect(loginRoute.options.beforeLoad?.({} as any)).rejects.toThrow("connection lost");
+      await expect(onboardingRoute.options.beforeLoad?.({} as any)).rejects.toThrow(
+        "connection lost",
+      );
+      await expect(
+        authenticatedRoute.options.beforeLoad?.({
+          location: { pathname: "/pools" },
+        } as any),
+      ).rejects.toThrow("connection lost");
+    });
+  });
 });

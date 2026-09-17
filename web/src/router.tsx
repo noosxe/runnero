@@ -19,6 +19,7 @@ import { RenovatePage } from "./routes/renovate";
 import { SettingsPage } from "./routes/settings";
 import { LoginPage } from "./routes/login";
 import { OnboardingPage } from "./routes/onboarding";
+import { GuardErrorPage } from "./routes/guard-error";
 import { fetchOnboardingStatus, fetchSession } from "./lib/api/query-hooks";
 
 export const queryClient = new QueryClient({
@@ -43,6 +44,7 @@ const rootRoute = createRootRoute({
 export const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
+  errorComponent: GuardErrorPage, // RUN-243: RPC failure fails closed, never into the wizard
   component: LoginPage,
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: typeof search.redirect === "string" ? search.redirect : undefined,
@@ -62,6 +64,7 @@ export const loginRoute = createRoute({
 export const onboardingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/onboarding",
+  errorComponent: GuardErrorPage, // RUN-243: RPC failure fails closed, never into the wizard
   component: OnboardingPage,
   beforeLoad: async () => {
     const onboarding = await fetchOnboardingStatus(queryClient);
@@ -79,6 +82,7 @@ export const onboardingRoute = createRoute({
 export const authenticatedRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "_authenticated",
+  errorComponent: GuardErrorPage, // RUN-243: RPC failure fails closed, never into the wizard
   component: AppShell,
   beforeLoad: async ({ location }) => {
     const onboarding = await fetchOnboardingStatus(queryClient);

@@ -89,6 +89,7 @@ graph TD
 | `setup_complete: true`, Authenticated | `/login` or `/onboarding` | Redirect to `/` |
 | `setup_complete: true`, Authenticated | Any protected route | Allow access |
 
+**Guard RPC failures fail closed (RUN-243).** The matrix above is only evaluated on a *successful* `GetOnboardingStatus` response. When the RPC itself fails (network blip, unreachable supervisor), the guards propagate the error instead of synthesizing a fresh-install default — the router renders a dedicated guard-error screen ("Can't reach the supervisor", retry button) on `/login`, `/onboarding`, and all protected routes. A failed status check must never look like a fresh install, or a transient error would strand a fully onboarded operator on the onboarding wizard, one submit away from re-running SetupAdmin against an existing database.
 ---
 
 ## 3. Global App Shell Layout

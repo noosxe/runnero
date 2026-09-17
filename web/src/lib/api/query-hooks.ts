@@ -121,25 +121,23 @@ export function useCompleteOnboarding() {
 }
 
 // Direct Query Helpers (used for route guards and preloading)
+//
+// CONTRACT (RUN-243): this fetcher FAILS CLOSED. A failed GetOnboardingStatus RPC
+// propagates the error to the caller — it must never synthesize a fresh-install
+// default (adminCreated=false), because route guards would then treat a live,
+// fully onboarded server as an unbootstrapped one and strand the operator on the
+// onboarding wizard (one transient network error, e.g. a tailscale blip). A fresh
+// install is identified exclusively by a SUCCESSFUL response with adminCreated=false.
+// Route guards render GuardErrorPage (web/src/routes/guard-error.tsx) on failure.
 export async function fetchOnboardingStatus(qc: QueryClient) {
-  try {
-    return await qc.ensureQueryData({
-      queryKey: queryKeys.onboardingStatus,
-      queryFn: async () => {
-        const res = await onboardingClient.getOnboardingStatus({});
-        return res;
-      },
-      staleTime: 30_000,
-    });
-  } catch {
-    return {
-      setupComplete: false,
-      adminCreated: false,
-      authProfileExists: false,
-      poolExists: false,
-      onboardingCompleted: false,
-    };
-  }
+  return await qc.ensureQueryData({
+    queryKey: queryKeys.onboardingStatus,
+    queryFn: async () => {
+      const res = await onboardingClient.getOnboardingStatus({});
+      return res;
+    },
+    staleTime: 30_000,
+  });
 }
 
 export async function fetchSession(qc: QueryClient) {
