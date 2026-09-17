@@ -385,7 +385,16 @@ message JobRecord {
   string queued_at = 5;
   string started_at = 6;
   string completed_at = 7;
+  double duration_seconds = 8;
+  double queue_time_seconds = 9;
+  string pool_name = 10;
 }
+
+`duration_seconds`, `queue_time_seconds`, and `pool_name` are derived, never
+stored: every producer (GetJobHistory, GetJobRecord, WatchDashboard) converts
+rows through one shared converter that computes `queue_time_seconds =
+started_at − queued_at` and `duration_seconds = completed_at − started_at`
+(missing side or clock-skew-negative → 0, rendered as "—" by the UI; RUN-246).
 
 message GetJobHistoryRequest {
   int64 pool_id = 1; // 0 for all

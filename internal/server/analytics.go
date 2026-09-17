@@ -167,38 +167,7 @@ func (s *AnalyticsService) GetJobHistory(ctx context.Context, req *connect.Reque
 	}
 
 	for _, j := range jobs {
-		rec := &supervisorv1.JobRecord{
-			Id:         j.ID,
-			PoolId:     j.PoolID,
-			RunnerName: j.RunnerName,
-			Status:     j.Status,
-			PoolName:   poolMap[j.PoolID],
-		}
-		if j.QueuedAt.Valid {
-			rec.QueuedAt = j.QueuedAt.Time.Format(time.RFC3339)
-		}
-		if j.StartedAt.Valid {
-			rec.StartedAt = j.StartedAt.Time.Format(time.RFC3339)
-		}
-		if j.CompletedAt.Valid {
-			rec.CompletedAt = j.CompletedAt.Time.Format(time.RFC3339)
-		}
-
-		if j.QueuedAt.Valid && j.StartedAt.Valid {
-			rec.QueueTimeSeconds = j.StartedAt.Time.Sub(j.QueuedAt.Time).Seconds()
-			if rec.QueueTimeSeconds < 0 {
-				rec.QueueTimeSeconds = 0
-			}
-		}
-
-		if j.StartedAt.Valid && j.CompletedAt.Valid {
-			rec.DurationSeconds = j.CompletedAt.Time.Sub(j.StartedAt.Time).Seconds()
-			if rec.DurationSeconds < 0 {
-				rec.DurationSeconds = 0
-			}
-		}
-
-		resp.Jobs = append(resp.Jobs, rec)
+		resp.Jobs = append(resp.Jobs, jobRecordFromRow(j, poolMap[j.PoolID]))
 	}
 
 	return connect.NewResponse(resp), nil
@@ -224,34 +193,7 @@ func (s *AnalyticsService) GetJobRecord(ctx context.Context, req *connect.Reques
 		}
 	}
 
-	rec := &supervisorv1.JobRecord{
-		Id:         j.ID,
-		PoolId:     j.PoolID,
-		RunnerName: j.RunnerName,
-		Status:     j.Status,
-		PoolName:   poolName,
-	}
-	if j.QueuedAt.Valid {
-		rec.QueuedAt = j.QueuedAt.Time.Format(time.RFC3339)
-	}
-	if j.StartedAt.Valid {
-		rec.StartedAt = j.StartedAt.Time.Format(time.RFC3339)
-	}
-	if j.CompletedAt.Valid {
-		rec.CompletedAt = j.CompletedAt.Time.Format(time.RFC3339)
-	}
-	if j.QueuedAt.Valid && j.StartedAt.Valid {
-		rec.QueueTimeSeconds = j.StartedAt.Time.Sub(j.QueuedAt.Time).Seconds()
-		if rec.QueueTimeSeconds < 0 {
-			rec.QueueTimeSeconds = 0
-		}
-	}
-	if j.StartedAt.Valid && j.CompletedAt.Valid {
-		rec.DurationSeconds = j.CompletedAt.Time.Sub(j.StartedAt.Time).Seconds()
-		if rec.DurationSeconds < 0 {
-			rec.DurationSeconds = 0
-		}
-	}
+	rec := jobRecordFromRow(j, poolName)
 
 	return connect.NewResponse(&supervisorv1.GetJobRecordResponse{
 		Job: rec,
@@ -335,6 +277,45 @@ func (s *AnalyticsService) GetSystemStats(ctx context.Context, req *connect.Requ
 	}), nil
 }
 
+// jobRecordFromRow converts a job-history row into its wire representation,
+// deriving the timing fields from the row's timestamps. This is the single
+// conversion point for every JobRecord producer — GetJobHistory, GetJobRecord,
+// and the WatchDashboard stream (RUN-246): the stream's inline builder used to
+// skip the derived fields, so the dashboard's Recent Executions table, which
+// the stream's cache writes overwrite every tick, showed Duration and Queue
+// Wait as permanently empty.
+//
+//	queue_time_seconds = started_at - queued_at
+//	duration_seconds   = completed_at - started_at
+//
+// Either side missing, or a negative difference (clock skew), yields 0 — the
+// frontend renders that as an em dash.
+func jobRecordFromRow(j db.JobHistory, poolName string) *supervisorv1.JobRecord {
+	rec := &supervisorv1.JobRecord{
+		Id:         j.ID,
+		PoolId:     j.PoolID,
+		RunnerName: j.RunnerName,
+		Status:     j.Status,
+		PoolName:   poolName,
+	}
+	if j.QueuedAt.Valid {
+		rec.QueuedAt = j.QueuedAt.Time.Format(time.RFC3339)
+	}
+	if j.StartedAt.Valid {
+		rec.StartedAt = j.StartedAt.Time.Format(time.RFC3339)
+	}
+	if j.CompletedAt.Valid {
+		rec.CompletedAt = j.CompletedAt.Time.Format(time.RFC3339)
+	}
+	if j.QueuedAt.Valid && j.StartedAt.Valid {
+		rec.QueueTimeSeconds = max(0, j.StartedAt.Time.Sub(j.QueuedAt.Time).Seconds())
+	}
+	if j.StartedAt.Valid && j.CompletedAt.Valid {
+		rec.DurationSeconds = max(0, j.CompletedAt.Time.Sub(j.StartedAt.Time).Seconds())
+	}
+	return rec
+}
+
 // WatchDashboard provides near-realtime server-streaming push of system stats, pool states, and recent jobs.
 func (s *AnalyticsService) WatchDashboard(ctx context.Context, req *connect.Request[supervisorv1.WatchDashboardRequest], stream *connect.ServerStream[supervisorv1.WatchDashboardResponse]) error {
 	intervalMs := req.Msg.IntervalMs
@@ -375,23 +356,16 @@ func (s *AnalyticsService) WatchDashboard(ctx context.Context, req *connect.Requ
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("listing recent jobs: %w", err))
 		}
 		recentJobs := make([]*supervisorv1.JobRecord, 0, len(jobs))
+		poolMap := make(map[int64]string, len(dbPools))
+		for _, p := range dbPools {
+			poolMap[p.ID] = p.Name
+		}
 		for _, j := range jobs {
-			rec := &supervisorv1.JobRecord{
-				Id:         j.ID,
-				PoolId:     j.PoolID,
-				RunnerName: j.RunnerName,
-				Status:     j.Status,
-			}
-			if j.QueuedAt.Valid {
-				rec.QueuedAt = j.QueuedAt.Time.Format(time.RFC3339)
-			}
-			if j.StartedAt.Valid {
-				rec.StartedAt = j.StartedAt.Time.Format(time.RFC3339)
-			}
-			if j.CompletedAt.Valid {
-				rec.CompletedAt = j.CompletedAt.Time.Format(time.RFC3339)
-			}
-			recentJobs = append(recentJobs, rec)
+			// Shared converter (RUN-246): the inline builder here used to skip
+			// the derived timing fields, so the dashboard's Recent Executions
+			// table — fed by this stream's cache writes — showed Duration and
+			// Queue Wait as permanently empty.
+			recentJobs = append(recentJobs, jobRecordFromRow(j, poolMap[j.PoolID]))
 		}
 
 		return stream.Send(&supervisorv1.WatchDashboardResponse{
