@@ -41,6 +41,7 @@ const mockDeleteMutateAsync = vi.fn();
 const mockUpdateMutateAsync = vi.fn();
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   useAuthProfiles: () => ({
     data: mockProfiles,
     isLoading: mockIsLoading,

@@ -62,6 +62,7 @@ let isPoolsLoading = false;
 vi.mock("@tanstack/react-router", () => createRouterMock());
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   DEFAULT_STATS_TIMEFRAME_HOURS: 24,
   useSystemStats: () => ({
     data: currentStats,

@@ -32,6 +32,7 @@ const mockLogs = [
 vi.mock("@tanstack/react-router", () => createRouterMock({ useParams: () => ({ jobId: "101" }) }));
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   useJobRecord: () => ({
     data: mockJob,
     isLoading: false,

@@ -13,6 +13,7 @@ const mockSetTheme = vi.fn();
 let mockTheme = "light";
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   useLogin: () => ({
     mutateAsync: mockMutateAsync,
     get isPending() {

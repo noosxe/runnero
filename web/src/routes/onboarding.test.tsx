@@ -33,6 +33,7 @@ const mockLogin = vi.fn();
 vi.mock("@tanstack/react-router", () => createRouterMock({ useNavigate: () => mockNavigate }));
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   useOnboardingStatus: () => ({
     data: mockOnboardingStatus,
     isLoading: false,

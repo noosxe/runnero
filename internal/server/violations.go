@@ -57,6 +57,10 @@ const (
 	// violation so form clients can mark the field (docs/30 §5.3 channel).
 	RuleAuthPasswordCurrentMismatch = "auth.password.current_mismatch"
 	RuleAppSettingKeyRequired       = "app_setting.key.required"
+	// UserService role writes (internal/server/users.go): the role is an
+	// application vocabulary (admin|viewer), not a free string, so a bad
+	// value is a typed field violation on the role field.
+	RuleAuthRoleInvalid = "auth.role.invalid"
 )
 
 // newViolation builds one buf.validate.Violation: a stable rule id from the

@@ -471,7 +471,7 @@ stream data, so toggling the chart's timeframe sticks.
 +-----------------------------------------------------------------------------------------------+
 | Supervisor Settings & Administration                                                          |
 +-----------------------------------------------------------------------------------------------+
-| Tabs: [ Global Constraints ]  [ Runner Image Updates ]  [ Database & Retention ]  [ Security ] |
+| Tabs: [ Global Constraints ]  [ Runner Image Updates ]  [ Database & Retention ]  [ Security ]  [ Users ] |
 +-----------------------------------------------------------------------------------------------+
 | TAB: Global Constraints                                                                       |
 | +-------------------------------------------------------------------------------------------+ |
@@ -509,6 +509,31 @@ Security tab — Passkeys card (RUN-248, docs/34 §4.2), rendered only when
   confirm dialog that notes the password fallback is unaffected. No passkey
   action ever revokes sessions — that is deliberately the session list's
   lever (docs/34 §4.4).
+
+Users tab — account management card (RUN-236, docs/35 §2.4), rendered only
+for admins (a viewer's settings page is the Security tab alone):
+
+- **List**: username (with a `you` badge on the caller's row), role chip
+  (`Admin` / `Viewer`), creation date, and per-row actions — role change,
+  password reset, delete.
+- **Add user**: dialog (username ≤64 chars, initial password with a
+  client-side repeat check, role select); server rejections (duplicate
+  username) surface inside the dialog.
+- **Role change** and **delete** run behind confirm dialogs; the caller's
+  own delete button is disabled (the server refuses self-delete
+  regardless), and self-demote warns that the session downgrades on the
+  next request. Last-admin refusals surface as toasts — the server, not
+  the UI, is the enforcement point.
+- **Reset password**: new password ×2; on success the toast reports how
+  many of the target's sessions were revoked.
+
+Role-aware rendering elsewhere (docs/35 §2.4): viewers get read-only
+surfaces everywhere — pools lose their create/edit buttons, pool detail
+hides edit/delete/terminate, auth profiles render an "Admin role required"
+empty state, and the logs page drops the supervisor/removals tabs (their
+`admin_users.role`-keyed data is admin-bucket server-side). `PermissionDenied`
+anywhere in the app shows an "Admin role required" toast and keeps the
+session — the opposite of `Unauthenticated`, which routes to login.
 
 ---
 

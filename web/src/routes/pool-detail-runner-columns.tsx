@@ -31,7 +31,8 @@ type RunnerColumnActions = {
   /** Undefined before the pool query resolves; limits fall back like the page does. */
   pool: Pool | undefined;
   onViewLogs: (runner: RunnerInstance) => void;
-  onTerminate: (runner: RunnerInstance) => void;
+  /** Omitted for viewers: terminate is an admin action (docs/35 section 2.2). */
+  onTerminate?: (runner: RunnerInstance) => void;
 };
 
 /**
@@ -133,10 +134,12 @@ export const runnerColumns = ({ pool, onViewLogs, onTerminate }: RunnerColumnAct
                 <Terminal />
                 Logs
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onClick={() => onTerminate(row.original)}>
-                <Trash2 />
-                Terminate
-              </DropdownMenuItem>
+              {onTerminate && (
+                <DropdownMenuItem variant="destructive" onClick={() => onTerminate(row.original)}>
+                  <Trash2 />
+                  Terminate
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>

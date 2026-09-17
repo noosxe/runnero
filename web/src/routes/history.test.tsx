@@ -40,6 +40,7 @@ const mockJobs = [
 let mockJobHistoryParams: any = null;
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   usePools: () => ({
     data: mockPools,
     isLoading: false,

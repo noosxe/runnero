@@ -24,9 +24,11 @@ import {
   usePools,
   useImageUpdates,
   useCheckImageUpdate,
+  useIsAdmin,
 } from "../lib/api/query-hooks";
+import { UsersCard } from "../components/settings/users-card";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import { Sliders, RefreshCw, Database, Save, Archive, ShieldCheck } from "lucide-react";
+import { Sliders, RefreshCw, Database, Save, Archive, ShieldCheck, Users } from "lucide-react";
 import { SecurityTab } from "../components/security/security-tab";
 
 /**
@@ -60,11 +62,20 @@ const CONSTRAINT_BOUNDS: Record<
 };
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<"constraints" | "images" | "backups" | "security">(
-    "constraints",
-  );
+  const isAdmin = useIsAdmin();
+  // Tab selection: admins land on Global Constraints (unchanged behavior);
+  // a viewer's settings page is the Security tab only (docs/35 section
+  // 2.4) - every other tab is an admin surface, so viewers land on
+  // security. Held as null until the role resolves so the first paint
+  // already shows the right tab.
+  const [selectedTab, setSelectedTab] = useState<
+    "constraints" | "images" | "backups" | "security" | "users" | null
+  >(null);
+  const activeTab = selectedTab ?? (isAdmin ? "constraints" : "security");
+  const setActiveTab = setSelectedTab;
 
-  const { data: settings, isLoading: settingsLoading } = useAppSettings();
+  // Admin-bucket read: only fired for admins (docs/35 section 2.2).
+  const { data: settings, isLoading: settingsLoading } = useAppSettings(isAdmin);
   const { data: pools } = usePools();
   const { data: updates } = useImageUpdates();
   const setSettingMutation = useSetAppSetting();
@@ -201,48 +212,54 @@ export function SettingsPage() {
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-border ">
-        <button
-          type="button"
-          onClick={() => setActiveTab("constraints")}
-          className={cn(
-            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
-            activeTab === "constraints"
-              ? "border-primary/50 text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Sliders className="size-4" />
-          <span>Global Constraints</span>
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("constraints")}
+            className={cn(
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
+              activeTab === "constraints"
+                ? "border-primary/50 text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Sliders className="size-4" />
+            <span>Global Constraints</span>
+          </button>
+        )}
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("images")}
-          className={cn(
-            "relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
-            activeTab === "images"
-              ? "border-primary/50 text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <RefreshCw className="size-4" />
-          <span>Runner Image Updates</span>
-          {updates && updates.length > 0 && <WarningBadge>{updates.length}</WarningBadge>}
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("images")}
+            className={cn(
+              "relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
+              activeTab === "images"
+                ? "border-primary/50 text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <RefreshCw className="size-4" />
+            <span>Runner Image Updates</span>
+            {updates && updates.length > 0 && <WarningBadge>{updates.length}</WarningBadge>}
+          </button>
+        )}
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("backups")}
-          className={cn(
-            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
-            activeTab === "backups"
-              ? "border-primary/50 text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Database className="size-4" />
-          <span>Database & Retention</span>
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("backups")}
+            className={cn(
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
+              activeTab === "backups"
+                ? "border-primary/50 text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Database className="size-4" />
+            <span>Database & Retention</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -257,10 +274,29 @@ export function SettingsPage() {
           <ShieldCheck className="size-4" />
           <span>Security</span>
         </button>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("users")}
+            className={cn(
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
+              activeTab === "users"
+                ? "border-primary/50 text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Users className="size-4" />
+            <span>Users</span>
+          </button>
+        )}
       </div>
 
-      {/* Tab: Security */}
+      {/* Tab: Security - self-service for every role (docs/35 section 2.2) */}
       {activeTab === "security" && <SecurityTab />}
+
+      {/* Tab: Users - admin-only management surface (RUN-236) */}
+      {isAdmin && activeTab === "users" && <UsersCard />}
 
       {/* Tab: Global Constraints */}
       {activeTab === "constraints" && (

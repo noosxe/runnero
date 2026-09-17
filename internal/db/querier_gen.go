@@ -28,6 +28,7 @@ type Querier interface {
 	CloseStaleOpenJobsSince(ctx context.Context, arg CloseStaleOpenJobsSinceParams) (int64, error)
 	CompleteRenovateRun(ctx context.Context, arg CompleteRenovateRunParams) (RenovateRun, error)
 	CompleteRenovateRunByContainerID(ctx context.Context, arg CompleteRenovateRunByContainerIDParams) (RenovateRun, error)
+	CountAdminRoleUsers(ctx context.Context) (int64, error)
 	CountAdminUsers(ctx context.Context) (int64, error)
 	CountAuditLogs(ctx context.Context) (int64, error)
 	CountAuthProfiles(ctx context.Context) (int64, error)
@@ -156,6 +157,7 @@ type Querier interface {
 	// writing: the cap is never extended.
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) (AdminUser, error)
+	UpdateAdminRole(ctx context.Context, arg UpdateAdminRoleParams) (AdminUser, error)
 	UpdateAuthProfile(ctx context.Context, arg UpdateAuthProfileParams) (AuthProfile, error)
 	UpdateJobHistoryStatus(ctx context.Context, arg UpdateJobHistoryStatusParams) (JobHistory, error)
 	UpdateRenovateConfig(ctx context.Context, arg UpdateRenovateConfigParams) (RenovateConfig, error)

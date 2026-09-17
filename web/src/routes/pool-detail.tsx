@@ -61,6 +61,7 @@ import { PoolDiagnosticsCard } from "../components/pools/pool-diagnostics-card";
 import { PoolPollStatus } from "../components/pools/pool-poll-status";
 import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { PoolDeleteModal } from "../components/pools/pool-delete-modal";
+import { useIsAdmin } from "../lib/api/query-hooks";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { DataTable, useAppTable } from "../lib/tables";
 import { renovateRunColumns } from "./renovate-run-columns";
@@ -99,6 +100,7 @@ export function PoolDetailPage() {
   const { isConnected: isStreamActive } = useWatchRunners(poolIdBigInt);
 
   const [activeTab, setActiveTab] = useState<"runners" | "config" | "renovate">("runners");
+  const isAdmin = useIsAdmin();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);
@@ -112,11 +114,14 @@ export function PoolDetailPage() {
       runnerColumns({
         pool,
         onViewLogs: setSelectedRunnerForLogs,
-        onTerminate: setRunnerToTerminate,
+        // Terminate is an admin action (docs/35 section 2.2); hiding the
+        // button for viewers keeps the UI honest about what the server
+        // would allow.
+        onTerminate: isAdmin ? setRunnerToTerminate : undefined,
       }),
     // The setters are stable; `pool` changes per poll but rebuilding seven
     // column defs is trivially cheap.
-    [pool],
+    [pool, isAdmin],
   );
   // Client-side sorting over the live rows only (docs/31 §4.4): polling
   // keeps replacing `runners`, sorting just reorders whatever is current.
@@ -419,23 +424,27 @@ export function PoolDetailPage() {
             <CardTitle>Pool Parameters & Resource Limits</CardTitle>
             <CardAction>
               <div className="flex items-center gap-2">
-                <Button
-                  size="xs"
-                  aria-label="Edit pool configuration"
-                  onClick={() => setIsEditModalOpen(true)}
-                >
-                  <Pencil data-icon="inline-start" />
-                  <span>Edit Configuration</span>
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="xs"
-                  aria-label="Delete pool"
-                  onClick={() => setIsDeleteModalOpen(true)}
-                >
-                  <Trash2 data-icon="inline-start" />
-                  <span>Delete Pool</span>
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="xs"
+                    aria-label="Edit pool configuration"
+                    onClick={() => setIsEditModalOpen(true)}
+                  >
+                    <Pencil data-icon="inline-start" />
+                    <span>Edit Configuration</span>
+                  </Button>
+                )}
+                {isAdmin && (
+                  <Button
+                    variant="destructive"
+                    size="xs"
+                    aria-label="Delete pool"
+                    onClick={() => setIsDeleteModalOpen(true)}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    <span>Delete Pool</span>
+                  </Button>
+                )}
               </div>
             </CardAction>
           </CardHeader>

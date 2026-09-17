@@ -32,6 +32,7 @@ const mockPools = [
 const mockTriggerAsync = vi.fn();
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   usePools: () => ({
     data: mockPools,
     isLoading: false,

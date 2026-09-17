@@ -1525,11 +1525,17 @@ func (*GetSessionRequest) Descriptor() ([]byte, []int) {
 }
 
 type GetSessionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	IsAdmin       bool                   `protobuf:"varint,2,opt,name=is_admin,json=isAdmin,proto3" json:"is_admin,omitempty"`
-	HostArch      string                 `protobuf:"bytes,3,opt,name=host_arch,json=hostArch,proto3" json:"host_arch,omitempty"`
-	HostOs        string                 `protobuf:"bytes,4,opt,name=host_os,json=hostOs,proto3" json:"host_os,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Username string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	// Deprecated: computed as role == "admin"; kept so older consumers keep
+	// working. New code reads `role` (docs/35 §2.4).
+	IsAdmin  bool   `protobuf:"varint,2,opt,name=is_admin,json=isAdmin,proto3" json:"is_admin,omitempty"`
+	HostArch string `protobuf:"bytes,3,opt,name=host_arch,json=hostArch,proto3" json:"host_arch,omitempty"`
+	HostOs   string `protobuf:"bytes,4,opt,name=host_os,json=hostOs,proto3" json:"host_os,omitempty"`
+	// Live role of the calling user: "admin" | "viewer" (docs/35 §2.1). Read
+	// fresh from admin_users on every request, so role changes apply on the
+	// caller's next request with no re-login.
+	Role          string `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1588,6 +1594,13 @@ func (x *GetSessionResponse) GetHostArch() string {
 func (x *GetSessionResponse) GetHostOs() string {
 	if x != nil {
 		return x.HostOs
+	}
+	return ""
+}
+
+func (x *GetSessionResponse) GetRole() string {
+	if x != nil {
+		return x.Role
 	}
 	return ""
 }
@@ -6369,6 +6382,545 @@ func (x *DismissImageUpdateResponse) GetSuccess() bool {
 	return false
 }
 
+type ListUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersRequest) Reset() {
+	*x = ListUsersRequest{}
+	mi := &file_api_proto_msgTypes[109]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersRequest) ProtoMessage() {}
+
+func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[109]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
+func (*ListUsersRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{109}
+}
+
+type ListUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*UserInfo            `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersResponse) Reset() {
+	*x = ListUsersResponse{}
+	mi := &file_api_proto_msgTypes[110]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersResponse) ProtoMessage() {}
+
+func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[110]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
+func (*ListUsersResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{110}
+}
+
+func (x *ListUsersResponse) GetUsers() []*UserInfo {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type UserInfo struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Username string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	// "admin" | "viewer" (docs/35 section 2.1).
+	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserInfo) Reset() {
+	*x = UserInfo{}
+	mi := &file_api_proto_msgTypes[111]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserInfo) ProtoMessage() {}
+
+func (x *UserInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[111]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserInfo.ProtoReflect.Descriptor instead.
+func (*UserInfo) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{111}
+}
+
+func (x *UserInfo) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *UserInfo) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *UserInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type CreateUserRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Mirrors SetupAdmin's rules plus a 64-char sanity cap (docs/35 OQ-4);
+	// no charset restriction in v1 (RUN-223 may tighten globally later).
+	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	// Same class-C floor as SetupAdmin/ChangePassword (docs/32 section 4.4).
+	Password string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	// "admin" | "viewer"; anything else answers InvalidArgument.
+	Role          string `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserRequest) Reset() {
+	*x = CreateUserRequest{}
+	mi := &file_api_proto_msgTypes[112]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserRequest) ProtoMessage() {}
+
+func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[112]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserRequest.ProtoReflect.Descriptor instead.
+func (*CreateUserRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{112}
+}
+
+func (x *CreateUserRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+type CreateUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *UserInfo              `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserResponse) Reset() {
+	*x = CreateUserResponse{}
+	mi := &file_api_proto_msgTypes[113]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserResponse) ProtoMessage() {}
+
+func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[113]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserResponse.ProtoReflect.Descriptor instead.
+func (*CreateUserResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{113}
+}
+
+func (x *CreateUserResponse) GetUser() *UserInfo {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+type SetUserRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetUserRoleRequest) Reset() {
+	*x = SetUserRoleRequest{}
+	mi := &file_api_proto_msgTypes[114]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetUserRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetUserRoleRequest) ProtoMessage() {}
+
+func (x *SetUserRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[114]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetUserRoleRequest.ProtoReflect.Descriptor instead.
+func (*SetUserRoleRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{114}
+}
+
+func (x *SetUserRoleRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *SetUserRoleRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+type SetUserRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *UserInfo              `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetUserRoleResponse) Reset() {
+	*x = SetUserRoleResponse{}
+	mi := &file_api_proto_msgTypes[115]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetUserRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetUserRoleResponse) ProtoMessage() {}
+
+func (x *SetUserRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[115]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetUserRoleResponse.ProtoReflect.Descriptor instead.
+func (*SetUserRoleResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{115}
+}
+
+func (x *SetUserRoleResponse) GetUser() *UserInfo {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+type SetUserPasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetUserPasswordRequest) Reset() {
+	*x = SetUserPasswordRequest{}
+	mi := &file_api_proto_msgTypes[116]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetUserPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetUserPasswordRequest) ProtoMessage() {}
+
+func (x *SetUserPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[116]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetUserPasswordRequest.ProtoReflect.Descriptor instead.
+func (*SetUserPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{116}
+}
+
+func (x *SetUserPasswordRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *SetUserPasswordRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type SetUserPasswordResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// How many of the target's sessions the reset revoked (all except the
+	// caller's own session - docs/35 section 2.3).
+	RevokedSessions int64 `protobuf:"varint,2,opt,name=revoked_sessions,json=revokedSessions,proto3" json:"revoked_sessions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetUserPasswordResponse) Reset() {
+	*x = SetUserPasswordResponse{}
+	mi := &file_api_proto_msgTypes[117]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetUserPasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetUserPasswordResponse) ProtoMessage() {}
+
+func (x *SetUserPasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[117]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetUserPasswordResponse.ProtoReflect.Descriptor instead.
+func (*SetUserPasswordResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{117}
+}
+
+func (x *SetUserPasswordResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *SetUserPasswordResponse) GetRevokedSessions() int64 {
+	if x != nil {
+		return x.RevokedSessions
+	}
+	return 0
+}
+
+type DeleteUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteUserRequest) Reset() {
+	*x = DeleteUserRequest{}
+	mi := &file_api_proto_msgTypes[118]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteUserRequest) ProtoMessage() {}
+
+func (x *DeleteUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[118]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteUserRequest.ProtoReflect.Descriptor instead.
+func (*DeleteUserRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{118}
+}
+
+func (x *DeleteUserRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+type DeleteUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteUserResponse) Reset() {
+	*x = DeleteUserResponse{}
+	mi := &file_api_proto_msgTypes[119]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteUserResponse) ProtoMessage() {}
+
+func (x *DeleteUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[119]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteUserResponse.ProtoReflect.Descriptor instead.
+func (*DeleteUserResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{119}
+}
+
+func (x *DeleteUserResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
@@ -6451,12 +7003,13 @@ const file_api_proto_rawDesc = "" +
 	"\x17public_key_options_json\x18\x01 \x01(\fR\x14publicKeyOptionsJson\"S\n" +
 	"\x19FinishPasskeyLoginRequest\x126\n" +
 	"\x17assertion_response_json\x18\x01 \x01(\fR\x15assertionResponseJson\"\x13\n" +
-	"\x11GetSessionRequest\"\x81\x01\n" +
+	"\x11GetSessionRequest\"\x95\x01\n" +
 	"\x12GetSessionResponse\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x19\n" +
 	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\x12\x1b\n" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
-	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\"\x8d\r\n" +
+	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\"\x8d\r\n" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12)\n" +
 	"\x04name\x18\x02 \x01(\tB\x15\xbaH\x12r\x10\x10\x012\f^[a-z0-9-]+$R\x04name\x12\x1a\n" +
@@ -6828,6 +7381,35 @@ const file_api_proto_rawDesc = "" +
 	"\x19DismissImageUpdateRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"6\n" +
 	"\x1aDismissImageUpdateResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x12\n" +
+	"\x10ListUsersRequest\"B\n" +
+	"\x11ListUsersResponse\x12-\n" +
+	"\x05users\x18\x01 \x03(\v2\x17.supervisor.v1.UserInfoR\x05users\"u\n" +
+	"\bUserInfo\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x129\n" +
+	"\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"|\n" +
+	"\x11CreateUserRequest\x12%\n" +
+	"\busername\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\busername\x12#\n" +
+	"\bpassword\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\fR\bpassword\x12\x1b\n" +
+	"\x04role\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04role\"A\n" +
+	"\x12CreateUserResponse\x12+\n" +
+	"\x04user\x18\x01 \x01(\v2\x17.supervisor.v1.UserInfoR\x04user\"V\n" +
+	"\x12SetUserRoleRequest\x12#\n" +
+	"\busername\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\busername\x12\x1b\n" +
+	"\x04role\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04role\"B\n" +
+	"\x13SetUserRoleResponse\x12+\n" +
+	"\x04user\x18\x01 \x01(\v2\x17.supervisor.v1.UserInfoR\x04user\"b\n" +
+	"\x16SetUserPasswordRequest\x12#\n" +
+	"\busername\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\busername\x12#\n" +
+	"\bpassword\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\fR\bpassword\"^\n" +
+	"\x17SetUserPasswordResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12)\n" +
+	"\x10revoked_sessions\x18\x02 \x01(\x03R\x0frevokedSessions\"8\n" +
+	"\x11DeleteUserRequest\x12#\n" +
+	"\busername\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\busername\".\n" +
+	"\x12DeleteUserResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess*\xbb\x01\n" +
 	"\x10PoolHealthStatus\x12\"\n" +
 	"\x1ePOOL_HEALTH_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
@@ -6897,7 +7479,15 @@ const file_api_proto_rawDesc = "" +
 	"\x10CheckImageUpdate\x12&.supervisor.v1.CheckImageUpdateRequest\x1a'.supervisor.v1.CheckImageUpdateResponse\x12N\n" +
 	"\tPullImage\x12\x1f.supervisor.v1.PullImageRequest\x1a .supervisor.v1.PullImageResponse\x12c\n" +
 	"\x10ListImageUpdates\x12&.supervisor.v1.ListImageUpdatesRequest\x1a'.supervisor.v1.ListImageUpdatesResponse\x12i\n" +
-	"\x12DismissImageUpdate\x12(.supervisor.v1.DismissImageUpdateRequest\x1a).supervisor.v1.DismissImageUpdateResponseBBZ@github.com/noosxe/runnero/internal/pb/supervisor/v1;supervisorv1b\x06proto3"
+	"\x12DismissImageUpdate\x12(.supervisor.v1.DismissImageUpdateRequest\x1a).supervisor.v1.DismissImageUpdateResponse2\xbb\x03\n" +
+	"\vUserService\x12N\n" +
+	"\tListUsers\x12\x1f.supervisor.v1.ListUsersRequest\x1a .supervisor.v1.ListUsersResponse\x12Q\n" +
+	"\n" +
+	"CreateUser\x12 .supervisor.v1.CreateUserRequest\x1a!.supervisor.v1.CreateUserResponse\x12T\n" +
+	"\vSetUserRole\x12!.supervisor.v1.SetUserRoleRequest\x1a\".supervisor.v1.SetUserRoleResponse\x12`\n" +
+	"\x0fSetUserPassword\x12%.supervisor.v1.SetUserPasswordRequest\x1a&.supervisor.v1.SetUserPasswordResponse\x12Q\n" +
+	"\n" +
+	"DeleteUser\x12 .supervisor.v1.DeleteUserRequest\x1a!.supervisor.v1.DeleteUserResponseBBZ@github.com/noosxe/runnero/internal/pb/supervisor/v1;supervisorv1b\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once
@@ -6912,7 +7502,7 @@ func file_api_proto_rawDescGZIP() []byte {
 }
 
 var file_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 109)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 120)
 var file_api_proto_goTypes = []any{
 	(PoolHealthStatus)(0),                   // 0: supervisor.v1.PoolHealthStatus
 	(*LogoutRequest)(nil),                   // 1: supervisor.v1.LogoutRequest
@@ -7024,17 +7614,28 @@ var file_api_proto_goTypes = []any{
 	(*ListImageUpdatesResponse)(nil),        // 107: supervisor.v1.ListImageUpdatesResponse
 	(*DismissImageUpdateRequest)(nil),       // 108: supervisor.v1.DismissImageUpdateRequest
 	(*DismissImageUpdateResponse)(nil),      // 109: supervisor.v1.DismissImageUpdateResponse
-	(*timestamppb.Timestamp)(nil),           // 110: google.protobuf.Timestamp
+	(*ListUsersRequest)(nil),                // 110: supervisor.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),               // 111: supervisor.v1.ListUsersResponse
+	(*UserInfo)(nil),                        // 112: supervisor.v1.UserInfo
+	(*CreateUserRequest)(nil),               // 113: supervisor.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),              // 114: supervisor.v1.CreateUserResponse
+	(*SetUserRoleRequest)(nil),              // 115: supervisor.v1.SetUserRoleRequest
+	(*SetUserRoleResponse)(nil),             // 116: supervisor.v1.SetUserRoleResponse
+	(*SetUserPasswordRequest)(nil),          // 117: supervisor.v1.SetUserPasswordRequest
+	(*SetUserPasswordResponse)(nil),         // 118: supervisor.v1.SetUserPasswordResponse
+	(*DeleteUserRequest)(nil),               // 119: supervisor.v1.DeleteUserRequest
+	(*DeleteUserResponse)(nil),              // 120: supervisor.v1.DeleteUserResponse
+	(*timestamppb.Timestamp)(nil),           // 121: google.protobuf.Timestamp
 }
 var file_api_proto_depIdxs = []int32{
 	9,   // 0: supervisor.v1.ListSessionsResponse.sessions:type_name -> supervisor.v1.SessionInfo
-	110, // 1: supervisor.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
-	110, // 2: supervisor.v1.SessionInfo.last_seen_at:type_name -> google.protobuf.Timestamp
-	110, // 3: supervisor.v1.SessionInfo.expires_at:type_name -> google.protobuf.Timestamp
-	110, // 4: supervisor.v1.SessionInfo.absolute_expires_at:type_name -> google.protobuf.Timestamp
+	121, // 1: supervisor.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
+	121, // 2: supervisor.v1.SessionInfo.last_seen_at:type_name -> google.protobuf.Timestamp
+	121, // 3: supervisor.v1.SessionInfo.expires_at:type_name -> google.protobuf.Timestamp
+	121, // 4: supervisor.v1.SessionInfo.absolute_expires_at:type_name -> google.protobuf.Timestamp
 	20,  // 5: supervisor.v1.FinishPasskeyEnrollmentResponse.passkey:type_name -> supervisor.v1.PasskeyInfo
-	110, // 6: supervisor.v1.PasskeyInfo.created_at:type_name -> google.protobuf.Timestamp
-	110, // 7: supervisor.v1.PasskeyInfo.last_used_at:type_name -> google.protobuf.Timestamp
+	121, // 6: supervisor.v1.PasskeyInfo.created_at:type_name -> google.protobuf.Timestamp
+	121, // 7: supervisor.v1.PasskeyInfo.last_used_at:type_name -> google.protobuf.Timestamp
 	20,  // 8: supervisor.v1.ListPasskeysResponse.passkeys:type_name -> supervisor.v1.PasskeyInfo
 	33,  // 9: supervisor.v1.Pool.renovate:type_name -> supervisor.v1.RenovateConfig
 	0,   // 10: supervisor.v1.Pool.health_status:type_name -> supervisor.v1.PoolHealthStatus
@@ -7066,107 +7667,121 @@ var file_api_proto_depIdxs = []int32{
 	94,  // 36: supervisor.v1.ListRenovateHistoryResponse.runs:type_name -> supervisor.v1.RenovateRun
 	101, // 37: supervisor.v1.CheckImageUpdateResponse.update:type_name -> supervisor.v1.ImageUpdate
 	101, // 38: supervisor.v1.ListImageUpdatesResponse.updates:type_name -> supervisor.v1.ImageUpdate
-	10,  // 39: supervisor.v1.AuthService.SetupAdmin:input_type -> supervisor.v1.SetupAdminRequest
-	12,  // 40: supervisor.v1.AuthService.Login:input_type -> supervisor.v1.LoginRequest
-	14,  // 41: supervisor.v1.AuthService.ChangePassword:input_type -> supervisor.v1.ChangePasswordRequest
-	30,  // 42: supervisor.v1.AuthService.GetSession:input_type -> supervisor.v1.GetSessionRequest
-	1,   // 43: supervisor.v1.AuthService.Logout:input_type -> supervisor.v1.LogoutRequest
-	3,   // 44: supervisor.v1.AuthService.ListSessions:input_type -> supervisor.v1.ListSessionsRequest
-	5,   // 45: supervisor.v1.AuthService.RevokeSession:input_type -> supervisor.v1.RevokeSessionRequest
-	7,   // 46: supervisor.v1.AuthService.RevokeOtherSessions:input_type -> supervisor.v1.RevokeOtherSessionsRequest
-	16,  // 47: supervisor.v1.AuthService.BeginPasskeyEnrollment:input_type -> supervisor.v1.BeginPasskeyEnrollmentRequest
-	18,  // 48: supervisor.v1.AuthService.FinishPasskeyEnrollment:input_type -> supervisor.v1.FinishPasskeyEnrollmentRequest
-	21,  // 49: supervisor.v1.AuthService.ListPasskeys:input_type -> supervisor.v1.ListPasskeysRequest
-	23,  // 50: supervisor.v1.AuthService.RenamePasskey:input_type -> supervisor.v1.RenamePasskeyRequest
-	25,  // 51: supervisor.v1.AuthService.DeletePasskey:input_type -> supervisor.v1.DeletePasskeyRequest
-	27,  // 52: supervisor.v1.AuthService.BeginPasskeyLogin:input_type -> supervisor.v1.BeginPasskeyLoginRequest
-	29,  // 53: supervisor.v1.AuthService.FinishPasskeyLogin:input_type -> supervisor.v1.FinishPasskeyLoginRequest
-	34,  // 54: supervisor.v1.PoolService.ListPools:input_type -> supervisor.v1.ListPoolsRequest
-	36,  // 55: supervisor.v1.PoolService.CreatePool:input_type -> supervisor.v1.CreatePoolRequest
-	38,  // 56: supervisor.v1.PoolService.UpdatePool:input_type -> supervisor.v1.UpdatePoolRequest
-	40,  // 57: supervisor.v1.PoolService.DeletePool:input_type -> supervisor.v1.DeletePoolRequest
-	42,  // 58: supervisor.v1.PoolService.WatchPools:input_type -> supervisor.v1.WatchPoolsRequest
-	45,  // 59: supervisor.v1.PoolService.ListRunners:input_type -> supervisor.v1.ListRunnersRequest
-	47,  // 60: supervisor.v1.PoolService.TerminateRunner:input_type -> supervisor.v1.TerminateRunnerRequest
-	49,  // 61: supervisor.v1.PoolService.WatchRunners:input_type -> supervisor.v1.WatchRunnersRequest
-	51,  // 62: supervisor.v1.PoolService.DiscoverTargets:input_type -> supervisor.v1.DiscoverTargetsRequest
-	56,  // 63: supervisor.v1.AuthProfileService.ListAuthProfiles:input_type -> supervisor.v1.ListAuthProfilesRequest
-	58,  // 64: supervisor.v1.AuthProfileService.CreateAuthProfile:input_type -> supervisor.v1.CreateAuthProfileRequest
-	60,  // 65: supervisor.v1.AuthProfileService.UpdateAuthProfile:input_type -> supervisor.v1.UpdateAuthProfileRequest
-	62,  // 66: supervisor.v1.AuthProfileService.DeleteAuthProfile:input_type -> supervisor.v1.DeleteAuthProfileRequest
-	64,  // 67: supervisor.v1.OnboardingService.GetOnboardingStatus:input_type -> supervisor.v1.GetOnboardingStatusRequest
-	68,  // 68: supervisor.v1.OnboardingService.GetAppSettings:input_type -> supervisor.v1.GetAppSettingsRequest
-	71,  // 69: supervisor.v1.OnboardingService.SetAppSetting:input_type -> supervisor.v1.SetAppSettingRequest
-	66,  // 70: supervisor.v1.OnboardingService.CompleteOnboarding:input_type -> supervisor.v1.CompleteOnboardingRequest
-	74,  // 71: supervisor.v1.AnalyticsService.GetJobHistory:input_type -> supervisor.v1.GetJobHistoryRequest
-	76,  // 72: supervisor.v1.AnalyticsService.GetJobRecord:input_type -> supervisor.v1.GetJobRecordRequest
-	79,  // 73: supervisor.v1.AnalyticsService.GetSystemStats:input_type -> supervisor.v1.GetSystemStatsRequest
-	81,  // 74: supervisor.v1.AnalyticsService.WatchDashboard:input_type -> supervisor.v1.WatchDashboardRequest
-	83,  // 75: supervisor.v1.LogService.StreamRunnerLogs:input_type -> supervisor.v1.StreamRunnerLogsRequest
-	85,  // 76: supervisor.v1.LogService.GetRunnerLogs:input_type -> supervisor.v1.GetRunnerLogsRequest
-	88,  // 77: supervisor.v1.LogService.ListSupervisorLogs:input_type -> supervisor.v1.ListSupervisorLogsRequest
-	90,  // 78: supervisor.v1.LogService.StreamSupervisorLog:input_type -> supervisor.v1.StreamSupervisorLogRequest
-	91,  // 79: supervisor.v1.LogService.ListRemovalRecords:input_type -> supervisor.v1.ListRemovalRecordsRequest
-	95,  // 80: supervisor.v1.RenovateService.TriggerRenovateRun:input_type -> supervisor.v1.TriggerRenovateRunRequest
-	97,  // 81: supervisor.v1.RenovateService.GetRenovateStatus:input_type -> supervisor.v1.GetRenovateStatusRequest
-	99,  // 82: supervisor.v1.RenovateService.ListRenovateHistory:input_type -> supervisor.v1.ListRenovateHistoryRequest
-	102, // 83: supervisor.v1.ImageUpdateService.CheckImageUpdate:input_type -> supervisor.v1.CheckImageUpdateRequest
-	104, // 84: supervisor.v1.ImageUpdateService.PullImage:input_type -> supervisor.v1.PullImageRequest
-	106, // 85: supervisor.v1.ImageUpdateService.ListImageUpdates:input_type -> supervisor.v1.ListImageUpdatesRequest
-	108, // 86: supervisor.v1.ImageUpdateService.DismissImageUpdate:input_type -> supervisor.v1.DismissImageUpdateRequest
-	11,  // 87: supervisor.v1.AuthService.SetupAdmin:output_type -> supervisor.v1.SetupAdminResponse
-	13,  // 88: supervisor.v1.AuthService.Login:output_type -> supervisor.v1.LoginResponse
-	15,  // 89: supervisor.v1.AuthService.ChangePassword:output_type -> supervisor.v1.ChangePasswordResponse
-	31,  // 90: supervisor.v1.AuthService.GetSession:output_type -> supervisor.v1.GetSessionResponse
-	2,   // 91: supervisor.v1.AuthService.Logout:output_type -> supervisor.v1.LogoutResponse
-	4,   // 92: supervisor.v1.AuthService.ListSessions:output_type -> supervisor.v1.ListSessionsResponse
-	6,   // 93: supervisor.v1.AuthService.RevokeSession:output_type -> supervisor.v1.RevokeSessionResponse
-	8,   // 94: supervisor.v1.AuthService.RevokeOtherSessions:output_type -> supervisor.v1.RevokeOtherSessionsResponse
-	17,  // 95: supervisor.v1.AuthService.BeginPasskeyEnrollment:output_type -> supervisor.v1.BeginPasskeyEnrollmentResponse
-	19,  // 96: supervisor.v1.AuthService.FinishPasskeyEnrollment:output_type -> supervisor.v1.FinishPasskeyEnrollmentResponse
-	22,  // 97: supervisor.v1.AuthService.ListPasskeys:output_type -> supervisor.v1.ListPasskeysResponse
-	24,  // 98: supervisor.v1.AuthService.RenamePasskey:output_type -> supervisor.v1.RenamePasskeyResponse
-	26,  // 99: supervisor.v1.AuthService.DeletePasskey:output_type -> supervisor.v1.DeletePasskeyResponse
-	28,  // 100: supervisor.v1.AuthService.BeginPasskeyLogin:output_type -> supervisor.v1.BeginPasskeyLoginResponse
-	13,  // 101: supervisor.v1.AuthService.FinishPasskeyLogin:output_type -> supervisor.v1.LoginResponse
-	35,  // 102: supervisor.v1.PoolService.ListPools:output_type -> supervisor.v1.ListPoolsResponse
-	37,  // 103: supervisor.v1.PoolService.CreatePool:output_type -> supervisor.v1.CreatePoolResponse
-	39,  // 104: supervisor.v1.PoolService.UpdatePool:output_type -> supervisor.v1.UpdatePoolResponse
-	41,  // 105: supervisor.v1.PoolService.DeletePool:output_type -> supervisor.v1.DeletePoolResponse
-	43,  // 106: supervisor.v1.PoolService.WatchPools:output_type -> supervisor.v1.WatchPoolsResponse
-	46,  // 107: supervisor.v1.PoolService.ListRunners:output_type -> supervisor.v1.ListRunnersResponse
-	48,  // 108: supervisor.v1.PoolService.TerminateRunner:output_type -> supervisor.v1.TerminateRunnerResponse
-	50,  // 109: supervisor.v1.PoolService.WatchRunners:output_type -> supervisor.v1.WatchRunnersResponse
-	54,  // 110: supervisor.v1.PoolService.DiscoverTargets:output_type -> supervisor.v1.DiscoverTargetsResponse
-	57,  // 111: supervisor.v1.AuthProfileService.ListAuthProfiles:output_type -> supervisor.v1.ListAuthProfilesResponse
-	59,  // 112: supervisor.v1.AuthProfileService.CreateAuthProfile:output_type -> supervisor.v1.CreateAuthProfileResponse
-	61,  // 113: supervisor.v1.AuthProfileService.UpdateAuthProfile:output_type -> supervisor.v1.UpdateAuthProfileResponse
-	63,  // 114: supervisor.v1.AuthProfileService.DeleteAuthProfile:output_type -> supervisor.v1.DeleteAuthProfileResponse
-	65,  // 115: supervisor.v1.OnboardingService.GetOnboardingStatus:output_type -> supervisor.v1.GetOnboardingStatusResponse
-	70,  // 116: supervisor.v1.OnboardingService.GetAppSettings:output_type -> supervisor.v1.GetAppSettingsResponse
-	72,  // 117: supervisor.v1.OnboardingService.SetAppSetting:output_type -> supervisor.v1.SetAppSettingResponse
-	67,  // 118: supervisor.v1.OnboardingService.CompleteOnboarding:output_type -> supervisor.v1.CompleteOnboardingResponse
-	75,  // 119: supervisor.v1.AnalyticsService.GetJobHistory:output_type -> supervisor.v1.GetJobHistoryResponse
-	77,  // 120: supervisor.v1.AnalyticsService.GetJobRecord:output_type -> supervisor.v1.GetJobRecordResponse
-	80,  // 121: supervisor.v1.AnalyticsService.GetSystemStats:output_type -> supervisor.v1.GetSystemStatsResponse
-	82,  // 122: supervisor.v1.AnalyticsService.WatchDashboard:output_type -> supervisor.v1.WatchDashboardResponse
-	84,  // 123: supervisor.v1.LogService.StreamRunnerLogs:output_type -> supervisor.v1.LogChunk
-	86,  // 124: supervisor.v1.LogService.GetRunnerLogs:output_type -> supervisor.v1.GetRunnerLogsResponse
-	89,  // 125: supervisor.v1.LogService.ListSupervisorLogs:output_type -> supervisor.v1.ListSupervisorLogsResponse
-	84,  // 126: supervisor.v1.LogService.StreamSupervisorLog:output_type -> supervisor.v1.LogChunk
-	93,  // 127: supervisor.v1.LogService.ListRemovalRecords:output_type -> supervisor.v1.ListRemovalRecordsResponse
-	96,  // 128: supervisor.v1.RenovateService.TriggerRenovateRun:output_type -> supervisor.v1.TriggerRenovateRunResponse
-	98,  // 129: supervisor.v1.RenovateService.GetRenovateStatus:output_type -> supervisor.v1.GetRenovateStatusResponse
-	100, // 130: supervisor.v1.RenovateService.ListRenovateHistory:output_type -> supervisor.v1.ListRenovateHistoryResponse
-	103, // 131: supervisor.v1.ImageUpdateService.CheckImageUpdate:output_type -> supervisor.v1.CheckImageUpdateResponse
-	105, // 132: supervisor.v1.ImageUpdateService.PullImage:output_type -> supervisor.v1.PullImageResponse
-	107, // 133: supervisor.v1.ImageUpdateService.ListImageUpdates:output_type -> supervisor.v1.ListImageUpdatesResponse
-	109, // 134: supervisor.v1.ImageUpdateService.DismissImageUpdate:output_type -> supervisor.v1.DismissImageUpdateResponse
-	87,  // [87:135] is the sub-list for method output_type
-	39,  // [39:87] is the sub-list for method input_type
-	39,  // [39:39] is the sub-list for extension type_name
-	39,  // [39:39] is the sub-list for extension extendee
-	0,   // [0:39] is the sub-list for field type_name
+	112, // 39: supervisor.v1.ListUsersResponse.users:type_name -> supervisor.v1.UserInfo
+	121, // 40: supervisor.v1.UserInfo.created_at:type_name -> google.protobuf.Timestamp
+	112, // 41: supervisor.v1.CreateUserResponse.user:type_name -> supervisor.v1.UserInfo
+	112, // 42: supervisor.v1.SetUserRoleResponse.user:type_name -> supervisor.v1.UserInfo
+	10,  // 43: supervisor.v1.AuthService.SetupAdmin:input_type -> supervisor.v1.SetupAdminRequest
+	12,  // 44: supervisor.v1.AuthService.Login:input_type -> supervisor.v1.LoginRequest
+	14,  // 45: supervisor.v1.AuthService.ChangePassword:input_type -> supervisor.v1.ChangePasswordRequest
+	30,  // 46: supervisor.v1.AuthService.GetSession:input_type -> supervisor.v1.GetSessionRequest
+	1,   // 47: supervisor.v1.AuthService.Logout:input_type -> supervisor.v1.LogoutRequest
+	3,   // 48: supervisor.v1.AuthService.ListSessions:input_type -> supervisor.v1.ListSessionsRequest
+	5,   // 49: supervisor.v1.AuthService.RevokeSession:input_type -> supervisor.v1.RevokeSessionRequest
+	7,   // 50: supervisor.v1.AuthService.RevokeOtherSessions:input_type -> supervisor.v1.RevokeOtherSessionsRequest
+	16,  // 51: supervisor.v1.AuthService.BeginPasskeyEnrollment:input_type -> supervisor.v1.BeginPasskeyEnrollmentRequest
+	18,  // 52: supervisor.v1.AuthService.FinishPasskeyEnrollment:input_type -> supervisor.v1.FinishPasskeyEnrollmentRequest
+	21,  // 53: supervisor.v1.AuthService.ListPasskeys:input_type -> supervisor.v1.ListPasskeysRequest
+	23,  // 54: supervisor.v1.AuthService.RenamePasskey:input_type -> supervisor.v1.RenamePasskeyRequest
+	25,  // 55: supervisor.v1.AuthService.DeletePasskey:input_type -> supervisor.v1.DeletePasskeyRequest
+	27,  // 56: supervisor.v1.AuthService.BeginPasskeyLogin:input_type -> supervisor.v1.BeginPasskeyLoginRequest
+	29,  // 57: supervisor.v1.AuthService.FinishPasskeyLogin:input_type -> supervisor.v1.FinishPasskeyLoginRequest
+	34,  // 58: supervisor.v1.PoolService.ListPools:input_type -> supervisor.v1.ListPoolsRequest
+	36,  // 59: supervisor.v1.PoolService.CreatePool:input_type -> supervisor.v1.CreatePoolRequest
+	38,  // 60: supervisor.v1.PoolService.UpdatePool:input_type -> supervisor.v1.UpdatePoolRequest
+	40,  // 61: supervisor.v1.PoolService.DeletePool:input_type -> supervisor.v1.DeletePoolRequest
+	42,  // 62: supervisor.v1.PoolService.WatchPools:input_type -> supervisor.v1.WatchPoolsRequest
+	45,  // 63: supervisor.v1.PoolService.ListRunners:input_type -> supervisor.v1.ListRunnersRequest
+	47,  // 64: supervisor.v1.PoolService.TerminateRunner:input_type -> supervisor.v1.TerminateRunnerRequest
+	49,  // 65: supervisor.v1.PoolService.WatchRunners:input_type -> supervisor.v1.WatchRunnersRequest
+	51,  // 66: supervisor.v1.PoolService.DiscoverTargets:input_type -> supervisor.v1.DiscoverTargetsRequest
+	56,  // 67: supervisor.v1.AuthProfileService.ListAuthProfiles:input_type -> supervisor.v1.ListAuthProfilesRequest
+	58,  // 68: supervisor.v1.AuthProfileService.CreateAuthProfile:input_type -> supervisor.v1.CreateAuthProfileRequest
+	60,  // 69: supervisor.v1.AuthProfileService.UpdateAuthProfile:input_type -> supervisor.v1.UpdateAuthProfileRequest
+	62,  // 70: supervisor.v1.AuthProfileService.DeleteAuthProfile:input_type -> supervisor.v1.DeleteAuthProfileRequest
+	64,  // 71: supervisor.v1.OnboardingService.GetOnboardingStatus:input_type -> supervisor.v1.GetOnboardingStatusRequest
+	68,  // 72: supervisor.v1.OnboardingService.GetAppSettings:input_type -> supervisor.v1.GetAppSettingsRequest
+	71,  // 73: supervisor.v1.OnboardingService.SetAppSetting:input_type -> supervisor.v1.SetAppSettingRequest
+	66,  // 74: supervisor.v1.OnboardingService.CompleteOnboarding:input_type -> supervisor.v1.CompleteOnboardingRequest
+	74,  // 75: supervisor.v1.AnalyticsService.GetJobHistory:input_type -> supervisor.v1.GetJobHistoryRequest
+	76,  // 76: supervisor.v1.AnalyticsService.GetJobRecord:input_type -> supervisor.v1.GetJobRecordRequest
+	79,  // 77: supervisor.v1.AnalyticsService.GetSystemStats:input_type -> supervisor.v1.GetSystemStatsRequest
+	81,  // 78: supervisor.v1.AnalyticsService.WatchDashboard:input_type -> supervisor.v1.WatchDashboardRequest
+	83,  // 79: supervisor.v1.LogService.StreamRunnerLogs:input_type -> supervisor.v1.StreamRunnerLogsRequest
+	85,  // 80: supervisor.v1.LogService.GetRunnerLogs:input_type -> supervisor.v1.GetRunnerLogsRequest
+	88,  // 81: supervisor.v1.LogService.ListSupervisorLogs:input_type -> supervisor.v1.ListSupervisorLogsRequest
+	90,  // 82: supervisor.v1.LogService.StreamSupervisorLog:input_type -> supervisor.v1.StreamSupervisorLogRequest
+	91,  // 83: supervisor.v1.LogService.ListRemovalRecords:input_type -> supervisor.v1.ListRemovalRecordsRequest
+	95,  // 84: supervisor.v1.RenovateService.TriggerRenovateRun:input_type -> supervisor.v1.TriggerRenovateRunRequest
+	97,  // 85: supervisor.v1.RenovateService.GetRenovateStatus:input_type -> supervisor.v1.GetRenovateStatusRequest
+	99,  // 86: supervisor.v1.RenovateService.ListRenovateHistory:input_type -> supervisor.v1.ListRenovateHistoryRequest
+	102, // 87: supervisor.v1.ImageUpdateService.CheckImageUpdate:input_type -> supervisor.v1.CheckImageUpdateRequest
+	104, // 88: supervisor.v1.ImageUpdateService.PullImage:input_type -> supervisor.v1.PullImageRequest
+	106, // 89: supervisor.v1.ImageUpdateService.ListImageUpdates:input_type -> supervisor.v1.ListImageUpdatesRequest
+	108, // 90: supervisor.v1.ImageUpdateService.DismissImageUpdate:input_type -> supervisor.v1.DismissImageUpdateRequest
+	110, // 91: supervisor.v1.UserService.ListUsers:input_type -> supervisor.v1.ListUsersRequest
+	113, // 92: supervisor.v1.UserService.CreateUser:input_type -> supervisor.v1.CreateUserRequest
+	115, // 93: supervisor.v1.UserService.SetUserRole:input_type -> supervisor.v1.SetUserRoleRequest
+	117, // 94: supervisor.v1.UserService.SetUserPassword:input_type -> supervisor.v1.SetUserPasswordRequest
+	119, // 95: supervisor.v1.UserService.DeleteUser:input_type -> supervisor.v1.DeleteUserRequest
+	11,  // 96: supervisor.v1.AuthService.SetupAdmin:output_type -> supervisor.v1.SetupAdminResponse
+	13,  // 97: supervisor.v1.AuthService.Login:output_type -> supervisor.v1.LoginResponse
+	15,  // 98: supervisor.v1.AuthService.ChangePassword:output_type -> supervisor.v1.ChangePasswordResponse
+	31,  // 99: supervisor.v1.AuthService.GetSession:output_type -> supervisor.v1.GetSessionResponse
+	2,   // 100: supervisor.v1.AuthService.Logout:output_type -> supervisor.v1.LogoutResponse
+	4,   // 101: supervisor.v1.AuthService.ListSessions:output_type -> supervisor.v1.ListSessionsResponse
+	6,   // 102: supervisor.v1.AuthService.RevokeSession:output_type -> supervisor.v1.RevokeSessionResponse
+	8,   // 103: supervisor.v1.AuthService.RevokeOtherSessions:output_type -> supervisor.v1.RevokeOtherSessionsResponse
+	17,  // 104: supervisor.v1.AuthService.BeginPasskeyEnrollment:output_type -> supervisor.v1.BeginPasskeyEnrollmentResponse
+	19,  // 105: supervisor.v1.AuthService.FinishPasskeyEnrollment:output_type -> supervisor.v1.FinishPasskeyEnrollmentResponse
+	22,  // 106: supervisor.v1.AuthService.ListPasskeys:output_type -> supervisor.v1.ListPasskeysResponse
+	24,  // 107: supervisor.v1.AuthService.RenamePasskey:output_type -> supervisor.v1.RenamePasskeyResponse
+	26,  // 108: supervisor.v1.AuthService.DeletePasskey:output_type -> supervisor.v1.DeletePasskeyResponse
+	28,  // 109: supervisor.v1.AuthService.BeginPasskeyLogin:output_type -> supervisor.v1.BeginPasskeyLoginResponse
+	13,  // 110: supervisor.v1.AuthService.FinishPasskeyLogin:output_type -> supervisor.v1.LoginResponse
+	35,  // 111: supervisor.v1.PoolService.ListPools:output_type -> supervisor.v1.ListPoolsResponse
+	37,  // 112: supervisor.v1.PoolService.CreatePool:output_type -> supervisor.v1.CreatePoolResponse
+	39,  // 113: supervisor.v1.PoolService.UpdatePool:output_type -> supervisor.v1.UpdatePoolResponse
+	41,  // 114: supervisor.v1.PoolService.DeletePool:output_type -> supervisor.v1.DeletePoolResponse
+	43,  // 115: supervisor.v1.PoolService.WatchPools:output_type -> supervisor.v1.WatchPoolsResponse
+	46,  // 116: supervisor.v1.PoolService.ListRunners:output_type -> supervisor.v1.ListRunnersResponse
+	48,  // 117: supervisor.v1.PoolService.TerminateRunner:output_type -> supervisor.v1.TerminateRunnerResponse
+	50,  // 118: supervisor.v1.PoolService.WatchRunners:output_type -> supervisor.v1.WatchRunnersResponse
+	54,  // 119: supervisor.v1.PoolService.DiscoverTargets:output_type -> supervisor.v1.DiscoverTargetsResponse
+	57,  // 120: supervisor.v1.AuthProfileService.ListAuthProfiles:output_type -> supervisor.v1.ListAuthProfilesResponse
+	59,  // 121: supervisor.v1.AuthProfileService.CreateAuthProfile:output_type -> supervisor.v1.CreateAuthProfileResponse
+	61,  // 122: supervisor.v1.AuthProfileService.UpdateAuthProfile:output_type -> supervisor.v1.UpdateAuthProfileResponse
+	63,  // 123: supervisor.v1.AuthProfileService.DeleteAuthProfile:output_type -> supervisor.v1.DeleteAuthProfileResponse
+	65,  // 124: supervisor.v1.OnboardingService.GetOnboardingStatus:output_type -> supervisor.v1.GetOnboardingStatusResponse
+	70,  // 125: supervisor.v1.OnboardingService.GetAppSettings:output_type -> supervisor.v1.GetAppSettingsResponse
+	72,  // 126: supervisor.v1.OnboardingService.SetAppSetting:output_type -> supervisor.v1.SetAppSettingResponse
+	67,  // 127: supervisor.v1.OnboardingService.CompleteOnboarding:output_type -> supervisor.v1.CompleteOnboardingResponse
+	75,  // 128: supervisor.v1.AnalyticsService.GetJobHistory:output_type -> supervisor.v1.GetJobHistoryResponse
+	77,  // 129: supervisor.v1.AnalyticsService.GetJobRecord:output_type -> supervisor.v1.GetJobRecordResponse
+	80,  // 130: supervisor.v1.AnalyticsService.GetSystemStats:output_type -> supervisor.v1.GetSystemStatsResponse
+	82,  // 131: supervisor.v1.AnalyticsService.WatchDashboard:output_type -> supervisor.v1.WatchDashboardResponse
+	84,  // 132: supervisor.v1.LogService.StreamRunnerLogs:output_type -> supervisor.v1.LogChunk
+	86,  // 133: supervisor.v1.LogService.GetRunnerLogs:output_type -> supervisor.v1.GetRunnerLogsResponse
+	89,  // 134: supervisor.v1.LogService.ListSupervisorLogs:output_type -> supervisor.v1.ListSupervisorLogsResponse
+	84,  // 135: supervisor.v1.LogService.StreamSupervisorLog:output_type -> supervisor.v1.LogChunk
+	93,  // 136: supervisor.v1.LogService.ListRemovalRecords:output_type -> supervisor.v1.ListRemovalRecordsResponse
+	96,  // 137: supervisor.v1.RenovateService.TriggerRenovateRun:output_type -> supervisor.v1.TriggerRenovateRunResponse
+	98,  // 138: supervisor.v1.RenovateService.GetRenovateStatus:output_type -> supervisor.v1.GetRenovateStatusResponse
+	100, // 139: supervisor.v1.RenovateService.ListRenovateHistory:output_type -> supervisor.v1.ListRenovateHistoryResponse
+	103, // 140: supervisor.v1.ImageUpdateService.CheckImageUpdate:output_type -> supervisor.v1.CheckImageUpdateResponse
+	105, // 141: supervisor.v1.ImageUpdateService.PullImage:output_type -> supervisor.v1.PullImageResponse
+	107, // 142: supervisor.v1.ImageUpdateService.ListImageUpdates:output_type -> supervisor.v1.ListImageUpdatesResponse
+	109, // 143: supervisor.v1.ImageUpdateService.DismissImageUpdate:output_type -> supervisor.v1.DismissImageUpdateResponse
+	111, // 144: supervisor.v1.UserService.ListUsers:output_type -> supervisor.v1.ListUsersResponse
+	114, // 145: supervisor.v1.UserService.CreateUser:output_type -> supervisor.v1.CreateUserResponse
+	116, // 146: supervisor.v1.UserService.SetUserRole:output_type -> supervisor.v1.SetUserRoleResponse
+	118, // 147: supervisor.v1.UserService.SetUserPassword:output_type -> supervisor.v1.SetUserPasswordResponse
+	120, // 148: supervisor.v1.UserService.DeleteUser:output_type -> supervisor.v1.DeleteUserResponse
+	96,  // [96:149] is the sub-list for method output_type
+	43,  // [43:96] is the sub-list for method input_type
+	43,  // [43:43] is the sub-list for extension type_name
+	43,  // [43:43] is the sub-list for extension extendee
+	0,   // [0:43] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -7180,9 +7795,9 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   109,
+			NumMessages:   120,
 			NumExtensions: 0,
-			NumServices:   8,
+			NumServices:   9,
 		},
 		GoTypes:           file_api_proto_goTypes,
 		DependencyIndexes: file_api_proto_depIdxs,

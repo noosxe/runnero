@@ -232,6 +232,12 @@ func New(opts Options) *Server {
 		authSvc := NewAuthService(s.authDB, s.sessionCfg, s.webAuthn)
 		path, handler := supervisorv1connect.NewAuthServiceHandler(authSvc, s.ConnectHandlerOptions()...)
 		s.MountConnectHandler(path, handler)
+
+		// UserService (RUN-236, docs/35 §2.3): shares the auth account
+		// store; every procedure is admin-bucket via the role matrix.
+		userSvc := NewUserService(s.authDB, s.sessionCfg)
+		path, handler = supervisorv1connect.NewUserServiceHandler(userSvc, s.ConnectHandlerOptions()...)
+		s.MountConnectHandler(path, handler)
 	}
 
 	// Mount PoolService if pool database is provided (RUN-46)
