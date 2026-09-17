@@ -91,10 +91,11 @@ this design leans on, verified against upstream docs at v0.18.1:
   `ErrBadRequest`, `ErrorUnknownCredential` — the error taxonomy the server
   maps onto rate-limiter feeds and audit events.
 
-The library takes `*http.Request` at the Finish steps; Runnero's handlers are
-ConnectRPC. The design therefore extracts the assertion/attestation JSON from
-the proto payload and synthesizes a minimal `*http.Request` carrying it as
-the body — a thin, easily unit-tested adapter (§9).
+The library's canonical Finish steps take `*http.Request`; Runnero's handlers
+are ConnectRPC. The boundary therefore parses the assertion/attestation JSON
+from the proto payload with the library's own parsers and calls the parsed-
+response entry points (`CreateCredential`, `ValidatePasskeyLogin`) — a thin,
+easily unit-tested adapter (§9).
 
 ### 3.2 Passwordless passkey sign-in (revision 2)
 
@@ -480,8 +481,8 @@ contain credential IDs, challenge bytes, or attestation objects.
 One self-contained module, mirroring the docs/32 §2.4 prediction:
 
 - `internal/server/passkey.go` — RPC handlers; ceremony store (enrollment +
-  capped anonymous-login pool); the `*http.Request` synthesis adapter for
-  the library's Finish steps;
+  capped anonymous-login pool); the JSON-in-bytes parse adapter feeding the
+  library's parsed-response Finish entry points;
 - `internal/server/passkey_test.go` — full ceremony tests using the library
   against a software authenticator (the `descope/virtualwebauthn` helper
   package, dev-only dependency) so registration/assertion crypto is
@@ -517,7 +518,7 @@ account.
 | Anonymous ceremony exhaustion | `BeginPasskeyLogin` is credential-free: bounded store (cap 32, 3-min TTL, oldest eviction) + IP rate limit keep state growth fixed (§5.6) |
 | DB theft | public keys only — useless without the authenticator (§3.6) |
 | Online brute force of assertions | signature forgery is the only path in; challenges are single-use with 3-min TTL and failures rate-limit per IP (§4.3) |
-| CSRF on ceremony RPCs | Connect content-type requirement + `SameSite=Strict` cookie (docs/32 §2.2); assertion path additionally ticket-gated |
+| CSRF on ceremony RPCs | Connect content-type requirement + `SameSite=Strict` cookie (docs/32 §2.2); login ceremonies are keyed by server-minted challenges that never cross the wire outbound (§3.4) |
 | DoS via enrollment ceremonies | Begin is session- + password-gated; one live ceremony per user; TTL eviction |
 | Lockout | two independent paths: losing the passkey leaves the password, forgetting the password leaves the passkey — total lockout requires losing both (§3.2) |
 

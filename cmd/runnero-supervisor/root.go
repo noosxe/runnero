@@ -60,6 +60,8 @@ Run it with no subcommand to start the daemon.`,
 	var flagBcryptCost int
 	var flagAuditRetention time.Duration
 	var flagTrustedProxy bool
+	var flagWebAuthnRPID string
+	var flagWebAuthnOrigins string
 	f := root.PersistentFlags()
 	f.StringVarP(&flagConfig, "config", "c", "", "path to the configuration file (YAML or TOML)")
 	f.StringVar(&flagLogLevel, "log-level", "info", "log level (debug, info, warn, error)")
@@ -74,6 +76,8 @@ Run it with no subcommand to start the daemon.`,
 	f.IntVar(&flagBcryptCost, "bcrypt-cost", config.DefaultBcryptCost, "bcrypt cost for new or changed passwords (4-31)")
 	f.DurationVar(&flagAuditRetention, "audit-retention", config.DefaultAuditRetention, "audit log purge horizon (default 2160h = 90 days, docs/32)")
 	f.BoolVar(&flagTrustedProxy, "trusted-proxy", false, "trust X-Forwarded-For / X-Forwarded-Proto from the reverse proxy (client IP and HTTPS detection)")
+	f.StringVar(&flagWebAuthnRPID, "webauthn-rp-id", "", "Relying Party ID for passkey login (effective domain, e.g. runnero.tailnet-xyz.ts.net); empty keeps passkeys off (docs/34)")
+	f.StringVar(&flagWebAuthnOrigins, "webauthn-origins", "", "CSV of allowed WebAuthn ceremony origins; defaults to https://<webauthn-rp-id> (docs/34)")
 
 	root.AddCommand(
 		newDaemonCommand(),

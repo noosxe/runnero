@@ -27,11 +27,12 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Version failed: %v", err)
 	}
-	if ver != 11 {
-		t.Fatalf("database version = %d, want 11", ver)
+	if ver != 12 {
+		t.Fatalf("database version = %d, want 12", ver)
 	}
 
 	// Verify all 11 tables and their columns field-for-field per docs/07.
+	// Verify all 13 tables and their columns field-for-field per docs/07.
 	expectedTables := map[string][]string{
 		"admin_users": {
 			"id", "username", "password_hash", "created_at", "updated_at",
@@ -69,6 +70,14 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 		},
 		"pool_tombstones": {
 			"pool_id", "pool_name", "deleted_at",
+		},
+		"login_rate_failures": {
+			"id", "rate_key", "failed_at",
+		},
+		"webauthn_credentials": {
+			"id", "user_id", "name", "credential_id", "public_key", "aaguid",
+			"attestation_type", "transports", "sign_count", "backup_eligible",
+			"backup_state", "clone_warning", "created_at", "last_used_at",
 		},
 	}
 
@@ -156,8 +165,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 
 	// Initial state: version 6
 	ver, err := database.Version(ctx, nil)
-	if err != nil || ver != 11 {
-		t.Fatalf("Version after boot = %d (err: %v), want 11", ver, err)
+	if err != nil || ver != 12 {
+		t.Fatalf("Version after boot = %d (err: %v), want 12", ver, err)
 	}
 
 	// Rollback all migrations down to version 0
@@ -179,7 +188,7 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 	for _, table := range []string{
 		"admin_users", "sessions", "auth_profiles", "runner_pools", "pool_targets",
 		"renovate_configs", "renovate_runs", "job_history", "audit_logs", "app_settings",
-		"pool_tombstones",
+		"pool_tombstones", "login_rate_failures", "webauthn_credentials",
 	} {
 		cols := getTableColumns(t, database, table)
 		if len(cols) > 0 {
@@ -193,8 +202,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 	}
 
 	verUp, err := database.Version(ctx, nil)
-	if err != nil || verUp != 11 {
-		t.Fatalf("Version after Migrate up = %d (err: %v), want 11", verUp, err)
+	if err != nil || verUp != 12 {
+		t.Fatalf("Version after Migrate up = %d (err: %v), want 12", verUp, err)
 	}
 
 	// Verify app_settings seeded again

@@ -48,6 +48,12 @@ const (
 	EnvWebhookGiteaSecret   = EnvPrefix + "WEBHOOK_GITEA_SECRET"
 	EnvWebhookForgejoSecret = EnvPrefix + "WEBHOOK_FORGEJO_SECRET"
 
+	// Passkey (WebAuthn) login (RUN-247, docs/34 section 3.5). The feature
+	// is completely off unless SUPERVISOR_WEBAUTHN_RP_ID is set; every other
+	// webauthn knob is ignored in off mode.
+	EnvWebAuthnRPID    = EnvPrefix + "WEBAUTHN_RP_ID"
+	EnvWebAuthnOrigins = EnvPrefix + "WEBAUTHN_ORIGINS"
+
 	// EnvEngineOwnership selects the cross-instance engine safety mode
 	// (RUN-241, docs/33 §3.5): strict (the default) refuses to touch
 	// runners this database has no ownership evidence for; adopt-all
@@ -146,6 +152,8 @@ var envKeys = map[string]string{
 	EnvWebhookGitHubSecret:    "webhook-github-secret",
 	EnvWebhookGiteaSecret:     "webhook-gitea-secret",
 	EnvWebhookForgejoSecret:   "webhook-forgejo-secret",
+	EnvWebAuthnRPID:           "webauthn-rp-id",
+	EnvWebAuthnOrigins:        "webauthn-origins",
 	EnvEngineOwnership:        "engine-ownership",
 
 	EnvTailscaleAuthKey:           "tailscale-auth-key",
@@ -193,6 +201,14 @@ type Config struct {
 	WebhookGitHubSecret    string        `koanf:"webhook-github-secret"`
 	WebhookGiteaSecret     string        `koanf:"webhook-gitea-secret"`
 	WebhookForgejoSecret   string        `koanf:"webhook-forgejo-secret"`
+
+	// Passkey (WebAuthn) login (RUN-247, docs/34 section 3.5). WebAuthnRPID
+	// empty means the entire feature is off (fail-closed): no enrollment UI,
+	// no passkey login button, passkey RPCs answer FailedPrecondition.
+	// WebAuthnOrigins is a CSV of allowed ceremony origins; empty resolves
+	// to https://<rpid> in normalize.
+	WebAuthnRPID    string `koanf:"webauthn-rp-id"`
+	WebAuthnOrigins string `koanf:"webauthn-origins"`
 
 	// Embedded Tailscale integration (RUN-155, docs/26 §4). TailscaleFunnel
 	// and TailscaleUI hold the raw string values because a malformed boolean
@@ -323,6 +339,8 @@ func defaults() map[string]any {
 		"webhook-github-secret":    "",
 		"webhook-gitea-secret":     "",
 		"webhook-forgejo-secret":   "",
+		"webauthn-rp-id":           "",
+		"webauthn-origins":         "", // empty resolves to https://<rp_id>
 		"engine-ownership":         DefaultEngineOwnership,
 
 		"log-persistence-enabled":            DefaultLogPersistenceEnabled,
@@ -399,6 +417,11 @@ func (c *Config) normalize() {
 	c.EngineOwnership = strings.ToLower(strings.TrimSpace(c.EngineOwnership))
 	c.WebhookGiteaSecret = strings.TrimSpace(c.WebhookGiteaSecret)
 	c.WebhookForgejoSecret = strings.TrimSpace(c.WebhookForgejoSecret)
+	c.WebAuthnRPID = strings.ToLower(strings.TrimSpace(c.WebAuthnRPID))
+	c.WebAuthnOrigins = strings.TrimSpace(c.WebAuthnOrigins)
+	if c.WebAuthnRPID != "" && c.WebAuthnOrigins == "" {
+		c.WebAuthnOrigins = "https://" + c.WebAuthnRPID // port 443 implicit (docs/34 section 3.5)
+	}
 	c.TailscaleAuthKey = strings.TrimSpace(c.TailscaleAuthKey)
 	c.TailscaleHostname = strings.TrimSpace(c.TailscaleHostname)
 	c.TailscaleFunnel = strings.TrimSpace(c.TailscaleFunnel)
@@ -410,6 +433,28 @@ func (c *Config) normalize() {
 	if c.DBPath == "" && c.DataDir != "" {
 		c.DBPath = filepath.Join(c.DataDir, DefaultDBFileName)
 	}
+}
+
+// WebAuthnEnabled reports whether passkey login is configured (RUN-247,
+// docs/34 section 3.5): a non-empty RP ID opts the deployment in. Call only
+// on a validated config (Validate enforces origin well-formedness in
+// enabled mode).
+func (c *Config) WebAuthnEnabled() bool {
+	return c.WebAuthnRPID != ""
+}
+
+// WebAuthnOriginList returns the allowed ceremony origins as a cleaned
+// slice. Call only on a validated config; the resolved list always carries
+// at least one origin when WebAuthnEnabled.
+func (c *Config) WebAuthnOriginList() []string {
+	parts := strings.Split(c.WebAuthnOrigins, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if v := strings.TrimSpace(p); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // TailscaleEnabled reports whether the embedded Tailscale integration is

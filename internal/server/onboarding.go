@@ -29,11 +29,16 @@ type OnboardingDatabase interface {
 type OnboardingService struct {
 	supervisorv1connect.UnimplementedOnboardingServiceHandler
 	db OnboardingDatabase
+	// webAuthn carries the passkey configuration (RUN-247, docs/34
+	// section 7): GetOnboardingStatus.passkey_available reports
+	// configuration state, so the pre-auth login page knows whether to
+	// render the passkey button. nil keeps the flag false.
+	webAuthn *WebAuthnConfig
 }
 
 // NewOnboardingService constructs an OnboardingService instance.
-func NewOnboardingService(database OnboardingDatabase) *OnboardingService {
-	return &OnboardingService{db: database}
+func NewOnboardingService(database OnboardingDatabase, webAuthn *WebAuthnConfig) *OnboardingService {
+	return &OnboardingService{db: database, webAuthn: webAuthn}
 }
 
 // GetOnboardingStatus returns the overall setup progress (publicly accessible).
@@ -71,6 +76,7 @@ func (s *OnboardingService) GetOnboardingStatus(ctx context.Context, _ *connect.
 		OnboardingCompleted: onboardingCompleted,
 		HostArch:            HostArch(),
 		HostOs:              HostOS(),
+		PasskeyAvailable:    s.webAuthn.Enabled(),
 	}), nil
 }
 
