@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/empty";
 import { LinkButton } from "../lib/link-button";
 import {
+  DEFAULT_STATS_TIMEFRAME_HOURS,
   useSystemStats,
   usePools,
   useJobHistory,
@@ -31,7 +32,7 @@ import { PoolHealthStatus } from "../gen/api_pb";
 import { recentJobsColumns, formatDuration } from "./dashboard-columns";
 
 export function DashboardPage() {
-  const [timeframeHours, setTimeframeHours] = useState(24);
+  const [timeframeHours, setTimeframeHours] = useState(DEFAULT_STATS_TIMEFRAME_HOURS);
 
   const { data: stats, isLoading: statsLoading } = useSystemStats(timeframeHours);
   const { data: pools, isLoading: poolsLoading } = usePools();

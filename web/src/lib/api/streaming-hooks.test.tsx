@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import { useStreamSubscription, useWatchDashboard, useWatchPools } from "./streaming-hooks";
-import { queryKeys } from "./query-hooks";
+import { DEFAULT_STATS_TIMEFRAME_HOURS, queryKeys } from "./query-hooks";
 import { analyticsClient, poolClient } from "./transport";
 
 vi.mock("./transport", () => ({
@@ -155,7 +155,10 @@ describe("streaming-hooks", () => {
         expect(result.current.isConnected).toBe(true);
       });
 
-      const cachedStats = queryClient.getQueryData(queryKeys.systemStats);
+      const cachedStats = queryClient.getQueryData([
+        ...queryKeys.systemStats,
+        DEFAULT_STATS_TIMEFRAME_HOURS,
+      ]);
       expect(cachedStats).toEqual(mockSnapshot.stats);
 
       const cachedPools = queryClient.getQueryData(queryKeys.pools);
@@ -163,6 +166,57 @@ describe("streaming-hooks", () => {
 
       const cachedPool = queryClient.getQueryData(queryKeys.pool(10n));
       expect(cachedPool).toEqual(mockSnapshot.pools[0]);
+    });
+
+    it("does not stomp other timeframe cache entries with 24h data (RUN-245)", async () => {
+      const { queryClient, wrapper } = createTestWrapper();
+
+      // A 7-day entry fetched by the dashboard chart before the stream
+      // connects: distinct 24h/7d numbers prove who wrote what.
+      const sevenDayStats = {
+        totalActiveRunners: 1,
+        totalIdleRunners: 0,
+        totalJobs24h: 999,
+        successfulJobs24h: 900,
+        failedJobs24h: 99,
+        averageRuntimeSeconds: 100.0,
+        successRatePercent: 90.0,
+      };
+      queryClient.setQueryData([...queryKeys.systemStats, 168], sevenDayStats);
+
+      const mockSnapshot = {
+        stats: {
+          totalActiveRunners: 7,
+          totalIdleRunners: 3,
+          totalJobs24h: 42,
+          successfulJobs24h: 40,
+          failedJobs24h: 2,
+          averageRuntimeSeconds: 35.5,
+          successRatePercent: 95.2,
+        },
+        pools: [],
+        recentJobs: [],
+      };
+
+      async function* mockDashboardStream(_signal: AbortSignal) {
+        yield mockSnapshot;
+      }
+
+      vi.mocked(analyticsClient.watchDashboard).mockReturnValue(
+        mockDashboardStream(new AbortController().signal) as any,
+      );
+
+      const { result } = renderHook(() => useWatchDashboard(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(true);
+      });
+
+      // The 24h entry gets the stream payload...
+      expect(queryClient.getQueryData([...queryKeys.systemStats, 24])).toEqual(mockSnapshot.stats);
+      // ...and the 7-day entry is untouched: the stream computes 24h data,
+      // so writing it over the 7d view snapped the chart back (RUN-245).
+      expect(queryClient.getQueryData([...queryKeys.systemStats, 168])).toEqual(sevenDayStats);
     });
   });
 

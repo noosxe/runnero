@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { analyticsClient, poolClient, logClient } from "./transport";
-import { queryKeys } from "./query-hooks";
+import { DEFAULT_STATS_TIMEFRAME_HOURS, queryKeys } from "./query-hooks";
 import type {
   WatchDashboardResponse,
   WatchPoolsResponse,
@@ -130,8 +130,16 @@ export function useWatchDashboard(options?: StreamOptions) {
   const onData = useCallback(
     (res: WatchDashboardResponse) => {
       if (res.stats) {
-        queryClient.setQueryData(queryKeys.systemStats, res.stats);
-        queryClient.setQueriesData({ queryKey: queryKeys.systemStats }, res.stats);
+        // The stream computes stats at the backend's default 24h timeframe
+        // (WatchDashboard calls GetSystemStats with an empty request, which
+        // clamps to 24). Write only that cache entry: a prefix write here used
+        // to stomp every timeframe variant — e.g. the 7-day chart's
+        // [systemStats, 168] entry — with 24h data about a second after the
+        // toggle, snapping the chart back to 24h (RUN-245, docs/09 §4.3).
+        queryClient.setQueryData(
+          [...queryKeys.systemStats, DEFAULT_STATS_TIMEFRAME_HOURS] as const,
+          res.stats,
+        );
       }
       if (res.pools) {
         queryClient.setQueryData(queryKeys.pools, res.pools);

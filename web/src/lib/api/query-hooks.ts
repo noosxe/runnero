@@ -408,7 +408,14 @@ export function useDeleteAuthProfile() {
 }
 
 // Analytics Service Hooks
-export function useSystemStats(timeframeHours = 24) {
+
+// The backend's default stats timeframe (internal/server/analytics.go clamps
+// <=0 to 24): WatchDashboard snapshots and the dashboard page's initial view
+// both operate on 24h. Shared so the live-stream cache write (streaming-hooks)
+// targets exactly the entry this default reads.
+export const DEFAULT_STATS_TIMEFRAME_HOURS = 24;
+
+export function useSystemStats(timeframeHours = DEFAULT_STATS_TIMEFRAME_HOURS) {
   return useQuery({
     queryKey: [...queryKeys.systemStats, timeframeHours] as const,
     queryFn: async () => {
