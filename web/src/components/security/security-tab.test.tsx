@@ -26,6 +26,7 @@ const mockSessions = [
 
 const mockRevokeMutate = vi.fn();
 const mockRevokeOthersMutate = vi.fn();
+let mockPasskeyAvailable = false;
 
 vi.mock("../../lib/api/query-hooks", () => ({
   useSessions: () => ({
@@ -44,11 +45,34 @@ vi.mock("../../lib/api/query-hooks", () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
+  useOnboardingStatus: () => ({
+    data: { passkeyAvailable: mockPasskeyAvailable },
+  }),
+  // PasskeysCard is a separate suite (passkeys-card.test.tsx); these stubs
+  // only satisfy its imports when it renders here.
+  usePasskeys: () => ({ data: [], isLoading: false }),
+  useEnrollPasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRenamePasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeletePasskey: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 describe("SecurityTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPasskeyAvailable = false;
+  });
+
+  it("hides the passkeys card when WebAuthn is not configured", () => {
+    render(<SecurityTab />);
+
+    expect(screen.queryByText("Passkeys")).not.toBeInTheDocument();
+  });
+
+  it("shows the passkeys card when WebAuthn is configured", () => {
+    mockPasskeyAvailable = true;
+    render(<SecurityTab />);
+
+    expect(screen.getByText("Passkeys")).toBeInTheDocument();
   });
 
   it("renders every session with its device label", () => {

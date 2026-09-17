@@ -14,12 +14,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DataTable, useAppTable } from "../../lib/tables";
-import { useRevokeOtherSessions, useRevokeSession, useSessions } from "../../lib/api/query-hooks";
+import {
+  useOnboardingStatus,
+  useRevokeOtherSessions,
+  useRevokeSession,
+  useSessions,
+} from "../../lib/api/query-hooks";
 import type { SessionInfo } from "../../gen/api_pb";
 import type { AppTableFeatures } from "../../lib/tables/use-app-table";
 import { MonitorSmartphone, ShieldOff } from "lucide-react";
 import { timestampDate, type Timestamp } from "@bufbuild/protobuf/wkt";
 import { ChangePasswordCard } from "./change-password-card";
+import { PasskeysCard } from "./passkeys-card";
 
 const columnHelper = createColumnHelper<AppTableFeatures, SessionInfo>();
 
@@ -40,6 +46,11 @@ export function SecurityTab() {
   const revokeSession = useRevokeSession();
   const revokeOthers = useRevokeOtherSessions();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Cached from the authenticated route guard's beforeLoad fetch - no extra
+  // RPC. The passkey card renders only when WebAuthn is configured
+  // (docs/34 section 3.5).
+  const { data: onboarding } = useOnboardingStatus();
+  const passkeyAvailable = onboarding?.passkeyAvailable ?? false;
 
   const columns = useMemo(
     () =>
@@ -123,6 +134,7 @@ export function SecurityTab() {
   return (
     <div className="flex flex-col gap-6">
       <ChangePasswordCard />
+      {passkeyAvailable && <PasskeysCard />}
       <Card>
         <CardHeader className="border-b border-border/60">
           <CardTitle className="text-base font-bold">Active Sessions</CardTitle>

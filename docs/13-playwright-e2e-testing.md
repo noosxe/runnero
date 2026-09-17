@@ -89,6 +89,7 @@ tests/e2e/
 ├── playwright.config.ts       # Base URL, viewport, timeouts, traces, and reporter configs
 ├── fixtures.ts                # Shared fixtures & helpers: login(), authedPage,
 │                              # onboardedPage (RUN-135) — auth + onboarding state in one place
+├── virtual-authenticator.ts   # CDP virtual authenticator for WebAuthn flows (RUN-248)
 ├── mock/
 │   ├── provider/              # Standalone Go mock server for GitHub/Gitea/Forgejo APIs
 │   │   ├── main.go
@@ -106,8 +107,21 @@ tests/e2e/
     ├── 07-settings-maintenance.spec.ts
     ├── 08-pool-edit-workflow.spec.ts
     ├── 09-log-observability.spec.ts
-    └── 10-session-control.spec.ts
+    ├── 10-session-control.spec.ts
+    └── 12-passkey.spec.ts
 ```
+
+**WebAuthn harness (RUN-248, docs/34 §12.2).** The compose file boots the
+supervisor with `SUPERVISOR_WEBAUTHN_RP_ID=localhost` (docs/34 §3.5 dev/E2E
+carve-out; go-webauthn rejects other single-label hostnames), and the
+playwright container shares the supervisor's network namespace
+(`network_mode: "service:e2e-supervisor"`) so the browser origin is exactly
+`http://localhost:8090` — a priori-trustworthy, i.e. a real secure context
+for `navigator.credentials` with no Chromium launch flags. Ceremonies run
+against a per-page CDP virtual authenticator (`virtual-authenticator.ts`:
+ctap2, resident keys, automatic presence + UV). Discoverable credentials
+live inside the authenticator, so a spec that enrolls and then signs in
+with a passkey must do both in one browser context.
 
 Specs share their authentication and onboarding state through `fixtures.ts`
 (RUN-135): `login(page)` is the single sign-in dance, `authedPage` is the
@@ -178,7 +192,8 @@ The supervisor interacts with Docker over HTTP (`tcp://e2e-mock-docker:2375`):
 | **Renovate Management**| `06-renovate-management.spec.ts` | Navigates to `/renovate`. Verifies scheduled cron badge, last run status, and repository targets. Clicks "Trigger Immediate Run". Observes live job status update and history table row append. | Immediate trigger mutation works; status transitions from queued $\to$ running $\to$ success. |
 | **Settings & Ops** | `07-settings-maintenance.spec.ts` | Navigates to `/settings`. Toggles theme between Light and Dark mode (asserts `class="dark"` on `<html>`). Inspects SQLite database metrics. Clicks "Create Immediate Backup". Verifies audit log table captures recent administrator actions. | Theme persists to `localStorage`; backup download trigger completes; audit log entries match test actions. |
 | **Pool Edit Workflow** | `08-pool-edit-workflow.spec.ts` | Edits `min_idle` (control-plane, no recycle banner); edits labels (spawn identity, recycle banner) and verifies idle runners respawn; renames the pool through the wizard; verifies the duplicate-name server rejection; mirrors runners in the mock provider's registry via `/_admin/runners`, flips one busy, and verifies a spawn-identity edit recycles idle runners but spares the busy one (docs/19, docs/22 §5.2). | Wizard banners match edit class; busy runner keeps its busy state and survives the edit; recycled standbys are replaced by fresh spawns; server errors surface as banners.
-| **Session Control** | `10-session-control.spec.ts` | Opens the settings Security tab and verifies the browser's own session is listed with a parsed device label and the current-session marker; signs out through the user menu (real Logout RPC); re-visits `/settings` with the dead cookie and verifies the auth gate bounces to `/login`; signs in again and signs out once more from the dashboard (docs/32 §3.5, §7). | Session list renders; logout is server-side (the old cookie cannot reach protected routes); login form reappears after sign-out.
+| **Session Control** | `10-session-control.spec.ts` | Opens the settings Security tab and verifies the browser's own session is listed with a parsed device label and the current-session marker; signs out through the user menu (real Logout RPC); re-visits `/settings` with the dead cookie and verifies the auth gate bounces to `/login`; signs in again and signs out once more from the dashboard (docs/32 §3.5, §7). | Session list renders; logout is server-side (the old cookie cannot reach protected routes); login form reappears after sign-out. |
+| **Passkey Login** | `12-passkey.spec.ts` | Attaches a CDP virtual authenticator, enrolls a passkey through the Security tab (current-password re-check), asserts the list shows the credential with its Device-bound chip, signs out, and signs back in through the login screen's "Sign in with passkey" button — no username, no password (docs/34). A second test signs in with the password while a passkey exists; a third removes the credential and asserts the passkey ceremony fails with the server's rejection and no session is minted. | Passkey list renders; passkey login establishes a real session; password fallback unaffected; removed credential cannot log in (RUN-248). |
 
 ---
 

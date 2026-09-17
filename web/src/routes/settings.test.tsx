@@ -37,6 +37,13 @@ vi.mock("../lib/api/query-hooks", () => ({
     data: mockSettings,
     isLoading: false,
   }),
+  useOnboardingStatus: () => ({
+    data: { passkeyAvailable: false },
+  }),
+  usePasskeys: () => ({ data: [], isLoading: false }),
+  useEnrollPasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRenamePasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeletePasskey: () => ({ mutate: vi.fn(), isPending: false }),
   useSetAppSetting: () => ({
     mutateAsync: mockSetMutate,
   }),

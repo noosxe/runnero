@@ -5,7 +5,9 @@ import { LoginPage } from "./login";
 
 let mockIsPending = false;
 let mockSearch: { redirect?: string } = { redirect: "/pools" };
+let mockPasskeyAvailable = false;
 const mockMutateAsync = vi.fn();
+const mockPasskeyMutateAsync = vi.fn();
 const mockNavigate = vi.fn();
 const mockSetTheme = vi.fn();
 let mockTheme = "light";
@@ -13,6 +15,15 @@ let mockTheme = "light";
 vi.mock("../lib/api/query-hooks", () => ({
   useLogin: () => ({
     mutateAsync: mockMutateAsync,
+    get isPending() {
+      return mockIsPending;
+    },
+  }),
+  useOnboardingStatus: () => ({
+    data: { passkeyAvailable: mockPasskeyAvailable },
+  }),
+  usePasskeyLogin: () => ({
+    mutateAsync: mockPasskeyMutateAsync,
     get isPending() {
       return mockIsPending;
     },
@@ -39,6 +50,7 @@ describe("LoginPage", () => {
     mockIsPending = false;
     mockSearch = { redirect: "/pools" };
     mockTheme = "light";
+    mockPasskeyAvailable = false;
   });
 
   it("renders login form with fields and buttons", () => {
@@ -48,6 +60,37 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText("Username")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
+  });
+
+  it("hides the passkey button when WebAuthn is not configured", () => {
+    render(<LoginPage />);
+
+    expect(screen.queryByTestId("passkey-login-button")).not.toBeInTheDocument();
+  });
+
+  it("runs the passkey ceremony and navigates on success", async () => {
+    mockPasskeyAvailable = true;
+    mockPasskeyMutateAsync.mockResolvedValueOnce({ success: true });
+    render(<LoginPage />);
+
+    expect(screen.getByTestId("passkey-login-button")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("passkey-login-button"));
+
+    await waitFor(() => expect(mockPasskeyMutateAsync).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith({ to: "/pools" }));
+  });
+
+  it("translates an unknown-credential passkey failure into guidance", async () => {
+    mockPasskeyAvailable = true;
+    mockPasskeyMutateAsync.mockRejectedValueOnce(new Error("bad_request: credential not found"));
+    render(<LoginPage />);
+
+    fireEvent.click(screen.getByTestId("passkey-login-button"));
+
+    await waitFor(() =>
+      expect(screen.getByText(/No passkey on this device is registered/i)).toBeInTheDocument(),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it("toggles password visibility", () => {

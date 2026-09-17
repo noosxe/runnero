@@ -15,12 +15,14 @@ import {
   renovateClient,
   imageClient,
 } from "./transport";
+import { runPasskeyEnrollment, runPasskeyLogin } from "../passkey";
 
 export const queryKeys = {
   onboardingStatus: ["onboarding", "status"] as const,
   appSettings: ["onboarding", "settings"] as const,
   session: ["auth", "session"] as const,
   sessions: ["auth", "sessions"] as const,
+  passkeys: ["auth", "passkeys"] as const,
   pools: ["pools"] as const,
   pool: (id: bigint) => ["pools", id.toString()] as const,
   authProfiles: ["authProfiles"] as const,
@@ -239,6 +241,66 @@ export function useChangePassword() {
     onSuccess: () => {
       // Other sessions were revoked server-side; refresh the list.
       void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+    },
+  });
+}
+
+// Passkey hooks (RUN-248, docs/34): ceremony runners live in lib/passkey so the
+// React layer only wires them to state and cache invalidation.
+export function usePasskeys() {
+  return useQuery({
+    queryKey: queryKeys.passkeys,
+    queryFn: async () => {
+      const res = await authClient.listPasskeys({});
+      return res.passkeys;
+    },
+  });
+}
+
+export function useEnrollPasskey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ currentPassword, name }: { currentPassword: string; name: string }) => {
+      return await runPasskeyEnrollment(currentPassword, name);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.passkeys });
+    },
+  });
+}
+
+export function useRenamePasskey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: Parameters<typeof authClient.renamePasskey>[0]) => {
+      return await authClient.renamePasskey(req);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.passkeys });
+    },
+  });
+}
+
+export function useDeletePasskey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      return await authClient.deletePasskey({ id });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.passkeys });
+    },
+  });
+}
+
+export function usePasskeyLogin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      return await runPasskeyLogin();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });
 }

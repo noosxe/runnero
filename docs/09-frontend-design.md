@@ -238,6 +238,18 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 +---------------------------------------------------------------------------------------+
 ```
 
+Passkey entry point (RUN-248, docs/34 §8): when `GetOnboardingStatus.passkey_available`
+is true (WebAuthn configured; the value is config state, so the button never
+flickers with enrollment), a divider and a **"Sign in with passkey"** button
+render below the form. Clicking it runs the discoverable ceremony — no
+username, no password: the credential identifies the user — and on success
+navigates exactly like the password submit (same redirect handling, session
+cookie set by the same server path). The button is absent when WebAuthn is
+not configured; an unknown-credential rejection surfaces as inline guidance
+("No passkey on this device is registered with this supervisor."), any other
+failure shows the server's message. The username/password form is an
+independent complete path, not a degraded mode (docs/34 §3.3).
+
 ---
 
 ### 4.3 Page 3: Main Dashboard (`/` or `/dashboard`)
@@ -480,6 +492,23 @@ stream data, so toggling the chart's timeframe sticks.
 | +-------------------------------------------------------------------------------------------+ |
 +-----------------------------------------------------------------------------------------------+
 ```
+
+Security tab — Passkeys card (RUN-248, docs/34 §4.2), rendered only when
+`passkey_available` is true:
+
+- **List**: name, added, last used, and custody/signal chips — `Synced` vs
+  `Device-bound` (docs/34 §3.2) and, when the server flagged the credential,
+  a destructive `Cloned?` chip plus a red banner explaining that the flagged
+  passkey can no longer sign in and should be removed.
+- **Add passkey**: dialog collects the current password (the §4.2 re-check —
+  a stolen-but-live session must not mint a complete login identity) and an
+  optional label, then runs the browser creation ceremony; the submit button
+  stays pending for the duration of the prompt. Server rejections (wrong
+  password, replacement cap) surface inside the dialog.
+- **Rename** / **Remove**: rename in place (1..64 chars); removal behind a
+  confirm dialog that notes the password fallback is unaffected. No passkey
+  action ever revokes sessions — that is deliberately the session list's
+  lever (docs/34 §4.4).
 
 ---
 
