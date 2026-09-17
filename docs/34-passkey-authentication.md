@@ -1,8 +1,10 @@
-# 34 — Passkey (WebAuthn) Second Factor for the Web Control Plane
+# 34 — Passkey (WebAuthn) Login for the Web Control Plane
 
-> Status: **design phase** (RUN-235). Implementation is sequenced after this
-> doc merges; the implementation PR(s) carry code, tests, and the README
-> Features listing. Tracker: docs/32 §2.4 deferred this module and
+> Status: **design phase, revision 2** (RUN-235). Implementation is sequenced
+> after this doc merges; the implementation PR(s) carry code, tests, and the
+> README Features listing. Revision 2 (owner decision, pre-merge): passkey
+> sign-in is **passwordless** — the credential identifies the user
+> completely; username/password remains as an independent fallback path. Tracker: docs/32 §2.4 deferred this module and
 > schema-accommodated it ("audit vocabulary leaves room for passkey events",
 > `GetOnboardingStatus` is the pre-auth status surface a passkey flag
 > extends).
@@ -33,8 +35,10 @@ meaningless), and the secret never leaves the authenticator.
 
 **Goals**
 
-1. Passkeys as an **opt-in second factor** on top of the password: enroll in
-   Settings → Security, then every login is *password → passkey assertion*.
+1. Passkey sign-in as a **complete passwordless login**: a "Sign in with
+   passkey" button on the login screen identifies the user entirely via the
+   credential — no password on that path — with username/password remaining
+   alongside as an independent fallback.
 2. Phishing resistance end to end: RP ID/origin pinning, server-controlled
    challenges, user verification (biometric/PIN) required on every ceremony.
 3. Fail-closed configuration: passkeys are inert until an RP ID is explicitly
@@ -42,17 +46,19 @@ meaningless), and the secret never leaves the authenticator.
    supervisor).
 4. Multi-user-ready storage: credentials carry a `user_id` FK from day one
    (RUN-236 interaction — the schema never needs to move again).
-5. Recovery without a second channel: the password path remains a complete
-   login on its own when no passkey is enrolled or the configured mode does
-   not demand one, so a lost passkey is an inconvenience, not a lockout.
+5. Recovery without a second channel: the two login paths are independent —
+   a lost passkey degrades to username/password, a forgotten password leaves
+   the passkey; total lockout requires losing both.
 
 **Non-goals (this design)**
 
-- **Passwordless login** (passkey as a *replacement* first factor). Rejected
-  for now — see §3.2; the credential schema does not preclude it later.
+- **Password-disabled lockdown mode** (passkey-only). The password path
+  stays enabled in this design — it is half of the recovery story (§3.2); a
+  config switch to disable it is a deliberate future decision (§13).
 - **External IdPs / OIDC, TOTP** — untouched (docs/32 non-goals stand).
-- **Conditional UI / username-less autofill ceremonies** — needs the
-  passwordless mode above to be meaningful.
+- **Conditional UI / autofill mediation** — the v1 ceremony uses the
+  standard authenticator prompt; browser autofill-style mediation is a UI
+  enhancement layered on the same RPCs later.
 - **Attestation verification** (MDS lookup, AAGUID allow-lists) — attestation
   is recorded, never *enforced*; consumer passkeys are routinely
   "none"-attested and sync-based, so an allow-list would lock out exactly the
@@ -74,13 +80,13 @@ this design leans on, verified against upstream docs at v0.18.1:
 - `BeginRegistration(user, WithResidentKeyRequirement(Required),
   WithUserVerification(Required))` → `*protocol.CredentialCreation,
   *SessionData`;
-- `BeginLogin(user, WithAllowedCredentials(descriptors))` →
-  `*protocol.CredentialAssertion, *SessionData` — the **non-discoverable**
-  assertion, correct for a second factor because the password step has
-  already identified the user;
-- `FinishLogin(user, session, request)` → `*Credential` with the updated
-  `Authenticator.SignCount` and `Flags` — the library requires the caller to
-  write these back (§3.6);
+- `BeginDiscoverableLogin(opts...)` → `*protocol.CredentialAssertion,
+  *SessionData` — the **discoverable** (passkey) assertion: no username, no
+  allow-list; the credential identifies the user;
+- `FinishPasskeyLogin(handler, session, request)` → `(User, *Credential)`
+  — the handler resolves the user from the asserted credential ID; the
+  returned credential carries the updated `Authenticator.SignCount` and
+  `Flags`, which the library requires the caller to write back (§3.8);
 - `protocol.ErrChallengeMismatch`, `ErrAssertionSignature`,
   `ErrBadRequest`, `ErrorUnknownCredential` — the error taxonomy the server
   maps onto rate-limiter feeds and audit events.
@@ -90,54 +96,64 @@ ConnectRPC. The design therefore extracts the assertion/attestation JSON from
 the proto payload and synthesizes a minimal `*http.Request` carrying it as
 the body — a thin, easily unit-tested adapter (§9).
 
-### 3.2 Second factor, not passwordless
+### 3.2 Passwordless passkey sign-in (revision 2)
 
-The Linear issue frames passkeys as a *second* authentication factor, and
-that is the right call for a self-hosted single-admin product:
+Revision 1 of this design framed the passkey as a second factor chained
+after the password. The owner revised the direction pre-merge: **the
+passkey identifies the user completely** — a "Sign in with passkey" button
+on the login screen is a full login on its own, and username/password
+remains alongside as an independent fallback path. What the revision buys:
 
-- **Recovery.** Passwordless means a lost/broken authenticator is a total
-  lockout with no second channel (there is no "email me a reset link" in a
-  self-hosted box). With the password as the always-present first factor, a
-  lost passkey degrades to today's login; the owner re-enrolls after signing
-  in.
-- **Threat fit.** The password remains the knowledge factor; the passkey adds
-  the possession factor. Every threat in §1 is answered by the *combination*.
-- **Downgrade resistance is what makes 2FA real** — §5.2's invariant, not
-  user discipline.
+- **Simpler, faster primary login** — one ceremony, no password entry; the
+  discoverable credential *is* the username.
+- **No phishing surface on the primary path** — the ceremony is bound to
+  the RP ID/origin; a proxy page cannot relay it, and nothing reusable is
+  transmitted.
+- **Recovery by parallelism, not chaining** — a lost passkey degrades to
+  the password path; a forgotten password leaves the passkey. Total lockout
+  requires losing both.
 
-Passwordless stays a documented rejection with a named unlock condition: if
-the owner later wants it, the `ResidentKey=Required` credentials enrolled
-under this design are already discoverable — the change is a ceremony and UI
-change, not a re-enrollment.
+Accepted trade-off (documented, not hidden): possession of the passkey is
+full account access. A synced passkey is only as strong as its sync account
+(iCloud Keychain / Google Password Manager); the mitigations are user
+verification on every ceremony (§3.7) and sign-counter clone detection
+(§3.8), and device-bound roaming keys (YubiKey) remain available for owners
+who want hardware residency. A future "disable password login" lockdown
+mode is deliberately out of scope (§13).
 
-### 3.3 Login becomes two-phase when a passkey is enrolled
+Mechanically this is the library's discoverable ceremony, verified
+upstream at v0.18.1: `BeginDiscoverableLogin()` →
+`FinishPasskeyLogin(handler, session, request)`, where the handler resolves
+the `User` from the asserted credential ID.
+`webauthn_credentials.credential_id` is globally `UNIQUE` from day one, so
+credential-ID → user lookup is multi-user-safe with zero schema motion
+(RUN-236 interaction).
+
+### 3.3 Login flows: two independent complete paths
 
 ```
-no passkeys enrolled (or passkeys disabled):
-  Login(password) ──► session cookie                      (unchanged path)
-
-≥1 passkey enrolled:
-  Login(password) ──► 200 { passkey_required: true,       NO session issued
-                            assertion_ticket: "<256-bit random>" }
-  BeginPasskeyAssertion(ticket)  ──► CredentialAssertion options (JSON)
-  FinishPasskeyAssertion(ticket, authenticatorData) ──► session cookie
+passkey path (WebAuthn configured):
+  BeginPasskeyLogin()            → CredentialAssertion options (no username,
+                                   empty allow-list — discoverable ceremony)
+  user picks credential + UV     → authenticator signs the challenge
+  FinishPasskeyLogin(assertion)  → credential_id → user → session cookie
                                                           (shared issuance path)
+
+password path (always available, unchanged):
+  Login(username, password)      → session cookie      (docs/32 hardened path)
 ```
 
-- The **assertion ticket** is issued only inside the existing hardened login
-  response (rate limit, timing equalization — docs/32 §4 all apply to the
-  password step unchanged). It is: 256 bits of CSPRNG, stored in memory only,
-  single-use, bound to `user_id + client IP`, TTL **3 minutes**. A supervisor
-  restart discards outstanding tickets — the client just re-enters the
-  password; no durability is needed because the first factor is cheap to
-  repeat.
-- The ticket — not the network — is what gates `BeginPasskeyAssertion` /
-  `FinishPasskeyAssertion`. The unauthenticated surface does not grow: an
-  anonymous caller cannot mint challenges or write ceremony state, and there
-  is no new table to purge.
-- `FinishPasskeyAssertion` issues the session through the **one shared
-  issuance path** (docs/32 §3.2 invariant preserved verbatim: session rows,
-  two clocks, cookie attributes identical to a password login).
+- The two paths share **nothing**: no ceremony state, no tickets, no
+  chaining. Revision 1's assertion-ticket machinery is gone entirely —
+  passwordless has no password step to bind to, so there is nothing to
+  chain from.
+- Ceremony state still never leaves the server (§3.4), challenges are
+  single-use with a 3-minute TTL, and `FinishPasskeyLogin` issues the
+  session through the **one shared issuance path** (docs/32 §3.2 invariant
+  preserved: session rows, two clocks, cookie attributes identical to a
+  password login; audit `auth.login_success` records `method: "passkey"`).
+- The passkey path's Begin/Finish run **without any credential** (§4.3
+  bounds the anonymous surface this creates).
 
 ### 3.4 Ceremony state never leaves the server
 
@@ -150,11 +166,13 @@ question. Instead:
 
 - all ceremony state lives in an **in-memory store** on the supervisor,
   keyed by a random ceremony ID, value = `SessionData`, consumed on first
-  use (single-use), TTL 3 minutes, bounded (one live ceremony per user for
-  enrollment; one per ticket for login; oldest-expired evicted);
-- the client sees only opaque IDs (ticket) and the public options JSON.
-  A supervisor restart cancels in-flight ceremonies — visible as a failed
-  step the UI offers to restart.
+  use (single-use), TTL 3 minutes, bounded (one live enrollment ceremony
+  per user; a capped pool of anonymous login ceremonies, §4.3;
+  oldest-expired evicted);
+- the client sees only the public options JSON — challenge bytes never
+  cross the wire in either direction. A supervisor restart cancels
+  in-flight ceremonies — visible as a failed step the UI offers to
+  restart.
 
 ### 3.5 RP ID / origins: explicit config, fail-closed
 
@@ -172,8 +190,9 @@ Decisions:
   `webauthn_origins` (CSV of allowed origins, e.g.
   `https://runnero.tailnet-xyz.ts.net`);
 - **empty `webauthn_rp_id` ⇒ the entire feature is off**: no enrollment UI,
-  no ticket issuance, `Login` behaves exactly as today. Fail-closed, nothing
-  half-configured;
+  no passkey button on the login page, passkey RPCs answer
+  `FailedPrecondition`, and `Login` behaves exactly as today. Fail-closed,
+  nothing half-configured;
 - `webauthn_origins` defaults to `https://<rp_id>` (port 443 implicit) and
   must be set explicitly for non-443 ports or extra origins; startup
   validation rejects origins whose host is not the RP ID or a subdomain of
@@ -207,13 +226,16 @@ DB cannot authenticate with a public key. Decision:
 
 `BeginRegistration` is called with:
 
-- `WithResidentKeyRequirement(Required)` — credentials are discoverable
-  (device-bound security keys synthesized RoRIs; sync passkeys are native
-  discoverable). This is the future-proofing for §3.2;
+- `WithResidentKeyRequirement(Required)` — credentials MUST be
+  discoverable: discoverability is the login mechanism in passwordless mode
+  (the authenticator lists "Runnero" and identifies the account);
+  device-bound security keys get the same UX via the allow-list-free
+  discoverable ceremony;
 - `WithUserVerification(Required)` — biometric/PIN on every ceremony, both
   registration and assertion; the UV flag is checked server-side on the
-  returned credential/flags, and an assertion without UV is rejected —
-  "something you have" must also prove "something you are/know" locally;
+  returned credential/flags, and an assertion without UV is rejected. In
+  passwordless mode UV stands where the password used to — it is
+  non-negotiable on this path;
 - attestation `none` (default): no attestation conveyance, nothing to
   verify, maximum authenticator compatibility (§2 non-goal).
 - Attachments are **not** restricted: platform (Touch ID / Windows Hello /
@@ -245,7 +267,7 @@ New procedures in the bucket matrix (docs/32 §3.3 vocabulary):
 |---|---|---|
 | `BeginPasskeyEnrollment`, `FinishPasskeyEnrollment` | `bucketSession` | admin role + session; Begin additionally verifies the **current password** (§4.2) |
 | `ListPasskeys`, `RenamePasskey`, `DeletePasskey` | `bucketSession` | admin role + session |
-| `BeginPasskeyAssertion`, `FinishPasskeyAssertion` | `bucketPublic` | gated by the in-memory ticket, not the cookie |
+| `BeginPasskeyLogin`, `FinishPasskeyLogin` | `bucketPublic` | fully anonymous: bounded ceremony store + IP rate limit (§3.3, §4.3) |
 | `Login` (extended response) | `bucketPublic` | unchanged |
 
 A RUN-244-style degrade does not apply: these `bucketSession` procedures are
@@ -253,35 +275,55 @@ session-or-401 like the rest of the admin surface.
 
 ## 4. Login lifecycle
 
-### 4.1 Flow selection
+### 4.1 Two independent paths
 
-`Login` consults two facts after the password verifies: is WebAuthn
-configured (`webauthn_rp_id` set) and does the user hold ≥1 credential?
-Not configured, or zero credentials → session issued immediately
-(byte-for-byte today's response shape plus nothing). Configured **and** ≥1
-credential → ticket + two-phase.
-The `passkey_enrolled` flag also lands on `GetOnboardingStatus` (§7) so the
-login page knows *before* submitting whether step 2 exists, and the pre-auth
-guard page (RUN-243 chain) keeps failing closed on errors.
+The login screen offers both; the server treats them as unrelated complete
+logins:
+
+- **Passkey (passwordless, primary):** `BeginPasskeyLogin` — no username, no
+  credential — returns assertion options with an empty allow-list; the
+  authenticator prompts for user verification and shows the user their
+  registered credentials; the assertion's credential ID resolves the user
+  server-side; `FinishPasskeyLogin` issues the session through the shared
+  issuance path. With a single admin this always resolves to the admin;
+  with N users (RUN-236) it resolves to whoever holds the key — the
+  credential-ID lookup *is* the identity mechanism.
+- **Username/password (fallback):** the docs/32 `Login` RPC, untouched —
+  same rate limiting, timing equalization, session issuance, response
+  shape. A user with passkeys enrolled may still use it; nothing chains.
+
+`GetOnboardingStatus.passkey_available` (§7) tells the pre-auth login page
+whether to render the passkey button; the passkey RPCs answer
+`FailedPrecondition` when invoked while unconfigured — fail-closed even if
+a cached flag is stale (RUN-243's guard contract keeps applying to the
+login surface).
 
 ### 4.2 Enrollment starts with a password re-check
 
 `BeginPasskeyEnrollment` requires the **current password** in its request and
 verifies it with one bcrypt comparison before minting the ceremony. Threat:
 a stolen-but-live session (cookie exfiltrated from a sleeping laptop,
-malicious extension) must not be able to mint a *new* persistent factor. The
-session alone is proof of "was authenticated"; the password re-check
-restores "is authenticated" for a factor-granting action. Password-protected
-enrollment is the same posture as `ChangePassword` (docs/32 §4.4).
+malicious extension) must not be able to mint a *new complete login
+identity*. The session alone is proof of "was authenticated"; the password
+re-check restores "is authenticated" for an identity-granting action. The
+same posture as `ChangePassword` (docs/32 §4.4) — and more important under
+passwordless, where the minted factor is a full login.
 
-### 4.3 Assertion failures feed the existing rate limiter
+### 4.3 Anonymous surface, bounded and limited
 
-docs/32 §4.2 explicitly reserved this: `FinishPasskeyAssertion` failures
-(bad signature, expired/unknown ticket, UV missing) increment the same
-durable limiter keyed `username + client IP`, with the same 5-in-15
-threshold and backoff. The ticket binds the attempt to a user, so the limiter
-key is well-defined. `BeginPasskeyAssertion` with an unknown/expired ticket
-counts as a failure for the presenting IP.
+`BeginPasskeyLogin` runs with no credential at all, so the design keeps its
+unauthenticated footprint fixed:
+
+- the anonymous ceremony store caps concurrent ceremonies (32), TTL 3
+  minutes, oldest-expired evicted; a full store rejects Begin with
+  `ResourceExhausted` — fail-closed, no queue to fill;
+- Begin calls rate-limit per client IP (fixed pseudo-user key in the
+  existing durable limiter);
+- Finish failures rate-limit per client IP, upgrading to the standard
+  `username + IP` key once the assertion identifies the user (docs/32 §4.2
+  reservation honored);
+- all store bounds are in-memory by design — a restart drains them, which
+  is harmless: the client restarts the ceremony (§3.4).
 
 ### 4.4 Session control parity
 
@@ -294,9 +336,10 @@ removal).
 
 ## 5. Hard invariants
 
-1. **No downgrade:** if the user holds ≥1 credential and WebAuthn is
-   configured, `Login` MUST NOT return a session without a completed
-   assertion — enforced in the shared issuance path, never in the UI.
+1. **Two independent complete paths:** the passkey path and the password
+   path are each a full login on their own; no ceremony state, ticket, or
+   extra step ever chains one into the other, and the password path's
+   behavior is byte-for-byte docs/32.
 2. **One challenge, one use:** every challenge is single-use, server-generated,
    3-minute TTL; replay or reuse is a hard failure and a limiter event.
 3. **Server-side ceremony state only:** challenge bytes and SessionData never
@@ -305,6 +348,10 @@ removal).
    signature were bad (same audit action).
 5. **Audit carries no credential material:** no credential IDs, no challenge
    bytes, no attestation objects — extend the existing leakage test.
+6. **Bounded anonymous state:** `BeginPasskeyLogin` runs without any
+   credential; the ceremony store caps concurrency and IP rate limits Begin,
+   so the unauthenticated surface grows state only up to a fixed bound
+   (§4.3).
 
 ## 6. Data model (migration `012_webauthn_credentials.sql`)
 
@@ -355,10 +402,11 @@ rpc FinishPasskeyEnrollment(FinishPasskeyEnrollmentRequest)
 rpc ListPasskeys(ListPasskeysRequest) returns (ListPasskeysResponse);
 rpc RenamePasskey(RenamePasskeyRequest) returns (RenamePasskeyResponse);
 rpc DeletePasskey(DeletePasskeyRequest) returns (DeletePasskeyResponse);
-rpc BeginPasskeyAssertion(BeginPasskeyAssertionRequest)
-    returns (BeginPasskeyAssertionResponse);
-rpc FinishPasskeyAssertion(FinishPasskeyAssertionRequest)
-    returns (LoginResponse);          // same message the password login returns
+rpc BeginPasskeyLogin(BeginPasskeyLoginRequest)
+    returns (BeginPasskeyLoginResponse);
+rpc FinishPasskeyLogin(FinishPasskeyLoginRequest)
+    returns (LoginResponse);          // full login: identifies the user via the
+                                      // credential, issues the standard session
 
 message BeginPasskeyEnrollmentRequest { string current_password = 1; }
 message BeginPasskeyEnrollmentResponse {
@@ -388,27 +436,25 @@ message RenamePasskeyResponse {}
 message DeletePasskeyRequest { uint64 id = 1; }
 message DeletePasskeyResponse {}
 
-message BeginPasskeyAssertionRequest { string assertion_ticket = 1; }
-message BeginPasskeyAssertionResponse {
-  bytes public_key_options_json = 1;   // protocol.CredentialAssertion JSON
+message BeginPasskeyLoginRequest {}
+message BeginPasskeyLoginResponse {
+  bytes public_key_options_json = 1;   // protocol.CredentialAssertion JSON;
+                                       // empty allow-list (discoverable ceremony)
 }
-message FinishPasskeyAssertionRequest {
-  string assertion_ticket = 1;
-  bytes assertion_response_json = 2;   // PublicKeyCredentialJSON (authentication)
+message FinishPasskeyLoginRequest {
+  bytes assertion_response_json = 1;   // PublicKeyCredentialJSON (authentication)
 }
 ```
 
-`LoginResponse` gains:
+`LoginResponse` itself is unchanged — the passkey path reuses it as
+`FinishPasskeyLogin`'s return type, issuing the identical session shape
+through the shared issuance path (§3.3).
 
-```proto
-bool passkey_required = N;        // true ⇒ no token in this response
-string assertion_ticket = N + 1;  // opaque, 3 min, single-use
-```
-
-`GetOnboardingStatusResponse` gains `bool passkey_enrolled` (true iff
-WebAuthn configured AND the user holds ≥1 credential) — the pre-auth status
-field docs/32 §2.4 reserved; the login page reads it to decide whether step 2
-exists.
+`GetOnboardingStatusResponse` gains `bool passkey_available` (true iff
+WebAuthn is configured) — the pre-auth status field docs/32 §2.4 reserved;
+the login page reads it to decide whether to render the passkey button.
+Availability is a property of configuration, not enrollment state, so it
+never flickers when credentials are added or removed.
 
 ## 8. Audit
 
@@ -421,7 +467,7 @@ exactly as reserved):
 | `auth.passkey.enroll_failed` | Finish failure | coarse reason (`bad_attestation`, `password_mismatch`, `ceremony_expired`) |
 | `auth.passkey.removed` | DeletePasskey | label |
 | `auth.passkey.renamed` | RenamePasskey | — |
-| `auth.passkey.assertion_failed` | Finish failure | coarse reason (`bad_signature`, `uv_missing`, `ticket_invalid`, `counter_regression`) |
+| `auth.passkey.assertion_failed` | Finish failure | coarse reason (`bad_signature`, `uv_missing`, `ceremony_invalid`, `counter_regression`) |
 | `auth.passkey.clone_warning` | counter regression | credential row id |
 | `auth.login_success` | (existing) | gains `method: "password" \| "passkey"` |
 
@@ -433,16 +479,17 @@ contain credential IDs, challenge bytes, or attestation objects.
 
 One self-contained module, mirroring the docs/32 §2.4 prediction:
 
-- `internal/server/passkey.go` — RPC handlers; ceremony store; ticket store;
-  the `*http.Request` synthesis adapter for the library's Finish steps;
+- `internal/server/passkey.go` — RPC handlers; ceremony store (enrollment +
+  capped anonymous-login pool); the `*http.Request` synthesis adapter for
+  the library's Finish steps;
 - `internal/server/passkey_test.go` — full ceremony tests using the library
   against a software authenticator (the `descope/virtualwebauthn` helper
   package, dev-only dependency) so registration/assertion crypto is
   exercised for real, not mocked;
 - `internal/keys` — **unchanged** (§3.6);
 - `internal/db` — queries + migration 012;
-- `internal/config` — `webauthn_rp_id`, `webauthn_origins`,
-  `passkey_required` + startup validation.
+- `internal/config` — `webauthn_rp_id`, `webauthn_origins` + startup
+  validation.
 
 Config additions:
 
@@ -450,48 +497,51 @@ Config additions:
 |---|---|---|
 | `webauthn_rp_id` | *(empty)* | empty ⇒ feature fully off |
 | `webauthn_origins` | `https://<rp_id>` | CSV; validated against RP ID at startup |
-| `passkey_required` | `false` | when true, assertion is mandatory (§5.1); startup-validated to require `webauthn_rp_id` |
 
-`passkey_required = true` semantics: login is *always* two-phase for every
-user with credentials; a user with zero credentials cannot exist in practice
-(single admin, who enrolls through the settings UI while password login
-still works — the flag is meant to be flipped *after* enrollment). The UI
-warns when flipping it in settings before any passkey exists.
+There is no "require passkey" switch: the password path is half of the
+recovery story (§3.2), so it stays enabled by design. The Security tab
+instead recommends enrolling a second passkey on a different device/sync
+account.
 
 ## 10. Security implications (threat walk)
 
 | threat | mitigation |
 |---|---|
-| Password phishing/harvest | assertion is origin-bound; a phished password alone yields a ticket that dies in 3 min without the physical factor (§4.1) |
-| Stolen session adds attacker passkey | enrollment Begin requires current password (§4.2) |
+| Password phishing/harvest | unchanged exposure on the password path vs today (docs/32 hardening); the passkey button is the phishing-resistant path — origin/RP-bound, nothing reusable transmitted (§3.2) |
+| Synced-passkey cloud compromise | possession = full access — owner-accepted trade-off of passwordless (§3.2); UV on every ceremony + clone detection (§3.8); device-bound keys available for hardware residency |
+| Stolen session adds attacker passkey (a complete login) | enrollment Begin requires the current password (§4.2) — the primary defense under passwordless |
 | Challenge substitution / ceremony mix-up | SessionData server-side, single-use, per-user isolation (§3.4, §5.3) |
 | Assertion replay | challenge single-use + TTL + limiter feed (§5.2) |
 | Cloned authenticator | sign-counter monotonic policy, fail closed + flag (§3.8) |
 | UV-less assertion (e.g. fingerprint bypassed) | UV flag enforced server-side (§5.4) |
-| Downgrade to password-only | §5.1 invariant, enforced in issuance path |
+| Anonymous ceremony exhaustion | `BeginPasskeyLogin` is credential-free: bounded store (cap 32, 3-min TTL, oldest eviction) + IP rate limit keep state growth fixed (§5.6) |
 | DB theft | public keys only — useless without the authenticator (§3.6) |
-| Online brute force of ticket | 256-bit CSPRNG + 3-min TTL + single-use + IP limiter (§4.3) |
+| Online brute force of assertions | signature forgery is the only path in; challenges are single-use with 3-min TTL and failures rate-limit per IP (§4.3) |
 | CSRF on ceremony RPCs | Connect content-type requirement + `SameSite=Strict` cookie (docs/32 §2.2); assertion path additionally ticket-gated |
-| DoS via ceremony state | Begin is ticket-gated; one live ceremony per user; TTL eviction |
-| Lockout | password remains a complete factor when `passkey_required=false`; emergency escape documented (§12) |
+| DoS via enrollment ceremonies | Begin is session- + password-gated; one live ceremony per user; TTL eviction |
+| Lockout | two independent paths: losing the passkey leaves the password, forgetting the password leaves the passkey — total lockout requires losing both (§3.2) |
 
 ## 11. Testing & verification
 
 - **Go unit** (`internal/server/passkey_test.go`): full enroll+assert
-  ceremonies via the virtual authenticator; ticket TTL, single-use, IP
-  binding; downgrade invariant (credential exists ⇒ password-only login
-  returns ticket, never a session); UV-missing rejection; counter
+  ceremonies via the virtual authenticator; discoverable assertion
+  resolving the user by credential ID (single-admin and
+  unknown-credential cases); password fallback succeeding with passkeys
+  enrolled; anonymous Begin bounds (cap, TTL eviction, single-use); IP
+  rate-limit feeds; UV-missing rejection; counter
   regression → clone warning + rejection; unconfigured ⇒ endpoints are
   `FailedPrecondition`, `Login` unchanged; origin validation at startup;
   leakage test extension (§8).
-- **Web unit** (Vitest): login two-step component states (ticket branch,
-  error mapping of `NotAllowedError` to a retryable message); Security-tab
+- **Web unit** (Vitest): login screen passkey button states
+  (`passkey_available` gating, error mapping of `NotAllowedError` to a
+  retryable message); Security-tab
   passkey list rendering incl. sync/clone chips; enrollment flow happy path
   with a mocked ceremony client.
 - **E2E** (Playwright, Chromium): CDP `WebAuthn.enable` + virtual
-  authenticator — enroll on the Security tab, log out, two-step login with
-  the virtual passkey, wrong-key rejection, `GetOnboardingStatus` flag
-  flips. Runs with `webauthn_rp_id=localhost` in the E2E compose env (the
+  authenticator — enroll on the Security tab, log out, passwordless login
+  with the virtual passkey, password-fallback login, wrong-key rejection,
+  `GetOnboardingStatus` flag flips. Runs with `webauthn_rp_id=localhost` in
+  the E2E compose env (the
   §3.5 localhost carve-out makes this self-contained).
 - **Gates**: full chain per AGENTS.md before push.
 
@@ -500,7 +550,8 @@ warns when flipping it in settings before any passkey exists.
 1. **Backend** — migration 012, config + validation, ceremony/ticket stores,
    proto + handlers, audit, Go tests (virtual authenticator). Feature ships
    dark (no UI) but wire-complete behind the config flag.
-2. **Frontend + E2E** — login two-step, Security-tab passkey management,
+2. **Frontend + E2E** — login passkey button (passwordless) + password
+   fallback, Security-tab passkey management,
    Vitest, Playwright CDP flows, `GetOnboardingStatus` flag consumption.
 
 Split keeps each PR reviewable; neither is human-testable meaningfully
@@ -508,7 +559,7 @@ without the other, so both land before the owner does passkey manual checks.
 
 ## 13. Open questions (owner)
 
-1. **`passkey_required` default** — shipped `false` (recommended on). Comfortable making the Security tab nag until enrolled or dismissed?
+1. **Passkey enrollment during onboarding** — offer it at the end of the SetupAdmin flow (nice first-run UX for passwordless), or keep it Settings-only for v1?
 2. **RP ID guidance** — the doc recommends a stable MagicDNS/reverse-proxy hostname. OK to make the E2E + docs assume `localhost` for dev and a hostname for prod, with no IP-origin support at all?
-3. **Multiple passkeys** — design allows N per user (recommended: enroll 2). Cap at, say, 8, or uncapped?
+3. **Multiple passkeys** — design allows N per user (recommended: enroll 2 on different devices). Cap at, say, 8, or uncapped?
 4. **Sequencing vs RUN-236 (viewer role)** — schema is multi-user-ready; if viewer lands first, passkey scoping is already correct. Preference on which PR series goes first?
