@@ -91,16 +91,17 @@ export function PoolDetailPage() {
   const { poolId } = useParams({ strict: false }) as { poolId?: string };
   const poolIdBigInt = poolId ? BigInt(poolId) : 0n;
 
+  const isAdmin = useIsAdmin();
   const { data: pools } = usePools();
   const pool = pools?.find((p) => p.id === poolIdBigInt);
-  const { data: authProfiles } = useAuthProfiles();
+  // Admin-bucket read gated for viewers (docs/35 section 2.2).
+  const { data: authProfiles } = useAuthProfiles(isAdmin);
   const { data: session } = useSession();
 
   const { data: runners, isLoading: runnersLoading } = useRunners(poolIdBigInt);
   const { isConnected: isStreamActive } = useWatchRunners(poolIdBigInt);
 
   const [activeTab, setActiveTab] = useState<"runners" | "config" | "renovate">("runners");
-  const isAdmin = useIsAdmin();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);

@@ -100,8 +100,8 @@ func TestViewerLifecycleLiveEnforcement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("viewer GetSession: %v", err)
 	}
-	if sess.Msg.Role != "viewer" || sess.Msg.IsAdmin {
-		t.Fatalf("viewer session = role %q is_admin %v", sess.Msg.Role, sess.Msg.IsAdmin)
+	if sess.Msg.Role != "viewer" {
+		t.Fatalf("viewer session role = %q, want viewer", sess.Msg.Role)
 	}
 
 	// Observability reads pass; supervisor internals and writes are denied.

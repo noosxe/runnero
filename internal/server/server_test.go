@@ -184,7 +184,7 @@ type mockAuthService struct {
 func (m *mockAuthService) GetSession(ctx context.Context, req *connect.Request[supervisorv1.GetSessionRequest]) (*connect.Response[supervisorv1.GetSessionResponse], error) {
 	return connect.NewResponse(&supervisorv1.GetSessionResponse{
 		Username: "admin",
-		IsAdmin:  true,
+		Role:     "admin",
 	}), nil
 }
 
@@ -206,7 +206,7 @@ func TestConnectBinaryTransportWiring(t *testing.T) {
 	if err != nil {
 		t.Fatalf("binary Connect unary call failed: %v", err)
 	}
-	if res.Msg.Username != "admin" || !res.Msg.IsAdmin {
+	if res.Msg.Username != "admin" || res.Msg.Role != "admin" {
 		t.Errorf("unexpected response message: %+v", res.Msg)
 	}
 

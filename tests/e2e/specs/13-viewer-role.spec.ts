@@ -43,9 +43,10 @@ test("admin creates a viewer, who sees the read-only surface", async ({ page }) 
   await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Global Constraints" })).toHaveCount(0);
 
-  // Auth profiles are an entirely admin surface.
+  // Auth profiles are an entirely admin surface; the fetch is gated so no
+  // admin-bucket RPC fires from the viewer session (docs/35 section 2.4).
   await page.goto("/profiles");
-  await expect(page.getByText("Admin role required")).toBeVisible();
+  await expect(page.getByTestId("admin-required")).toBeVisible();
 
   // Pools stay readable; the mutation affordances are gone.
   await page.goto("/pools");

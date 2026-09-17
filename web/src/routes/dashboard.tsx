@@ -19,6 +19,7 @@ import {
   useJobHistory,
   useImageUpdates,
   useAuthProfiles,
+  useIsAdmin,
 } from "../lib/api/query-hooks";
 import { QueueLatencyChart } from "../components/analytics/queue-latency-chart";
 import { SuccessFailureWidget } from "../components/analytics/success-failure-widget";
@@ -33,10 +34,12 @@ import { recentJobsColumns, formatDuration } from "./dashboard-columns";
 
 export function DashboardPage() {
   const [timeframeHours, setTimeframeHours] = useState(DEFAULT_STATS_TIMEFRAME_HOURS);
+  const isAdmin = useIsAdmin();
 
   const { data: stats, isLoading: statsLoading } = useSystemStats(timeframeHours);
   const { data: pools, isLoading: poolsLoading } = usePools();
-  const { data: authProfiles } = useAuthProfiles();
+  // Admin-bucket read: only fired for admins (docs/35 section 2.2).
+  const { data: authProfiles } = useAuthProfiles(isAdmin);
   const { data: history } = useJobHistory({ limit: 5 });
   const { data: updates } = useImageUpdates();
 

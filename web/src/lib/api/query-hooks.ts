@@ -491,13 +491,17 @@ export function useDiscoverTargets(authProfileId: bigint, scope: string) {
 }
 
 // Auth Profile Service Hooks
-export function useAuthProfiles() {
+export function useAuthProfiles(enabled = true) {
   return useQuery({
     queryKey: queryKeys.authProfiles,
     queryFn: async () => {
       const res = await authProfileClient.listAuthProfiles({});
       return res.profiles;
     },
+    // Admin-bucket RPC (docs/35 section 2.2): viewer sessions must not
+    // fire it from pages that merely badge auth-profile existence, so
+    // callers gate with useIsAdmin.
+    enabled,
   });
 }
 

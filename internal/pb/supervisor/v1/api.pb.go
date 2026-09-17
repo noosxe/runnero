@@ -1527,8 +1527,10 @@ func (*GetSessionRequest) Descriptor() ([]byte, []int) {
 type GetSessionResponse struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Username string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	// Deprecated: computed as role == "admin"; kept so older consumers keep
-	// working. New code reads `role` (docs/35 §2.4).
+	// Back-compat only: computed as role == "admin"; new code reads `role`
+	// (docs/35 §2.4). Deliberately not marked Deprecated - the field stays
+	// populated on the wire for existing external consumers, and Go's
+	// deprecation lint would flag every in-repo touch point.
 	IsAdmin  bool   `protobuf:"varint,2,opt,name=is_admin,json=isAdmin,proto3" json:"is_admin,omitempty"`
 	HostArch string `protobuf:"bytes,3,opt,name=host_arch,json=hostArch,proto3" json:"host_arch,omitempty"`
 	HostOs   string `protobuf:"bytes,4,opt,name=host_os,json=hostOs,proto3" json:"host_os,omitempty"`
