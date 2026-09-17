@@ -98,7 +98,10 @@ message SessionInfo {
 
 message SetupAdminRequest {
   string username = 1 [(buf.validate.field).string.min_len = 1];
-  string password = 2 [(buf.validate.field).string.min_len = 1];
+  // Class-C floor (docs/32 §4.4): the initial admin password must have at
+  // least 12 characters, same as ChangePassword's new_password. Login stays
+  // at min_len 1 so pre-existing weak passwords can still authenticate.
+  string password = 2 [(buf.validate.field).string.min_len = 12];
 }
 
 message SetupAdminResponse {

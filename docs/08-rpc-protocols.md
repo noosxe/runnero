@@ -48,7 +48,7 @@ service AuthService {
 
 message SetupAdminRequest {
   string username = 1;
-  string password = 2;
+  string password = 2;  // min 12 chars (class-C floor, docs/32 §4.4; RUN-242)
 }
 
 message SetupAdminResponse {

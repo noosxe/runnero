@@ -112,7 +112,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -120,7 +120,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -406,7 +406,7 @@ func TestPoolServiceWatchPools(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -414,7 +414,7 @@ func TestPoolServiceWatchPools(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -561,7 +561,7 @@ func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -569,7 +569,7 @@ func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -675,7 +675,7 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -683,7 +683,7 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -814,11 +814,11 @@ func TestPoolServiceDiscoverTargets(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -939,11 +939,11 @@ func TestPoolServiceDiscoverTargetsSortsTargetsByName(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -1040,7 +1040,7 @@ func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -1048,7 +1048,7 @@ func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -1133,13 +1133,13 @@ func startPoolEditTestServer(t *testing.T, database *db.DB, stats server.PoolSta
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	})); err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
 	}
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -1400,14 +1400,14 @@ func TestPoolServiceDemandPollingValidation(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	})); err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
 	}
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -1536,13 +1536,13 @@ func TestDeletePoolDrainModePassThrough(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	})); err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
 	}
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -1651,13 +1651,13 @@ func TestPoolServiceMemorySwapValidation(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	})); err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
 	}
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -1733,13 +1733,13 @@ func TestPoolServicePidsLimitValidation(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	})); err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
 	}
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)

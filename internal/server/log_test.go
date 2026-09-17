@@ -81,7 +81,7 @@ func TestStreamRunnerLogs_DockerMultiplexed(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -89,7 +89,7 @@ func TestStreamRunnerLogs_DockerMultiplexed(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -158,8 +158,8 @@ func TestStreamRunnerLogs_ClientCancellation(t *testing.T) {
 	defer ts.Close()
 
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
-	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{Username: "admin", Password: "password123"}))
-	loginRes, _ := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{Username: "admin", Password: "password123"}))
+	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{Username: "admin", Password: "password123456"}))
+	loginRes, _ := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{Username: "admin", Password: "password123456"}))
 	rawCookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
 
 	client := supervisorv1connect.NewLogServiceClient(ts.Client(), ts.URL)
@@ -240,8 +240,8 @@ func TestGetRunnerLogs_Historical(t *testing.T) {
 	defer ts.Close()
 
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
-	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{Username: "admin", Password: "password123"}))
-	loginRes, _ := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{Username: "admin", Password: "password123"}))
+	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{Username: "admin", Password: "password123456"}))
+	loginRes, _ := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{Username: "admin", Password: "password123456"}))
 	rawCookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
 
 	client := supervisorv1connect.NewLogServiceClient(ts.Client(), ts.URL)

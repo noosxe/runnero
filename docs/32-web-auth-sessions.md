@@ -223,11 +223,13 @@ revealing; kept internally distinguishable only by the rate-limit key).
 - Keep bcrypt; cost configurable `bcrypt_cost` (default **12**, validated
   range 4–31), applied to new/changed passwords only — stored hashes compare
   against whatever cost they carry, never re-hashed on login;
-- class-C password policy floor moves 10 → **12** characters at every set path
-  (SetupAdmin now; password change via `ChangePassword`, RUN-237). No
-  composition rules, no forced rotation. `LoginRequest` keeps its deliberate
-  no-pattern validation (it must accept whatever SetupAdmin once accepted —
-  docs/30 §5.2);
+- class-C password policy floor moves 10 → **12** characters at every set path —
+  `SetupAdmin` (bootstrap) and `ChangePassword` (post-bootstrap, RUN-237) —
+  both enforced wire-side by `min_len = 12` protovalidate annotations
+  (RUN-242 closed the gap where SetupAdmin carried the floor UI-side only).
+  No composition rules, no forced rotation. `LoginRequest` keeps its
+  deliberate no-pattern validation (it must accept whatever SetupAdmin once
+  accepted — docs/30 §5.2);
 - `ChangePassword` (RUN-237) is the post-bootstrap set path: current password
   + new password, the floor carried by a `min_len = 12` protovalidate
   annotation on the wire message, the current password verified with a single
@@ -421,8 +423,8 @@ coverage lands inside phase 1 (it rewrites the interceptor anyway).
   acceptable, or required UX?
 - **OQ-4** Password policy floor 10 → 12 chars for new/changed passwords
   (guide/NIST; existing passwords grandfathered) — OK? **Resolved:** floor is
-  12 — enforced UI-side at SetupAdmin (onboarding) and wire-side on the
-  `ChangePassword` path (RUN-237, `min_len` annotation); login still accepts
+  12 — enforced wire-side at both set paths: `SetupAdmin` (RUN-242, `min_len`
+  annotation) and `ChangePassword` (RUN-237); login still accepts
   grandfathered passwords.
 - **OQ-5** Viewer-role foundation ships as column + matrix only, with the
   observer-users feature (management UI, role assignment) as a separate future

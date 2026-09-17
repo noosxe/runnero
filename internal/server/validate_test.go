@@ -47,13 +47,13 @@ func setupValidationEnv(t *testing.T) *validationEnv {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	if _, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	})); err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
 	}
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
