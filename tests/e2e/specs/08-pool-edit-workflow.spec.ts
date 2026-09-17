@@ -6,6 +6,7 @@ import { test, expect } from "../fixtures";
 // seeds the registered-runners registry the supervisor polls for busy-state
 // sync (docs/19) and the ghost sweep (docs/20).
 const MOCK_PROVIDER_URL = process.env.MOCK_PROVIDER_URL ?? "http://e2e-mock-provider:8095";
+const MOCK_DOCKER_URL = process.env.MOCK_DOCKER_URL ?? "http://e2e-mock-docker:2375";
 
 // Flow 08: Runner Pool Edit Workflow (docs/22 §7)
 // Exercises the edit wizard end-to-end against the real supervisor stack:
@@ -204,25 +205,33 @@ test.describe("Flow 08: Runner Pool Edit Workflow", () => {
         .toBe(false);
     }
 
-    // Cleanup: release the busy flag at the forge, then drop the mirror
-    // registration. Releasing the flag leaves the pool briefly
-    // over-provisioned — the busy-inclusive standby target kept four warm
-    // runners while one was busy (standby backfill, docs/03 §3) — so the
-    // excess-idle drain reclaims one idle runner on the next reconcile, and
-    // the victim is arbitrary. Both outcomes are correct production
-    // behavior: the runner is observed idle again or recycled as excess
-    // (RUN-164).
+    // Job completion (RUN-165): in production the forge-side busy release IS
+    // the end of the job — the ephemeral runner then exits itself, and the
+    // supervisor reaps it through the docker die-event path. Simulate both
+    // halves, then drop the mirror registration.
+    const survivors = (await poolRunnerRows(page))
+      .map((r) => r.name)
+      .filter((name) => name !== busyRunner.name);
     await registerRemoteRunner(request, busyRunner.name, false);
-    await expect
-      .poll(
-        async () => {
-          const row = (await poolRunnerRows(page)).find((r) => r.name === busyRunner.name);
-          return row === undefined || row.state === "idle";
-        },
-        { timeout: 60_000 },
-      )
-      .toBe(true);
+    await exitMockContainer(request, busyRunner.name);
     await forgetRemoteRunner(request, busyRunner.name);
+
+    // The former-busy runner exits and is reaped via the die event, every
+    // other runner survives, and the pool settles at min_idle idle standbys
+    // with no excess-idle drain — the strict production outcome that
+    // RUN-164's mock-only misdiagnosis had loosened away.
+    await expect
+      .poll(async () => (await poolRunnerRows(page)).some((r) => r.name === busyRunner.name), {
+        timeout: 60_000,
+      })
+      .toBe(false);
+    for (const name of survivors) {
+      await expect
+        .poll(async () => (await poolRunnerRows(page)).some((r) => r.name === name), {
+          timeout: 30_000,
+        })
+        .toBe(true);
+    }
   });
 
   test("blocks wizard advance with inline errors from proto annotations (RUN-221)", async ({
@@ -268,6 +277,16 @@ async function registerRemoteRunner(request: APIRequestContext, name: string, bu
 // forgetRemoteRunner drops a mirrored registration (idempotent).
 async function forgetRemoteRunner(request: APIRequestContext, name: string) {
   await request.delete(`${MOCK_PROVIDER_URL}/_admin/runners/${name}`);
+}
+
+// exitMockContainer makes a mock container exit itself (RUN-165): the E2E
+// stand-in for an ephemeral runner finishing its job. The supervisor reaps
+// it through the docker die-event path, exactly as in production.
+async function exitMockContainer(request: APIRequestContext, name: string) {
+  const response = await request.post(`${MOCK_DOCKER_URL}/_admin/containers/${name}/exit`, {
+    data: { exitCode: 0 },
+  });
+  expect(response.ok(), `mock docker exit for ${name}`).toBeTruthy();
 }
 
 // poolRunnerRows reads the pool-detail runners tab: one {name, state} per row.
