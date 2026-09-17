@@ -140,7 +140,12 @@ additive — a boolean column + longer pair).
 
 Public procedures short-circuit before token parsing but still upgrade the
 context when a valid cookie is present (login page personalization), matching
-the guide.
+the guide. A presented-but-invalid cookie (unknown/expired/deleted session) on
+a public procedure degrades to anonymous access instead of `Unauthenticated`
+(RUN-244): Login and the onboarding status probe must stay reachable for a
+browser carrying a dead session — the cookie is the operator's only in-app
+recovery path, and the anonymous surface is identical with or without it.
+Protected buckets keep the strict `Unauthenticated` from the list above.
 
 ### 3.4 Cookie
 

@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/noosxe/runnero/internal/db"
 	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
+	supervisorv1connect "github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
 )
 
 // Tests in this file live in the internal package: they drive the
@@ -141,6 +142,92 @@ func TestRoleMatrixCoverage(t *testing.T) {
 	for procedure := range procedureRoles {
 		if !declared[procedure] {
 			t.Errorf("role matrix classifies %q which is no longer declared in the proto: remove the stale entry", procedure)
+		}
+	}
+}
+
+// TestAuthenticateStaleCookieDegradesToAnonymousOnPublicProcedures pins the
+// RUN-244 recovery rule (docs/32 §3.3): a presented-but-invalid cookie on a
+// bucketPublic procedure degrades to anonymous access instead of failing the
+// call. A dead session cookie must not lock the browser out of Login and the
+// onboarding status probe — the only self-service recovery path.
+func TestAuthenticateStaleCookieDegradesToAnonymousOnPublicProcedures(t *testing.T) {
+	mock := &mockAuthDB{
+		session: db.Session{ID: 7, UserID: 1, TokenHash: HashToken("valid-tok"), ExpiresAt: time.Now().Add(time.Hour), AbsoluteExpiresAt: time.Now().Add(24 * time.Hour)},
+		user:    db.AdminUser{ID: 1, Username: "admin", Role: "admin"},
+	}
+	interceptor := &AuthInterceptor{authDB: mock, cfg: SessionConfig{IdleTimeout: time.Hour, AbsoluteTimeout: 24 * time.Hour, SecureMode: "auto"}}
+
+	header := http.Header{}
+	header.Set("Cookie", "session_token=stale-dead-token")
+
+	publicProcedures := []string{
+		supervisorv1connect.AuthServiceSetupAdminProcedure,
+		supervisorv1connect.AuthServiceLoginProcedure,
+		supervisorv1connect.OnboardingServiceGetOnboardingStatusProcedure,
+	}
+	for _, procedure := range publicProcedures {
+		ctx, renewal, err := interceptor.authenticate(context.Background(), header, procedure)
+		if err != nil {
+			t.Fatalf("%s: stale cookie rejected: %v", procedure, err)
+		}
+		if renewal != "" {
+			t.Fatalf("%s: renewal cookie set for a degraded anonymous call", procedure)
+		}
+		if _, ok := GetUserContext(ctx); ok {
+			t.Fatalf("%s: stale cookie produced an authenticated context", procedure)
+		}
+	}
+}
+
+// TestAuthenticateValidCookieStillUpgradesPublicProcedures guards the other
+// half of the docs/32 §3.3 contract: a VALID cookie on a public procedure
+// still upgrades the context (login page personalization). The RUN-244
+// degradation must not swallow it.
+func TestAuthenticateValidCookieStillUpgradesPublicProcedures(t *testing.T) {
+	mock := &mockAuthDB{
+		session: db.Session{ID: 7, UserID: 1, TokenHash: HashToken("valid-tok"), ExpiresAt: time.Now().Add(time.Hour), AbsoluteExpiresAt: time.Now().Add(24 * time.Hour)},
+		user:    db.AdminUser{ID: 1, Username: "admin", Role: "admin"},
+	}
+	interceptor := &AuthInterceptor{authDB: mock, cfg: SessionConfig{IdleTimeout: time.Hour, AbsoluteTimeout: 24 * time.Hour, SecureMode: "auto"}}
+
+	header := http.Header{}
+	header.Set("Cookie", "session_token=valid-tok")
+
+	ctx, _, err := interceptor.authenticate(context.Background(), header, supervisorv1connect.OnboardingServiceGetOnboardingStatusProcedure)
+	if err != nil {
+		t.Fatalf("valid cookie rejected on public procedure: %v", err)
+	}
+	user, ok := GetUserContext(ctx)
+	if !ok || user.Username != "admin" {
+		t.Fatalf("valid cookie did not upgrade the public-procedure context: ok=%v user=%+v", ok, user)
+	}
+}
+
+// TestAuthenticateStaleCookieStillFailsProtectedBuckets keeps the strict
+// fail-closed behavior on protected buckets (docs/32 §2.3): the RUN-244
+// public-bucket degradation must not weaken session/admin enforcement.
+func TestAuthenticateStaleCookieStillFailsProtectedBuckets(t *testing.T) {
+	mock := &mockAuthDB{
+		session: db.Session{ID: 7, UserID: 1, TokenHash: HashToken("valid-tok"), ExpiresAt: time.Now().Add(time.Hour), AbsoluteExpiresAt: time.Now().Add(24 * time.Hour)},
+		user:    db.AdminUser{ID: 1, Username: "admin", Role: "admin"},
+	}
+	interceptor := &AuthInterceptor{authDB: mock, cfg: SessionConfig{IdleTimeout: time.Hour, AbsoluteTimeout: 24 * time.Hour, SecureMode: "auto"}}
+
+	header := http.Header{}
+	header.Set("Cookie", "session_token=stale-dead-token")
+
+	protectedProcedures := []string{
+		supervisorv1connect.AuthServiceGetSessionProcedure,
+		supervisorv1connect.PoolServiceListPoolsProcedure,
+	}
+	for _, procedure := range protectedProcedures {
+		_, _, err := interceptor.authenticate(context.Background(), header, procedure)
+		if err == nil {
+			t.Fatalf("%s: stale cookie accepted on a protected bucket", procedure)
+		}
+		if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
+			t.Fatalf("%s: code = %v, want CodeUnauthenticated", procedure, got)
 		}
 	}
 }
