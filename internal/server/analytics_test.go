@@ -357,6 +357,20 @@ func TestAnalyticsServiceWatchDashboard(t *testing.T) {
 		t.Fatalf("CreateJobHistory failed: %v", err)
 	}
 
+	// A still-running job: queued and started, never completed (RUN-246).
+	_, err = database.CreateJobHistory(ctx, db.CreateJobHistoryParams{
+		PoolID:      pool.ID,
+		RunnerName:  "runner-watch-2",
+		Status:      "running",
+		QueuedAt:    sql.NullTime{Time: now.Add(-3 * time.Minute), Valid: true},
+		StartedAt:   sql.NullTime{Time: now.Add(-2 * time.Minute), Valid: true},
+		CompletedAt: sql.NullTime{},
+		Source:      "webhook",
+	})
+	if err != nil {
+		t.Fatalf("CreateJobHistory (running) failed: %v", err)
+	}
+
 	client := supervisorv1connect.NewAnalyticsServiceClient(ts.Client(), ts.URL)
 	watchReq := connect.NewRequest(&supervisorv1.WatchDashboardRequest{
 		IntervalMs: 250,
@@ -384,8 +398,37 @@ func TestAnalyticsServiceWatchDashboard(t *testing.T) {
 	if len(msg.Pools) != 1 || msg.Pools[0].Name != "watch-dash-pool" {
 		t.Errorf("expected 1 pool named 'watch-dash-pool', got: %+v", msg.Pools)
 	}
-	if len(msg.RecentJobs) != 1 || msg.RecentJobs[0].RunnerName != "runner-watch-1" {
-		t.Errorf("expected 1 recent job with runner 'runner-watch-1', got: %+v", msg.RecentJobs)
+	if len(msg.RecentJobs) != 2 {
+		t.Errorf("expected 2 recent jobs, got: %+v", msg.RecentJobs)
+	}
+
+	// RUN-246: the stream's recent jobs must carry the derived timing fields
+	// (the dashboard's Recent Executions table is overwritten by this stream
+	// every tick) and the pool name. The completed job derives both timings;
+	// the running job has no completed_at, so its duration stays 0.
+	byName := map[string]*supervisorv1.JobRecord{}
+	for _, j := range msg.RecentJobs {
+		byName[j.RunnerName] = j
+	}
+	done := byName["runner-watch-1"]
+	if done == nil {
+		t.Fatalf("expected runner-watch-1 in recent jobs, got: %+v", msg.RecentJobs)
+	}
+	if done.DurationSeconds <= 0 || done.QueueTimeSeconds <= 0 {
+		t.Errorf("completed job timing: duration=%f queue=%f, want both > 0", done.DurationSeconds, done.QueueTimeSeconds)
+	}
+	if done.PoolName != "watch-dash-pool" {
+		t.Errorf("completed job pool name = %q, want watch-dash-pool", done.PoolName)
+	}
+	running := byName["runner-watch-2"]
+	if running == nil {
+		t.Fatalf("expected runner-watch-2 in recent jobs, got: %+v", msg.RecentJobs)
+	}
+	if running.DurationSeconds != 0 {
+		t.Errorf("running job duration = %f, want 0 (no completed_at)", running.DurationSeconds)
+	}
+	if running.QueueTimeSeconds <= 0 {
+		t.Errorf("running job queue time = %f, want > 0", running.QueueTimeSeconds)
 	}
 
 	// Cancel context to ensure clean shutdown
