@@ -389,7 +389,7 @@ For comprehensive pipeline architecture, gatekeeper filtering rules, and cross-s
 - **Multi-Host Clustering:** Support for distributed Docker hosts over mutual-TLS (mTLS) TCP sockets to schedule runner pools across heterogeneous node clusters.
 - **Rootless & Socket-Proxy Isolation:** Alternative supervisor orchestration backends utilizing rootless Podman / Docker or gVisor runtimes to eliminate root socket mounts.
 - **Enterprise SSO / OIDC:** Federated single sign-on integration supporting OpenID Connect (OIDC), Okta, Keycloak, and GitHub OAuth for supervisor administrative access.
-- **Passkey (WebAuthn) Second Factor:** *[Design Phase]* Phishing-resistant two-step admin login — password, then passkey assertion — with server-side ceremony state, explicit RP ID/origin configuration, and cloned-credential detection. Design: `docs/34-passkey-second-factor.md`.
+- **Passkey (WebAuthn) Login:** *[Design Phase]* Passwordless sign-in — a passkey identifies the admin completely on the login screen, with username/password as an independent fallback — featuring server-side ceremony state, explicit RP ID/origin configuration, and cloned-credential detection. Design: `docs/34-passkey-authentication.md`.
 
 ---
 
