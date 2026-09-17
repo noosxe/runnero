@@ -344,6 +344,17 @@ func (a *AuthInterceptor) authenticate(ctx context.Context, header http.Header, 
 	// procedures with the authenticated context (docs/32 §3.3).
 	sess, user, renewalCookie, err := a.validateSession(ctx, tokenString, info)
 	if err != nil {
+		if bucket == bucketPublic {
+			// RUN-244 (docs/32 §3.3): a stale or invalid cookie on a public
+			// procedure degrades to anonymous access instead of failing the
+			// call. The anonymous surface is identical with or without the
+			// cookie, so this leaks nothing — but it keeps Login (and the
+			// onboarding status probe) reachable for a browser carrying a dead
+			// session, which is the only self-service recovery path. Without
+			// this, every RPC — including Login itself — 401s and the operator
+			// must clear cookies by hand.
+			return ctx, "", nil
+		}
 		return nil, "", err
 	}
 
