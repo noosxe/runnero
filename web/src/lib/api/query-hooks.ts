@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import {
   authClient,
+  userClient,
   poolClient,
   authProfileClient,
   onboardingClient,
@@ -22,6 +23,7 @@ export const queryKeys = {
   appSettings: ["onboarding", "settings"] as const,
   session: ["auth", "session"] as const,
   sessions: ["auth", "sessions"] as const,
+  users: ["auth", "users"] as const,
   passkeys: ["auth", "passkeys"] as const,
   pools: ["pools"] as const,
   pool: (id: bigint) => ["pools", id.toString()] as const,
@@ -87,13 +89,16 @@ export function useOnboardingStatus() {
   });
 }
 
-export function useAppSettings() {
+export function useAppSettings(enabled = true) {
   return useQuery({
     queryKey: queryKeys.appSettings,
     queryFn: async () => {
       const res = await onboardingClient.getAppSettings({});
       return res.settings;
     },
+    // Admin-bucket RPC (docs/35 section 2.2): viewer sessions must not
+    // fire it from admin-only pages, so the caller gates with useIsAdmin.
+    enabled,
   });
 }
 
@@ -170,6 +175,15 @@ export function useSession() {
   });
 }
 
+// Live role check (RUN-236, docs/35 §2.4): drives admin-only UI
+// affordances. The session is resolved fresh by the interceptor on every
+// request, so this reflects role changes after the next query fetch - the
+// UI gates rendering, the server remains the enforcement point.
+export function useIsAdmin(): boolean {
+  const { data: session } = useSession();
+  return session?.role === "admin";
+}
+
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -193,6 +207,64 @@ export function useLogout() {
       queryClient.invalidateQueries({ queryKey: queryKeys.session });
       queryClient.removeQueries({ queryKey: queryKeys.sessions });
     },
+  });
+}
+
+// User management hooks (RUN-236, docs/35 section 2.3): the admin-only
+// UserService surface. All five procedures are admin-bucket server-side.
+export function useUsers() {
+  return useQuery({
+    queryKey: queryKeys.users,
+    queryFn: async () => {
+      const res = await userClient.listUsers({});
+      return res.users;
+    },
+  });
+}
+
+function useInvalidateUsers() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.users });
+    queryClient.invalidateQueries({ queryKey: queryKeys.session });
+  };
+}
+
+export function useCreateUser() {
+  const invalidate = useInvalidateUsers();
+  return useMutation({
+    mutationFn: async (req: Parameters<typeof userClient.createUser>[0]) => {
+      return await userClient.createUser(req);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetUserRole() {
+  const invalidate = useInvalidateUsers();
+  return useMutation({
+    mutationFn: async (req: Parameters<typeof userClient.setUserRole>[0]) => {
+      return await userClient.setUserRole(req);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetUserPassword() {
+  return useMutation({
+    mutationFn: async (req: Parameters<typeof userClient.setUserPassword>[0]) => {
+      return await userClient.setUserPassword(req);
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const invalidate = useInvalidateUsers();
+  return useMutation({
+    mutationFn: async (req: Parameters<typeof userClient.deleteUser>[0]) => {
+      return await userClient.deleteUser(req);
+    },
+    onSuccess: invalidate,
   });
 }
 

@@ -12,7 +12,7 @@ CREATE TABLE admin_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL, -- Hashed via bcrypt (cost configurable, default 12)
-    role TEXT NOT NULL DEFAULT 'admin', -- 'admin'; 'viewer' reserved for a future observer-users design
+    role TEXT NOT NULL DEFAULT 'admin', -- 'admin' | 'viewer' (active since RUN-236, docs/35; validated at the UserService write paths - no CHECK constraint)
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

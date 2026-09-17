@@ -33,6 +33,15 @@ func (m *mockAuthDB) CreateAdminUser(_ context.Context, arg db.CreateAdminUserPa
 func (m *mockAuthDB) GetAdminUserByUsername(context.Context, string) (db.AdminUser, error) {
 	return m.user, nil
 }
+func (m *mockAuthDB) ListAdminUsers(context.Context) ([]db.AdminUser, error) {
+	return []db.AdminUser{m.user}, nil
+}
+func (m *mockAuthDB) CountAdminRoleUsers(context.Context) (int64, error) { return 1, nil }
+func (m *mockAuthDB) UpdateAdminRole(_ context.Context, arg db.UpdateAdminRoleParams) (db.AdminUser, error) {
+	m.user.Role = arg.Role
+	return m.user, nil
+}
+func (m *mockAuthDB) DeleteAdminUser(context.Context, int64) error { return nil }
 func (m *mockAuthDB) GetAdminUserById(_ context.Context, id int64) (db.AdminUser, error) {
 	return m.user, nil
 }
@@ -107,13 +116,79 @@ func TestAuthenticateAdminRoleEnforcement(t *testing.T) {
 	}
 }
 
-// TestAuthenticateViewerBucketReserved guards the reserved bucket: nothing
-// classifies into it today, and the constant's position in the bucket order
-// is what the coverage test's "exactly once" reasoning relies on.
-func TestAuthenticateViewerBucketReserved(t *testing.T) {
-	for procedure, bucket := range procedureRoles {
-		if bucket == bucketViewer {
-			t.Errorf("procedure %q maps to the reserved viewer bucket: assigning viewer roles is out of scope until the observer-users design (docs/32 §2.3)", procedure)
+// TestViewerBucketClassification pins the RUN-236 reclassification
+// (docs/35 §2.2): the self-service surface (rows SQL-scoped to the calling
+// user) and the read-only observability surface are viewer-bucket; writes,
+// secrets, supervisor internals, and user management stay admin. If this
+// test fails after a deliberate reclassification, update both it and
+// docs/35 §2.2 in the same change - the matrix and the design must never
+// drift apart.
+func TestViewerBucketClassification(t *testing.T) {
+	viewerProcedures := []string{
+		// Self-service: every one of these is scoped to the calling user in
+		// SQL (docs/32 §3.5), so a viewer can touch only their own account.
+		"/supervisor.v1.AuthService/GetSession",
+		"/supervisor.v1.AuthService/Logout",
+		"/supervisor.v1.AuthService/ListSessions",
+		"/supervisor.v1.AuthService/RevokeSession",
+		"/supervisor.v1.AuthService/RevokeOtherSessions",
+		"/supervisor.v1.AuthService/ChangePassword",
+		"/supervisor.v1.AuthService/BeginPasskeyEnrollment",
+		"/supervisor.v1.AuthService/FinishPasskeyEnrollment",
+		"/supervisor.v1.AuthService/ListPasskeys",
+		"/supervisor.v1.AuthService/RenamePasskey",
+		"/supervisor.v1.AuthService/DeletePasskey",
+		// Read-only observability.
+		"/supervisor.v1.PoolService/ListPools",
+		"/supervisor.v1.PoolService/WatchPools",
+		"/supervisor.v1.PoolService/ListRunners",
+		"/supervisor.v1.PoolService/WatchRunners",
+		"/supervisor.v1.AnalyticsService/GetJobHistory",
+		"/supervisor.v1.AnalyticsService/GetJobRecord",
+		"/supervisor.v1.AnalyticsService/GetSystemStats",
+		"/supervisor.v1.AnalyticsService/WatchDashboard",
+		"/supervisor.v1.LogService/GetRunnerLogs",
+		"/supervisor.v1.LogService/StreamRunnerLogs",
+		"/supervisor.v1.RenovateService/GetRenovateStatus",
+		"/supervisor.v1.RenovateService/ListRenovateHistory",
+		"/supervisor.v1.ImageUpdateService/ListImageUpdates",
+	}
+	for _, procedure := range viewerProcedures {
+		if got := procedureRoles[procedure]; got != bucketViewer {
+			t.Errorf("procedure %q: got bucket %v, want viewer", procedure, got)
+		}
+	}
+
+	adminProcedures := []string{
+		// Writes, secrets, supervisor internals, user management.
+		"/supervisor.v1.PoolService/CreatePool",
+		"/supervisor.v1.PoolService/UpdatePool",
+		"/supervisor.v1.PoolService/DeletePool",
+		"/supervisor.v1.PoolService/TerminateRunner",
+		"/supervisor.v1.PoolService/DiscoverTargets",
+		"/supervisor.v1.AuthProfileService/ListAuthProfiles",
+		"/supervisor.v1.AuthProfileService/CreateAuthProfile",
+		"/supervisor.v1.AuthProfileService/UpdateAuthProfile",
+		"/supervisor.v1.AuthProfileService/DeleteAuthProfile",
+		"/supervisor.v1.OnboardingService/GetAppSettings",
+		"/supervisor.v1.OnboardingService/SetAppSetting",
+		"/supervisor.v1.OnboardingService/CompleteOnboarding",
+		"/supervisor.v1.LogService/ListSupervisorLogs",
+		"/supervisor.v1.LogService/StreamSupervisorLog",
+		"/supervisor.v1.LogService/ListRemovalRecords",
+		"/supervisor.v1.RenovateService/TriggerRenovateRun",
+		"/supervisor.v1.ImageUpdateService/CheckImageUpdate",
+		"/supervisor.v1.ImageUpdateService/PullImage",
+		"/supervisor.v1.ImageUpdateService/DismissImageUpdate",
+		"/supervisor.v1.UserService/ListUsers",
+		"/supervisor.v1.UserService/CreateUser",
+		"/supervisor.v1.UserService/SetUserRole",
+		"/supervisor.v1.UserService/SetUserPassword",
+		"/supervisor.v1.UserService/DeleteUser",
+	}
+	for _, procedure := range adminProcedures {
+		if got := procedureRoles[procedure]; got != bucketAdmin {
+			t.Errorf("procedure %q: got bucket %v, want admin", procedure, got)
 		}
 	}
 }

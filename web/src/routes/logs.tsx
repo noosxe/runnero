@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useIsAdmin } from "@/lib/api/query-hooks";
 import {
   usePools,
   useRemovalRecords,
@@ -364,8 +365,14 @@ function RunnersTab({ initialRunner }: { initialRunner?: string }) {
 
 export function LogsPage({ search }: { search: LogsPageSearch }) {
   const navigate = useNavigate();
+  // Supervisor boot logs and removal records are admin surfaces
+  // (docs/35 section 2.2, OQ-1); viewers get the runner logs tab.
+  const isAdmin = useIsAdmin();
+  const visibleTabs = TABS.filter((t) => isAdmin || t.id === "runners");
 
-  const tab = TABS.some((t) => t.id === search.tab) ? (search.tab as string) : "supervisor";
+  const tab = visibleTabs.some((t) => t.id === search.tab)
+    ? (search.tab as string)
+    : visibleTabs[0].id;
 
   const selectTab = (id: string) => {
     void navigate({ to: "/logs", search: { tab: id } });
@@ -390,7 +397,7 @@ export function LogsPage({ search }: { search: LogsPageSearch }) {
         role="tablist"
         aria-label="Log views"
       >
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t.id}
             role="tab"

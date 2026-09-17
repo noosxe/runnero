@@ -32,7 +32,19 @@ const mockUpdates = [
 const mockSetMutate = vi.fn().mockResolvedValue({});
 const mockCheckMutate = vi.fn().mockResolvedValue({});
 
+let mockIsAdmin = true;
+
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => mockIsAdmin,
+  useSession: () => ({ data: { username: "admin", role: mockIsAdmin ? "admin" : "viewer" } }),
+  useUsers: () => ({
+    data: [{ username: "admin", role: "admin", createdAt: undefined }],
+    isLoading: false,
+  }),
+  useCreateUser: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSetUserRole: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSetUserPassword: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteUser: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useAppSettings: () => ({
     data: mockSettings,
     isLoading: false,
@@ -165,5 +177,27 @@ describe("SettingsPage", () => {
     expect(screen.getByText("Active Sessions")).toBeInTheDocument();
     expect(screen.getByText("Firefox 130 on Linux")).toBeInTheDocument();
     expect(screen.getByText("Current session")).toBeInTheDocument();
+  });
+});
+
+// Role gating (RUN-236, docs/35 section 2.4): a viewer's settings page is
+// the Security tab only; admins additionally see the Users tab.
+describe("SettingsPage role gating", () => {
+  it("shows only the security tab for a viewer", () => {
+    mockIsAdmin = false;
+    render(<SettingsPage />);
+
+    expect(screen.getByText("Security")).toBeInTheDocument();
+    expect(screen.queryByText("Global Constraints")).not.toBeInTheDocument();
+    expect(screen.queryByText("Users")).not.toBeInTheDocument();
+    mockIsAdmin = true;
+  });
+
+  it("shows the users tab for an admin", async () => {
+    mockIsAdmin = true;
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByText("Users"));
+    await waitFor(() => expect(screen.getByTestId("users-card")).toBeInTheDocument());
   });
 });

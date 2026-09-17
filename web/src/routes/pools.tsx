@@ -26,6 +26,7 @@ import { usePools, useAuthProfiles, useSession } from "../lib/api/query-hooks";
 import { useWatchPools } from "../lib/api/streaming-hooks";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { LinkButton } from "../lib/link-button";
+import { useIsAdmin } from "../lib/api/query-hooks";
 import { Link } from "@tanstack/react-router";
 import {
   Plus,
@@ -56,6 +57,7 @@ export function PoolsPage() {
   const [scopeFilter, setScopeFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
 
+  const isAdmin = useIsAdmin();
   // Create Pool Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -119,15 +121,16 @@ export function PoolsPage() {
           </p>
         </div>
 
-        {hasAuthProfiles ? (
-          <Button onClick={() => setIsModalOpen(true)}>
-            <span>+ Add Runner Pool</span>
-          </Button>
-        ) : (
-          <LinkButton to="/profiles">
-            <span>+ Add Runner Pool</span>
-          </LinkButton>
-        )}
+        {isAdmin &&
+          (hasAuthProfiles ? (
+            <Button onClick={() => setIsModalOpen(true)}>
+              <span>+ Add Runner Pool</span>
+            </Button>
+          ) : (
+            <LinkButton to="/profiles">
+              <span>+ Add Runner Pool</span>
+            </LinkButton>
+          ))}
       </div>
 
       {/* Missing Auth Profile Warning Banner */}
@@ -267,16 +270,17 @@ export function PoolsPage() {
           </EmptyHeader>
           {pools?.length === 0 && (
             <EmptyContent>
-              {hasAuthProfiles ? (
-                <Button size="xs" onClick={() => setIsModalOpen(true)}>
-                  <span>+ Add Runner Pool</span>
-                </Button>
-              ) : (
-                <LinkButton to="/profiles" size="xs">
-                  <Plus data-icon="inline-start" />
-                  <span>Configure Git Profile</span>
-                </LinkButton>
-              )}
+              {isAdmin &&
+                (hasAuthProfiles ? (
+                  <Button size="xs" onClick={() => setIsModalOpen(true)}>
+                    <span>+ Add Runner Pool</span>
+                  </Button>
+                ) : (
+                  <LinkButton to="/profiles" size="xs">
+                    <Plus data-icon="inline-start" />
+                    <span>Configure Git Profile</span>
+                  </LinkButton>
+                ))}
             </EmptyContent>
           )}
         </Empty>
@@ -439,15 +443,17 @@ export function PoolsPage() {
                   </span>
 
                   <div className="flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      aria-label={`Edit pool ${p.name}`}
-                      onClick={() => setEditingPool(p)}
-                    >
-                      <Pencil data-icon="inline-start" />
-                      <span>Edit</span>
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        aria-label={`Edit pool ${p.name}`}
+                        onClick={() => setEditingPool(p)}
+                      >
+                        <Pencil data-icon="inline-start" />
+                        <span>Edit</span>
+                      </Button>
+                    )}
                     <Link
                       to="/pools/$poolId"
                       params={{ poolId: p.id.toString() }}

@@ -139,7 +139,23 @@ message GetSessionRequest {}
 
 message GetSessionResponse {
   string username = 1;
-  bool is_admin = 2;  // Derived: always true for users in admin_users table (no DB column)
+  bool is_admin = 2;  // Deprecated: computed as role == "admin"; kept for older consumers
+  string role = 5;    // Live role, "admin" | "viewer" (RUN-236, docs/35 section 2.1):
+                      // re-read from admin_users on every request, so role
+                      // changes apply on the caller's next request
+}
+
+// User management (RUN-236, docs/35 section 2.3): every procedure is
+// admin-bucket. Guard rails are structural: the last admin can never be
+// demoted or deleted (the guard and the write are serialized), and nobody
+// can delete their own account. SetUserPassword revokes all of the
+// target's sessions except the caller's own; passkeys are untouched.
+service UserService {
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc SetUserRole(SetUserRoleRequest) returns (SetUserRoleResponse);
+  rpc SetUserPassword(SetUserPasswordRequest) returns (SetUserPasswordResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 }
 
 // Session control (docs/32 section 3.5): all four procedures operate

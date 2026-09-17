@@ -9,6 +9,18 @@ import (
 	"context"
 )
 
+const countAdminRoleUsers = `-- name: CountAdminRoleUsers :one
+SELECT COUNT(*) FROM admin_users
+WHERE role = 'admin'
+`
+
+func (q *Queries) CountAdminRoleUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAdminRoleUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countAdminUsers = `-- name: CountAdminUsers :one
 SELECT COUNT(*) FROM admin_users
 `
@@ -23,19 +35,21 @@ func (q *Queries) CountAdminUsers(ctx context.Context) (int64, error) {
 const createAdminUser = `-- name: CreateAdminUser :one
 INSERT INTO admin_users (
     username,
-    password_hash
+    password_hash,
+    role
 ) VALUES (
-    ?, ?
+    ?, ?, ?
 ) RETURNING id, username, password_hash, created_at, updated_at, role
 `
 
 type CreateAdminUserParams struct {
 	Username     string `json:"username"`
 	PasswordHash string `json:"password_hash"`
+	Role         string `json:"role"`
 }
 
 func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (AdminUser, error) {
-	row := q.db.QueryRowContext(ctx, createAdminUser, arg.Username, arg.PasswordHash)
+	row := q.db.QueryRowContext(ctx, createAdminUser, arg.Username, arg.PasswordHash, arg.Role)
 	var i AdminUser
 	err := row.Scan(
 		&i.ID,
@@ -146,6 +160,33 @@ type UpdateAdminPasswordParams struct {
 
 func (q *Queries) UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) (AdminUser, error) {
 	row := q.db.QueryRowContext(ctx, updateAdminPassword, arg.PasswordHash, arg.ID)
+	var i AdminUser
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Role,
+	)
+	return i, err
+}
+
+const updateAdminRole = `-- name: UpdateAdminRole :one
+UPDATE admin_users
+SET role = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING id, username, password_hash, created_at, updated_at, role
+`
+
+type UpdateAdminRoleParams struct {
+	Role string `json:"role"`
+	ID   int64  `json:"id"`
+}
+
+func (q *Queries) UpdateAdminRole(ctx context.Context, arg UpdateAdminRoleParams) (AdminUser, error) {
+	row := q.db.QueryRowContext(ctx, updateAdminRole, arg.Role, arg.ID)
 	var i AdminUser
 	err := row.Scan(
 		&i.ID,

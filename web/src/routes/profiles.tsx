@@ -11,7 +11,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuthProfiles, useDeleteAuthProfile } from "../lib/api/query-hooks";
+import { useAuthProfiles, useDeleteAuthProfile, useIsAdmin } from "../lib/api/query-hooks";
 import type { AuthProfile } from "../gen/api_pb";
 import { AuthProfileModal } from "../components/profiles/auth-profile-modal";
 import { authMethodLabel } from "../lib/utils/auth-methods";
@@ -32,6 +32,10 @@ interface ProfileModalState {
 }
 
 export function ProfilesPage() {
+  // Auth profiles guard runner-registration secrets - an admin surface in
+  // its entirety (docs/35 section 2.2). The server denies viewers anyway;
+  // the gate only avoids rendering a broken editing surface.
+  const isAdmin = useIsAdmin();
   const { data: profiles, isLoading } = useAuthProfiles();
   const deleteProfileMutation = useDeleteAuthProfile();
 
@@ -46,6 +50,19 @@ export function ProfilesPage() {
       }
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyTitle>Admin role required</EmptyTitle>
+          <EmptyDescription>
+            Git authentication profiles can only be viewed and managed by admins.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

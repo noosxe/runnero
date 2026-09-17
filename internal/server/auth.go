@@ -49,8 +49,10 @@ const (
 )
 
 // roleBucket classifies a Connect procedure for the fail-closed enforcement
-// matrix (docs/32 §2.3). bucketViewer is reserved for a future observer-users
-// feature; no procedure maps to it and no code path assigns the role yet.
+// matrix (docs/32 §2.3, docs/35 §2.1-2.2). bucketViewer carries the
+// self-service surface (rows already SQL-scoped to the calling user) and
+// the read-only observability surface; see docs/35 §2.2 for the complete
+// classification and its rationale.
 type roleBucket int
 
 const (
@@ -69,7 +71,9 @@ const (
 //     unclassified;
 //   - an unclassified procedure is rejected with CodeInternal at request
 //     time (fail closed);
-//   - bucketAdmin requires the calling user to carry the admin role.
+//   - bucketViewer accepts any authenticated user (admin or viewer);
+//   - bucketAdmin requires the calling user to carry the admin role
+//     (denials are audited - docs/32 §2.3).
 var procedureRoles = map[string]roleBucket{
 	// Public: bootstrap, login, and the pre-auth status probe. Public
 	// procedures still upgrade their context with the user when a valid
@@ -86,57 +90,74 @@ var procedureRoles = map[string]roleBucket{
 	// Admin: the bootstrap admin is the only user that exists today, so
 	// every remaining procedure — reads included — shares the admin bucket
 	// (docs/32 §2.3).
-	supervisorv1connect.AuthServiceGetSessionProcedure: bucketAdmin,
+	// Self-service surface (docs/35 §2.2): every row here is scoped to the
+	// calling user in SQL (WHERE user_id = caller, docs/32 §3.5), so a
+	// viewer can touch nothing but their own account.
+	supervisorv1connect.AuthServiceGetSessionProcedure: bucketViewer,
 
 	// Session control (docs/32 §3.5): the caller manages only their own
 	// rows; ownership is enforced in SQL, the bucket gates the surface.
-	supervisorv1connect.AuthServiceLogoutProcedure:              bucketAdmin,
-	supervisorv1connect.AuthServiceListSessionsProcedure:        bucketAdmin,
-	supervisorv1connect.AuthServiceRevokeSessionProcedure:       bucketAdmin,
-	supervisorv1connect.AuthServiceRevokeOtherSessionsProcedure: bucketAdmin,
+	supervisorv1connect.AuthServiceLogoutProcedure:              bucketViewer,
+	supervisorv1connect.AuthServiceListSessionsProcedure:        bucketViewer,
+	supervisorv1connect.AuthServiceRevokeSessionProcedure:       bucketViewer,
+	supervisorv1connect.AuthServiceRevokeOtherSessionsProcedure: bucketViewer,
 	// Passkey management (RUN-247, docs/34 section 3.9): session-or-401
 	// like the rest of the admin surface; every statement scopes on the
 	// caller's own rows.
-	supervisorv1connect.AuthServiceBeginPasskeyEnrollmentProcedure:  bucketAdmin,
-	supervisorv1connect.AuthServiceFinishPasskeyEnrollmentProcedure: bucketAdmin,
-	supervisorv1connect.AuthServiceListPasskeysProcedure:            bucketAdmin,
-	supervisorv1connect.AuthServiceRenamePasskeyProcedure:           bucketAdmin,
-	supervisorv1connect.AuthServiceDeletePasskeyProcedure:           bucketAdmin,
+	// Passkey self-service (docs/35 §2.5): ceremonies re-check the caller's
+	// password and credential CRUD is ownership-scoped (docs/34 §6). Login
+	// ceremonies above stay public; a credential proves identity, the
+	// live role row proves privilege.
+	supervisorv1connect.AuthServiceBeginPasskeyEnrollmentProcedure:  bucketViewer,
+	supervisorv1connect.AuthServiceFinishPasskeyEnrollmentProcedure: bucketViewer,
+	supervisorv1connect.AuthServiceListPasskeysProcedure:            bucketViewer,
+	supervisorv1connect.AuthServiceRenamePasskeyProcedure:           bucketViewer,
+	supervisorv1connect.AuthServiceDeletePasskeyProcedure:           bucketViewer,
 	// Password change (docs/32 §4.4): the caller changes only their own
 	// password; ownership comes from the session context.
-	supervisorv1connect.AuthServiceChangePasswordProcedure:            bucketAdmin,
-	supervisorv1connect.OnboardingServiceCompleteOnboardingProcedure:  bucketAdmin,
-	supervisorv1connect.OnboardingServiceGetAppSettingsProcedure:      bucketAdmin,
-	supervisorv1connect.OnboardingServiceSetAppSettingProcedure:       bucketAdmin,
-	supervisorv1connect.PoolServiceListPoolsProcedure:                 bucketAdmin,
+	supervisorv1connect.AuthServiceChangePasswordProcedure:           bucketViewer,
+	supervisorv1connect.OnboardingServiceCompleteOnboardingProcedure: bucketAdmin,
+	supervisorv1connect.OnboardingServiceGetAppSettingsProcedure:     bucketAdmin,
+	supervisorv1connect.OnboardingServiceSetAppSettingProcedure:      bucketAdmin,
+	// Read-only observability (docs/35 §2.2): the reads the dashboards
+	// render - fleet status, CI health, workflow output, maintenance
+	// visibility.
+	supervisorv1connect.PoolServiceListPoolsProcedure:                 bucketViewer,
 	supervisorv1connect.PoolServiceCreatePoolProcedure:                bucketAdmin,
 	supervisorv1connect.PoolServiceUpdatePoolProcedure:                bucketAdmin,
 	supervisorv1connect.PoolServiceDeletePoolProcedure:                bucketAdmin,
-	supervisorv1connect.PoolServiceWatchPoolsProcedure:                bucketAdmin,
-	supervisorv1connect.PoolServiceListRunnersProcedure:               bucketAdmin,
-	supervisorv1connect.PoolServiceWatchRunnersProcedure:              bucketAdmin,
+	supervisorv1connect.PoolServiceWatchPoolsProcedure:                bucketViewer,
+	supervisorv1connect.PoolServiceListRunnersProcedure:               bucketViewer,
+	supervisorv1connect.PoolServiceWatchRunnersProcedure:              bucketViewer,
 	supervisorv1connect.PoolServiceTerminateRunnerProcedure:           bucketAdmin,
 	supervisorv1connect.PoolServiceDiscoverTargetsProcedure:           bucketAdmin,
 	supervisorv1connect.AuthProfileServiceListAuthProfilesProcedure:   bucketAdmin,
 	supervisorv1connect.AuthProfileServiceCreateAuthProfileProcedure:  bucketAdmin,
 	supervisorv1connect.AuthProfileServiceUpdateAuthProfileProcedure:  bucketAdmin,
 	supervisorv1connect.AuthProfileServiceDeleteAuthProfileProcedure:  bucketAdmin,
-	supervisorv1connect.AnalyticsServiceGetJobHistoryProcedure:        bucketAdmin,
-	supervisorv1connect.AnalyticsServiceGetJobRecordProcedure:         bucketAdmin,
-	supervisorv1connect.AnalyticsServiceGetSystemStatsProcedure:       bucketAdmin,
-	supervisorv1connect.AnalyticsServiceWatchDashboardProcedure:       bucketAdmin,
-	supervisorv1connect.ImageUpdateServiceListImageUpdatesProcedure:   bucketAdmin,
+	supervisorv1connect.AnalyticsServiceGetJobHistoryProcedure:        bucketViewer,
+	supervisorv1connect.AnalyticsServiceGetJobRecordProcedure:         bucketViewer,
+	supervisorv1connect.AnalyticsServiceGetSystemStatsProcedure:       bucketViewer,
+	supervisorv1connect.AnalyticsServiceWatchDashboardProcedure:       bucketViewer,
+	supervisorv1connect.ImageUpdateServiceListImageUpdatesProcedure:   bucketViewer,
 	supervisorv1connect.ImageUpdateServiceCheckImageUpdateProcedure:   bucketAdmin,
 	supervisorv1connect.ImageUpdateServicePullImageProcedure:          bucketAdmin,
 	supervisorv1connect.ImageUpdateServiceDismissImageUpdateProcedure: bucketAdmin,
-	supervisorv1connect.LogServiceGetRunnerLogsProcedure:              bucketAdmin,
-	supervisorv1connect.LogServiceStreamRunnerLogsProcedure:           bucketAdmin,
+	supervisorv1connect.LogServiceGetRunnerLogsProcedure:              bucketViewer,
+	supervisorv1connect.LogServiceStreamRunnerLogsProcedure:           bucketViewer,
 	supervisorv1connect.LogServiceListSupervisorLogsProcedure:         bucketAdmin,
 	supervisorv1connect.LogServiceStreamSupervisorLogProcedure:        bucketAdmin,
 	supervisorv1connect.LogServiceListRemovalRecordsProcedure:         bucketAdmin,
-	supervisorv1connect.RenovateServiceGetRenovateStatusProcedure:     bucketAdmin,
+	supervisorv1connect.RenovateServiceGetRenovateStatusProcedure:     bucketViewer,
 	supervisorv1connect.RenovateServiceTriggerRenovateRunProcedure:    bucketAdmin,
-	supervisorv1connect.RenovateServiceListRenovateHistoryProcedure:   bucketAdmin,
+	supervisorv1connect.RenovateServiceListRenovateHistoryProcedure:   bucketViewer,
+
+	// User management (docs/35 §2.3): definitionally admin.
+	supervisorv1connect.UserServiceListUsersProcedure:       bucketAdmin,
+	supervisorv1connect.UserServiceCreateUserProcedure:      bucketAdmin,
+	supervisorv1connect.UserServiceSetUserRoleProcedure:     bucketAdmin,
+	supervisorv1connect.UserServiceSetUserPasswordProcedure: bucketAdmin,
+	supervisorv1connect.UserServiceDeleteUserProcedure:      bucketAdmin,
 }
 
 // SessionConfig carries the validated web-session knobs (docs/32 §3, §6).
@@ -162,8 +183,12 @@ type AuthDatabase interface {
 	CountAdminUsers(ctx context.Context) (int64, error)
 	CreateAdminUser(ctx context.Context, arg db.CreateAdminUserParams) (db.AdminUser, error)
 	GetAdminUserByUsername(ctx context.Context, username string) (db.AdminUser, error)
+	ListAdminUsers(ctx context.Context) ([]db.AdminUser, error)
+	CountAdminRoleUsers(ctx context.Context) (int64, error)
+	DeleteAdminUser(ctx context.Context, id int64) error
 	GetAdminUserById(ctx context.Context, id int64) (db.AdminUser, error)
 	UpdateAdminPassword(ctx context.Context, arg db.UpdateAdminPasswordParams) (db.AdminUser, error)
+	UpdateAdminRole(ctx context.Context, arg db.UpdateAdminRoleParams) (db.AdminUser, error)
 	CreateSession(ctx context.Context, arg db.CreateSessionParams) (db.Session, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (db.Session, error)
 	TouchSession(ctx context.Context, arg db.TouchSessionParams) error
@@ -379,7 +404,7 @@ func (a *AuthInterceptor) authenticate(ctx context.Context, header http.Header, 
 		SessionID: sess.ID,
 	}
 
-	if bucket == bucketAdmin && user.Role != "admin" {
+	if bucket == bucketAdmin && user.Role != RoleAdmin {
 		recordAuthAudit(ctx, a.authDB, &user.ID, ActionAuthAccessDenied, authClientIP(ctx), map[string]any{
 			"username":  user.Username,
 			"procedure": procedure,
@@ -618,6 +643,7 @@ func (s *AuthService) SetupAdmin(ctx context.Context, req *connect.Request[super
 	user, err := s.db.CreateAdminUser(ctx, db.CreateAdminUserParams{
 		Username:     username,
 		PasswordHash: string(hashBytes),
+		Role:         RoleAdmin,
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("creating admin user: %w", err))
@@ -790,7 +816,8 @@ func (s *AuthService) GetSession(ctx context.Context, req *connect.Request[super
 
 	return connect.NewResponse(&supervisorv1.GetSessionResponse{
 		Username: user.Username,
-		IsAdmin:  user.Role == "admin",
+		Role:     user.Role,
+		IsAdmin:  user.Role == RoleAdmin, // deprecated; kept for older consumers
 		HostArch: HostArch(),
 		HostOs:   HostOS(),
 	}), nil

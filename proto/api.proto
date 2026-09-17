@@ -251,9 +251,15 @@ message GetSessionRequest {}
 
 message GetSessionResponse {
   string username = 1;
+  // Deprecated: computed as role == "admin"; kept so older consumers keep
+  // working. New code reads `role` (docs/35 §2.4).
   bool is_admin = 2;
   string host_arch = 3;
   string host_os = 4;
+  // Live role of the calling user: "admin" | "viewer" (docs/35 §2.1). Read
+  // fresh from admin_users on every request, so role changes apply on the
+  // caller's next request with no re-login.
+  string role = 5;
 }
 
 // ----------------------------------------
@@ -940,5 +946,94 @@ message DismissImageUpdateRequest {
 }
 
 message DismissImageUpdateResponse {
+  bool success = 1;
+}
+
+// ---------------------------------------------------------------
+// User Management (RUN-236, docs/35 section 2.3)
+//
+// Every procedure is admin-bucket (docs/35 section 2.2): user management is
+// definitionally admin. Guard rails are structural, enforced server-side
+// (docs/35 section 2.3):
+//   - the last admin can never be demoted or deleted (the guard is part of
+//     the mutating statement, so concurrent demotions cannot race past it);
+//   - no user can delete themselves (a second admin must do it).
+service UserService {
+  // List all users (id order): username, role, created_at.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+
+  // Create a user with an initial password (floor 12, docs/32 section 4.4)
+  // and a role. Username conflicts answer AlreadyExists; the surface is
+  // admin-only, so this reveals nothing Login does not already gate.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+
+  // Change a user's role. Self-demote is allowed when another admin exists;
+  // demoting the last admin answers FailedPrecondition.
+  rpc SetUserRole(SetUserRoleRequest) returns (SetUserRoleResponse);
+
+  // Admin password reset for a locked-out user (docs/35 OQ-2). Revokes all
+  // of the target's sessions except the caller's own (a stolen old password
+  // dies with the reset); the target's passkeys are untouched - they are
+  // the user's own recovery path.
+  rpc SetUserPassword(SetUserPasswordRequest) returns (SetUserPasswordResponse);
+
+  // Delete a user. Sessions and passkeys cascade (FK); audit rows keep
+  // (user_id SET NULL) with the username preserved in event details.
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+message ListUsersRequest {}
+
+message ListUsersResponse {
+  repeated UserInfo users = 1;
+}
+
+message UserInfo {
+  string username = 1;
+  // "admin" | "viewer" (docs/35 section 2.1).
+  string role = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+message CreateUserRequest {
+  // Mirrors SetupAdmin's rules plus a 64-char sanity cap (docs/35 OQ-4);
+  // no charset restriction in v1 (RUN-223 may tighten globally later).
+  string username = 1 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+  // Same class-C floor as SetupAdmin/ChangePassword (docs/32 section 4.4).
+  string password = 2 [(buf.validate.field).string.min_len = 12];
+  // "admin" | "viewer"; anything else answers InvalidArgument.
+  string role = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+message CreateUserResponse {
+  UserInfo user = 1;
+}
+
+message SetUserRoleRequest {
+  string username = 1 [(buf.validate.field).string.min_len = 1];
+  string role = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message SetUserRoleResponse {
+  UserInfo user = 1;
+}
+
+message SetUserPasswordRequest {
+  string username = 1 [(buf.validate.field).string.min_len = 1];
+  string password = 2 [(buf.validate.field).string.min_len = 12];
+}
+
+message SetUserPasswordResponse {
+  bool success = 1;
+  // How many of the target's sessions the reset revoked (all except the
+  // caller's own session - docs/35 section 2.3).
+  int64 revoked_sessions = 2;
+}
+
+message DeleteUserRequest {
+  string username = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DeleteUserResponse {
   bool success = 1;
 }

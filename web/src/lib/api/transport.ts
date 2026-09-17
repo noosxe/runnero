@@ -8,6 +8,7 @@ import {
 import { createConnectTransport } from "@connectrpc/connect-web";
 import {
   AuthService,
+  UserService,
   PoolService,
   AuthProfileService,
   OnboardingService,
@@ -21,6 +22,12 @@ export interface TransportOptions {
   baseUrl?: string;
   onUnauthenticated?: () => void;
 }
+
+// Event fired on every PermissionDenied response (RUN-236, docs/35 §2.4):
+// unlike Unauthenticated this must NOT route to login - the session is
+// valid, the role is not enough. The mounted PermissionDeniedToast listener
+// renders the feedback; the caller stays logged in.
+export const PERMISSION_DENIED_EVENT = "runnero:permission-denied";
 
 export function createAuthInterceptor(onUnauthenticated?: () => void): Interceptor {
   return (next) => async (req) => {
@@ -37,6 +44,11 @@ export function createAuthInterceptor(onUnauthenticated?: () => void): Intercept
         ) {
           const redirect = encodeURIComponent(window.location.pathname);
           window.location.href = `/login?redirect=${redirect}`;
+        }
+      } else if (err instanceof ConnectError && err.code === Code.PermissionDenied) {
+        // Mid-session demotion path (docs/35 §2.4): toast, stay logged in.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent(PERMISSION_DENIED_EVENT));
         }
       }
       throw err;
@@ -66,6 +78,7 @@ export const defaultTransport = createSupervisorTransport();
 
 // Service clients bound to default transport
 export const authClient = createClient(AuthService, defaultTransport);
+export const userClient = createClient(UserService, defaultTransport);
 export const poolClient = createClient(PoolService, defaultTransport);
 export const authProfileClient = createClient(AuthProfileService, defaultTransport);
 export const onboardingClient = createClient(OnboardingService, defaultTransport);

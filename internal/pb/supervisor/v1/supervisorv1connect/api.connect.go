@@ -37,6 +37,8 @@ const (
 	RenovateServiceName = "supervisor.v1.RenovateService"
 	// ImageUpdateServiceName is the fully-qualified name of the ImageUpdateService service.
 	ImageUpdateServiceName = "supervisor.v1.ImageUpdateService"
+	// UserServiceName is the fully-qualified name of the UserService service.
+	UserServiceName = "supervisor.v1.UserService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -181,6 +183,17 @@ const (
 	// ImageUpdateServiceDismissImageUpdateProcedure is the fully-qualified name of the
 	// ImageUpdateService's DismissImageUpdate RPC.
 	ImageUpdateServiceDismissImageUpdateProcedure = "/supervisor.v1.ImageUpdateService/DismissImageUpdate"
+	// UserServiceListUsersProcedure is the fully-qualified name of the UserService's ListUsers RPC.
+	UserServiceListUsersProcedure = "/supervisor.v1.UserService/ListUsers"
+	// UserServiceCreateUserProcedure is the fully-qualified name of the UserService's CreateUser RPC.
+	UserServiceCreateUserProcedure = "/supervisor.v1.UserService/CreateUser"
+	// UserServiceSetUserRoleProcedure is the fully-qualified name of the UserService's SetUserRole RPC.
+	UserServiceSetUserRoleProcedure = "/supervisor.v1.UserService/SetUserRole"
+	// UserServiceSetUserPasswordProcedure is the fully-qualified name of the UserService's
+	// SetUserPassword RPC.
+	UserServiceSetUserPasswordProcedure = "/supervisor.v1.UserService/SetUserPassword"
+	// UserServiceDeleteUserProcedure is the fully-qualified name of the UserService's DeleteUser RPC.
+	UserServiceDeleteUserProcedure = "/supervisor.v1.UserService/DeleteUser"
 )
 
 // AuthServiceClient is a client for the supervisor.v1.AuthService service.
@@ -1869,4 +1882,202 @@ func (UnimplementedImageUpdateServiceHandler) ListImageUpdates(context.Context, 
 
 func (UnimplementedImageUpdateServiceHandler) DismissImageUpdate(context.Context, *connect.Request[v1.DismissImageUpdateRequest]) (*connect.Response[v1.DismissImageUpdateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.ImageUpdateService.DismissImageUpdate is not implemented"))
+}
+
+// UserServiceClient is a client for the supervisor.v1.UserService service.
+type UserServiceClient interface {
+	// List all users (id order): username, role, created_at.
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	// Create a user with an initial password (floor 12, docs/32 section 4.4)
+	// and a role. Username conflicts answer AlreadyExists; the surface is
+	// admin-only, so this reveals nothing Login does not already gate.
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	// Change a user's role. Self-demote is allowed when another admin exists;
+	// demoting the last admin answers FailedPrecondition.
+	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
+	// Admin password reset for a locked-out user (docs/35 OQ-2). Revokes all
+	// of the target's sessions except the caller's own (a stolen old password
+	// dies with the reset); the target's passkeys are untouched - they are
+	// the user's own recovery path.
+	SetUserPassword(context.Context, *connect.Request[v1.SetUserPasswordRequest]) (*connect.Response[v1.SetUserPasswordResponse], error)
+	// Delete a user. Sessions and passkeys cascade (FK); audit rows keep
+	// (user_id SET NULL) with the username preserved in event details.
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
+}
+
+// NewUserServiceClient constructs a client for the supervisor.v1.UserService service. By default,
+// it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and
+// sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC()
+// or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewUserServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) UserServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	userServiceMethods := v1.File_api_proto.Services().ByName("UserService").Methods()
+	return &userServiceClient{
+		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
+			httpClient,
+			baseURL+UserServiceListUsersProcedure,
+			connect.WithSchema(userServiceMethods.ByName("ListUsers")),
+			connect.WithClientOptions(opts...),
+		),
+		createUser: connect.NewClient[v1.CreateUserRequest, v1.CreateUserResponse](
+			httpClient,
+			baseURL+UserServiceCreateUserProcedure,
+			connect.WithSchema(userServiceMethods.ByName("CreateUser")),
+			connect.WithClientOptions(opts...),
+		),
+		setUserRole: connect.NewClient[v1.SetUserRoleRequest, v1.SetUserRoleResponse](
+			httpClient,
+			baseURL+UserServiceSetUserRoleProcedure,
+			connect.WithSchema(userServiceMethods.ByName("SetUserRole")),
+			connect.WithClientOptions(opts...),
+		),
+		setUserPassword: connect.NewClient[v1.SetUserPasswordRequest, v1.SetUserPasswordResponse](
+			httpClient,
+			baseURL+UserServiceSetUserPasswordProcedure,
+			connect.WithSchema(userServiceMethods.ByName("SetUserPassword")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteUser: connect.NewClient[v1.DeleteUserRequest, v1.DeleteUserResponse](
+			httpClient,
+			baseURL+UserServiceDeleteUserProcedure,
+			connect.WithSchema(userServiceMethods.ByName("DeleteUser")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// userServiceClient implements UserServiceClient.
+type userServiceClient struct {
+	listUsers       *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	createUser      *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	setUserRole     *connect.Client[v1.SetUserRoleRequest, v1.SetUserRoleResponse]
+	setUserPassword *connect.Client[v1.SetUserPasswordRequest, v1.SetUserPasswordResponse]
+	deleteUser      *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
+}
+
+// ListUsers calls supervisor.v1.UserService.ListUsers.
+func (c *userServiceClient) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return c.listUsers.CallUnary(ctx, req)
+}
+
+// CreateUser calls supervisor.v1.UserService.CreateUser.
+func (c *userServiceClient) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return c.createUser.CallUnary(ctx, req)
+}
+
+// SetUserRole calls supervisor.v1.UserService.SetUserRole.
+func (c *userServiceClient) SetUserRole(ctx context.Context, req *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error) {
+	return c.setUserRole.CallUnary(ctx, req)
+}
+
+// SetUserPassword calls supervisor.v1.UserService.SetUserPassword.
+func (c *userServiceClient) SetUserPassword(ctx context.Context, req *connect.Request[v1.SetUserPasswordRequest]) (*connect.Response[v1.SetUserPasswordResponse], error) {
+	return c.setUserPassword.CallUnary(ctx, req)
+}
+
+// DeleteUser calls supervisor.v1.UserService.DeleteUser.
+func (c *userServiceClient) DeleteUser(ctx context.Context, req *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return c.deleteUser.CallUnary(ctx, req)
+}
+
+// UserServiceHandler is an implementation of the supervisor.v1.UserService service.
+type UserServiceHandler interface {
+	// List all users (id order): username, role, created_at.
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	// Create a user with an initial password (floor 12, docs/32 section 4.4)
+	// and a role. Username conflicts answer AlreadyExists; the surface is
+	// admin-only, so this reveals nothing Login does not already gate.
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	// Change a user's role. Self-demote is allowed when another admin exists;
+	// demoting the last admin answers FailedPrecondition.
+	SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error)
+	// Admin password reset for a locked-out user (docs/35 OQ-2). Revokes all
+	// of the target's sessions except the caller's own (a stolen old password
+	// dies with the reset); the target's passkeys are untouched - they are
+	// the user's own recovery path.
+	SetUserPassword(context.Context, *connect.Request[v1.SetUserPasswordRequest]) (*connect.Response[v1.SetUserPasswordResponse], error)
+	// Delete a user. Sessions and passkeys cascade (FK); audit rows keep
+	// (user_id SET NULL) with the username preserved in event details.
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
+}
+
+// NewUserServiceHandler builds an HTTP handler from the service implementation. It returns the path
+// on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewUserServiceHandler(svc UserServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	userServiceMethods := v1.File_api_proto.Services().ByName("UserService").Methods()
+	userServiceListUsersHandler := connect.NewUnaryHandler(
+		UserServiceListUsersProcedure,
+		svc.ListUsers,
+		connect.WithSchema(userServiceMethods.ByName("ListUsers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userServiceCreateUserHandler := connect.NewUnaryHandler(
+		UserServiceCreateUserProcedure,
+		svc.CreateUser,
+		connect.WithSchema(userServiceMethods.ByName("CreateUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userServiceSetUserRoleHandler := connect.NewUnaryHandler(
+		UserServiceSetUserRoleProcedure,
+		svc.SetUserRole,
+		connect.WithSchema(userServiceMethods.ByName("SetUserRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userServiceSetUserPasswordHandler := connect.NewUnaryHandler(
+		UserServiceSetUserPasswordProcedure,
+		svc.SetUserPassword,
+		connect.WithSchema(userServiceMethods.ByName("SetUserPassword")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userServiceDeleteUserHandler := connect.NewUnaryHandler(
+		UserServiceDeleteUserProcedure,
+		svc.DeleteUser,
+		connect.WithSchema(userServiceMethods.ByName("DeleteUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/supervisor.v1.UserService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case UserServiceListUsersProcedure:
+			userServiceListUsersHandler.ServeHTTP(w, r)
+		case UserServiceCreateUserProcedure:
+			userServiceCreateUserHandler.ServeHTTP(w, r)
+		case UserServiceSetUserRoleProcedure:
+			userServiceSetUserRoleHandler.ServeHTTP(w, r)
+		case UserServiceSetUserPasswordProcedure:
+			userServiceSetUserPasswordHandler.ServeHTTP(w, r)
+		case UserServiceDeleteUserProcedure:
+			userServiceDeleteUserHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedUserServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedUserServiceHandler struct{}
+
+func (UnimplementedUserServiceHandler) ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.UserService.ListUsers is not implemented"))
+}
+
+func (UnimplementedUserServiceHandler) CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.UserService.CreateUser is not implemented"))
+}
+
+func (UnimplementedUserServiceHandler) SetUserRole(context.Context, *connect.Request[v1.SetUserRoleRequest]) (*connect.Response[v1.SetUserRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.UserService.SetUserRole is not implemented"))
+}
+
+func (UnimplementedUserServiceHandler) SetUserPassword(context.Context, *connect.Request[v1.SetUserPasswordRequest]) (*connect.Response[v1.SetUserPasswordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.UserService.SetUserPassword is not implemented"))
+}
+
+func (UnimplementedUserServiceHandler) DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("supervisor.v1.UserService.DeleteUser is not implemented"))
 }

@@ -50,6 +50,7 @@ let mockAuthProfilesData: any = [{ id: 1n, name: "prod-profile" }];
 let mockSessionData: any = { username: "admin", isAdmin: true, hostArch: "amd64", hostOs: "linux" };
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   usePools: () => ({
     data: mockIsLoading ? undefined : mockPoolsData,
     isLoading: mockIsLoading,

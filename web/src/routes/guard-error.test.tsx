@@ -14,6 +14,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   queryKeys: { onboardingStatus: ["onboarding", "status"] as const },
 }));
 

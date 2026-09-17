@@ -61,6 +61,7 @@ let mockRemovalFilters: Record<string, unknown> | null = null;
 const mockNavigate = vi.fn();
 
 vi.mock("@/lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   usePools: () => ({
     data: [
       { id: 7n, name: "pool1" },

@@ -1,6 +1,7 @@
 # Viewer Role & Multi-User Management
 
-Status: **Design Phase** (docs-only PR; implementation tracked on Linear — RUN-236).
+Status: **implemented** (RUN-236). The design-doc PR landed the spec; this
+file is updated by the implementation PR to reflect the shipped behavior.
 
 Runnero's web control plane has been single-account since bootstrap: one admin
 user, every authenticated procedure classified `admin` in the procedure→role
@@ -167,11 +168,12 @@ globally later — one place, `SetupAdmin` + `CreateUser`, then follow).
   buttons, settings/Users cards, supervisor-log and removal tabs) render
   only for admins. A viewer's nav stays full-width read-only: dashboards,
   history, logs (runner tab), pools, renovate status.
-- **`PermissionDenied` handling:** the global connect error hook treats
+- **`PermissionDenied` handling:** the transport interceptor treats
   `PermissionDenied` as *stay logged in, toast "Admin role required"* — the
-  opposite of `Unauthenticated` (which routes to login). This is the
-  mid-session-demotion path: no destructive logout, no error page, the next
-  navigation simply shows the viewer surface.
+  opposite of `Unauthenticated` (which routes to login). Denials dispatch a
+  window event; the toast listener throttles to one bubble per 1.5s. This
+  is the mid-session-demotion path: no destructive logout, no error page,
+  the next navigation simply shows the viewer surface.
 - The Security tab works identically for viewers (own sessions, own
   passkeys, own password) — per-user scoping was built for exactly this in
   docs/32 §3.5.

@@ -70,6 +70,7 @@ let mockCheckUpdateState: {
 let mockImageUpdatesData: any[] = [];
 
 vi.mock("../lib/api/query-hooks", () => ({
+  useIsAdmin: () => true,
   usePools: () => ({
     data: [mockPool],
     isLoading: false,
