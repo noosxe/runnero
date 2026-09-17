@@ -28,7 +28,10 @@ export async function login(page: Page): Promise<void> {
   }
   await page.getByLabel("Username").fill(ADMIN_USERNAME);
   await page.getByRole("textbox", { name: "Password" }).fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: /Sign In/i }).click();
+  // Exact match: the login screen also carries a "Sign in with passkey"
+  // button (RUN-248) whose label contains "sign in" — a regex would be a
+  // strict-mode violation.
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.includes("/login"));
 }
 
@@ -101,7 +104,7 @@ export async function ensureOnboarded(page: Page): Promise<void> {
     // Established system: sign in through the plain login form.
     await loginUsername.fill(ADMIN_USERNAME);
     await page.getByRole("textbox", { name: "Password" }).fill(ADMIN_PASSWORD);
-    await page.getByRole("button", { name: /Sign In/i }).click();
+    await page.getByRole("button", { name: "Sign In", exact: true }).click();
     await page.waitForURL((url) => !url.pathname.includes("/login"));
   }
 

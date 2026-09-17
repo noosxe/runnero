@@ -59,6 +59,13 @@ services:
       - GITHUB_BASE_URL=http://e2e-mock-provider:8095
       - GITEA_BASE_URL=http://e2e-mock-provider:8095
       - FORGEJO_BASE_URL=http://e2e-mock-provider:8095
+      # WebAuthn for the passkey flow (RUN-248, docs/34): RP ID localhost is
+      # both go-webauthn-valid and a browser secure context over plain http
+      # (docs/34 section 3.5 dev/E2E carve-out). The playwright container
+      # shares this service's network namespace below, so the browser origin
+      # is exactly http://localhost:8090.
+      - SUPERVISOR_WEBAUTHN_RP_ID=localhost
+      - SUPERVISOR_WEBAUTHN_ORIGINS=http://localhost:8090
     networks:
       - e2e-net
     healthcheck:
@@ -74,8 +81,12 @@ services:
     depends_on:
       e2e-supervisor:
         condition: service_healthy
+    # Share the supervisor's network namespace: the browser then reaches it
+    # at http://localhost:8090 - a priori-trustworthy origin, so WebAuthn
+    # ceremonies run in a real secure context with no Chromium flags
+    # (RUN-248, docs/34 section 3.5). The browser never needs the mock
+    # services directly; the supervisor talks to them over e2e-net.
+    network_mode: "service:e2e-supervisor"
     environment:
-      - PLAYWRIGHT_BASE_URL=http://e2e-supervisor:8090
+      - PLAYWRIGHT_BASE_URL=http://localhost:8090
       - CI=true
-    networks:
-      - e2e-net

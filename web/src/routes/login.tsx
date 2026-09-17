@@ -7,9 +7,9 @@ import { create } from "@bufbuild/protobuf";
 import { useStore } from "@tanstack/react-form";
 import { LoginRequestSchema } from "../gen/api_pb";
 import { useAppForm, validateMessage, groupByField, applyFieldErrors } from "../lib/forms";
-import { useLogin } from "../lib/api/query-hooks";
+import { useLogin, useOnboardingStatus, usePasskeyLogin } from "../lib/api/query-hooks";
 import { useTheme, type Theme } from "../hooks/use-theme";
-import { ShieldCheck, AlertCircle, Sun, Moon, Monitor } from "lucide-react";
+import { ShieldCheck, AlertCircle, Fingerprint, Sun, Moon, Monitor } from "lucide-react";
 
 interface LoginFormValues {
   username: string;
@@ -20,11 +20,39 @@ const LOGIN_FIELDS = ["username", "password"] as const;
 
 export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   const { theme, setTheme } = useTheme();
   const search = useSearch({ strict: false }) as { redirect?: string };
   const navigate = useNavigate();
   const loginMutation = useLogin();
+  const passkeyMutation = usePasskeyLogin();
+  // The login guard preloads onboarding status (router.tsx beforeLoad), so
+  // this hits the query cache - no extra RPC on the login screen. The
+  // passkey entry point renders only when WebAuthn is configured
+  // (docs/34 section 3.5); a button that always fails has no place here.
+  const { data: onboarding } = useOnboardingStatus();
+  const passkeyAvailable = onboarding?.passkeyAvailable ?? false;
+
+  const target = search?.redirect && search.redirect.startsWith("/") ? search.redirect : "/";
+
+  const handlePasskey = async () => {
+    setPasskeyError(null);
+    setError(null);
+    try {
+      await passkeyMutation.mutateAsync();
+      navigate({ to: target });
+    } catch (err: unknown) {
+      // The ceremony store answer for "no credential this browser knows" is
+      // the library's bad-request unwrap; surface a humane line for it.
+      const message = err instanceof Error ? err.message : "Passkey sign-in failed";
+      setPasskeyError(
+        /no credential|not found|unknown credential/i.test(message)
+          ? "No passkey on this device is registered with this supervisor."
+          : message,
+      );
+    }
+  };
 
   const form = useAppForm({
     defaultValues: {
@@ -72,7 +100,6 @@ export function LoginPage() {
         username: formValues.username,
         password: formValues.password,
       });
-      const target = search?.redirect && search.redirect.startsWith("/") ? search.redirect : "/";
       navigate({ to: target });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invalid credentials");
@@ -119,6 +146,36 @@ export function LoginPage() {
             <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
+        )}
+
+        {passkeyAvailable && (
+          <>
+            <div
+              className="mt-6 flex items-center gap-3 text-xs text-muted-foreground"
+              role="separator"
+            >
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            {passkeyError && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{passkeyError}</span>
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 w-full"
+              disabled={passkeyMutation.isPending}
+              onClick={() => void handlePasskey()}
+              data-testid="passkey-login-button"
+            >
+              <Fingerprint className="size-4" />
+              {passkeyMutation.isPending ? "Waiting for passkey..." : "Sign in with passkey"}
+            </Button>
+          </>
         )}
 
         <form onSubmit={handleSubmit} noValidate className="mt-6 flex flex-col gap-4 text-xs">
