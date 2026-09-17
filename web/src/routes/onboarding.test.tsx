@@ -113,13 +113,13 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     const confirmInput = screen.getByLabelText("Confirm Password");
     const nextBtn = screen.getByRole("button", { name: /Next: Git Provider/i });
 
-    // Short password
+    // Short password — rejected by the wire min_len (RUN-242), message from protovalidate
     fireEvent.change(passwordInput, { target: { value: "short" } });
     fireEvent.change(confirmInput, { target: { value: "short" } });
     fireEvent.click(nextBtn);
 
     await waitFor(() => {
-      expect(screen.getByText("Password must be at least 12 characters long")).toBeInTheDocument();
+      expect(screen.getByText("must be at least 12 characters")).toBeInTheDocument();
     });
 
     // Mismatched passwords

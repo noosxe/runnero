@@ -509,9 +509,12 @@ func (x *SessionInfo) GetIsCurrent() bool {
 }
 
 type SetupAdminRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Username string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	// Class-C floor (docs/32 §4.4): the initial admin password must have at
+	// least 12 characters, same as ChangePassword's new_password. Login stays
+	// at min_len 1 so pre-existing weak passwords can still authenticate.
+	Password      string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5724,7 +5727,7 @@ const file_api_proto_rawDesc = "" +
 	"is_current\x18\a \x01(\bR\tisCurrent\"]\n" +
 	"\x11SetupAdminRequest\x12#\n" +
 	"\busername\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\busername\x12#\n" +
-	"\bpassword\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bpassword\".\n" +
+	"\bpassword\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\fR\bpassword\".\n" +
 	"\x12SetupAdminResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"X\n" +
 	"\fLoginRequest\x12#\n" +

@@ -325,8 +325,9 @@ export function OnboardingPage() {
 
   /**
    * Shared admin evaluation (docs/30 §5.4): one protovalidate run on the
-   * exact SetupAdminRequest/LoginRequest plus class C rules (12-char policy,
-   * confirm match) — inline errors and the gate read the same map.
+   * exact SetupAdminRequest/LoginRequest plus the class C confirm-match rule.
+   * The 12-char policy rides wire-side on the `min_len` annotation (RUN-242),
+   * so the protovalidate run carries it with the same message everywhere.
    */
   const runAdminEvaluation = (
     mode: "setup" | "login",
@@ -348,10 +349,7 @@ export function OnboardingPage() {
     }
 
     if (mode === "setup") {
-      // Class C: UI password policy and the confirm-match check.
-      if (password.length < 12) {
-        (fieldErrors.password ??= []).push("Password must be at least 12 characters long");
-      }
+      // Class C: the confirm-match check (the 12-char policy is wire-side).
       if (password !== confirmPassword) {
         (fieldErrors.confirmPassword ??= []).push("Passwords do not match");
       }

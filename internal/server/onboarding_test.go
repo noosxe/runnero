@@ -48,7 +48,7 @@ func TestOnboardingStatusLifecycle(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -121,7 +121,7 @@ func TestAppSettingsGetAndSet(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -129,7 +129,7 @@ func TestAppSettingsGetAndSet(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -207,7 +207,7 @@ func TestCompleteOnboarding(t *testing.T) {
 	// 2. Setup admin
 	_, err = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -216,7 +216,7 @@ func TestCompleteOnboarding(t *testing.T) {
 	// Log in to get session cookie
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -271,4 +271,69 @@ func TestCompleteOnboarding(t *testing.T) {
 	if !auditFound {
 		t.Fatalf("expected audit log for onboarding.complete, got: %+v", logs)
 	}
+}
+
+// RUN-242: the class-C 12-character floor (docs/32 §4.4) is enforced on the
+// wire for SetupAdmin, same as ChangePassword's new_password. Login keeps
+// min_len 1 so pre-existing weak passwords can still authenticate.
+func TestSetupAdminPasswordFloor(t *testing.T) {
+	ctx := context.Background()
+	database := setupTestDB(t)
+
+	srv := server.New(server.Options{
+		Port:          8080,
+		AuthDB:        database,
+		PoolDB:        database,
+		AuthProfileDB: database,
+		OnboardingDB:  database,
+		Session:       testSessionConfig(),
+	})
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+
+	// 11 characters: one below the floor.
+	_, err := authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123",
+	}))
+	if err == nil {
+		t.Fatal("SetupAdmin with an 11-character password must fail")
+	}
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("code = %v, want InvalidArgument", connect.CodeOf(err))
+	}
+	violations := violationsFromError(t, err)
+	if len(violations.GetViolations()) != 1 {
+		t.Fatalf("want exactly 1 violation, got %d", len(violations.GetViolations()))
+	}
+	v := violations.GetViolations()[0]
+	if v.GetRuleId() != "string.min_len" {
+		t.Fatalf("rule id = %q, want string.min_len", v.GetRuleId())
+	}
+	if lastFieldName(v) != "password" {
+		t.Fatalf("field = %q, want password", lastFieldName(v))
+	}
+
+	// The failed attempt must not have created the admin.
+	statusClient := supervisorv1connect.NewOnboardingServiceClient(ts.Client(), ts.URL)
+	statusRes, err := statusClient.GetOnboardingStatus(ctx, connect.NewRequest(&supervisorv1.GetOnboardingStatusRequest{}))
+	if err != nil {
+		t.Fatalf("GetOnboardingStatus failed: %v", err)
+	}
+	if statusRes.Msg.AdminCreated {
+		t.Fatal("rejected SetupAdmin must not create the admin user")
+	}
+
+	// Exactly 12 characters passes, and the created credentials log in.
+	_, err = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password1234",
+	}))
+	if err != nil {
+		t.Fatalf("SetupAdmin with a 12-character password failed: %v", err)
+	}
+	loginFor(t, authClient, "password1234")
 }

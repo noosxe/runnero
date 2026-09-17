@@ -108,7 +108,7 @@ func TestAuthEngineFullLifecycleAndRevocation(t *testing.T) {
 	// 3. SetupAdmin second time fails with FailedPrecondition
 	_, err = client.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin2",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
 		t.Fatalf("SetupAdmin second call want CodeFailedPrecondition, got: %v", err)
@@ -231,7 +231,7 @@ func TestAuthInterceptorProtectedEndpoints(t *testing.T) {
 	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
 	_, err = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("SetupAdmin failed: %v", err)
@@ -239,7 +239,7 @@ func TestAuthInterceptorProtectedEndpoints(t *testing.T) {
 
 	loginRes, err := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
 		Username: "admin",
-		Password: "password123",
+		Password: "password123456",
 	}))
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
