@@ -37,6 +37,8 @@
     --success-foreground: oklch(0.985 0 0);
     --warning: oklch(0.666 0.179 58.318); /* = preset's --chart-3 amber */
     --warning-foreground: oklch(0.985 0 0);
+    --notice: oklch(0.545 0.2 295); /* app-specific violet (interrupted jobs) */
+    --notice-foreground: oklch(0.985 0 0);
     /* Terminal palette (app-specific): fixed dark console look in both themes; override per-theme later if needed */
     --terminal-bg: oklch(0.129 0.042 264.695); /* slate-950 */
     --terminal-surface: oklch(0.208 0.042 265.755); /* slate-900 */
@@ -93,6 +95,8 @@
     --success-foreground: oklch(0.985 0 0);
     --warning: oklch(0.666 0.179 58.318);
     --warning-foreground: oklch(0.985 0 0);
+    --notice: oklch(0.72 0.17 295);
+    --notice-foreground: oklch(0.205 0 0);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
@@ -137,6 +141,8 @@
     --color-success-foreground: var(--success-foreground);
     --color-warning: var(--warning);
     --color-warning-foreground: var(--warning-foreground);
+    --color-notice: var(--notice);
+    --color-notice-foreground: var(--notice-foreground);
     --color-terminal: var(--terminal-bg);
     --color-terminal-surface: var(--terminal-surface);
     --color-terminal-raised: var(--terminal-raised);

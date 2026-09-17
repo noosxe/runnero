@@ -1,20 +1,10 @@
 import { useParams, Link } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
+import { JobStatusBadge } from "@/components/common/job-status-badge";
 import { Card } from "@/components/ui/card";
-import { cn } from "cn";
 import { useJobRecord, useRunnerLogs } from "../lib/api/query-hooks";
 import { useStreamRunnerLogs } from "../lib/api/streaming-hooks";
 import { LogTerminal } from "../components/terminal/log-terminal";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Radio,
-  Timer,
-  Server,
-  Calendar,
-} from "lucide-react";
+import { ArrowLeft, Clock, Timer, Server, Calendar } from "lucide-react";
 
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return "—";
@@ -71,9 +61,6 @@ export function HistoryDetailPage() {
   const logs = isRunning ? liveLogs : (historicalLogs ?? []);
   const isLogsLoading = isRunning ? isConnecting : isHistLoading;
 
-  const isSuccess = job?.status === "success";
-  const isFailed = job?.status === "failure" || job?.status === "failed";
-
   return (
     <div className="flex flex-col gap-6">
       {/* Navigation Breadcrumb */}
@@ -95,31 +82,7 @@ export function HistoryDetailPage() {
                 {runnerName || (isJobLoading ? "Loading runner..." : `Job #${jobId}`)}
               </h1>
 
-              {job?.status && (
-                <Badge
-                  className={cn(
-                    "uppercase tracking-wider",
-                    isSuccess
-                      ? "border-success/30 bg-success/10 text-success"
-                      : isFailed
-                        ? "border-destructive/30 bg-destructive/10 text-destructive"
-                        : isRunning
-                          ? "border-primary/30 bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {isSuccess ? (
-                    <CheckCircle2 className="size-3" />
-                  ) : isFailed ? (
-                    <XCircle className="size-3" />
-                  ) : isRunning ? (
-                    <Radio className="size-3 animate-pulse" />
-                  ) : (
-                    <Clock className="size-3" />
-                  )}
-                  <span>{job.status}</span>
-                </Badge>
-              )}
+              {job?.status && <JobStatusBadge status={job.status} />}
             </div>
 
             <p className="text-xs text-muted-foreground">

@@ -1,8 +1,7 @@
 import { createColumnHelper } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "../lib/link-button";
-import { cn } from "cn";
-import { CheckCircle2, Terminal, XCircle } from "lucide-react";
+import { JobStatusBadge } from "@/components/common/job-status-badge";
+import { Terminal } from "lucide-react";
 import type { JobRecord } from "../gen/api_pb";
 import type { AppTableFeatures } from "../lib/tables/use-app-table";
 
@@ -45,23 +44,7 @@ export const recentJobsColumns = () =>
   columnHelper.columns([
     columnHelper.accessor("status", {
       header: "Status",
-      cell: ({ row }) => (
-        <Badge
-          className={cn(
-            "uppercase tracking-wider",
-            row.original.status === "success"
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-destructive/30 bg-destructive/10 text-destructive",
-          )}
-        >
-          {row.original.status === "success" ? (
-            <CheckCircle2 className="size-3" />
-          ) : (
-            <XCircle className="size-3" />
-          )}
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => <JobStatusBadge status={row.original.status} />,
     }),
     columnHelper.accessor("runnerName", {
       header: "Runner Name",
