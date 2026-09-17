@@ -4,6 +4,7 @@ import { AppRouter, router } from "./router";
 
 // Mock the query hooks and fetchers to return instant authenticated state
 vi.mock("./lib/api/query-hooks", () => ({
+  DEFAULT_STATS_TIMEFRAME_HOURS: 24,
   fetchOnboardingStatus: vi.fn().mockResolvedValue({
     setupComplete: true,
     adminCreated: true,

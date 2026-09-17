@@ -263,6 +263,15 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 +-----------------------------------------------------------------------------------------------+
 ```
 
+**Live-stream cache contract (RUN-245)**: the app shell's `useWatchDashboard`
+connection pushes server snapshots into the TanStack Query cache every tick.
+The stream computes system stats at the backend's default **24h** timeframe
+(`WatchDashboard` calls `GetSystemStats` with an empty request), so its
+payloads write only the `[analytics, systemStats, 24]` cache entry. Other
+timeframe variants — the 7-day chart's `[analytics, systemStats, 168]` — keep
+their own `GetSystemStats(timeframe)` fetches and are never overwritten by
+stream data, so toggling the chart's timeframe sticks.
+
 ---
 
 ### 4.4 Page 4: Runner Pools Management (`/pools`)
