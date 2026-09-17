@@ -44,7 +44,71 @@ service AuthService {
   // current password, applies the 12-character class-C floor to the new
   // one, and revokes every other session; the current session survives.
   rpc ChangePassword (ChangePasswordRequest) returns (ChangePasswordResponse);
+
+  // Passkey (WebAuthn) authentication (RUN-247, docs/34). Enrollment is
+  // session-authenticated and gated by a current-password re-check
+  // (docs/34 §4.2); login is fully anonymous and passwordless — the
+  // discoverable credential identifies the user (docs/34 §3.2). Options
+  // and responses cross the wire as bytes holding the library's canonical
+  // JSON shapes; ceremony state stays in server memory (docs/34 §3.4).
+  rpc BeginPasskeyEnrollment (BeginPasskeyEnrollmentRequest) returns (BeginPasskeyEnrollmentResponse);
+  rpc FinishPasskeyEnrollment (FinishPasskeyEnrollmentRequest) returns (FinishPasskeyEnrollmentResponse);
+  rpc ListPasskeys (ListPasskeysRequest) returns (ListPasskeysResponse);
+  rpc RenamePasskey (RenamePasskeyRequest) returns (RenamePasskeyResponse);
+  rpc DeletePasskey (DeletePasskeyRequest) returns (DeletePasskeyResponse);
+  rpc BeginPasskeyLogin (BeginPasskeyLoginRequest) returns (BeginPasskeyLoginResponse);
+  rpc FinishPasskeyLogin (FinishPasskeyLoginRequest) returns (LoginResponse);
 }
+
+message BeginPasskeyEnrollmentRequest {
+  string current_password = 1;  // min_len 1
+}
+
+message BeginPasskeyEnrollmentResponse {
+  bytes public_key_options_json = 1;  // protocol.CredentialCreation JSON
+}
+
+message FinishPasskeyEnrollmentRequest {
+  bytes attestation_response_json = 1;  // registration PublicKeyCredentialJSON
+  string name = 2;                      // 1..64 chars; empty -> "Passkey"
+}
+
+message FinishPasskeyEnrollmentResponse {
+  PasskeyInfo passkey = 1;
+}
+
+message PasskeyInfo {
+  int64 id = 1;             // credential row id (Rename/Delete), never material
+  string name = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp last_used_at = 4;
+  bool backup_eligible = 5; // "synced" vs "device-bound" chip
+  bool backup_state = 6;
+  bool clone_warning = 7;   // red banner; credential refuses further assertions
+}
+
+message ListPasskeysRequest {}
+message ListPasskeysResponse { repeated PasskeyInfo passkeys = 1; }
+
+message RenamePasskeyRequest {
+  int64 id = 1;
+  string name = 2;  // 1..64 chars; empty -> "Passkey"
+}
+message RenamePasskeyResponse {}
+
+message DeletePasskeyRequest { int64 id = 1; }
+message DeletePasskeyResponse {}
+
+message BeginPasskeyLoginRequest {}
+message BeginPasskeyLoginResponse {
+  bytes public_key_options_json = 1;  // CredentialAssertion JSON, empty allow-list
+}
+
+message FinishPasskeyLoginRequest {
+  bytes assertion_response_json = 1;  // authentication PublicKeyCredentialJSON
+}
+// FinishPasskeyLogin returns LoginResponse - the standard session shape
+// through the shared issuance path (docs/34 §3.3).
 
 message SetupAdminRequest {
   string username = 1;
@@ -338,6 +402,9 @@ message GetOnboardingStatusResponse {
   bool pool_exists = 3;
   bool setup_complete = 4;        // true when admin_created AND (onboarding_completed OR pool_exists)
   bool onboarding_completed = 5;  // true if CompleteOnboarding was invoked
+  string host_arch = 6;
+  string host_os = 7;
+  bool passkey_available = 8;     // WebAuthn configured (docs/34 §3.5); gates the login passkey button
 }
 
 message CompleteOnboardingRequest {}

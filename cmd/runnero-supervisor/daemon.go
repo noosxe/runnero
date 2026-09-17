@@ -278,7 +278,12 @@ func runDaemonContext(ctx context.Context) error {
 			BcryptCost:      cfg.BcryptCost,
 			TrustedProxy:    cfg.TrustedProxy,
 		},
-		BootLog: bootLogSink,
+		// Passkey (WebAuthn) login (RUN-247, docs/34 section 3.5): the
+		// validated config resolves origins (default https://<rp-id>); a
+		// nil/empty config keeps the feature completely off. The static
+		// RP display name shows up in the browser's authenticator prompt.
+		WebAuthn: passkeyServerConfig(cfg),
+		BootLog:  bootLogSink,
 	}
 
 	// Webhook receiver (M11, RUN-68 / RUN-153): mount POST /hooks/{provider} only
@@ -546,5 +551,21 @@ func sweepDurableLogs(ctx context.Context, cfg *config.Config, log *slog.Logger)
 		case <-ticker.C:
 			sweep()
 		}
+	}
+}
+
+// passkeyServerConfig resolves the server-level passkey configuration from
+// the validated supervisor config (RUN-247, docs/34 section 3.5). Empty
+// webauthn-rp-id means the feature is completely off (fail-closed); the
+// origin list is already normalized (default https://<rp-id>) and
+// validated (effective-domain rule, localhost carve-out) by config.Validate.
+func passkeyServerConfig(cfg *config.Config) *server.WebAuthnConfig {
+	if !cfg.WebAuthnEnabled() {
+		return nil
+	}
+	return &server.WebAuthnConfig{
+		RPID:          cfg.WebAuthnRPID,
+		RPDisplayName: server.DefaultWebAuthnRPDisplayName,
+		Origins:       cfg.WebAuthnOriginList(),
 	}
 }

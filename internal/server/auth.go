@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/noosxe/runnero/internal/db"
 	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
 	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
@@ -76,6 +77,11 @@ var procedureRoles = map[string]roleBucket{
 	supervisorv1connect.AuthServiceSetupAdminProcedure:                bucketPublic,
 	supervisorv1connect.AuthServiceLoginProcedure:                     bucketPublic,
 	supervisorv1connect.OnboardingServiceGetOnboardingStatusProcedure: bucketPublic,
+	// Passkey login (RUN-247, docs/34 section 3.9): fully anonymous —
+	// bounded ceremony store + IP rate limit. No username crosses the wire
+	// until the assertion identifies the user.
+	supervisorv1connect.AuthServiceBeginPasskeyLoginProcedure:  bucketPublic,
+	supervisorv1connect.AuthServiceFinishPasskeyLoginProcedure: bucketPublic,
 
 	// Admin: the bootstrap admin is the only user that exists today, so
 	// every remaining procedure — reads included — shares the admin bucket
@@ -88,6 +94,14 @@ var procedureRoles = map[string]roleBucket{
 	supervisorv1connect.AuthServiceListSessionsProcedure:        bucketAdmin,
 	supervisorv1connect.AuthServiceRevokeSessionProcedure:       bucketAdmin,
 	supervisorv1connect.AuthServiceRevokeOtherSessionsProcedure: bucketAdmin,
+	// Passkey management (RUN-247, docs/34 section 3.9): session-or-401
+	// like the rest of the admin surface; every statement scopes on the
+	// caller's own rows.
+	supervisorv1connect.AuthServiceBeginPasskeyEnrollmentProcedure:  bucketAdmin,
+	supervisorv1connect.AuthServiceFinishPasskeyEnrollmentProcedure: bucketAdmin,
+	supervisorv1connect.AuthServiceListPasskeysProcedure:            bucketAdmin,
+	supervisorv1connect.AuthServiceRenamePasskeyProcedure:           bucketAdmin,
+	supervisorv1connect.AuthServiceDeletePasskeyProcedure:           bucketAdmin,
 	// Password change (docs/32 §4.4): the caller changes only their own
 	// password; ownership comes from the session context.
 	supervisorv1connect.AuthServiceChangePasswordProcedure:            bucketAdmin,
@@ -462,6 +476,14 @@ type AuthService struct {
 	cfg     SessionConfig
 	limiter *loginRateLimiter
 
+	// Passkey engine (RUN-247, docs/34): wa is nil unless WebAuthn is
+	// configured, in which case passkeys holds the in-memory ceremony
+	// store and passkeyStore the credential persistence subset. All three
+	// are set together (see passkeyReady).
+	wa           *webauthn.WebAuthn
+	passkeys     *passkeyCeremonyStore
+	passkeyStore PasskeyStore
+
 	// dummyOnce guards the one-time generation of dummyHash, which is
 	// compared against on the unknown-username path so both login failures
 	// run one bcrypt comparison and the response timing cannot reveal
@@ -475,7 +497,7 @@ type AuthService struct {
 // limiter becomes durable: failed logins are written through and in-window
 // rows are reloaded here, so a restart cannot reset a brute-force lockout
 // (RUN-238, docs/32 section 4.2).
-func NewAuthService(authDB AuthDatabase, cfg SessionConfig) *AuthService {
+func NewAuthService(authDB AuthDatabase, cfg SessionConfig, waCfg *WebAuthnConfig) *AuthService {
 	var limiter *loginRateLimiter
 	if store, ok := authDB.(RateLimitStore); ok {
 		limiter = newDurableLoginRateLimiter(store)
@@ -487,6 +509,22 @@ func NewAuthService(authDB AuthDatabase, cfg SessionConfig) *AuthService {
 		db:      authDB,
 		cfg:     cfg,
 		limiter: limiter,
+	}
+	// Passkey engine (RUN-247, docs/34 section 3.5): assembled only when a
+	// non-empty RP ID is configured; a construction failure (malformed
+	// engine input) keeps the feature off — fail-closed, never
+	// half-configured. config.Validate rejects malformed values at boot,
+	// so this only trips on programmer error. passkeyReady() additionally
+	// requires the persistence half (authDB.(PasskeyStore)), so a database
+	// that cannot hold credentials keeps the feature off too.
+	if waCfg.Enabled() {
+		if wa, err := newWebAuthnEngine(waCfg); err == nil {
+			s.wa = wa
+			s.passkeys = newPasskeyCeremonyStore()
+			if store, ok := authDB.(PasskeyStore); ok {
+				s.passkeyStore = store
+			}
+		}
 	}
 	// Prewarm the equalization hash off the boot path: a cost-12 bcrypt
 	// takes ~150ms normally but seconds under the race detector, and it
@@ -652,6 +690,7 @@ func (s *AuthService) Login(ctx context.Context, req *connect.Request[supervisor
 
 	recordAuthAudit(ctx, s.db, &user.ID, ActionAuthLoginSuccess, clientIP, map[string]any{
 		"username": user.Username,
+		"method":   "password",
 	})
 
 	res := connect.NewResponse(&supervisorv1.LoginResponse{

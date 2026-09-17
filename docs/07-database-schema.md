@@ -256,3 +256,43 @@ CREATE INDEX idx_login_rate_failures_key_failed_at
 DROP TABLE login_rate_failures;
 -- +goose StatementEnd
 ```
+
+## `012_webauthn_credentials.sql`
+
+WebAuthn passkey credentials (RUN-247, docs/34 section 6). Nothing in a row
+is secret - public keys, credential IDs, counters and flags (docs/34
+section 3.6) - so no DB-key encryption applies. `credential_id` is globally
+UNIQUE from day one: the credential-ID-to-user lookup IS the identity
+mechanism for passwordless login (docs/34 section 3.2), so the schema is
+multi-user-safe before any second user exists (RUN-236). No challenges
+table: ceremony state is in-memory only (docs/34 section 3.4).
+
+```sql
+-- +goose Up
+-- +goose StatementBegin
+CREATE TABLE webauthn_credentials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT 'Passkey',
+    credential_id BLOB NOT NULL UNIQUE,
+    public_key BLOB NOT NULL,
+    aaguid TEXT NOT NULL DEFAULT '',
+    attestation_type TEXT NOT NULL DEFAULT '',
+    transports TEXT NOT NULL DEFAULT '',
+    sign_count INTEGER NOT NULL DEFAULT 0,
+    backup_eligible INTEGER NOT NULL DEFAULT 0,
+    backup_state INTEGER NOT NULL DEFAULT 0,
+    clone_warning INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00',
+    FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_webauthn_credentials_user ON webauthn_credentials(user_id);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE webauthn_credentials;
+-- +goose StatementEnd
+```

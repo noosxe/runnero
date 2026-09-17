@@ -47,7 +47,33 @@ service AuthService {
   // Revoke every caller session except the current one.
   rpc RevokeOtherSessions(RevokeOtherSessionsRequest) returns (RevokeOtherSessionsResponse);
 
+  // Start a passkey enrollment ceremony for the caller. Verifies the current
+  // password first (docs/34 §4.2): a stolen-but-live session must not mint a
+  // new complete login identity.
+  rpc BeginPasskeyEnrollment(BeginPasskeyEnrollmentRequest) returns (BeginPasskeyEnrollmentResponse);
 
+  // Complete a passkey enrollment ceremony with the authenticator's
+  // attestation response and store the credential.
+  rpc FinishPasskeyEnrollment(FinishPasskeyEnrollmentRequest) returns (FinishPasskeyEnrollmentResponse);
+
+  // List the caller's passkeys (labels, timestamps, sync/clone flags).
+  rpc ListPasskeys(ListPasskeysRequest) returns (ListPasskeysResponse);
+
+  // Rename one of the caller's passkeys.
+  rpc RenamePasskey(RenamePasskeyRequest) returns (RenamePasskeyResponse);
+
+  // Delete one of the caller's passkeys. Sessions issued earlier through it
+  // stay valid; session revocation is the lever for that (docs/34 §4.4).
+  rpc DeletePasskey(DeletePasskeyRequest) returns (DeletePasskeyResponse);
+
+  // Begin a passwordless passkey login: no username, empty allow-list —
+  // the discoverable credential identifies the user (docs/34 §3.2). Fully
+  // anonymous: bounded ceremony pool + IP rate limit (docs/34 §4.3).
+  rpc BeginPasskeyLogin(BeginPasskeyLoginRequest) returns (BeginPasskeyLoginResponse);
+
+  // Finish a passkey login: resolve the user via the asserted credential ID
+  // and issue a standard session through the shared issuance path.
+  rpc FinishPasskeyLogin(FinishPasskeyLoginRequest) returns (LoginResponse);
 }
 
 message LogoutRequest {}
@@ -135,6 +161,90 @@ message ChangePasswordResponse {
   // Other sessions of the user invalidated by this change (the current
   // session always survives).
   int64 revoked_sessions = 2;
+}
+
+// ----------------------------------------
+// Passkey (WebAuthn) authentication — docs/34
+//
+// Wire serde: the library's ceremony options and the browser's responses
+// are JSON shapes (protocol.CredentialCreation, protocol.CredentialAssertion,
+// PublicKeyCredentialJSON). The proto stays a transport, not a second
+// schema: options/responses cross as bytes holding canonical JSON, parsed
+// and validated at the boundary by go-webauthn's own parsers. Challenge
+// bytes never appear in any field — ceremony state lives only in server
+// memory (docs/34 §3.4), matched by challenge on Finish.
+// ----------------------------------------
+
+message BeginPasskeyEnrollmentRequest {
+  // The caller's current password, verified server-side with one bcrypt
+  // comparison before any ceremony is minted (docs/34 §4.2).
+  string current_password = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message BeginPasskeyEnrollmentResponse {
+  // protocol.CredentialCreation JSON; the client passes .publicKey to
+  // navigator.credentials.create().
+  bytes public_key_options_json = 1;
+}
+
+message FinishPasskeyEnrollmentRequest {
+  // The browser's registration PublicKeyCredentialJSON
+  // (navigator.credentials.create() result .toJSON()).
+  bytes attestation_response_json = 1;
+  // User-chosen label; empty defaults to "Passkey".
+  string name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+}
+
+message FinishPasskeyEnrollmentResponse {
+  PasskeyInfo passkey = 1;
+}
+
+message PasskeyInfo {
+  // Credential row id (for Rename/Delete), never credential material.
+  int64 id = 1;
+  string name = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp last_used_at = 4;
+  // "Synced" vs "device-bound" chip (informational, docs/34 §3.7).
+  bool backup_eligible = 5;
+  bool backup_state = 6;
+  // True when a non-increasing sign counter flagged a probable clone; the
+  // credential refuses all further assertions (docs/34 §3.8).
+  bool clone_warning = 7;
+}
+
+message ListPasskeysRequest {}
+
+message ListPasskeysResponse {
+  repeated PasskeyInfo passkeys = 1;
+}
+
+message RenamePasskeyRequest {
+  int64 id = 1;
+  string name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+}
+
+message RenamePasskeyResponse {}
+
+message DeletePasskeyRequest {
+  int64 id = 1;
+}
+
+message DeletePasskeyResponse {}
+
+message BeginPasskeyLoginRequest {}
+
+message BeginPasskeyLoginResponse {
+  // protocol.CredentialAssertion JSON with an empty allow-list
+  // (discoverable ceremony); the client passes .publicKey to
+  // navigator.credentials.get().
+  bytes public_key_options_json = 1;
+}
+
+message FinishPasskeyLoginRequest {
+  // The browser's authentication PublicKeyCredentialJSON
+  // (navigator.credentials.get() result .toJSON()).
+  bytes assertion_response_json = 1;
 }
 
 message GetSessionRequest {}
@@ -497,6 +607,10 @@ message GetOnboardingStatusResponse {
   bool onboarding_completed = 5; // true if CompleteOnboarding was invoked
   string host_arch = 6;
   string host_os = 7;
+  // True iff passkey login is configured (non-empty webauthn_rp_id, docs/34
+  // §3.5). A property of configuration, not enrollment state — the pre-auth
+  // login page reads it to decide whether to render the passkey button.
+  bool passkey_available = 8;
 }
 
 message CompleteOnboardingRequest {}

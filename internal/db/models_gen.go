@@ -137,3 +137,20 @@ type Session struct {
 	LastSeenAt        time.Time `json:"last_seen_at"`
 	AbsoluteExpiresAt time.Time `json:"absolute_expires_at"`
 }
+
+type WebauthnCredential struct {
+	ID              int64     `json:"id"`
+	UserID          int64     `json:"user_id"`
+	Name            string    `json:"name"`
+	CredentialID    []byte    `json:"credential_id"`
+	PublicKey       []byte    `json:"public_key"`
+	Aaguid          string    `json:"aaguid"`
+	AttestationType string    `json:"attestation_type"`
+	Transports      string    `json:"transports"`
+	SignCount       int64     `json:"sign_count"`
+	BackupEligible  int64     `json:"backup_eligible"`
+	BackupState     int64     `json:"backup_state"`
+	CloneWarning    int64     `json:"clone_warning"`
+	CreatedAt       time.Time `json:"created_at"`
+	LastUsedAt      time.Time `json:"last_used_at"`
+}

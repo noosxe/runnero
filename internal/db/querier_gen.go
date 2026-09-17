@@ -36,6 +36,7 @@ type Querier interface {
 	CountRenovateRunsByPoolId(ctx context.Context, poolID int64) (int64, error)
 	CountRunnerPools(ctx context.Context) (int64, error)
 	CountSearchJobHistory(ctx context.Context, arg CountSearchJobHistoryParams) (int64, error)
+	CountWebauthnCredentialsByUserId(ctx context.Context, userID int64) (int64, error)
 	CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (AdminUser, error)
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateAuthProfile(ctx context.Context, arg CreateAuthProfileParams) (AuthProfile, error)
@@ -47,6 +48,12 @@ type Querier interface {
 	// DEFAULT onto a populated table (migration 009), so last_seen_at carries
 	// a sentinel default that must never survive in data.
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	// WebAuthn credential storage (RUN-247, docs/34 sections 3.6 and 6). Rows
+	// are public material only: COSE public keys, credential IDs, counters and
+	// flags. The credential_id UNIQUE column is the passwordless-login identity
+	// lookup (docs/34 section 3.2); ownership-scoped statements carry user_id so
+	// a caller can only ever touch their own rows (docs/34 section 3.9).
+	CreateWebauthnCredential(ctx context.Context, arg CreateWebauthnCredentialParams) (WebauthnCredential, error)
 	DeleteAdminUser(ctx context.Context, id int64) error
 	DeleteAppSetting(ctx context.Context, key string) error
 	DeleteAuthProfile(ctx context.Context, id int64) error
@@ -70,6 +77,7 @@ type Querier interface {
 	DeleteSessionByIdAndUserId(ctx context.Context, arg DeleteSessionByIdAndUserIdParams) (int64, error)
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
 	DeleteSessionsByUserId(ctx context.Context, userID int64) error
+	DeleteWebauthnCredentialByIdAndUserId(ctx context.Context, arg DeleteWebauthnCredentialByIdAndUserIdParams) (int64, error)
 	GetAdminUserById(ctx context.Context, id int64) (AdminUser, error)
 	GetAdminUserByUsername(ctx context.Context, username string) (AdminUser, error)
 	GetAppSetting(ctx context.Context, key string) (AppSetting, error)
@@ -89,6 +97,11 @@ type Querier interface {
 	GetRunnerPoolById(ctx context.Context, id int64) (RunnerPool, error)
 	GetRunnerPoolByName(ctx context.Context, name string) (RunnerPool, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (Session, error)
+	// The passwordless-login identity lookup: raw credential ID to row (docs/34
+	// section 3.2).
+	GetWebauthnCredentialById(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
+	// Ownership-scoped single-row fetch for Rename/Delete pre-checks.
+	GetWebauthnCredentialByIdAndUserId(ctx context.Context, arg GetWebauthnCredentialByIdAndUserIdParams) (WebauthnCredential, error)
 	// Durable login rate limiter state (RUN-238, docs/32 section 4.2): one row
 	// per failed login attempt, keyed by username+IP (rateLimitKey). The limiter
 	// writes through on every failure, deletes a key's rows on successful login,
@@ -119,6 +132,7 @@ type Querier interface {
 	ListRenovateRunsByPoolId(ctx context.Context, arg ListRenovateRunsByPoolIdParams) ([]RenovateRun, error)
 	ListRunnerPools(ctx context.Context) ([]RunnerPool, error)
 	ListSessionsByUserId(ctx context.Context, userID int64) ([]Session, error)
+	ListWebauthnCredentialsByUserId(ctx context.Context, userID int64) ([]WebauthnCredential, error)
 	OpenJobLifecycleRow(ctx context.Context, arg OpenJobLifecycleRowParams) (JobHistory, error)
 	PoolTombstoneExists(ctx context.Context, poolID int64) (bool, error)
 	// Webhook 'in_progress' with a queued stub but no transition row: promote the
@@ -131,8 +145,12 @@ type Querier interface {
 	// Hourly maintenance (docs/32 section 5.2): delete sessions past either
 	// clock - the sliding idle deadline or the fixed absolute cap.
 	PurgeExpiredSessions(ctx context.Context, now time.Time) (int64, error)
+	RenameWebauthnCredential(ctx context.Context, arg RenameWebauthnCredentialParams) (int64, error)
 	SearchJobHistory(ctx context.Context, arg SearchJobHistoryParams) ([]JobHistory, error)
 	SetAppSetting(ctx context.Context, arg SetAppSettingParams) (AppSetting, error)
+	// Fail-closed flag on a non-increasing sign counter (docs/34 section 3.8):
+	// a flagged credential refuses all further assertions until removed.
+	SetWebauthnCredentialCloneWarning(ctx context.Context, credentialID []byte) error
 	// Sliding renewal (docs/32 section 3.3): extend the idle deadline and record
 	// the activity instant. Callers clamp expires_at at absolute_expires_at before
 	// writing: the cap is never extended.
@@ -143,6 +161,10 @@ type Querier interface {
 	UpdateRenovateConfig(ctx context.Context, arg UpdateRenovateConfigParams) (RenovateConfig, error)
 	UpdateRenovateRunContainerID(ctx context.Context, arg UpdateRenovateRunContainerIDParams) error
 	UpdateRunnerPool(ctx context.Context, arg UpdateRunnerPoolParams) (RunnerPool, error)
+	// Called after every successful assertion (docs/34 section 3.8): the
+	// library's counter policy result plus the response's backup flags and the
+	// last-use stamp.
+	UpdateWebauthnCredentialAssertionState(ctx context.Context, arg UpdateWebauthnCredentialAssertionStateParams) error
 	// Webhook completed event arriving after the death path already closed the
 	// row: an ephemeral runner exits before the forge event lands, so the row
 	// was closed as completed (exit 0, conclusion unknowable). The webhook

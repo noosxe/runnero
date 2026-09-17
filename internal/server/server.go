@@ -97,6 +97,11 @@ type Options struct {
 	// If nil, OnboardingService is not automatically mounted.
 	OnboardingDB OnboardingDatabase
 
+	// WebAuthn carries the validated passkey login configuration (RUN-247,
+	// docs/34 section 3.5). nil or an empty RPID keeps the feature fully
+	// off: passkey RPCs answer FailedPrecondition and Login is untouched.
+	WebAuthn *WebAuthnConfig
+
 	// AnalyticsDB is the database interface used for job history and metrics.
 	// If nil, AnalyticsService is not automatically mounted.
 	AnalyticsDB AnalyticsDatabase
@@ -173,6 +178,7 @@ type Server struct {
 	staticFS         fs.FS
 	authDB           AuthDatabase
 	sessionCfg       SessionConfig
+	webAuthn         *WebAuthnConfig
 	webhookReceiver  WebhookHandler
 	cronScheduler    CronScheduler
 	renovateExecutor RenovateExecutor
@@ -194,6 +200,7 @@ func New(opts Options) *Server {
 		staticFS:         opts.StaticFS,
 		authDB:           opts.AuthDB,
 		sessionCfg:       opts.Session,
+		webAuthn:         opts.WebAuthn,
 		webhookReceiver:  opts.WebhookReceiver,
 		cronScheduler:    opts.CronScheduler,
 		renovateExecutor: opts.RenovateExecutor,
@@ -222,7 +229,7 @@ func New(opts Options) *Server {
 
 	// Mount AuthService if database is provided (RUN-45, RUN-230)
 	if s.authDB != nil {
-		authSvc := NewAuthService(s.authDB, s.sessionCfg)
+		authSvc := NewAuthService(s.authDB, s.sessionCfg, s.webAuthn)
 		path, handler := supervisorv1connect.NewAuthServiceHandler(authSvc, s.ConnectHandlerOptions()...)
 		s.MountConnectHandler(path, handler)
 	}
@@ -243,7 +250,7 @@ func New(opts Options) *Server {
 
 	// Mount OnboardingService if onboarding database is provided (RUN-48)
 	if opts.OnboardingDB != nil {
-		onboardingSvc := NewOnboardingService(opts.OnboardingDB)
+		onboardingSvc := NewOnboardingService(opts.OnboardingDB, s.webAuthn)
 		path, handler := supervisorv1connect.NewOnboardingServiceHandler(onboardingSvc, s.ConnectHandlerOptions()...)
 		s.MountConnectHandler(path, handler)
 	}

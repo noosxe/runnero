@@ -1,6 +1,11 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"net"
+	"net/url"
+	"strings"
+)
 
 // Validate enforces the supervisor environment contract. Every message is
 // actionable: it names the offending value and every knob (file key,
@@ -99,6 +104,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("audit retention must be positive, got %s (key 'audit-retention', env %s)", c.AuditRetention, EnvAuditRetention)
 	}
 
+	if err := c.validateWebAuthn(); err != nil {
+		return err
+	}
+
 	return c.validateDBEncryptionKey()
 
 }
@@ -112,6 +121,55 @@ func (c *Config) validateDBEncryptionKey() error {
 	}
 	if n := len([]byte(c.DBEncryptionKey)); n < MinEncryptionKeyBytes {
 		return fmt.Errorf("database encryption key is too weak: %d bytes, want at least %d (generate one with: openssl rand -base64 32; set it via %s)", n, MinEncryptionKeyBytes, EnvDBEncryptionKey)
+	}
+	return nil
+}
+
+// validateWebAuthn enforces the passkey login configuration contract
+// (RUN-247, docs/34 section 3.5). Empty rp-id means the feature is fully
+// off and every origin knob is ignored. Enabled mode checks:
+//
+//   - rp-id is a plain hostname (no scheme, port, path, or wildcard) and
+//     not a raw IP address - browsers refuse WebAuthn on IP origins;
+//     localhost is the one carve-out (local dev and E2E);
+//   - every origin parses as an absolute http(s) URL whose host is the
+//     rp-id or a registrable subdomain of it (the WebAuthn
+//     effective-domain rule), with no wildcard and no empty entries.
+func (c *Config) validateWebAuthn() error {
+	if c.WebAuthnRPID == "" {
+		return nil
+	}
+
+	if strings.ContainsAny(c.WebAuthnRPID, "/:@?# ") ||
+		strings.HasPrefix(c.WebAuthnRPID, "*") ||
+		strings.Contains(c.WebAuthnRPID, "*") {
+		return fmt.Errorf("invalid webauthn rp-id %q: want a plain hostname like runnero.tailnet-xyz.ts.net (key 'webauthn-rp-id', env %s)", c.WebAuthnRPID, EnvWebAuthnRPID)
+	}
+	if net.ParseIP(strings.Trim(c.WebAuthnRPID, "[]")) != nil {
+		return fmt.Errorf("invalid webauthn rp-id %q: an IP address cannot be a Relying Party ID (browsers refuse WebAuthn on IP origins); use a stable hostname (MagicDNS or reverse-proxy domain), or 'localhost' for local dev (key 'webauthn-rp-id', env %s, docs/34 section 3.5)", c.WebAuthnRPID, EnvWebAuthnRPID)
+	}
+
+	origins := c.WebAuthnOriginList()
+	if len(origins) == 0 {
+		return fmt.Errorf("webauthn is enabled (rp-id %q) but no origins are configured (key 'webauthn-origins', env %s)", c.WebAuthnRPID, EnvWebAuthnOrigins)
+	}
+	for _, raw := range origins {
+		u, err := url.Parse(raw)
+		if err != nil || u.Host == "" {
+			return fmt.Errorf("invalid webauthn origin %q: want an absolute origin like https://runnero.tailnet-xyz.ts.net (key 'webauthn-origins', env %s)", raw, EnvWebAuthnOrigins)
+		}
+		switch u.Scheme {
+		case "http", "https":
+		default:
+			return fmt.Errorf("invalid webauthn origin %q: scheme must be http or https (key 'webauthn-origins', env %s)", raw, EnvWebAuthnOrigins)
+		}
+		if u.Path != "" || u.RawQuery != "" || u.Fragment != "" || strings.Contains(u.Host, "*") {
+			return fmt.Errorf("invalid webauthn origin %q: want a bare origin (no path, query, fragment, or wildcard) (key 'webauthn-origins', env %s)", raw, EnvWebAuthnOrigins)
+		}
+		host := strings.ToLower(u.Hostname())
+		if host != c.WebAuthnRPID && !strings.HasSuffix(host, "."+c.WebAuthnRPID) {
+			return fmt.Errorf("invalid webauthn origin %q: host %q is not %q or a subdomain of it (the WebAuthn effective-domain rule, docs/34 section 3.5)", raw, host, c.WebAuthnRPID)
+		}
 	}
 	return nil
 }
