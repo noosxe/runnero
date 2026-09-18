@@ -146,6 +146,26 @@ clean-e2e:
 		echo "clean-e2e: an E2E suite is still running in project $(E2E_PROJECT) - refusing to tear it down (E2E_FORCE_CLEAN=1 overrides)"; \
 	fi
 
+# --- Local debug stack (AI-assisted frontend debugging) ---------------------
+# Backend = the E2E stack (supervisor + mock git provider + mock docker) with
+# the supervisor published on 127.0.0.1:18090, seeded by one full Playwright
+# suite run (bootstrap, pools, job history, sessions). Frontend = `pnpm dev`
+# pointed at the seeded backend: cd web && SUPERVISOR_PROXY_URL=http://127.0.0.1:18090 pnpm dev
+# Login: admin / AdminPassword123! (the E2E credentials, tests/e2e/fixtures.ts).
+DEBUG_STACK_PROJECT := runnero-debug-$(shell id -un 2>/dev/null || echo local)
+DEBUG_PORT ?= 18090
+DEBUG_COMPOSE := docker compose -p $(DEBUG_STACK_PROJECT) -f tests/e2e/docker-compose.e2e.yml -f tests/e2e/docker-compose.debug.yml
+
+## debug-stack: seeded local backend on 127.0.0.1:$(DEBUG_PORT) (runs the E2E suite once, then serves)
+debug-stack:
+	DEBUG_SUPERVISOR_PORT=$(DEBUG_PORT) $(DEBUG_COMPOSE) up 		--build --force-recreate --renew-anon-volumes 		--abort-on-container-exit --exit-code-from e2e-playwright
+	DEBUG_SUPERVISOR_PORT=$(DEBUG_PORT) $(DEBUG_COMPOSE) up -d e2e-supervisor e2e-mock-provider e2e-mock-docker
+	@echo "debug backend seeded and live: http://127.0.0.1:$(DEBUG_PORT) (login admin / AdminPassword123!)"
+
+## debug-stack-clean: tear down the local debug stack and its data
+debug-stack-clean:
+	$(DEBUG_COMPOSE) down -v --remove-orphans
+
 # --- Deployment compose stack (docker-compose.yml) -------------------------
 # Lifecycle wrappers for the self-hosted stack. Plain docker compose calls,
 # so these work outside the Nix development shell too.
