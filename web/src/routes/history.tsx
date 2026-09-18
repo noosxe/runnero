@@ -268,9 +268,10 @@ export function HistoryPage() {
         </Empty>
       ) : (
         <Card className="py-0">
-          <div className="overflow-x-auto">
-            <DataTable table={jobHistoryTable} />
-          </div>
+          {/* EXPERIMENTAL: pinned job column — scroll horizontally and the
+              identity column stays put (cells are globally nowrap, so the
+              table already renders at max-content width). */}
+          <DataTable table={jobHistoryTable} pinFirst />
 
           {/* Pagination Footer */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/60 px-(--card-spacing) py-3.5 text-xs text-muted-foreground">
