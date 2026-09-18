@@ -122,6 +122,18 @@ single entry point:
 - **End-to-end:** `make test-e2e` runs the containerized Playwright suite via
   `docker compose -f tests/e2e/docker-compose.e2e.yml`; `make test-e2e-ui`
   opens interactive UI mode on port 9323. Tear down with `make clean-e2e`.
+- **Local debug stack (visual frontend debugging):** `make debug-stack`
+  boots the E2E backend (supervisor + mock git provider + mock docker) in a
+  dedicated compose project (`runnero-debug-$USER`) and seeds it by running
+  the full Playwright suite once; the supervisor is published on
+  `127.0.0.1:18090`. Point the dev frontend at it with
+  `cd web && SUPERVISOR_PROXY_URL=http://127.0.0.1:18090 pnpm dev` and open
+  `http://localhost:5173` (login `admin` / `AdminPassword123!`, the E2E
+  credentials). Without `SUPERVISOR_PROXY_URL` the dev proxy targets a real
+  local deployment on `localhost:8090`. Tear down with
+  `make debug-stack-clean`. The dev proxy declares the dev origin via
+  `X-Forwarded-Host` because the supervisor enforces strict same-origin on
+  browser requests (`internal/server/server.go`).
 - **Static analysis:** `make lint` (golangci-lint), `make vet`,
   `make proto-lint` (buf), `hadolint Dockerfile Dockerfile.supervisor`.
 - **Builds:** `make build` (supervisor binary), `make build-web`,
@@ -130,6 +142,16 @@ single entry point:
 
 Rules:
 
+- Visual/interactive verification (layout at narrow viewports, scroll
+  behavior, hover states, dialogs) happens against the seeded local debug
+  stack, not against a real deployment: boot `make debug-stack`, launch the
+  dev frontend, then drive a real browser (chrome-devtools MCP when
+  available) — resize the viewport to force the state under test, exercise
+  the flow, and confirm with screenshots or element inspection. The stack is
+  disposable: every `make debug-stack` boot reseeds from scratch, and
+  `make debug-stack-clean` removes it. It is session-owned infrastructure
+  under its own compose project, so it never touches a real deployment or an
+  in-flight E2E run.
 - Verify behavior with the relevant gate or a focused
   `go test -run '<TestName>' ./internal/...` instead of guessing from code.
 - Never commit a fix you cannot reproduce or verify.

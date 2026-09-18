@@ -1,0 +1,11 @@
+# Local debug stack override (make debug-stack): publishes the E2E stack's
+# supervisor to the host so a `pnpm dev` frontend (vite proxy, see
+# SUPERVISOR_PROXY_URL in web/vite.config.ts) and a browser can exercise a
+# seeded backend. The supervisor keeps listening on 8090 inside the compose
+# network — this only exposes it on 127.0.0.1, never to the LAN. Data lives
+# in the stack's anonymous volume: recreate with renewed volumes (the
+# debug-stack target does) to reset to a freshly seeded state.
+services:
+  e2e-supervisor:
+    ports:
+      - "127.0.0.1:${DEBUG_SUPERVISOR_PORT:-18090}:8090"
