@@ -109,6 +109,16 @@ Conventions (matching the forms toolkit):
   renderers own them), so the E2E suite's selectors keep working.
 - `DataTable` takes the `useAppTable` instance; routes keep owning data
   fetching (TanStack Query hooks) and pass the row array in.
+- **`pinFirst` (opt-in):** pins the first column (`position: sticky; left: 0`,
+  opaque `bg-card`, so row content slides beneath it) for dense tables that
+  overflow horizontally — table cells are globally `whitespace-nowrap`, so a
+  wide table always scrolls inside its card; the pin keeps the row identity
+  visible while it does. A separator on the pin's right edge uses the inset
+  box-shadow recipe from TanStack's kitchen-sink shadcn example
+  (`getCommonPinningStyles`) and renders only while the table is actually
+  scrolled. History's job table opts in; the shell fix that stops wide pages
+  from overflowing the document lives on `SidebarInset` (`min-w-0`,
+  `components/ui/sidebar.tsx`).
 
 ### 4.2 Server-side paging mapping
 
