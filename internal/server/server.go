@@ -68,6 +68,13 @@ type Options struct {
 	// If nil, defaults to the embedded web.Dist() filesystem (docs/06 §2, RUN-44).
 	StaticFS fs.FS
 
+	// Version is the product version of the running supervisor binary
+	// (ldflags-stamped main.version, RUN-250). Surfaced to authenticated
+	// clients via GetSession (RUN-251). Empty means the binary was built
+	// without a stamp — the never-empty invariant is enforced at the
+	// build/tests, not here.
+	Version string
+
 	// AuthDB is the database interface used for administrator authentication,
 	// sessions, and audit logs. If nil, AuthService is not automatically mounted.
 	AuthDB AuthDatabase
@@ -177,6 +184,7 @@ type Server struct {
 	health           *Health
 	staticFS         fs.FS
 	authDB           AuthDatabase
+	version          string
 	sessionCfg       SessionConfig
 	webAuthn         *WebAuthnConfig
 	webhookReceiver  WebhookHandler
@@ -199,6 +207,7 @@ func New(opts Options) *Server {
 		health:           opts.Health,
 		staticFS:         opts.StaticFS,
 		authDB:           opts.AuthDB,
+		version:          opts.Version,
 		sessionCfg:       opts.Session,
 		webAuthn:         opts.WebAuthn,
 		webhookReceiver:  opts.WebhookReceiver,
@@ -229,7 +238,7 @@ func New(opts Options) *Server {
 
 	// Mount AuthService if database is provided (RUN-45, RUN-230)
 	if s.authDB != nil {
-		authSvc := NewAuthService(s.authDB, s.sessionCfg, s.webAuthn)
+		authSvc := NewAuthService(s.authDB, s.sessionCfg, s.webAuthn, s.version)
 		path, handler := supervisorv1connect.NewAuthServiceHandler(authSvc, s.ConnectHandlerOptions()...)
 		s.MountConnectHandler(path, handler)
 

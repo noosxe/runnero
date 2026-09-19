@@ -143,6 +143,11 @@ message GetSessionResponse {
   string role = 5;    // Live role, "admin" | "viewer" (RUN-236, docs/35 section 2.1):
                       // re-read from admin_users on every request, so role
                       // changes apply on the caller's next request
+  string version = 6; // Product version of the running binary (ldflags-stamped
+                      // main.version, RUN-249/250; e.g. "v0.3.0-379-g2eb9bc2").
+                      // Surfaced for the sidebar footer and settings Instance
+                      // card (RUN-251); authenticated-only, so the version is
+                      // never a pre-auth fingerprint
 }
 
 // User management (RUN-236, docs/35 section 2.3): every procedure is

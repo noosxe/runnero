@@ -158,7 +158,7 @@ func newPasskeyFixture(t *testing.T, withCredential bool) *passkeyFixture {
 	authDB := &mockAuthDB{user: adminUser}
 
 	waCfg := &WebAuthnConfig{RPID: "localhost", RPDisplayName: DefaultWebAuthnRPDisplayName, Origins: []string{"http://localhost:8090"}}
-	svc := NewAuthService(authDB, SessionConfig{IdleTimeout: time.Hour, AbsoluteTimeout: 24 * time.Hour, BcryptCost: bcrypt.MinCost}, waCfg)
+	svc := NewAuthService(authDB, SessionConfig{IdleTimeout: time.Hour, AbsoluteTimeout: 24 * time.Hour, BcryptCost: bcrypt.MinCost}, waCfg, "vTest")
 	// Inject the in-memory passkey store in place of the real database.
 	svc.passkeyStore = passDB
 
@@ -253,7 +253,7 @@ func (f *passkeyFixture) assertLogin() (*connect.Response[supervisorv1.LoginResp
 // ---
 
 func TestPasskeyUnconfiguredFailsClosed(t *testing.T) {
-	svc := NewAuthService(&mockAuthDB{user: db.AdminUser{ID: 1, Username: "admin", Role: "admin"}}, SessionConfig{}, nil)
+	svc := NewAuthService(&mockAuthDB{user: db.AdminUser{ID: 1, Username: "admin", Role: "admin"}}, SessionConfig{}, nil, "")
 	if svc.passkeyReady() {
 		t.Fatal("service must not be passkey-ready without configuration")
 	}

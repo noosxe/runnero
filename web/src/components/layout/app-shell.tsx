@@ -36,6 +36,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { cn } from "cn";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -292,10 +293,35 @@ function NavSidebar() {
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
+        {session?.version ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <p
+                  className="w-full truncate px-2 pb-1.5 font-mono text-[10px] text-muted-foreground"
+                  data-testid="sidebar-version"
+                />
+              }
+            >
+              {shortVersion(session.version)}
+            </TooltipTrigger>
+            <TooltipContent>{session.version}</TooltipContent>
+          </Tooltip>
+        ) : null}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
+}
+
+// shortVersion renders the ambient sidebar form of the ldflags-stamped
+// product version (RUN-251): tag and commit distance without the commit
+// hash ("v0.3.0-379-g2eb9bc2" -> "v0.3.0-379"; plain tags pass through).
+// The full string stays available in the tooltip and the settings
+// Instance card.
+function shortVersion(version: string): string {
+  const parts = version.split("-");
+  return parts.slice(0, Math.min(parts.length, 2)).join("-");
 }
 
 export function AppShell() {
