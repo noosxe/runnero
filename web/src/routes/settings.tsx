@@ -27,8 +27,18 @@ import {
   useIsAdmin,
 } from "../lib/api/query-hooks";
 import { UsersCard } from "../components/settings/users-card";
+import { InstanceCard } from "../components/settings/instance-card";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import { Sliders, RefreshCw, Database, Save, Archive, ShieldCheck, Users } from "lucide-react";
+import {
+  Sliders,
+  RefreshCw,
+  Database,
+  Save,
+  Archive,
+  ShieldCheck,
+  Users,
+  Info,
+} from "lucide-react";
 import { SecurityTab } from "../components/security/security-tab";
 
 /**
@@ -69,7 +79,7 @@ export function SettingsPage() {
   // security. Held as null until the role resolves so the first paint
   // already shows the right tab.
   const [selectedTab, setSelectedTab] = useState<
-    "constraints" | "images" | "backups" | "security" | "users" | null
+    "instance" | "constraints" | "images" | "backups" | "security" | "users" | null
   >(null);
   const activeTab = selectedTab ?? (isAdmin ? "constraints" : "security");
   const setActiveTab = setSelectedTab;
@@ -212,6 +222,21 @@ export function SettingsPage() {
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-border ">
+        {/* Tab: Instance - informational for every role (RUN-251, docs/09 §4) */}
+        <button
+          type="button"
+          onClick={() => setActiveTab("instance")}
+          className={cn(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
+            activeTab === "instance"
+              ? "border-primary/50 text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Info className="size-4" />
+          <span>Instance</span>
+        </button>
+
         {isAdmin && (
           <button
             type="button"
@@ -291,6 +316,9 @@ export function SettingsPage() {
           </button>
         )}
       </div>
+
+      {/* Tab: Instance - build/host info for every role (RUN-251) */}
+      {activeTab === "instance" && <InstanceCard />}
 
       {/* Tab: Security - self-service for every role (docs/35 section 2.2) */}
       {activeTab === "security" && <SecurityTab />}

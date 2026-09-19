@@ -1537,7 +1537,12 @@ type GetSessionResponse struct {
 	// Live role of the calling user: "admin" | "viewer" (docs/35 §2.1). Read
 	// fresh from admin_users on every request, so role changes apply on the
 	// caller's next request with no re-login.
-	Role          string `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	Role string `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	// Product version of the running supervisor binary (ldflags-stamped
+	// main.version, RUN-249/250; e.g. "v0.3.0-379-g2eb9bc2"). Surfaced to
+	// authenticated clients for the sidebar footer and the settings
+	// Instance card (RUN-251, docs/09 §4).
+	Version       string `protobuf:"bytes,6,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1603,6 +1608,13 @@ func (x *GetSessionResponse) GetHostOs() string {
 func (x *GetSessionResponse) GetRole() string {
 	if x != nil {
 		return x.Role
+	}
+	return ""
+}
+
+func (x *GetSessionResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
 	}
 	return ""
 }
@@ -7005,13 +7017,14 @@ const file_api_proto_rawDesc = "" +
 	"\x17public_key_options_json\x18\x01 \x01(\fR\x14publicKeyOptionsJson\"S\n" +
 	"\x19FinishPasskeyLoginRequest\x126\n" +
 	"\x17assertion_response_json\x18\x01 \x01(\fR\x15assertionResponseJson\"\x13\n" +
-	"\x11GetSessionRequest\"\x95\x01\n" +
+	"\x11GetSessionRequest\"\xaf\x01\n" +
 	"\x12GetSessionResponse\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x19\n" +
 	"\bis_admin\x18\x02 \x01(\bR\aisAdmin\x12\x1b\n" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
 	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\x12\x12\n" +
-	"\x04role\x18\x05 \x01(\tR\x04role\"\x8d\r\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\x12\x18\n" +
+	"\aversion\x18\x06 \x01(\tR\aversion\"\x8d\r\n" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12)\n" +
 	"\x04name\x18\x02 \x01(\tB\x15\xbaH\x12r\x10\x10\x012\f^[a-z0-9-]+$R\x04name\x12\x1a\n" +

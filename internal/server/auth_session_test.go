@@ -493,3 +493,43 @@ func auditActions(logs []db.AuditLog) []string {
 	}
 	return actions
 }
+
+// TestGetSessionReportsVersion pins the version surface (RUN-251):
+// GetSession must report the server's configured product version
+// (the ldflags-stamped main.version, RUN-250) so the UI can show it in the
+// sidebar footer and the settings Instance card. Authenticated-only: the
+// endpoint already requires a session, which keeps the version from being
+// a pre-auth fingerprint (docs/09 §4).
+func TestGetSessionReportsVersion(t *testing.T) {
+	ctx := context.Background()
+	database := setupTestDB(t)
+	const wantVersion = "v9.9.9-test"
+	srv := server.New(server.Options{
+		Port:         8080,
+		Version:      wantVersion,
+		AuthDB:       database,
+		OnboardingDB: database,
+		Session:      testSessionConfig(),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	client := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	setupAdmin(t, client)
+
+	res, err := client.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "super-secret-password-123",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	req := connect.NewRequest(&supervisorv1.GetSessionRequest{})
+	req.Header().Set("Cookie", "session_token="+cookieValue(res.Header().Get("Set-Cookie")))
+	sess, err := client.GetSession(ctx, req)
+	if err != nil {
+		t.Fatalf("GetSession failed: %v", err)
+	}
+	if sess.Msg.Version != wantVersion {
+		t.Fatalf("GetSession version = %q, want %q", sess.Msg.Version, wantVersion)
+	}
+}
