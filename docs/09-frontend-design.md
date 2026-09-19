@@ -136,6 +136,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 - **Collapsible**: Toggles between expanded (240px) and icon-only rail (64px) on desktop; full drawer on mobile.
 - **Active State**: High-contrast indicator with tinted accent background (`bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold`).
 - **Badge Indicators**: Runner count on `Pools`, pending updates badge on `Settings`.
+- **Version line (RUN-251)**: the footer shows the running product version under the identity menu — tiny mono `text-[10px] text-muted-foreground`, short form (`v0.3.0-379`; commit hash dropped), full git-describe string in a tooltip. Sourced from the authenticated `GetSession` payload; post-auth only, so the version never becomes a pre-auth fingerprint.
 
 ---
 
@@ -471,8 +472,14 @@ stream data, so toggling the chart's timeframe sticks.
 +-----------------------------------------------------------------------------------------------+
 | Supervisor Settings & Administration                                                          |
 +-----------------------------------------------------------------------------------------------+
-| Tabs: [ Global Constraints ]  [ Runner Image Updates ]  [ Database & Retention ]  [ Security ]  [ Users ] |
+| Tabs: [ Instance ]  [ Global Constraints ]  [ Runner Image Updates ]  [ Database & Retention ]  [ Security ]  [ Users ] |
 +-----------------------------------------------------------------------------------------------+
+| TAB: Instance (all roles, RUN-251)                                                            |
+| +-------------------------------------------------------------------------------------------+ |
+| | Version: v0.3.0-379-g2eb9bc2   Host OS: linux   Host architecture: amd64                  | |
+| | (mono values from the GetSession payload; read-only)                                      | |
+| +-------------------------------------------------------------------------------------------+ |
+|                                                                                               |
 | TAB: Global Constraints                                                                       |
 | +-------------------------------------------------------------------------------------------+ |
 | | Global Runner Quota (total_allowed_runners): [ 20      ] runners                          | |

@@ -500,6 +500,9 @@ type AuthService struct {
 	db      AuthDatabase
 	cfg     SessionConfig
 	limiter *loginRateLimiter
+	// version is the ldflags-stamped product version of the running
+	// binary (RUN-250), surfaced via GetSession for the UI (RUN-251).
+	version string
 
 	// Passkey engine (RUN-247, docs/34): wa is nil unless WebAuthn is
 	// configured, in which case passkeys holds the in-memory ceremony
@@ -522,7 +525,7 @@ type AuthService struct {
 // limiter becomes durable: failed logins are written through and in-window
 // rows are reloaded here, so a restart cannot reset a brute-force lockout
 // (RUN-238, docs/32 section 4.2).
-func NewAuthService(authDB AuthDatabase, cfg SessionConfig, waCfg *WebAuthnConfig) *AuthService {
+func NewAuthService(authDB AuthDatabase, cfg SessionConfig, waCfg *WebAuthnConfig, version string) *AuthService {
 	var limiter *loginRateLimiter
 	if store, ok := authDB.(RateLimitStore); ok {
 		limiter = newDurableLoginRateLimiter(store)
@@ -534,6 +537,7 @@ func NewAuthService(authDB AuthDatabase, cfg SessionConfig, waCfg *WebAuthnConfi
 		db:      authDB,
 		cfg:     cfg,
 		limiter: limiter,
+		version: version,
 	}
 	// Passkey engine (RUN-247, docs/34 section 3.5): assembled only when a
 	// non-empty RP ID is configured; a construction failure (malformed
@@ -820,5 +824,6 @@ func (s *AuthService) GetSession(ctx context.Context, req *connect.Request[super
 		IsAdmin:  user.Role == RoleAdmin, // deprecated; kept for older consumers
 		HostArch: HostArch(),
 		HostOs:   HostOS(),
+		Version:  s.version,
 	}), nil
 }

@@ -253,6 +253,7 @@ func runDaemonContext(ctx context.Context) error {
 
 	serverOpts := server.Options{
 		Port:                cfg.Port,
+		Version:             version,
 		Health:              health,
 		AuthDB:              database,
 		PoolDB:              database,
