@@ -502,3 +502,39 @@ func TestBackupCommand(t *testing.T) {
 	}
 	_ = backupDB.Close()
 }
+
+// TestVersionFlag verifies the root's --version flag (RUN-250). Cobra only
+// installs the flag when the Version field is non-empty — the RUN-249 empty
+// ldflags stamp silently removed it — so this also locks the dormancy
+// footgun: the surface must exist for any build, stamped or not.
+func TestVersionFlag(t *testing.T) {
+	if version == "" {
+		t.Fatal("main.version must never be empty; the empty RUN-249 stamp removes the --version flag entirely")
+	}
+	root := NewRootCommand()
+	out := &strings.Builder{}
+	root.SetOut(out)
+	root.SetArgs([]string{"--version"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--version errored: %v", err)
+	}
+	if want := "runnero-supervisor version " + version; strings.TrimSpace(out.String()) != want {
+		t.Fatalf("--version output = %q, want %q", out.String(), want)
+	}
+}
+
+// TestVersionSubcommand verifies the explicit `supervisor version`
+// subcommand (RUN-250): the always-present interrogation surface for
+// deployed binaries, independent of cobra's flag-conditional behavior.
+func TestVersionSubcommand(t *testing.T) {
+	root := NewRootCommand()
+	out := &strings.Builder{}
+	root.SetOut(out)
+	root.SetArgs([]string{"version"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("version subcommand errored: %v", err)
+	}
+	if want := "runnero-supervisor version " + version; strings.TrimSpace(out.String()) != want {
+		t.Fatalf("version output = %q, want %q", out.String(), want)
+	}
+}

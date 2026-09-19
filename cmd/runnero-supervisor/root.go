@@ -85,6 +85,7 @@ Run it with no subcommand to start the daemon.`,
 		newExportCommand(),
 		newResetPasswordCommand(),
 		newBackupCommand(),
+		newVersionCommand(),
 	)
 	return root
 }
