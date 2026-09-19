@@ -10,6 +10,12 @@
 # path no longer exists in the Nix store.
 export CGO_ENABLED := 0
 
+# Product version for local builds: most recent tag plus commit/dirty info
+# (e.g. v0.1.2-3-g8a5de52-dirty); CI and Dockerfile.supervisor override it
+# explicitly (tag name / SHA). Without a default, the empty -X stamp would
+# clobber the "dev" fallback in cmd/runnero-supervisor/root.go (RUN-249).
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
 BINARY := runnero-supervisor
 PKG     := ./...
 
