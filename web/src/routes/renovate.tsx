@@ -39,7 +39,7 @@ export function RenovatePage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground ">
             Renovate Bot Dashboard
           </h1>
-          <Badge className="border-primary/30 bg-primary/10 text-primary font-medium">
+          <Badge className="border-primary/30 bg-primary/10 text-link font-medium">
             <Bot />
             <span className="font-mono text-[10px]">Managed Automation</span>
           </Badge>
@@ -77,7 +77,7 @@ export function RenovatePage() {
         <Card size="sm" className="p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Automation Coverage</span>
-            <Calendar className="size-4 text-primary" />
+            <Calendar className="size-4 text-link" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-foreground">

@@ -316,7 +316,7 @@ export function PoolsPage() {
 
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <PoolHealthBadge status={p.healthStatus} size="sm" />
-                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary uppercase tracking-wider">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-link uppercase tracking-wider">
                         {p.provider}
                       </span>
                       <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -342,7 +342,7 @@ export function PoolsPage() {
                               )}
                             </div>
                             {p.lastError && (
-                              <p className="mt-1 font-mono text-[11px] break-words line-clamp-2 text-destructive/90">
+                              <p className="mt-1 font-mono text-[11px] break-words line-clamp-2 text-destructive">
                                 {p.lastError}
                               </p>
                             )}
@@ -351,7 +351,7 @@ export function PoolsPage() {
                         {p.lastErrorCode?.includes("AUTH") && (
                           <Link
                             to="/profiles"
-                            className="shrink-0 text-[11px] font-semibold text-destructive hover:text-destructive/80 underline decoration-destructive/40"
+                            className="shrink-0 text-[11px] font-semibold text-destructive hover:text-destructive underline decoration-destructive/40"
                           >
                             Fix Auth &rarr;
                           </Link>
@@ -461,7 +461,7 @@ export function PoolsPage() {
                     <Link
                       to="/pools/$poolId"
                       params={{ poolId: p.id.toString() }}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/90 transition-colors"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-link hover:text-link/90 transition-colors"
                     >
                       <span>View Pool Details</span>
                       <ArrowUpRight className="size-3.5" />

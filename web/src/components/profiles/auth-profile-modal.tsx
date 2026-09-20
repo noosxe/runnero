@@ -280,7 +280,7 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
       <DialogContent className="gap-4 p-6 text-xs sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <KeyRound className="size-5 text-primary" />
+            <KeyRound className="size-5 text-link" />
             {isEdit ? "Edit Git Auth Profile" : "Add Git Auth Profile"}
           </DialogTitle>
         </DialogHeader>

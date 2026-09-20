@@ -107,7 +107,7 @@ function ShellMain() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <span className="font-medium text-muted-foreground/70">App</span>
+                <span className="font-medium text-muted-foreground">App</span>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
@@ -228,7 +228,7 @@ function NavSidebar() {
                 <span className="truncate text-base font-bold tracking-tight text-foreground">
                   Runnero
                 </span>
-                <span className="truncate text-[11px] font-medium uppercase tracking-wider text-primary">
+                <span className="truncate text-[11px] font-medium uppercase tracking-wider text-link">
                   Supervisor
                 </span>
               </div>

@@ -384,7 +384,7 @@ export function LogsPage({ search }: { search: LogsPageSearch }) {
     <div className="flex h-full flex-col gap-6 p-6">
       <header className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
-          <ScrollText className="size-5 text-primary" />
+          <ScrollText className="size-5 text-link" />
         </div>
         <div>
           <h1 className="text-2xl font-bold">Logs</h1>

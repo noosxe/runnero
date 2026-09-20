@@ -261,7 +261,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "instance"
-              ? "border-primary/50 text-primary"
+              ? "border-primary/50 text-link"
               : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
@@ -276,7 +276,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "constraints"
-                ? "border-primary/50 text-primary"
+                ? "border-primary/50 text-link"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
@@ -292,7 +292,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
             className={cn(
               "relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "images"
-                ? "border-primary/50 text-primary"
+                ? "border-primary/50 text-link"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
@@ -309,7 +309,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "backups"
-                ? "border-primary/50 text-primary"
+                ? "border-primary/50 text-link"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
@@ -324,7 +324,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "security"
-              ? "border-primary/50 text-primary"
+              ? "border-primary/50 text-link"
               : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
@@ -339,7 +339,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "users"
-                ? "border-primary/50 text-primary"
+                ? "border-primary/50 text-link"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
@@ -543,7 +543,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Archive className="size-4 text-primary" />
+                <Archive className="size-4 text-link" />
                 <span>Pruning Interval</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">

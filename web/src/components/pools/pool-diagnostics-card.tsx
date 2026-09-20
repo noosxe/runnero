@@ -110,7 +110,7 @@ export function PoolDiagnosticsCard({ pool, className }: PoolDiagnosticsCardProp
               </span>
             )}
             {formattedTime && (
-              <span className="text-xs text-destructive/80">• Occurred at {formattedTime}</span>
+              <span className="text-xs text-destructive">• Occurred at {formattedTime}</span>
             )}
           </div>
 
@@ -119,7 +119,7 @@ export function PoolDiagnosticsCard({ pool, className }: PoolDiagnosticsCardProp
           </div>
 
           <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-1.5 text-xs text-destructive/90">
+            <div className="flex items-start gap-1.5 text-xs text-destructive">
               <Wrench className="mt-0.5 size-3.5 shrink-0" />
               <span>{remediation.suggestion}</span>
             </div>

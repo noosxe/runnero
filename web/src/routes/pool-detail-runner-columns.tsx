@@ -67,7 +67,7 @@ export const runnerColumns = ({ pool, onViewLogs, onTerminate }: RunnerColumnAct
               isBusy
                 ? "border-success/30 bg-success/10 text-success"
                 : isIdle
-                  ? "border-primary/30 bg-primary/10 text-primary"
+                  ? "border-primary/30 bg-primary/10 text-link"
                   : isDegraded
                     ? "border-destructive/30 bg-destructive/10 text-destructive"
                     : "bg-muted text-muted-foreground",

@@ -34,7 +34,7 @@ function formatTimestamp(ts: string): string {
 // red = failure, neutral = operator/system actions.
 const REASON_BADGE_CLASS: Record<string, string> = {
   reap: "border-success/30 bg-success/10 text-success",
-  "task-exit": "border-primary/30 bg-primary/10 text-primary",
+  "task-exit": "border-primary/30 bg-primary/10 text-link",
   "lifetime-limit": "border-warning/30 bg-warning/10 text-warning",
   "idle-drain": "border-warning/30 bg-warning/10 text-warning",
   shutdown: "border-border bg-muted text-muted-foreground",

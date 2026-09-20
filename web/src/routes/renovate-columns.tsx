@@ -32,7 +32,7 @@ function PoolNameCell({ pool }: { pool: Pool }) {
       <Link
         to="/pools/$poolId"
         params={{ poolId: pool.id.toString() }}
-        className="font-semibold text-primary hover:underline"
+        className="font-semibold text-link hover:underline"
       >
         {pool.name}
       </Link>

@@ -25,7 +25,7 @@ export function PoolHealthBadge({ status, size = "md", className = "" }: PoolHea
 
     case PoolHealthStatus.PROVISIONING:
       return (
-        <Badge className={cn("border-primary/30 bg-primary/10 text-primary", sizeClass, className)}>
+        <Badge className={cn("border-primary/30 bg-primary/10 text-link", sizeClass, className)}>
           <Spinner data-icon="inline-start" />
           <span>Provisioning</span>
         </Badge>

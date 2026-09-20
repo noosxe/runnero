@@ -67,7 +67,7 @@ export function SuccessFailureWidget({
           </div>
 
           <div className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-muted/50 px-3 py-2 text-xs ">
-            <Timer className="size-4 text-primary" />
+            <Timer className="size-4 text-link" />
             <div>
               <p className="text-[10px] uppercase font-semibold text-muted-foreground">
                 Avg Runtime
@@ -126,7 +126,7 @@ export function SuccessFailureWidget({
               <span>Successful</span>
             </div>
             <div className="mt-1 font-mono text-xl font-bold text-success">{successfulJobs}</div>
-            <p className="text-[10px] text-success/80 mt-0.5">Exit status 0</p>
+            <p className="text-[10px] text-success mt-0.5">Exit status 0</p>
           </div>
 
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3">
@@ -135,7 +135,7 @@ export function SuccessFailureWidget({
               <span>Failed</span>
             </div>
             <div className="mt-1 font-mono text-xl font-bold text-destructive">{failedJobs}</div>
-            <p className="text-[10px] text-destructive/80 mt-0.5">Non-zero exit or cancelled</p>
+            <p className="text-[10px] text-destructive mt-0.5">Non-zero exit or cancelled</p>
           </div>
         </div>
       </CardFooter>

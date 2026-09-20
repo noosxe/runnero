@@ -26,7 +26,7 @@ describe("JobStatusBadge", () => {
     ["failure", "text-destructive"],
     ["timeout", "text-destructive"],
     ["queued", "text-warning"],
-    ["running", "text-primary"],
+    ["running", "text-link"],
     ["interrupted", "text-notice"],
   ])("colors %s with the semantic token family", (status, tokenClass) => {
     const { container } = render(<JobStatusBadge status={status} />);

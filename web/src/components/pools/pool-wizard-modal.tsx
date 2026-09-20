@@ -778,7 +778,7 @@ export function PoolWizardModal({
       <DialogContent className="max-h-[calc(100dvh-2rem)] gap-4 overflow-y-auto p-6 text-xs sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Server className="size-5 text-primary" />
+            <Server className="size-5 text-link" />
             {isEdit ? "Edit Runner Pool" : "Create Runner Pool Wizard"}
           </DialogTitle>
         </DialogHeader>
@@ -811,7 +811,7 @@ export function PoolWizardModal({
                   className={cn(
                     "font-semibold hidden sm:inline",
                     isActive
-                      ? "text-primary"
+                      ? "text-link"
                       : isCompleted
                         ? "text-foreground"
                         : "text-muted-foreground",
@@ -882,7 +882,7 @@ export function PoolWizardModal({
                 )}
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-[11px] text-muted-foreground">Deduced Provider:</span>
-                  <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary capitalize">
+                  <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-link capitalize">
                     {deducedProvider}
                   </span>
                 </div>
@@ -957,7 +957,7 @@ export function PoolWizardModal({
                 </Field>
 
                 <div className="flex items-center gap-2 justify-end pt-5">
-                  <Badge className="h-auto border-primary/30 bg-primary/10 px-2.5 py-1 text-primary font-semibold">
+                  <Badge className="h-auto border-primary/30 bg-primary/10 px-2.5 py-1 text-link font-semibold">
                     <Layers />
                     <span>
                       {selectedTargetUrls.length}{" "}
@@ -1111,7 +1111,7 @@ export function PoolWizardModal({
                             : "border-border bg-card hover:border-border bg-muted",
                         )}
                       >
-                        <div className="pt-0.5 text-primary shrink-0">
+                        <div className="pt-0.5 text-link shrink-0">
                           {isSelected ? (
                             <CheckSquare className="size-4" />
                           ) : (
@@ -1167,7 +1167,7 @@ export function PoolWizardModal({
                                 rel="noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 aria-label="Open in upstream git provider"
-                                className="text-muted-foreground hover:text-primary p-1 shrink-0"
+                                className="text-muted-foreground hover:text-link p-1 shrink-0"
                               />
                             }
                           >
@@ -1425,7 +1425,7 @@ export function PoolWizardModal({
                     onCheckedChange={(v) => setRenovateEnabled(v === true)}
                   />
                   <FieldLabel htmlFor="wizard-renovate-enabled">
-                    <Bot className="size-4 text-primary " />
+                    <Bot className="size-4 text-link " />
                     Enable Automated Renovate Dependency Scans
                   </FieldLabel>
                 </Field>
@@ -1509,7 +1509,7 @@ export function PoolWizardModal({
               </div>
             )}
             {isEdit && renamed && (
-              <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-primary ">
+              <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-link ">
                 <Info className="size-4 shrink-0" />
                 <span>
                   Renaming only changes how the pool is displayed — runners are unaffected and keep
@@ -1526,7 +1526,7 @@ export function PoolWizardModal({
                     {authMethodLabel(selectedAuthProfile?.authMethod ?? "")})
                   </p>
                 </div>
-                <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary capitalize">
+                <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-link capitalize">
                   {deducedProvider} ({scope})
                 </span>
               </div>
@@ -1544,7 +1544,7 @@ export function PoolWizardModal({
                         href={url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-muted-foreground hover:text-primary ml-2 shrink-0"
+                        className="text-muted-foreground hover:text-link ml-2 shrink-0"
                       >
                         <ExternalLink className="size-3" />
                       </a>
@@ -1590,7 +1590,7 @@ export function PoolWizardModal({
                   <span className="font-mono text-foreground ">{labels}</span>
                 </div>
                 {renovateEnabled && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-link font-medium">
                     <Bot className="size-3.5" />
                     Renovate Scheduled ({renovateCron})
                   </span>

@@ -136,7 +136,7 @@ export function LogTerminal({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-terminal-border bg-terminal font-mono shadow-2xl text-xs">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-terminal-border bg-terminal font-mono text-terminal-fg shadow-2xl text-xs">
       {/* Terminal Top Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-terminal-border bg-terminal-surface/90 px-4 py-3">
         <div className="flex items-center gap-3">
@@ -159,22 +159,22 @@ export function LogTerminal({
               className={cn(
                 "border",
                 isPaused
-                  ? "border-warning/30 bg-warning/10 text-warning"
+                  ? "border-terminal-err-soft/30 bg-terminal-err-soft/10 text-terminal-err-soft"
                   : isConnected
-                    ? "border-success/30 bg-success/10 text-success"
+                    ? "border-terminal-out/40 bg-terminal-out/10 text-terminal-out"
                     : isConnecting
-                      ? "border-primary/30 bg-primary/10 text-primary"
-                      : "border-destructive/30 bg-destructive/10 text-destructive",
+                      ? "border-terminal-accent/40 bg-terminal-accent/10 text-terminal-accent"
+                      : "border-terminal-err/40 bg-terminal-err/10 text-terminal-err",
               )}
             >
               <span
                 className={cn(
                   "size-1.5 rounded-full",
                   isPaused
-                    ? "bg-warning"
+                    ? "bg-terminal-err-soft"
                     : isConnected
-                      ? "bg-success animate-pulse"
-                      : "bg-primary animate-ping",
+                      ? "bg-terminal-out animate-pulse"
+                      : "bg-terminal-accent animate-ping",
                 )}
               />
               <span>
@@ -204,7 +204,8 @@ export function LogTerminal({
               onClick={togglePause}
               aria-pressed={isPaused}
               className={cn(
-                isPaused && "border-warning/60 bg-warning/10 text-warning hover:bg-warning/20",
+                isPaused &&
+                  "border-terminal-err-soft/60 bg-terminal-err-soft/10 text-terminal-err-soft hover:bg-terminal-err-soft/20",
               )}
             >
               {isPaused ? <Play data-icon="inline-start" /> : <Pause data-icon="inline-start" />}
@@ -217,11 +218,13 @@ export function LogTerminal({
             size="xs"
             onClick={() => setAutoScroll((prev) => !prev)}
             aria-pressed={autoScroll}
-            className={cn(autoScroll && "border-primary/60 bg-primary/10 text-primary")}
+            className={cn(
+              autoScroll && "border-terminal-accent/40 bg-terminal-accent/10 text-terminal-accent",
+            )}
           >
             <ArrowDown
               data-icon="inline-start"
-              className={autoScroll ? "text-primary" : "text-muted-foreground"}
+              className={autoScroll ? "text-terminal-accent" : "text-terminal-muted"}
             />
             <span>Auto-scroll: {autoScroll ? "ON" : "OFF"}</span>
           </Button>
@@ -269,7 +272,7 @@ export function LogTerminal({
         <div className="flex items-center gap-2 flex-1 max-w-sm">
           <InputGroup>
             <InputGroupAddon align="inline-start">
-              <Search className="size-3.5 text-terminal-dim" />
+              <Search className="size-3.5 text-terminal-muted" />
             </InputGroupAddon>
             <InputGroupInput
               type="text"
@@ -319,7 +322,7 @@ export function LogTerminal({
             </Button>
           </div>
 
-          <span className="text-[10px] text-terminal-dim">
+          <span className="text-[10px] text-terminal-muted">
             {filteredLogs.length} / {displayedLogs.length} lines
           </span>
         </div>
@@ -332,12 +335,12 @@ export function LogTerminal({
         className="relative flex-1 overflow-y-auto p-4 text-[11px] leading-relaxed text-terminal-fg selection:bg-terminal-accent/40"
       >
         {isLoading ? (
-          <div className="flex h-32 items-center justify-center text-terminal-dim">
+          <div className="flex h-32 items-center justify-center text-terminal-muted">
             <Radio className="size-4 animate-spin text-terminal-accent mr-2" />
             <span>Loading log stream...</span>
           </div>
         ) : filteredLogs.length === 0 ? (
-          <div className="flex h-32 flex-col items-center justify-center text-terminal-dim text-center">
+          <div className="flex h-32 flex-col items-center justify-center text-terminal-muted text-center">
             {search || streamFilter !== "all" ? (
               <>
                 <p className="font-semibold text-terminal-muted">No matching log lines</p>
@@ -374,7 +377,7 @@ export function LogTerminal({
                     {idx + 1}
                   </span>
                   {chunk.timestamp && (
-                    <span className="shrink-0 select-none font-mono text-[10px] text-terminal-dim">
+                    <span className="shrink-0 select-none font-mono text-[10px] text-terminal-muted">
                       {chunk.timestamp.length > 19
                         ? chunk.timestamp.substring(11, 19)
                         : chunk.timestamp}

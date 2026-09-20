@@ -116,7 +116,7 @@ export function DashboardPage() {
             configuration or credential issues.
           </AlertDescription>
           {degradedPools.length === 1 && degradedPools[0].lastError && (
-            <p className="mt-1 truncate font-mono text-[11px] text-destructive/90">
+            <p className="mt-1 truncate font-mono text-[11px] text-destructive">
               {degradedPools[0].lastError}
             </p>
           )}
@@ -160,7 +160,7 @@ export function DashboardPage() {
           <CardContent>
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>{timeframeHours}h Jobs Executed</span>
-              <Server className="size-4 text-primary" />
+              <Server className="size-4 text-link" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (
@@ -204,7 +204,7 @@ export function DashboardPage() {
           <CardContent>
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground ">
               <span>Avg Runtime</span>
-              <Clock className="size-4 text-primary" />
+              <Clock className="size-4 text-link" />
             </div>
             <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground font-mono">
               {statsLoading ? (
@@ -249,7 +249,7 @@ export function DashboardPage() {
               Active dynamic scaling pools and container resource allocations.
             </p>
           </div>
-          <Link to="/pools" className="text-xs font-semibold text-primary hover:underline ">
+          <Link to="/pools" className="text-xs font-semibold text-link hover:underline ">
             View All Pools &rarr;
           </Link>
         </div>
@@ -296,7 +296,7 @@ export function DashboardPage() {
                 <Card className="transition-all hover:ring-primary/40 hover:shadow-md">
                   <CardContent>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-semibold text-foreground group-hover:text-primary">
+                      <span className="truncate font-semibold text-foreground group-hover:text-link">
                         {p.name}
                       </span>
                       <div className="flex shrink-0 items-center gap-1.5">
@@ -353,7 +353,7 @@ export function DashboardPage() {
               Latest ephemeral workflow jobs completed across runner pools.
             </p>
           </div>
-          <Link to="/history" className="text-xs font-semibold text-primary hover:underline ">
+          <Link to="/history" className="text-xs font-semibold text-link hover:underline ">
             View Full History &rarr;
           </Link>
         </div>
