@@ -11,7 +11,7 @@ import { AppShell } from "./components/layout/app-shell";
 import { DashboardPage } from "./routes/dashboard";
 import { PoolsPage } from "./routes/pools";
 import { LogsPage, type LogsPageSearch } from "./routes/logs";
-import { PoolDetailPage } from "./routes/pool-detail";
+import { PoolDetailPage, type PoolDetailPageSearch } from "./routes/pool-detail";
 import { HistoryPage } from "./routes/history";
 import { HistoryDetailPage } from "./routes/history-detail";
 import { ProfilesPage } from "./routes/profiles";
@@ -118,7 +118,16 @@ const poolsRoute = createRoute({
 const poolDetailRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "/pools/$poolId",
-  component: PoolDetailPage,
+  // Tab is URL state (RUN-258): deep links like /pools/10?tab=config work
+  // and back/forward walks the tab history. Values are clamped against the
+  // tab list in PoolDetailPage (runners is the default).
+  validateSearch: (search: Record<string, unknown>): PoolDetailPageSearch => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
+  component: function PoolDetailRouteComponent() {
+    const search = poolDetailRoute.useSearch();
+    return <PoolDetailPage search={search} />;
+  },
 });
 
 const historyRoute = createRoute({

@@ -267,6 +267,32 @@ test.describe("Flow 08: Runner Pool Edit Workflow", () => {
 
 // registerRemoteRunner mirrors a tracked runner in the mock provider's
 // registered-runners registry (PUT /_admin/runners), optionally busy.
+test("pool detail tabs live in the URL: back/forward restores tabs (RUN-258)", async ({
+  onboardedPage: page,
+}) => {
+  await openDefaultPoolDetail(page);
+
+  // Default tab: runners.
+  await expect(page.getByRole("button", { name: /active containers & runners/i })).toBeVisible();
+
+  // Switching tabs pushes a history entry and writes the search param.
+  await page.getByRole("button", { name: /pool configuration/i }).click();
+  await expect(page.getByText("Runner Container Image")).toBeVisible();
+  await expect(page).toHaveURL(/\/pools\/\d+\?tab=config$/);
+
+  // The param is a real deep link: a fresh load lands on the same tab.
+  await page.reload();
+  await expect(page.getByText("Runner Container Image")).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole("button", { name: /active containers & runners/i })).toBeVisible();
+  await expect(page).not.toHaveURL(/tab=config/);
+
+  await page.goForward();
+  await expect(page.getByText("Runner Container Image")).toBeVisible();
+  await expect(page).toHaveURL(/tab=config$/);
+});
+
 async function registerRemoteRunner(request: APIRequestContext, name: string, busy: boolean) {
   const response = await request.put(`${MOCK_PROVIDER_URL}/_admin/runners`, {
     data: { name, busy, status: "online" },
