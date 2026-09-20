@@ -104,6 +104,15 @@ The three scattered `ContainerRemove` call sites in
 Capture-before-remove covers the normal paths (drain, idle-reap, job
 completion, create-failure rollback, orphan sweep).
 
+**Close-time capture for job rows (RUN-252).** Capture-at-removal alone left
+a UI gap: a warm idle runner serves many jobs before it is ever removed, so
+a job that completed normally had no capture to point at. The busy→idle
+close now snapshots the container's logs (same tail cap and hard timeout,
+best-effort per docs/21 G3) and records the path on the job row; the die-event
+reap threads its removal-capture path into the closed row the same way. A row
+without a path is still recoverable: the GetRunnerLogs resolver falls back to
+the removals journal (docs/29 §5.2).
+
 **Die-event echo suppression (RUN-234).** Every supervisor-initiated removal
 marks the container id; when Docker's `die` event for that id arrives, the
 reap path recognizes the echo and skips capture and record — recording

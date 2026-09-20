@@ -657,6 +657,7 @@ type mockJobRecorder struct {
 		runnerName string
 		status     string
 		jobID      int64
+		logPath    string
 	}
 	interrupted int64
 
@@ -1856,7 +1857,8 @@ func (m *mockJobRecorder) CloseTransitionJob(ctx context.Context, poolID int64, 
 		runnerName string
 		status     string
 		jobID      int64
-	}{poolID, runnerName, status, jobID})
+		logPath    string
+	}{poolID, runnerName, status, jobID, logPath})
 	return nil
 }
 
