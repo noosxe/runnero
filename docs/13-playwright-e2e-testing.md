@@ -159,6 +159,13 @@ A lightweight, in-memory Go server responding to all Git provider endpoints conf
 - **Spec Control Surface (mock admin)**:
   - `GET /_admin/runners` & `PUT /_admin/runners` (`{name, busy, status}`): Dumps / upserts the registered-runners registry — lets specs mirror tracked runners at the forge and flip busy flags to exercise busy-state paths.
   - `DELETE /_admin/runners/{name}`: Drops a mirrored registration (idempotent, 204).
+- **Webhook receiver wiring (RUN-253)**: the compose file sets
+  `SUPERVISOR_WEBHOOK_GITHUB_SECRET`, so the supervisor mounts its signed
+  `POST /hooks/github` receiver in the E2E stack. The mock provider has no
+  webhook fan-out — flow 14 plays the forge's fan-out role itself,
+  HMAC-signing `workflow_job` events (`queued` / `in_progress` /
+  `completed`) with the shared secret and delivering them to the receiver
+  directly, which drives a real job lifecycle end to end.
 - **Gitea / Forgejo Mock Endpoints**:
   - `GET /api/v1/user`: Personal access token verification.
   - `POST /api/v1/repos/{owner}/{repo}/actions/runners/registration-token`: Registration token issuance.
@@ -202,6 +209,7 @@ The supervisor interacts with Docker over HTTP (`tcp://e2e-mock-docker:2375`):
 | **Pool Edit Workflow** | `08-pool-edit-workflow.spec.ts` | Edits `min_idle` (control-plane, no recycle banner); edits labels (spawn identity, recycle banner) and verifies idle runners respawn; renames the pool through the wizard; verifies the duplicate-name server rejection; mirrors runners in the mock provider's registry via `/_admin/runners`, flips one busy, and verifies a spawn-identity edit recycles idle runners but spares the busy one (docs/19, docs/22 §5.2); then completes the job (busy release + container exit, RUN-165) and asserts the strict production settle. | Wizard banners match edit class; busy runner keeps its busy state and survives the edit; recycled standbys are replaced by fresh spawns; the former-busy runner is reaped via the die event and the pool settles at `min_idle` with no excess-idle drain; server errors surface as banners.
 | **Session Control** | `10-session-control.spec.ts` | Opens the settings Security tab and verifies the browser's own session is listed with a parsed device label and the current-session marker; signs out through the user menu (real Logout RPC); re-visits `/settings` with the dead cookie and verifies the auth gate bounces to `/login`; signs in again and signs out once more from the dashboard (docs/32 §3.5, §7). | Session list renders; logout is server-side (the old cookie cannot reach protected routes); login form reappears after sign-out. |
 | **Passkey Login** | `12-passkey.spec.ts` | Attaches a CDP virtual authenticator, enrolls a passkey through the Security tab (current-password re-check), asserts the list shows the credential with its Device-bound chip, signs out, and signs back in through the login screen's "Sign in with passkey" button — no username, no password (docs/34). A second test signs in with the password while a passkey exists; a third removes the credential and asserts the passkey ceremony fails with the server's rejection and no session is minted. | Passkey list renders; passkey login establishes a real session; password fallback unaffected; removed credential cannot log in (RUN-248). |
+| **Job History Lifecycle** | `14-job-history-flow.spec.ts` | Drives a real job through the full lifecycle: picks a warm `default-pool` runner, then signs and delivers `workflow_job` webhooks (`queued` → `in_progress` → `completed`) to the supervisor's `/hooks/github` receiver (RUN-253). Asserts the runner's webhook busy fast-path flip on the pool page, the `/history` row's status transitions (queued → running → success), the forge timestamp enrichment rendered as queue wait and duration, the detail page's archived log terminal resolving the runner BY NAME (the exact lookup RUN-252 fixed), and the same by-name lookup driven from the `/logs` Runners tab. | History row lifecycle and status badges; webhook busy flip visible in pool UI; archived log terminal renders the capture content; `/logs` Runners tab by-name lookup works. |
 
 ---
 

@@ -1021,8 +1021,11 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID string, 
 	// the audit-cycle reap also closes the recreation window (docs/28 §5.3):
 	// leftovers from a previous supervisor lifetime flow through here too.
 	logPath, _ := c.terminateAndRecord(ctx, removalOpts{
-		poolID:   poolID,
-		r:        RunnerStatus{ID: containerID, PoolName: poolName},
+		poolID: poolID,
+		// runnerName was resolved from tracked state above (RUN-252); thread it
+		// into the removal record so the log resolver's by-name stage can match
+		// die-event reaps — the production ephemeral-runner path (RUN-253).
+		r:        RunnerStatus{ID: containerID, Name: runnerName, PoolName: poolName},
 		reason:   RemovalReasonReap,
 		exitCode: code,
 		untrack:  true,

@@ -113,6 +113,13 @@ reap threads its removal-capture path into the closed row the same way. A row
 without a path is still recoverable: the GetRunnerLogs resolver falls back to
 the removals journal (docs/29 §5.2).
 
+**Runner-name threading on die-event reaps (RUN-253).** The removal record
+written by the die-event/audit reap carries the runner's name (resolved
+from tracked state before the untrack), not just the container id — the
+log resolver's by-name fallback stage matches records on exactly this
+field, so history-page lookups resolve for runners reaped through the
+production ephemeral path, not only shutdown/manual removals.
+
 **Die-event echo suppression (RUN-234).** Every supervisor-initiated removal
 marks the container id; when Docker's `die` event for that id arrives, the
 reap path recognizes the echo and skips capture and record — recording
