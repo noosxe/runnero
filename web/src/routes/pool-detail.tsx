@@ -1043,7 +1043,7 @@ function PoolRenovateTab({ pool }: { pool: Pool }) {
 
       {/* History Table */}
       <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-bold text-foreground">Execution History</h3>
+        <h2 className="text-sm font-bold text-foreground">Execution History</h2>
 
         {historyLoading ? (
           <div className="flex flex-col gap-2">
