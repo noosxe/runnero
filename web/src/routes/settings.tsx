@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@tanstack/react-form";
+import { useNavigate } from "@tanstack/react-router";
 import { useAppForm, applyFieldErrors } from "../lib/forms";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,28 @@ import {
   Info,
 } from "lucide-react";
 import { SecurityTab } from "../components/security/security-tab";
+import { resolveRouteTab } from "../lib/route-tab";
+
+export interface SettingsPageSearch {
+  tab?: string;
+}
+
+/**
+ * Settings tabs and their role visibility (docs/35 section 2.4): the tab
+ * strip shows instance + security for every role; the admin surfaces are
+ * admin-only. Tab selection lives in the URL (RUN-257), so this list is
+ * the clamp set for `?tab=` values.
+ */
+type SettingsTab = "instance" | "constraints" | "images" | "backups" | "security" | "users";
+
+const SETTINGS_TABS: readonly { id: SettingsTab; adminOnly: boolean }[] = [
+  { id: "instance", adminOnly: false },
+  { id: "constraints", adminOnly: true },
+  { id: "images", adminOnly: true },
+  { id: "backups", adminOnly: true },
+  { id: "security", adminOnly: false },
+  { id: "users", adminOnly: true },
+];
 
 /**
  * Global constraints form (docs/30 §5.4): the four retention/quota values
@@ -71,18 +94,25 @@ const CONSTRAINT_BOUNDS: Record<
   jobRetentionDays: { min: 1, max: 365, label: "History Retention Period" },
 };
 
-export function SettingsPage() {
+export function SettingsPage({ search }: { search: SettingsPageSearch }) {
   const isAdmin = useIsAdmin();
-  // Tab selection: admins land on Global Constraints (unchanged behavior);
-  // a viewer's settings page is the Security tab only (docs/35 section
-  // 2.4) - every other tab is an admin surface, so viewers land on
-  // security. Held as null until the role resolves so the first paint
-  // already shows the right tab.
-  const [selectedTab, setSelectedTab] = useState<
-    "instance" | "constraints" | "images" | "backups" | "security" | "users" | null
-  >(null);
-  const activeTab = selectedTab ?? (isAdmin ? "constraints" : "security");
-  const setActiveTab = setSelectedTab;
+  const navigate = useNavigate();
+  // Tab selection is URL state (RUN-257): `/settings?tab=…` deep links
+  // work and browser back/forward restores the previous tab. Visible tabs
+  // are role-scoped (docs/35 section 2.4): a viewer's settings page is the
+  // Security tab only, so unknown or admin-only `?tab=` values clamp to
+  // the role default — admins land on Global Constraints, viewers on
+  // Security. The session query is prefetched by the authenticated route
+  // guard, so the role (and thus the default) is known on first paint.
+  const visibleTabs = SETTINGS_TABS.filter((t) => isAdmin || !t.adminOnly);
+  const activeTab = resolveRouteTab(
+    search.tab,
+    visibleTabs.map((t) => t.id),
+    isAdmin ? "constraints" : "security",
+  );
+  const selectTab = (tab: SettingsTab) => {
+    void navigate({ to: "/settings", search: { tab } });
+  };
 
   // Admin-bucket read: only fired for admins (docs/35 section 2.2).
   const { data: settings, isLoading: settingsLoading } = useAppSettings(isAdmin);
@@ -225,7 +255,7 @@ export function SettingsPage() {
         {/* Tab: Instance - informational for every role (RUN-251, docs/09 §4) */}
         <button
           type="button"
-          onClick={() => setActiveTab("instance")}
+          onClick={() => selectTab("instance")}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "instance"
@@ -240,7 +270,7 @@ export function SettingsPage() {
         {isAdmin && (
           <button
             type="button"
-            onClick={() => setActiveTab("constraints")}
+            onClick={() => selectTab("constraints")}
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "constraints"
@@ -256,7 +286,7 @@ export function SettingsPage() {
         {isAdmin && (
           <button
             type="button"
-            onClick={() => setActiveTab("images")}
+            onClick={() => selectTab("images")}
             className={cn(
               "relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "images"
@@ -273,7 +303,7 @@ export function SettingsPage() {
         {isAdmin && (
           <button
             type="button"
-            onClick={() => setActiveTab("backups")}
+            onClick={() => selectTab("backups")}
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "backups"
@@ -288,7 +318,7 @@ export function SettingsPage() {
 
         <button
           type="button"
-          onClick={() => setActiveTab("security")}
+          onClick={() => selectTab("security")}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "security"
@@ -303,7 +333,7 @@ export function SettingsPage() {
         {isAdmin && (
           <button
             type="button"
-            onClick={() => setActiveTab("users")}
+            onClick={() => selectTab("users")}
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "users"

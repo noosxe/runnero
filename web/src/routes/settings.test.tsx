@@ -1,7 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { createRouterMock } from "@/test/router-mock";
 import { SettingsPage } from "./settings";
+
+const mockNavigate = vi.fn();
+
+vi.mock("@tanstack/react-router", () => createRouterMock({ useNavigate: () => mockNavigate }));
+
+beforeEach(() => mockNavigate.mockClear());
 
 const mockSettings = [
   { key: "total_allowed_runners", value: "25", updatedAt: "2026-09-04T00:00:00Z" },
@@ -107,7 +114,7 @@ vi.mock("../lib/api/query-hooks", () => ({
 
 describe("SettingsPage", () => {
   it("renders global constraints form and allows modifying retention days", async () => {
-    render(<SettingsPage />);
+    render(<SettingsPage search={{}} />);
 
     expect(screen.getByText("Supervisor Settings & Administration")).toBeInTheDocument();
     expect(screen.getByText("Global Runner Quota")).toBeInTheDocument();
@@ -132,7 +139,7 @@ describe("SettingsPage", () => {
   });
 
   it("blocks save when a constraint leaves its class C range (RUN-222)", async () => {
-    render(<SettingsPage />);
+    render(<SettingsPage search={{}} />);
 
     const timeoutInput = screen.getByLabelText(/graceful drain timeout/i) as HTMLInputElement;
     await waitFor(() => expect(timeoutInput.value).toBe("400"));
@@ -158,25 +165,44 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("switches to runner image updates tab and lists pending notifications and pools", () => {
-    render(<SettingsPage />);
+  it("navigates to the runner image updates tab via the URL (RUN-257)", () => {
+    const { rerender } = render(<SettingsPage search={{}} />);
 
-    const imagesTab = screen.getByRole("button", { name: /runner image updates/i });
-    fireEvent.click(imagesTab);
+    fireEvent.click(screen.getByRole("button", { name: /runner image updates/i }));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "/settings", search: { tab: "images" } }),
+    );
 
+    // The router owns the tab: rendering with the param shows the content.
+    rerender(<SettingsPage search={{ tab: "images" }} />);
     expect(screen.getByText("Runner Image Update Management")).toBeInTheDocument();
     expect(screen.getByText("Pending Image Notifications")).toBeInTheDocument();
     expect(screen.getAllByText("pool-arm64-prod").length).toBeGreaterThan(0);
   });
 
-  it("switches to the security tab and lists active sessions", () => {
-    render(<SettingsPage />);
+  it("navigates to the security tab via the URL (RUN-257)", () => {
+    const { rerender } = render(<SettingsPage search={{}} />);
 
     fireEvent.click(screen.getByRole("button", { name: /security/i }));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "/settings", search: { tab: "security" } }),
+    );
 
+    rerender(<SettingsPage search={{ tab: "security" }} />);
     expect(screen.getByText("Active Sessions")).toBeInTheDocument();
     expect(screen.getByText("Firefox 130 on Linux")).toBeInTheDocument();
     expect(screen.getByText("Current session")).toBeInTheDocument();
+  });
+
+  it("deep-links straight to the users tab for an admin (RUN-257)", () => {
+    render(<SettingsPage search={{ tab: "users" }} />);
+    expect(screen.getByTestId("users-card")).toBeInTheDocument();
+  });
+
+  it("clamps unknown tab values to the admin default (RUN-257)", () => {
+    render(<SettingsPage search={{ tab: "not-a-tab" }} />);
+    expect(screen.getByText("System Concurrency & Resource Limits")).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
 
@@ -185,7 +211,7 @@ describe("SettingsPage", () => {
 describe("SettingsPage role gating", () => {
   it("shows only the security tab for a viewer", () => {
     mockIsAdmin = false;
-    render(<SettingsPage />);
+    render(<SettingsPage search={{}} />);
 
     expect(screen.getByText("Security")).toBeInTheDocument();
     expect(screen.queryByText("Global Constraints")).not.toBeInTheDocument();
@@ -193,11 +219,18 @@ describe("SettingsPage role gating", () => {
     mockIsAdmin = true;
   });
 
-  it("shows the users tab for an admin", async () => {
-    mockIsAdmin = true;
-    render(<SettingsPage />);
+  it("clamps an admin-only deep link to security for a viewer (RUN-257)", () => {
+    mockIsAdmin = false;
+    render(<SettingsPage search={{ tab: "users" }} />);
 
-    fireEvent.click(screen.getByText("Users"));
+    expect(screen.getByText("Active Sessions")).toBeInTheDocument();
+    expect(screen.queryByText("Users")).not.toBeInTheDocument();
+    mockIsAdmin = true;
+  });
+
+  it("shows the users tab for an admin (deep link)", async () => {
+    mockIsAdmin = true;
+    render(<SettingsPage search={{ tab: "users" }} />);
     await waitFor(() => expect(screen.getByTestId("users-card")).toBeInTheDocument());
   });
 });

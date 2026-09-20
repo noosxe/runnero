@@ -16,7 +16,7 @@ import { HistoryPage } from "./routes/history";
 import { HistoryDetailPage } from "./routes/history-detail";
 import { ProfilesPage } from "./routes/profiles";
 import { RenovatePage } from "./routes/renovate";
-import { SettingsPage } from "./routes/settings";
+import { SettingsPage, type SettingsPageSearch } from "./routes/settings";
 import { LoginPage } from "./routes/login";
 import { OnboardingPage } from "./routes/onboarding";
 import { GuardErrorPage } from "./routes/guard-error";
@@ -162,7 +162,17 @@ const renovateRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "/settings",
-  component: SettingsPage,
+  // Tab is URL state (RUN-257): deep links like /settings?tab=users work
+  // and back/forward walks the tab history. Values are clamped against the
+  // role-scoped tab list in SettingsPage (admins default to constraints,
+  // viewers to security).
+  validateSearch: (search: Record<string, unknown>): SettingsPageSearch => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
+  component: function SettingsRouteComponent() {
+    const search = settingsRoute.useSearch();
+    return <SettingsPage search={search} />;
+  },
 });
 
 // Route Tree
