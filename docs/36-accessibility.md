@@ -321,3 +321,54 @@ scan set reuses flow 13's promotion pattern in reverse (seeded viewer).
 - docs/09 (frontend design, token/contrast history from RUN-256),
   docs/30 (form validation & error rendering), docs/31 (table toolkit),
   docs/13 (E2E suite conventions).
+
+## Appendix A — Baseline findings (RUN-262)
+
+Recorded by the first full run of `tests/e2e/specs/15-a11y-scan.spec.ts`
+(axe-core 4.13.0; tags `wcag2a`, `wcag2aa`, `wcag22aa`, `best-practice`)
+against the seeded E2E stack: 21 page scans per theme across
+unauth/admin/viewer, onboarding recorded as a justified skip. Full
+per-URL data rides the HTML report (`axe-<role>-<theme>` text + `-raw`
+JSON attachments); the table below deduplicates across roles/themes and
+attributes each finding via the run's node targets plus code inspection.
+
+| # | Rule (impact) | Where | Attribution | Fix phase |
+| :--- | :--- | :--- | :--- | :--- |
+| A1 | `button-name` (critical) | /pools, /history — 3 nodes each, both themes | Filter `SelectTrigger`s whose `SelectValue` renders empty until a value is picked (exactly 3 selects per page); targets are `#base-ui-*` generated ids | RUN-263 |
+| A2 | `color-contrast` (serious) | every scanned page, both themes, 2–14 nodes each | Flagged classes include `.bg-muted`, `.text-muted-foreground/70`; RUN-256 realigned tokens but component-level pairs still fail | RUN-263 |
+| A3 | `landmark-no-duplicate-main`, `landmark-main-is-top-level`, `landmark-unique` (moderate) | every app page | The app shell renders `<main>` (app-shell.tsx) and the sidebar primitive renders a second, nested `<main>` (ui/sidebar.tsx) | RUN-263 |
+| A4 | `region` (moderate) | every app page ×3; /login ×6 | Toaster and page chrome sit outside landmarks; /login additionally has **no** `main` at all (`landmark-one-main`) | RUN-263 |
+| A5 | `heading-order` (moderate) | /, /pools, /pools/:id?tab=config, /settings, /settings?tab=users | Heading level skips in page/card headers | RUN-263 |
+| A6 | `empty-table-header` (minor) | /logs `th:nth-child(5)`, /settings?tab=users `th:nth-child(4)` | The row-actions column header carries no text | RUN-263 |
+| A7 | Onboarding wizard | not scannable | Recorded skip: the seeded database redirects /onboarding; wizard coverage via the §4.2 keyboard pass and flows 01/02 | manual |
+
+Dark/light deltas are confined to `color-contrast` node counts (e.g.
+/pools 5 light vs 11 dark; /history/:id 14 light vs 10 dark) — the
+structural findings are theme-independent. This appendix is deleted when
+the last item ships (§4.4).
+
+### §4.2 keyboard-only pass — first results (Chrome, assistant-driven)
+
+Executed against the seeded debug stack via real CDP key events:
+
+- **Tab order** logical on the shell: nav links (Dashboard → … →
+  Settings) → user menu → sidebar toggle → theme buttons → content.
+  Every stop carries an accessible name.
+- **Focus visibility**: `:focus-visible` rings render (screenshot-verified
+  on the theme toggle; shell links and buttons all report focus-visible).
+- **Pool wizard modal**: Enter on "+ Add Runner Pool" opens it; initial
+  focus lands on the first input (not the close button); the focus trap
+  held across 14 Tabs (input → select trigger → Cancel → Close → wraps);
+  Esc closes and restores focus to the trigger.
+- **LogTerminal controls**: `Auto-scroll: ON/OFF` and stream filters
+  (`All`/`stdout`/`stderr`) expose `aria-pressed`; Enter toggles
+  auto-scroll, the label and state update, focus is retained.
+- **Sortable headers**: operable via keyboard (native button), but no
+  `aria-sort` state — confirmed live (documented gap, RUN-263).
+- **No skip link**: first Tab lands on the nav (documented gap, RUN-263).
+- The `aria-live="polite" region` on every page is the Base UI toast
+  viewport (`pointer-events-none fixed inset-…`) — toast announcements
+  already covered by the primitive (§3.1).
+
+Not executable here: the **§4.3 screen-reader smoke** (NVDA+Chrome,
+VoiceOver+Safari) — owner-side manual task, tracked with this issue.
