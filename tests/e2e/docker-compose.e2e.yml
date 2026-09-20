@@ -59,6 +59,10 @@ services:
       - GITHUB_BASE_URL=http://e2e-mock-provider:8095
       - GITEA_BASE_URL=http://e2e-mock-provider:8095
       - FORGEJO_BASE_URL=http://e2e-mock-provider:8095
+      # Webhook receiver (RUN-253, docs/13 section 3.2): configuring the
+      # GitHub HMAC secret mounts POST /hooks/github so flow 14 can deliver
+      # signed workflow_job events and drive a real job lifecycle.
+      - SUPERVISOR_WEBHOOK_GITHUB_SECRET=runnero-e2e-webhook-secret
       # WebAuthn for the passkey flow (RUN-248, docs/34): RP ID localhost is
       # both go-webauthn-valid and a browser secure context over plain http
       # (docs/34 section 3.5 dev/E2E carve-out). The playwright container

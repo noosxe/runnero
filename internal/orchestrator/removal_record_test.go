@@ -114,6 +114,51 @@ func TestTerminateAndRecord_ReapRecordsExitCodeAndCapture(t *testing.T) {
 	}
 }
 
+// TestReap_RecordsRunnerNameForLogResolver pins the RUN-253 fix on top of
+// RUN-252: the reap path resolves the runner's name from tracked state
+// BEFORE untracking, and must thread it into the removal record — the log
+// resolver's by-name stage (latestRemovalCaptureID) matches records on
+// exactly this field, and die-event reaps are the production ephemeral
+// runner path.
+func TestReap_RecordsRunnerNameForLogResolver(t *testing.T) {
+	h := newRemovalHarness(t)
+	if err := h.ctrl.Boot(context.Background()); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+
+	tracked := orchestrator.RunnerStatus{
+		ID: "dead-9", Name: "runnero-pool-a-1a2b3c", PoolID: 3, PoolName: "pool-a",
+		State: "running", SpawnedAt: time.Now().UTC(),
+	}
+	h.reconciler.TrackRunner(tracked)
+
+	h.engine.AuditRunnersFn = func(ctx context.Context) ([]orchestrator.RunnerStatus, error) {
+		// The live listing carries the container name (real daemon listings do
+		// too) — the audit refresh stores it verbatim.
+		return []orchestrator.RunnerStatus{{
+			ID: "dead-9", Name: tracked.Name, PoolID: 3, PoolName: "pool-a", State: "exited", ExitCode: 0,
+		}}, nil
+	}
+	if err := h.ctrl.Reconcile(context.Background()); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	records := h.records(t)
+	var rec *orchestrator.RemovalRecord
+	for i := range records {
+		if records[i].RunnerID == "dead-9" {
+			rec = &records[i]
+			break
+		}
+	}
+	if rec == nil {
+		t.Fatalf("no removal record for dead-9 in %d records", len(records))
+	}
+	if rec.RunnerName != tracked.Name {
+		t.Fatalf("removal record runner_name = %q, want %q", rec.RunnerName, tracked.Name)
+	}
+}
+
 func TestTerminateAndRecord_CaptureFailureNeverBlocksRemoval(t *testing.T) {
 	h := newRemovalHarness(t)
 	h.mu.Lock()
