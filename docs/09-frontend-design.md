@@ -112,6 +112,15 @@ graph TD
 | `setup_complete: true`, Authenticated | Any protected route | Allow access |
 
 **Guard RPC failures fail closed (RUN-243).** The matrix above is only evaluated on a *successful* `GetOnboardingStatus` response. When the RPC itself fails (network blip, unreachable supervisor), the guards propagate the error instead of synthesizing a fresh-install default — the router renders a dedicated guard-error screen ("Can't reach the supervisor", retry button) on `/login`, `/onboarding`, and all protected routes. A failed status check must never look like a fresh install, or a transient error would strand a fully onboarded operator on the onboarding wizard, one submit away from re-running SetupAdmin against an existing database.
+### 2.2 URL-Driven Tab State (RUN-257)
+
+Tabbed routes keep the active tab in the route's search params (`?tab=…`) instead of component state, so browser back/forward walks the tab history and deep links open the exact tab. This mirrors the `/logs` pattern (docs/29: "tabs are URL-driven").
+
+- `validateSearch` on the route types the param as an optional string; the page component owns clamping.
+- Clamping goes through the shared `resolveRouteTab(raw, allowed, fallback)` helper (`web/src/lib/route-tab.ts`): a missing, unknown, or role-forbidden value renders the fallback tab — never a hidden surface, never a crash.
+- Tab buttons `navigate()` instead of `setState`, so every switch is a history entry.
+- `/settings` specifics: visible tabs are role-scoped (docs/35 §2.4 — instance + security for every role, the rest admin-only). Admins default to Global Constraints, viewers to Security; a viewer deep link like `/settings?tab=users` clamps back to Security.
+
 ---
 
 ## 3. Global App Shell Layout

@@ -28,4 +28,27 @@ test.describe("Flow 07: System Settings & Maintenance", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await expect.poll(bg).toBe(lightBg);
   });
+
+  test("settings tabs live in the URL: deep link + back/forward (RUN-257)", async ({
+    authedPage: page,
+  }) => {
+    // Deep link straight into an admin-only tab.
+    await page.goto("/settings?tab=users");
+    await expect(page.getByTestId("users-card")).toBeVisible();
+
+    // Tab clicks push history entries: back/forward must restore tabs.
+    await page.goto("/settings");
+    await expect(page.getByText("System Concurrency & Resource Limits")).toBeVisible();
+
+    await page.getByRole("button", { name: "Security" }).click();
+    await expect(page.getByText("Active Sessions")).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\?tab=security$/);
+
+    await page.goBack();
+    await expect(page.getByText("System Concurrency & Resource Limits")).toBeVisible();
+
+    await page.goForward();
+    await expect(page.getByText("Active Sessions")).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\?tab=security$/);
+  });
 });

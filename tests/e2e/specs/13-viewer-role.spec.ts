@@ -43,6 +43,11 @@ test("admin creates a viewer, who sees the read-only surface", async ({ page }) 
   await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Global Constraints" })).toHaveCount(0);
 
+  // An admin-only deep link clamps back to security for a viewer (RUN-257):
+  // the param never renders a hidden admin surface.
+  await page.goto("/settings?tab=users");
+  await expect(page.getByText("Active Sessions")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
   // Auth profiles are an entirely admin surface; the fetch is gated so no
   // admin-bucket RPC fires from the viewer session (docs/35 section 2.4).
   await page.goto("/profiles");
