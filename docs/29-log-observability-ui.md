@@ -51,9 +51,11 @@ RPC surface today (`LogService`, `internal/server/log.go`):
   container name or ID, so both work live.
 - `GetRunnerLogs(runner_id)` — reads the capture file by runner id
   (container ID). Accepts a container **name** too (RUN-252): when no
-  capture exists under the exact id, the name is resolved through
-  `job_history.log_retention_path` (latest closed row, newest first),
-  reduced to its base name and re-validated with the same
+  capture exists under the exact id, the name resolves in two stages —
+  (1) `job_history.log_retention_path` (latest closed row, newest first),
+  recorded at close-time/removal capture; (2) the removals journal, latest
+  removal of the name with a successful capture. Both stages reduce the
+  stored path to its base name and re-validate it with the same
   `safeLogResourceName` rule, so a resolved lookup can only ever land on
   another file inside `logs/`. Best-effort: an unresolvable name keeps
   the not-found error.

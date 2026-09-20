@@ -985,8 +985,21 @@ func (c *PoolController) HandleContainerEvent(ctx context.Context, event Contain
 }
 
 func (c *PoolController) reapContainer(ctx context.Context, containerID string, poolID int64, poolName string, exitCode int, exitKnown bool) {
-	c.closeJobRowOnDeath(ctx, containerID, poolID, exitCode, exitKnown)
+	// Resolve the job-row identity BEFORE the removal: terminateAndRecord
+	// untracks the runner, and the close below must still know which open
+	// job row belongs to this container (RUN-252).
+	runnerName, forgeID := c.trackedJobRunner(poolID, containerID)
+
 	if c.wasRemovedByUs(containerID) {
+		// Echo branch: the removal that already happened captured the logs and
+		// recorded itself in removals.jsonl, so the job row closes without a
+		// fresh path — the RUN-252 resolver recovers the capture from the
+		// removal record when the UI asks for it.
+		c.closeJobRowOnDeath(ctx, poolID, runnerName, forgeID, exitCode, exitKnown, "")
+		// Echo branch: the removal that already happened captured the logs and
+		// recorded itself in removals.jsonl, so the job row closes without a
+		// fresh path — the RUN-252 resolver recovers the capture from the
+		// removal record when the UI asks for it.
 		// Echo suppression (RUN-234): a supervisor-initiated removal (drain,
 		// idle-reap, shutdown, manual RPC) already captured, removed, and
 		// recorded this container; its die/destroy events carry no new
@@ -1007,7 +1020,7 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID string, 
 	// Capture, terminate, untrack, and record via the RUN-186 choke point;
 	// the audit-cycle reap also closes the recreation window (docs/28 §5.3):
 	// leftovers from a previous supervisor lifetime flow through here too.
-	_, _ = c.terminateAndRecord(ctx, removalOpts{
+	logPath, _ := c.terminateAndRecord(ctx, removalOpts{
 		poolID:   poolID,
 		r:        RunnerStatus{ID: containerID, PoolName: poolName},
 		reason:   RemovalReasonReap,
@@ -1015,28 +1028,38 @@ func (c *PoolController) reapContainer(ctx context.Context, containerID string, 
 		untrack:  true,
 	})
 
+	// Close the job row with the capture path (RUN-252): the row is closed
+	// AFTER the capture so its log_retention_path points at the file the UI
+	// will read.
+	c.closeJobRowOnDeath(ctx, poolID, runnerName, forgeID, exitCode, exitKnown, logPath)
+
 	// Drain internal provisioning queue as global capacity freed up
 	c.drainQueue(ctx)
+}
+
+// trackedJobRunner resolves the open-job identity (runner name, forge id)
+// for a tracked container, or empty/zero when it is not tracked (RUN-252:
+// the identity must be resolved before terminateAndRecord untracks it).
+func (c *PoolController) trackedJobRunner(poolID int64, containerID string) (string, int64) {
+	if c.reconciler == nil || poolID == 0 {
+		return "", 0
+	}
+	for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
+		if r.ID == containerID {
+			return r.Name, r.ForgeID
+		}
+	}
+	return "", 0
 }
 
 // closeJobRowOnDeath closes a runner's open job_history row when its container
 // is reaped (docs/21 §5.2): a clean exit (code 0) closes the row as 'completed',
 // anything else as 'interrupted' — the job outcome is unknowable without the
 // forge API. Best-effort; boot recovery (docs/21 §5.4) catches any leftovers.
-func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID string, poolID int64, exitCode int, exitKnown bool) {
-	if c.jobRecorder == nil || c.reconciler == nil || poolID == 0 {
-		return
-	}
-	var runnerName string
-	var forgeID int64
-	for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
-		if r.ID == containerID {
-			runnerName = r.Name
-			forgeID = r.ForgeID
-			break
-		}
-	}
-	if runnerName == "" {
+// logPath is the capture filed by this removal (RUN-252); empty when none was
+// taken (echo-suppressed reaps rely on the resolver's removal-record stage).
+func (c *PoolController) closeJobRowOnDeath(ctx context.Context, poolID int64, runnerName string, forgeID int64, exitCode int, exitKnown bool, logPath string) {
+	if c.jobRecorder == nil || poolID == 0 || runnerName == "" {
 		return
 	}
 	status := "interrupted"
@@ -1052,7 +1075,7 @@ func (c *PoolController) closeJobRowOnDeath(ctx context.Context, containerID str
 			}
 		}
 	}
-	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, jobID, "", time.Now().UTC()); err != nil {
+	if err := c.jobRecorder.CloseTransitionJob(ctx, poolID, runnerName, status, jobID, logPath, time.Now().UTC()); err != nil {
 		c.logger.Warn("closing job row on runner death", "pool_id", poolID, "runner", runnerName, "err", err)
 	}
 }
@@ -1493,7 +1516,7 @@ func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPo
 					forgeID = state.ID
 				}
 				status, jobID := c.enrichedCloseStatus(ctx, gitProv, p, forgeID)
-				c.recordJobClose(ctx, p, r.Name, status, jobID)
+				c.recordJobClose(ctx, p, r.Name, r.ID, status, jobID)
 			}
 		}
 	}
@@ -1514,11 +1537,27 @@ func (c *PoolController) recordJobTransition(ctx context.Context, p db.RunnerPoo
 // recordJobClose closes a runner's open job-history row with the given terminal
 // status, enriching it with the forge's external job id when known (docs/21
 // §5.2, §5.3). Best-effort per G3.
-func (c *PoolController) recordJobClose(ctx context.Context, p db.RunnerPool, runnerName, status string, jobID int64) {
+func (c *PoolController) recordJobClose(ctx context.Context, p db.RunnerPool, runnerName string, containerID, status string, jobID int64) {
 	if c.jobRecorder == nil {
 		return
 	}
-	if err := c.jobRecorder.CloseTransitionJob(ctx, p.ID, runnerName, status, jobID, "", time.Now().UTC()); err != nil {
+	// Capture the logs at close time (RUN-252): on the busy->idle flip the
+	// runner container keeps living as a warm idle runner, so without a
+	// snapshot here no capture would ever be filed for this job until the
+	// runner's eventual removal. Best-effort per docs/21 G3: a failed
+	// capture closes the row without a path (the removal-time capture and
+	// the resolver's removal-record fallback still cover the job later).
+	logPath := ""
+	if containerID != "" && c.dataDir != "" && c.engine != nil {
+		captureCtx, cancelCapture := context.WithTimeout(ctx, c.captureTimeout)
+		if path, err := c.engine.CaptureLogs(captureCtx, containerID, c.dataDir); err == nil {
+			logPath = path
+		} else {
+			c.logger.Warn("capturing job logs at completion", "pool", p.Name, "runner", runnerName, "err", err)
+		}
+		cancelCapture()
+	}
+	if err := c.jobRecorder.CloseTransitionJob(ctx, p.ID, runnerName, status, jobID, logPath, time.Now().UTC()); err != nil {
 		c.logger.Warn("job lifecycle recording failed", "pool", p.Name, "runner", runnerName, "status", status, "err", err)
 	}
 }

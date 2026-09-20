@@ -68,7 +68,7 @@ func seedJobRetentionPath(t *testing.T, database *db.DB, runnerName, retentionPa
 
 func TestLatestCaptureRunnerID_ResolvesNewestCapture(t *testing.T) {
 	database := setupTestDB(t)
-	resolver := server.NewDBRunnerLogResolver(database)
+	resolver := server.NewDBRunnerLogResolver(database, "")
 	ctx := context.Background()
 
 	base := time.Now().UTC().Add(-time.Hour)
@@ -88,7 +88,7 @@ func TestLatestCaptureRunnerID_ResolvesNewestCapture(t *testing.T) {
 
 func TestLatestCaptureRunnerID_NoCapture(t *testing.T) {
 	database := setupTestDB(t)
-	resolver := server.NewDBRunnerLogResolver(database)
+	resolver := server.NewDBRunnerLogResolver(database, "")
 	ctx := context.Background()
 
 	if _, err := resolver.LatestCaptureRunnerID(ctx, "runnero-never-ran"); !errors.Is(err, sql.ErrNoRows) {
@@ -104,7 +104,7 @@ func TestLatestCaptureRunnerID_NoCapture(t *testing.T) {
 
 func TestLatestCaptureRunnerID_RejectsMalformedStoredPaths(t *testing.T) {
 	database := setupTestDB(t)
-	resolver := server.NewDBRunnerLogResolver(database)
+	resolver := server.NewDBRunnerLogResolver(database, "")
 	ctx := context.Background()
 
 	// Malformed ids are rejected outright.
@@ -149,7 +149,7 @@ func TestLatestCaptureRunnerID_RejectsMalformedStoredPaths(t *testing.T) {
 
 func TestLatestCaptureRunnerID_RejectsInvalidRunnerName(t *testing.T) {
 	database := setupTestDB(t)
-	resolver := server.NewDBRunnerLogResolver(database)
+	resolver := server.NewDBRunnerLogResolver(database, "")
 
 	if _, err := resolver.LatestCaptureRunnerID(context.Background(), "../etc/passwd"); err == nil {
 		t.Fatal("expected error for path-like runner name")
@@ -205,7 +205,7 @@ func TestGetRunnerLogs_ResolvesRunnerNameThroughHistory(t *testing.T) {
 		AuthDB:            database,
 		DataDir:           dataDir,
 		Session:           testSessionConfig(),
-		RunnerLogResolver: server.NewDBRunnerLogResolver(database),
+		RunnerLogResolver: server.NewDBRunnerLogResolver(database, dataDir),
 	})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -256,5 +256,122 @@ func TestGetRunnerLogs_ResolvesRunnerNameThroughHistory(t *testing.T) {
 		filepath.Join(dataDir, "logs", "deadbeef-deleted.log.jsonl.gz"), time.Now().UTC())
 	if _, err := get("runnero-missing-capture"); err == nil {
 		t.Fatal("expected NotFound when resolved capture file is absent")
+	}
+}
+
+// writeRemovalRecord appends one removals.jsonl record with the on-disk
+// schema (docs/28 §5.4) so stage-2 resolution is exercised against the real
+// serialization contract.
+func writeRemovalCaptureRecord(t *testing.T, dataDir, runnerName, containerID, captureFile string) {
+	t.Helper()
+	path := filepath.Join(dataDir, "logs", "removals.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("creating logs dir: %v", err)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		t.Fatalf("opening removals.jsonl: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	capture := map[string]any{}
+	if captureFile != "" {
+		capture["ok"] = true
+		capture["file"] = captureFile
+	} else {
+		capture["error"] = "capture failed"
+	}
+	rec := map[string]any{
+		"ts":          time.Now().UTC().Format(time.RFC3339),
+		"runner_id":   containerID,
+		"runner_name": runnerName,
+		"container":   containerID,
+		"reason":      "reap",
+		"capture":     capture,
+	}
+	line, _ := json.Marshal(rec)
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		t.Fatalf("appending removal record: %v", err)
+	}
+}
+
+// TestLatestCaptureRunnerID_FallsBackToRemovalRecords pins stage 2 (RUN-252):
+// rows predating close-time path recording resolve through the removals
+// journal — the latest successful capture for the name wins.
+func TestLatestCaptureRunnerID_FallsBackToRemovalRecords(t *testing.T) {
+	database := setupTestDB(t)
+	dataDir := t.TempDir()
+	resolver := server.NewDBRunnerLogResolver(database, dataDir)
+	ctx := context.Background()
+
+	if _, err := resolver.LatestCaptureRunnerID(ctx, "runnero-legacy"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("no journal yet: err = %v, want sql.ErrNoRows", err)
+	}
+
+	writeRemovalCaptureRecord(t, dataDir, "runnero-legacy", "old-container-id",
+		filepath.Join(dataDir, "logs", "old-container-id.log.jsonl.gz"))
+	writeRemovalCaptureRecord(t, dataDir, "runnero-other", "unrelated-id",
+		filepath.Join(dataDir, "logs", "unrelated-id.log.jsonl.gz"))
+	writeRemovalCaptureRecord(t, dataDir, "runnero-legacy", "new-container-id",
+		filepath.Join(dataDir, "logs", "new-container-id.log.jsonl.gz"))
+	// A later failed capture must not shadow the earlier good one.
+	writeRemovalCaptureRecord(t, dataDir, "runnero-legacy", "newest-failed-id", "")
+
+	got, err := resolver.LatestCaptureRunnerID(ctx, "runnero-legacy")
+	if err != nil {
+		t.Fatalf("stage-2 resolve failed: %v", err)
+	}
+	if got != "new-container-id" {
+		t.Fatalf("resolved id = %q, want %q", got, "new-container-id")
+	}
+}
+
+// TestLatestCaptureRunnerID_Stage2DisabledWithoutDataDir: a resolver built
+// without a data dir stays stage-1 only.
+func TestLatestCaptureRunnerID_Stage2DisabledWithoutDataDir(t *testing.T) {
+	database := setupTestDB(t)
+	resolver := server.NewDBRunnerLogResolver(database, "")
+
+	if _, err := resolver.LatestCaptureRunnerID(context.Background(), "runnero-x"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("err = %v, want sql.ErrNoRows", err)
+	}
+}
+
+// TestGetRunnerLogs_ResolvesViaRemovalRecords: the full stage-2 chain over
+// HTTP — a name with no job-history path but a successful removal capture
+// (pre-RUN-252 rows) serves the archived logs.
+func TestGetRunnerLogs_ResolvesViaRemovalRecords(t *testing.T) {
+	ctx := context.Background()
+	database := setupTestDB(t)
+	dataDir := t.TempDir()
+
+	const containerID = "b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a"
+	writeCaptureFile(t, dataDir, containerID, []string{"Legacy job output"})
+	writeRemovalCaptureRecord(t, dataDir, "runnero-legacy-job", containerID,
+		filepath.Join(dataDir, "logs", containerID+".log.jsonl.gz"))
+
+	srv := server.New(server.Options{
+		Port:              8080,
+		AuthDB:            database,
+		DataDir:           dataDir,
+		Session:           testSessionConfig(),
+		RunnerLogResolver: server.NewDBRunnerLogResolver(database, dataDir),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	authClient := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	_, _ = authClient.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{Username: "admin", Password: "password123456"}))
+	loginRes, _ := authClient.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{Username: "admin", Password: "password123456"}))
+	rawCookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
+
+	client := supervisorv1connect.NewLogServiceClient(ts.Client(), ts.URL)
+	req := connect.NewRequest(&supervisorv1.GetRunnerLogsRequest{RunnerId: "runnero-legacy-job"})
+	req.Header().Set("Cookie", "session_token="+rawCookie)
+	res, err := client.GetRunnerLogs(ctx, req)
+	if err != nil {
+		t.Fatalf("GetRunnerLogs via removal record failed: %v", err)
+	}
+	if len(res.Msg.Lines) != 1 || res.Msg.Lines[0].Content != "Legacy job output" {
+		t.Fatalf("unexpected lines: %+v", res.Msg.Lines)
 	}
 }
