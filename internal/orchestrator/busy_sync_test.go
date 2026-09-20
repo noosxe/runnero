@@ -27,7 +27,37 @@ type busySyncHarness struct {
 	terminated  []string
 }
 
+// multiTargetPoolRepo extends mockPoolRepo with pool-target rows so tests can
+// exercise multi-target listing behaviour (docs/19 §2.3, RUN-260).
+type multiTargetPoolRepo struct {
+	*mockPoolRepo
+	targets map[int64][]db.PoolTarget
+}
+
+func (m *multiTargetPoolRepo) ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error) {
+	return m.targets[poolID], nil
+}
+
 func newBusySyncHarness(t *testing.T, pool db.RunnerPool) *busySyncHarness {
+	t.Helper()
+	return newBusySyncHarnessWithDB(t, pool, &mockPoolRepo{pools: []db.RunnerPool{pool}})
+}
+
+// newBusySyncHarnessWithTargets wires the standard busy-sync harness against
+// a multi-target pool whose targets are the given URLs, in stable order.
+func newBusySyncHarnessWithTargets(t *testing.T, pool db.RunnerPool, targetURLs []string) *busySyncHarness {
+	t.Helper()
+	targets := make([]db.PoolTarget, 0, len(targetURLs))
+	for _, u := range targetURLs {
+		targets = append(targets, db.PoolTarget{PoolID: pool.ID, TargetUrl: u})
+	}
+	return newBusySyncHarnessWithDB(t, pool, &multiTargetPoolRepo{
+		mockPoolRepo: &mockPoolRepo{pools: []db.RunnerPool{pool}},
+		targets:      map[int64][]db.PoolTarget{pool.ID: targets},
+	})
+}
+
+func newBusySyncHarnessWithDB(t *testing.T, pool db.RunnerPool, repo orchestrator.PoolRepository) *busySyncHarness {
 	t.Helper()
 	h := &busySyncHarness{
 		mockProv:    &mockGitProvider{},
@@ -70,7 +100,7 @@ func newBusySyncHarness(t *testing.T, pool db.RunnerPool) *busySyncHarness {
 	}
 	h.reconciler = orchestrator.NewReconciler(h.engine)
 	h.ctrl = orchestrator.NewPoolController(orchestrator.ControllerOptions{
-		DB:               &mockPoolRepo{pools: []db.RunnerPool{pool}},
+		DB:               repo,
 		ContainerEngine:  h.engine,
 		ProviderResolver: resolver,
 		Reconciler:       h.reconciler,
@@ -321,5 +351,129 @@ func TestBusySync_ProviderWithoutListerUntouched(t *testing.T) {
 	active, idle := h.ctrl.PoolStats(pool.ID)
 	if active != 0 || idle != 1 {
 		t.Errorf("expected untouched idle classification (active=0 idle=1), got active=%d idle=%d", active, idle)
+	}
+}
+
+// TestBusySync_MultiTargetBusyOnSecondTarget is the RUN-260 regression: a
+// runner registered against a SECOND pool target (provisioned by a webhook
+// for another repo the pool serves) must converge its IsBusy flag. Under the
+// previous first-success listing this runner stayed "idle" in the UI while
+// executing a job (docs/19 §2.3).
+func TestBusySync_MultiTargetBusyOnSecondTarget(t *testing.T) {
+	ctx := context.Background()
+	pool := busySyncPool("busy-sync-2nd", 0, 5)
+	h := newBusySyncHarnessWithTargets(t, pool, []string{
+		"https://github.com/my-org/repo-a",
+		"https://github.com/my-org/repo-b",
+	})
+
+	if err := h.ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+	h.injectRunner(pool, "runnero-midjob", false)
+
+	// Registered on the second target, mid-job there; the first target lists
+	// nothing. Under first-success semantics only repo-a was ever consulted.
+	h.mockProv.remoteByTarget = map[string][]provider.RemoteRunnerStatus{
+		"https://github.com/my-org/repo-a": {},
+		"https://github.com/my-org/repo-b": {
+			{Name: "runnero-midjob", Busy: true, Online: true},
+		},
+	}
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	byName := h.trackedByName(pool)
+	if !byName["runnero-midjob"].IsBusy {
+		t.Fatalf("second-target runner must be marked busy, got %+v", byName["runnero-midjob"])
+	}
+	if len(h.terminated) != 0 {
+		t.Fatalf("mid-job runner must not be drained, terminated=%v", h.terminated)
+	}
+
+	// Job completes on the second target; the busy->idle flip closes the row
+	// and the scale-to-zero drain reclaims the now-idle runner.
+	h.mockProv.remoteByTarget["https://github.com/my-org/repo-b"] = []provider.RemoteRunnerStatus{
+		{Name: "runnero-midjob", Busy: false, Online: true},
+	}
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("second reconcile failed: %v", err)
+	}
+	if len(h.terminated) != 1 || h.terminated[0] != "container-runnero-midjob" {
+		t.Fatalf("expected the completed second-target runner drained, got %v", h.terminated)
+	}
+}
+
+// TestBusySync_MultiTargetFirstTargetFailure verifies per-target fail-open
+// (RUN-260): an unreachable first target must not blind busy-sync to the
+// targets that answered — the previous first-success contract silently
+// skipped the whole cycle's convergence for such pools.
+func TestBusySync_MultiTargetFirstTargetFailure(t *testing.T) {
+	ctx := context.Background()
+	pool := busySyncPool("busy-sync-2nd-err", 0, 5)
+	h := newBusySyncHarnessWithTargets(t, pool, []string{
+		"https://github.com/my-org/repo-a",
+		"https://github.com/my-org/repo-b",
+	})
+
+	if err := h.ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+	h.injectRunner(pool, "runnero-keep", true)
+
+	h.mockProv.listErrByTarget = map[string]error{
+		"https://github.com/my-org/repo-a": errors.New("forge API unavailable"),
+	}
+	h.mockProv.remoteByTarget = map[string][]provider.RemoteRunnerStatus{
+		"https://github.com/my-org/repo-b": {
+			{Name: "runnero-keep", Busy: true, Online: true},
+		},
+	}
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile must not fail on a per-target lister error: %v", err)
+	}
+
+	runners := h.reconciler.TrackedPoolRunners(pool.ID)
+	if len(runners) != 1 || !runners[0].IsBusy {
+		t.Fatalf("fail-open: second-target busy state must be preserved, got %+v", runners)
+	}
+	if len(h.terminated) != 0 {
+		t.Fatalf("fail-open: no runner should be terminated, got %v", h.terminated)
+	}
+}
+
+// TestBusySync_MultiTargetNameCollisionFirstWins pins the merge policy
+// (RUN-260): a name appearing in two target listings is a forge anomaly;
+// the first target in stable pool-target order wins deterministically, so
+// the sync must apply repo-a's state (idle), not repo-b's (busy).
+func TestBusySync_MultiTargetNameCollisionFirstWins(t *testing.T) {
+	ctx := context.Background()
+	pool := busySyncPool("busy-sync-dup", 1, 5)
+	h := newBusySyncHarnessWithTargets(t, pool, []string{
+		"https://github.com/my-org/repo-a",
+		"https://github.com/my-org/repo-b",
+	})
+
+	if err := h.ctrl.Boot(ctx); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+	h.injectRunner(pool, "runnero-dup", true)
+
+	h.mockProv.remoteByTarget = map[string][]provider.RemoteRunnerStatus{
+		"https://github.com/my-org/repo-a": {
+			{Name: "runnero-dup", Busy: false, Online: true},
+		},
+		"https://github.com/my-org/repo-b": {
+			{Name: "runnero-dup", Busy: true, Online: true},
+		},
+	}
+	if err := h.ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	byName := h.trackedByName(pool)
+	if byName["runnero-dup"].IsBusy {
+		t.Error("collision must resolve to the first target's state (idle)")
 	}
 }

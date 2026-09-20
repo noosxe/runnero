@@ -100,10 +100,15 @@ c.syncRunnerBusyStates(ctx, gitProv, p, targets)
 
 Semantics:
 
-1. For each pool target, call `ListRunners` once (first target that succeeds
-   satisfies the pool — all runners in a pool register under the same
-   scope/target set; remaining targets are only tried on failure).
-2. Build a `name → RemoteRunnerStatus` map and apply to every tracked runner
+1. For **every** pool target, call `ListRunners` once per cycle (RUN-260):
+   each target is listed independently and per-target failures are warn-only,
+   so one unreachable repo cannot blind the cycle to the rest of the pool.
+   (Earlier drafts listed only the first successful target; that left runners
+   registered against secondary targets permanently un-converged — a runner
+   mid-job showed `idle` in the UI, and ghost sweep never covered its scope.)
+2. Merge the per-target listings into one `name → RemoteRunnerStatus` map
+   (first target in stable pool-target order wins the astronomically
+   unlikely cross-target name collision) and apply to every tracked runner
    in the pool: `MarkRunnerBusy(name, busy)`.
 3. **Offline guard:** if the provider reports `Online=false`, skip applying
    (leave current state). This protects against clobbering a webhook-set

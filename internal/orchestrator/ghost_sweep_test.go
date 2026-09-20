@@ -181,3 +181,35 @@ func TestGhostSweep_SingleListingSharedPerCycle(t *testing.T) {
 		t.Fatalf("ghost should have been swept once, got %v", h.mockProv.deregistered)
 	}
 }
+
+// TestGhostSweep_SecondTargetGhostSwept verifies the RUN-260 extension: an
+// offline, locally-untracked ghost listed on a SECOND pool target is
+// deregistered against the scope its listing came from — under the previous
+// first-success contract ghosts on secondary targets were never swept.
+func TestGhostSweep_SecondTargetGhostSwept(t *testing.T) {
+	pool := busySyncPool("ghost-2nd", 0, 5)
+	h := newBusySyncHarnessWithTargets(t, pool, []string{
+		"https://github.com/my-org/repo-a",
+		"https://github.com/my-org/repo-b",
+	})
+	if err := h.ctrl.Boot(context.Background()); err != nil {
+		t.Fatalf("boot failed: %v", err)
+	}
+
+	ghost := ghostName(pool.Name, "d4e5f6")
+	h.mockProv.remoteByTarget = map[string][]provider.RemoteRunnerStatus{
+		"https://github.com/my-org/repo-a": {},
+		"https://github.com/my-org/repo-b": {
+			{Name: ghost, Busy: false, Online: false},
+		},
+	}
+
+	sweepCycles(h, orchestrator.DefaultGhostSweepOfflineCycles)
+	if len(h.mockProv.deregistered) != 1 || h.mockProv.deregistered[0] != ghost {
+		t.Fatalf("ghost on the second target must be swept after %d cycles, got %v",
+			orchestrator.DefaultGhostSweepOfflineCycles, h.mockProv.deregistered)
+	}
+	if got := h.mockProv.deregTargets[0]; got != "https://github.com/my-org/repo-b" {
+		t.Fatalf("deregistration must use the ghost's own target scope, got %q", got)
+	}
+}

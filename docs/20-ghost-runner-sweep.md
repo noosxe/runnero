@@ -104,11 +104,13 @@ Wiring the API into the death paths directly would close the window faster but d
 
 ## 8. Implementation Notes (as-built)
 
-- **Structure:** `syncRunnerBusyStates` was split into `fetchRemoteRunners`
-  (shared listing helper returning `(listing, target)`) and
-  `applyRemoteBusyState` (busy convergence, semantics unchanged);
-  `ghostSweep` consumes the same listing immediately after. Both run in
-  `reconcilePoolWithProvider` before classification feeds scaling.
+- **Structure:** `syncRunnerBusyStates` was split into `listRemoteRunnersByTarget`
+  (shared listing helper returning per-target `[]targetRunners`; every target
+  listed independently per RUN-260) and
+  `applyRemoteBusyState` (busy convergence over the merged map, semantics
+  unchanged); `ghostSweep` consumes the same per-target listings immediately
+  after, sweeping each listing against the scope it was fetched from. Both
+  run in `reconcilePoolWithProvider` before classification feeds scaling.
 - **API-call note:** pools with zero tracked runners previously skipped the
   listing entirely; they now list once per cycle so scaled-to-zero pools
   still sweep. Steady-state cost remains one list per pool per cycle.

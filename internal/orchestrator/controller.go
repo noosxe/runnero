@@ -1428,27 +1428,38 @@ func (c *PoolController) validateAndProvisionPool(ctx context.Context, p db.Runn
 	return c.reconcilePoolWithProvider(ctx, p, gitProv)
 }
 
-// fetchRemoteRunners lists registered runners for the pool from the first
-// successful target (docs/19 §2.3, docs/20 §4.2). Returns a nil listing when
-// the provider lacks RunnerLister support, no targets are configured, or
-// every target fails — callers treat nil as "no data this cycle" (fail-open).
-// The resolved target is returned alongside so consumers act on the same
-// scope the listing came from.
-func (c *PoolController) fetchRemoteRunners(ctx context.Context, gitProv provider.GitProvider, p db.RunnerPool) ([]provider.RemoteRunnerStatus, string) {
+// targetRunners pairs one target's successful runner listing with the target
+// it was fetched from (docs/19 §2.3, docs/20 §4.2): consumers that act on the
+// forge — busy-state convergence and ghost deregistration — must use the same
+// scope their listing came from.
+type targetRunners struct {
+	Target  string
+	Runners []provider.RemoteRunnerStatus
+}
+
+// listRemoteRunnersByTarget lists registered runners for every configured
+// pool target (docs/19 §2.3, docs/20 §4.2). Each target is listed
+// independently; a failing target is logged and skipped so one unreachable
+// repo cannot blind the cycle to the rest of the pool (RUN-260). Returns nil
+// when the provider lacks RunnerLister support or no targets are configured;
+// an empty result means every target failed — callers fail open (no data this
+// cycle).
+func (c *PoolController) listRemoteRunnersByTarget(ctx context.Context, gitProv provider.GitProvider, p db.RunnerPool) []targetRunners {
 	if gitProv == nil {
-		return nil, ""
+		return nil
 	}
 	lister, ok := gitProv.(provider.RunnerLister)
 	if !ok {
-		return nil, ""
+		return nil
 	}
 
 	targets := c.loadPoolTargets(ctx, p)
 	if len(targets) == 0 {
-		return nil, ""
+		return nil
 	}
 
 	scope := provider.RegistrationScope(p.Scope)
+	var listings []targetRunners
 	for _, target := range targets {
 		remote, err := lister.ListRunners(ctx, scope, target)
 		if err != nil {
@@ -1456,34 +1467,43 @@ func (c *PoolController) fetchRemoteRunners(ctx context.Context, gitProv provide
 				"pool", p.Name, "target", target, "err", err)
 			continue
 		}
-		return remote, target
+		listings = append(listings, targetRunners{Target: target, Runners: remote})
 	}
-	return nil, ""
+	return listings
 }
 
 // applyRemoteBusyState converges tracked runners' IsBusy flags with the
 // provider's registered-runner state (docs/19 §2.3). The forge API is the
 // authoritative source; workflow_job webhooks remain the sub-second fast
-// path. Best-effort by design: nil listings and per-runner guards are
+// path. Best-effort by design: empty listings and per-runner guards are
 // skipped without blocking the reconcile (fail-open).
+//
+// Listings arrive per target (docs/19 §2.3, RUN-260): they are merged into
+// one name→state map so runners registered against any pool target converge.
+// Registration names are globally unique per pool (spawn-time random suffix),
+// so a cross-target name collision is a forge anomaly; the first target in
+// stable pool-target order wins deterministically.
 //
 // The same transitions drive job-history recording (docs/21 §5.2):
 // idle→busy opens a job row, busy→idle closes it.
-func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPool, gitProv provider.GitProvider, remote []provider.RemoteRunnerStatus) {
-	if c.reconciler == nil || len(remote) == 0 {
+func (c *PoolController) applyRemoteBusyState(ctx context.Context, p db.RunnerPool, gitProv provider.GitProvider, listings []targetRunners) {
+	if c.reconciler == nil || len(listings) == 0 {
 		return
+	}
+
+	remoteByName := make(map[string]provider.RemoteRunnerStatus)
+	for _, listing := range listings {
+		for _, r := range listing.Runners {
+			if _, dup := remoteByName[r.Name]; !dup {
+				remoteByName[r.Name] = r
+			}
+		}
 	}
 
 	tracked := c.reconciler.TrackedPoolRunners(p.ID)
 	if len(tracked) == 0 {
 		return
 	}
-
-	remoteByName := make(map[string]provider.RemoteRunnerStatus, len(remote))
-	for _, r := range remote {
-		remoteByName[r.Name] = r
-	}
-
 	for _, r := range tracked {
 		state, found := remoteByName[r.Name]
 		if !found {
@@ -1608,12 +1628,14 @@ func (c *PoolController) enrichedCloseStatus(ctx context.Context, gitProv provid
 // loss), bypassing --ephemeral cleanup and the entrypoint's signal trap.
 // Purely API-side reconciliation: busy, tracked, and foreign (non-runnero)
 // registrations are never touched; failures fail open and retry naturally
-// on the next cycle. The counters map is guarded by ghostMu for the whole
-// body: reconcilePool can run concurrently (control loop + die-event
+// on the next cycle. Listings arrive per target (RUN-260): each listing is
+// swept against the scope it was fetched from, so ghosts on secondary pool
+// targets are covered too. The counters map is guarded by ghostMu for the
+// whole body: reconcilePool can run concurrently (control loop + die-event
 // handler), and a network deregistration under lock matches the existing
 // drain-path precedent.
-func (c *PoolController) ghostSweep(ctx context.Context, gitProv provider.GitProvider, p db.RunnerPool, target string, remote []provider.RemoteRunnerStatus) {
-	if c.reconciler == nil || len(remote) == 0 || target == "" || c.ghostOfflineCycles <= 0 {
+func (c *PoolController) ghostSweep(ctx context.Context, gitProv provider.GitProvider, p db.RunnerPool, listings []targetRunners) {
+	if c.reconciler == nil || len(listings) == 0 || c.ghostOfflineCycles <= 0 {
 		return
 	}
 	dereg, ok := gitProv.(provider.RunnerDeregistrar)
@@ -1636,39 +1658,41 @@ func (c *PoolController) ghostSweep(ctx context.Context, gitProv provider.GitPro
 		c.ghostCounters[p.ID] = counters
 	}
 
-	seen := make(map[string]struct{}, len(remote))
+	seen := make(map[string]struct{})
 	swept := 0
-	for _, rr := range remote {
-		seen[rr.Name] = struct{}{}
-		if rr.Online || rr.Busy || !strings.HasPrefix(rr.Name, prefix) {
-			delete(counters, rr.Name)
-			continue
-		}
-		if _, isTracked := trackedNames[rr.Name]; isTracked {
-			// Tracked runners are owned by drain logic and the M23 offline
-			// guard (docs/19 §2.3) — never swept here.
-			delete(counters, rr.Name)
-			continue
-		}
+	for _, listing := range listings {
+		for _, rr := range listing.Runners {
+			seen[rr.Name] = struct{}{}
+			if rr.Online || rr.Busy || !strings.HasPrefix(rr.Name, prefix) {
+				delete(counters, rr.Name)
+				continue
+			}
+			if _, isTracked := trackedNames[rr.Name]; isTracked {
+				// Tracked runners are owned by drain logic and the M23 offline
+				// guard (docs/19 §2.3) — never swept here.
+				delete(counters, rr.Name)
+				continue
+			}
 
-		counters[rr.Name]++
-		if counters[rr.Name] < c.ghostOfflineCycles {
-			continue
+			counters[rr.Name]++
+			if counters[rr.Name] < c.ghostOfflineCycles {
+				continue
+			}
+			if swept >= c.ghostMaxDeregistrations {
+				// Burst guard: counter keeps growing, remainder swept next cycle.
+				continue
+			}
+			if err := dereg.DeregisterRunner(ctx, provider.RegistrationScope(p.Scope), listing.Target, rr.Name); err != nil {
+				c.logger.Warn("ghost sweep deregistration failed",
+					"pool", p.Name, "runner", rr.Name, "target", listing.Target, "err", err)
+				continue // counter persists; retried next cycle
+			}
+			delete(counters, rr.Name)
+			swept++
+			c.logger.Info("ghost sweep deregistered orphaned runner",
+				"pool", p.Name, "runner", rr.Name, "target", listing.Target,
+				"offlineCycles", c.ghostOfflineCycles)
 		}
-		if swept >= c.ghostMaxDeregistrations {
-			// Burst guard: counter keeps growing, remainder swept next cycle.
-			continue
-		}
-		if err := dereg.DeregisterRunner(ctx, provider.RegistrationScope(p.Scope), target, rr.Name); err != nil {
-			c.logger.Warn("ghost sweep deregistration failed",
-				"pool", p.Name, "runner", rr.Name, "target", target, "err", err)
-			continue // counter persists; retried next cycle
-		}
-		delete(counters, rr.Name)
-		swept++
-		c.logger.Info("ghost sweep deregistered orphaned runner",
-			"pool", p.Name, "runner", rr.Name, "target", target,
-			"offlineCycles", c.ghostOfflineCycles)
 	}
 
 	// Drop counters for names no longer in the listing (deregistered
@@ -1703,15 +1727,16 @@ func (c *PoolController) reconcilePoolWithProvider(ctx context.Context, p db.Run
 	}
 
 	// Fetch the provider's registered-runner listing once per cycle and feed
-	// both consumers: busy-state convergence (docs/19 §2.3) and the ghost
-	// sweep (docs/20 §4). This runs BEFORE the classification below feeds
-	// scaling decisions, so missed webhook events cannot cause mid-job drains
-	// or phantom idle, and ungraceful container deaths cannot leave orphaned
-	// registrations behind. Webhooks remain the sub-second fast path.
-	remote, target := c.fetchRemoteRunners(ctx, gitProv, p)
-	c.applyRemoteBusyState(ctx, p, gitProv, remote)
-	c.ghostSweep(ctx, gitProv, p, target, remote)
-
+	// Fetch the provider's registered-runner listings once per cycle, across
+	// every configured target, and feed both consumers: busy-state convergence
+	// (docs/19 §2.3) and the ghost sweep (docs/20 §4). This runs BEFORE the
+	// classification below feeds scaling decisions, so missed webhook events
+	// cannot cause mid-job drains or phantom idle, and ungraceful container
+	// deaths cannot leave orphaned registrations behind. Webhooks remain the
+	// sub-second fast path.
+	listings := c.listRemoteRunnersByTarget(ctx, gitProv, p)
+	c.applyRemoteBusyState(ctx, p, gitProv, listings)
+	c.ghostSweep(ctx, gitProv, p, listings)
 	tracked := c.reconciler.TrackedPoolRunners(p.ID)
 	var idleRunners []RunnerStatus
 	activeCount := int64(0)
