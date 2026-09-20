@@ -20,6 +20,8 @@ interface TextFieldProps {
   suffix?: string;
   /** Autofocus the input on mount (login/admin steps). */
   autoFocus?: boolean;
+  /** autocomplete hint (docs/36 §5.5/§5.10): username | email | url | one-time-code … */
+  autoComplete?: string;
   onBlurExtra?: () => void;
 }
 /**
@@ -40,6 +42,7 @@ export function TextField({
   description,
   suffix,
   autoFocus,
+  autoComplete,
   onBlurExtra,
 }: TextFieldProps) {
   const field = useFieldContext<string>();
@@ -63,6 +66,7 @@ export function TextField({
             step={step}
             className={inputClassName}
             autoFocus={autoFocus}
+            autoComplete={autoComplete}
             onBlur={() => {
               field.handleBlur();
               onBlurExtra?.();
@@ -85,6 +89,7 @@ export function TextField({
           step={step}
           className={inputClassName}
           autoFocus={autoFocus}
+          autoComplete={autoComplete}
           onBlur={() => {
             field.handleBlur();
             onBlurExtra?.();

@@ -144,7 +144,10 @@ export function LoginPage() {
         </p>
 
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+          <div
+            role="alert"
+            className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive"
+          >
             <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -161,7 +164,10 @@ export function LoginPage() {
               <span className="h-px flex-1 bg-border" />
             </div>
             {passkeyError && (
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+              <div
+                role="alert"
+                className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive"
+              >
                 <AlertCircle className="size-4 shrink-0" />
                 <span>{passkeyError}</span>
               </div>
@@ -186,6 +192,7 @@ export function LoginPage() {
               <field.TextField
                 label="Username"
                 id="username"
+                autoComplete="username"
                 autoFocus
                 onBlurExtra={runEvaluation}
               />
@@ -194,7 +201,12 @@ export function LoginPage() {
 
           <form.AppField name="password">
             {(field) => (
-              <field.PasswordField label="Password" id="password" onBlurExtra={runEvaluation} />
+              <field.PasswordField
+                label="Password"
+                id="password"
+                autoComplete="current-password"
+                onBlurExtra={runEvaluation}
+              />
             )}
           </form.AppField>
 

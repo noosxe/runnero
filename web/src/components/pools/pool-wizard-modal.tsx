@@ -794,7 +794,11 @@ export function PoolWizardModal({
             const isActive = currentStep === s.step;
             const isCompleted = currentStep > s.step;
             return (
-              <div key={s.step} className="flex items-center gap-2">
+              <div
+                key={s.step}
+                aria-current={isActive ? "step" : undefined} /* docs/36 §5.7 */
+                className="flex items-center gap-2"
+              >
                 <div
                   className={cn(
                     "flex size-6 items-center justify-center rounded-full font-bold transition-colors",
@@ -826,7 +830,10 @@ export function PoolWizardModal({
 
         {/* Error Notification */}
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+          <div
+            role="alert"
+            className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-destructive"
+          >
             <AlertCircle className="size-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -835,6 +842,8 @@ export function PoolWizardModal({
         {/* Step 1: Identity & Credentials */}
         {currentStep === 1 && (
           <div className="mt-5 flex flex-col gap-4">
+            {/* Step heading: real heading for SR navigation (§5.5); h3 under the dialog's h2 title */}
+            <h3 className="text-sm font-semibold text-foreground">Identity & Authentication</h3>
             <FieldGroup className="gap-4">
               <form.AppField name="name">
                 {() => (
@@ -906,6 +915,7 @@ export function PoolWizardModal({
         {/* Step 2: Scope & Target Discovery */}
         {currentStep === 2 && (
           <div className="mt-5 flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-foreground">Scope & Target Discovery</h3>
             <FieldGroup className="gap-4">
               {isEdit && selectedTargetUrls.length > 0 && (
                 <div className="rounded-xl border border-border bg-muted/50 p-3 ">
@@ -1196,6 +1206,7 @@ export function PoolWizardModal({
         {/* Step 3: Specs & Quotas */}
         {currentStep === 3 && (
           <div className="mt-5 flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-foreground">Runner Specs & Quotas</h3>
             <FieldGroup className="gap-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <form.AppField name="minIdleRunners">
@@ -1472,6 +1483,7 @@ export function PoolWizardModal({
         {/* Step 4: Review & Confirmation */}
         {currentStep === 4 && (
           <form onSubmit={handleSubmitPool} noValidate className="mt-5 flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-foreground">Review & Confirmation</h3>
             {isEdit && changes.length > 0 && (
               <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 flex flex-col gap-2">
                 <span className="text-sm font-bold text-foreground ">

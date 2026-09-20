@@ -18,6 +18,8 @@ interface PasswordFieldProps {
   description?: string;
   /** Autofocus the input on mount (login/admin steps). */
   autoFocus?: boolean;
+  /** autocomplete hint (docs/36 §5.5/§5.10): current-password | new-password */
+  autoComplete?: string;
   onBlurExtra?: () => void;
 }
 
@@ -33,6 +35,7 @@ export function PasswordField({
   className,
   description,
   autoFocus,
+  autoComplete,
   onBlurExtra,
 }: PasswordFieldProps) {
   const field = useFieldContext<string>();
@@ -52,6 +55,7 @@ export function PasswordField({
           value={field.state.value}
           placeholder={placeholder}
           autoFocus={autoFocus}
+          autoComplete={autoComplete}
           onBlur={() => {
             field.handleBlur();
             onBlurExtra?.();

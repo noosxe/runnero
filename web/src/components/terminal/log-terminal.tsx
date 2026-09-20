@@ -18,6 +18,15 @@ import {
   Terminal,
 } from "lucide-react";
 
+/**
+ * Live-region policy (docs/36 §5.4, decided): the viewport is `role="log"`
+ * with `aria-live="off"` — permanently. Uncontrolled polite announcement of
+ * streaming stdout is noise that makes the page unusable for screen-reader
+ * users; nobody wants live dictation of logs. Keyboard/SR users pause the
+ * stream (Pause, aria-pressed) and read statically, and filter/search
+ * changes are visible text on the page. Do not "helpfully" enable polite
+ * streaming here — see docs/36-accessibility.md §5.4 before touching it.
+ */
 export interface LogTerminalProps {
   logs: LogChunk[];
   mode: "live" | "historical";
@@ -277,6 +286,7 @@ export function LogTerminal({
             <InputGroupInput
               type="text"
               value={search}
+              aria-label="Filter log output"
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter log output..."
               className="font-mono text-[11px]"
@@ -331,6 +341,9 @@ export function LogTerminal({
       {/* Terminal Viewport */}
       <div
         ref={terminalRef}
+        role="log"
+        aria-live="off" /* permanent — policy + rationale in the header above (§5.4) */
+        aria-busy={isLoading || undefined}
         onScroll={handleScroll}
         className="relative flex-1 overflow-y-auto p-4 text-[11px] leading-relaxed text-terminal-fg selection:bg-terminal-accent/40"
       >
