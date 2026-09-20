@@ -67,7 +67,7 @@ const JOB_STATUS_META: Record<string, JobStatusMeta> = {
   running: {
     label: "running",
     icon: LoaderCircle,
-    className: "border-primary/30 bg-primary/10 text-primary",
+    className: "border-primary/30 bg-primary/10 text-link",
   },
   interrupted: {
     label: "interrupted",

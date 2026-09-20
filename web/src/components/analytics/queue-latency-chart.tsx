@@ -94,7 +94,7 @@ export function QueueLatencyChart({
       {/* Header */}
       <CardHeader className="border-b border-border/60">
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="size-4 text-primary" />
+          <TrendingUp className="size-4 text-link" />
           Queue Wait-Time Latency
         </CardTitle>
         <CardDescription className="text-xs">
@@ -230,7 +230,7 @@ export function QueueLatencyChart({
         )}
       </CardContent>
 
-      <CardFooter className="gap-1.5 text-[11px] text-muted-foreground/80">
+      <CardFooter className="gap-1.5 text-[11px] text-muted-foreground">
         <Info className="size-3.5 shrink-0" />
         <span>
           Lower queue latency means workflow runs execute immediately without container launch

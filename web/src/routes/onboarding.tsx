@@ -729,7 +729,7 @@ export function OnboardingPage() {
                   className={cn(
                     "mt-1.5 text-[11px] font-medium",
                     isCurrent
-                      ? "font-bold text-primary"
+                      ? "font-bold text-link"
                       : isDone
                         ? "text-foreground"
                         : "text-muted-foreground",
@@ -990,7 +990,7 @@ export function OnboardingPage() {
                         className={cn(
                           "h-auto w-full py-2.5",
                           authMethod === m.id &&
-                            "border-primary bg-primary/5 text-primary font-semibold",
+                            "border-primary bg-primary/5 text-link font-semibold",
                         )}
                       >
                         {m.label}
@@ -1533,7 +1533,7 @@ export function OnboardingPage() {
                 {/* Card 1: Admin */}
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
-                    <ShieldCheck className="size-4 text-primary " />
+                    <ShieldCheck className="size-4 text-link " />
                     <span>Master Administrator</span>
                   </div>
                   <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
@@ -1554,7 +1554,7 @@ export function OnboardingPage() {
                     <KeyRound
                       className={cn(
                         "size-4",
-                        isGitProfileSkipped ? "text-muted-foreground" : "text-primary",
+                        isGitProfileSkipped ? "text-muted-foreground" : "text-link",
                       )}
                     />
                     <span>Git Auth Profile</span>
@@ -1582,7 +1582,7 @@ export function OnboardingPage() {
                 {/* Card 3: Safeguards */}
                 <div className="rounded-xl border border-border bg-muted/50 p-3.5 ">
                   <div className="flex items-center gap-2 font-bold text-foreground ">
-                    <Sliders className="size-4 text-primary " />
+                    <Sliders className="size-4 text-link " />
                     <span>Global Constraints</span>
                   </div>
                   <div className="mt-2 flex flex-col gap-1 text-muted-foreground ">
@@ -1609,7 +1609,7 @@ export function OnboardingPage() {
                     <Server
                       className={cn(
                         "size-4",
-                        isPoolSkipped ? "text-muted-foreground" : "text-primary",
+                        isPoolSkipped ? "text-muted-foreground" : "text-link",
                       )}
                     />
                     <span>

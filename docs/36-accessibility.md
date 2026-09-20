@@ -334,7 +334,6 @@ attributes each finding via the run's node targets plus code inspection.
 
 | # | Rule (impact) | Where | Attribution | Fix phase |
 | :--- | :--- | :--- | :--- | :--- |
-| A2 | `color-contrast` (serious) | every scanned page, both themes, 2–14 nodes each | Flagged classes include `.bg-muted`, `.text-muted-foreground/70`; RUN-256 realigned tokens but component-level pairs still fail | RUN-266 |
 | A5 | `heading-order` (moderate) | /, /pools, /pools/:id?tab=config, /settings, /settings?tab=users | Heading level skips in page/card headers | RUN-267 |
 | A7 | Onboarding wizard | not scannable | Recorded skip: the seeded database redirects /onboarding; wizard coverage via the §4.2 keyboard pass and flows 01/02 | manual |
 
@@ -359,13 +358,33 @@ the post-fix keyboard pass):
 admin pages 64 rule hits / 136 nodes → **27 / 106** (light) and 138 →
 **108** (dark); viewer 45 / 102 → **19 / 80** and 107 → **85**;
 /login 2 rules → **0**. Zero critical and zero minor findings remain;
-the residual serious finding is color-contrast (RUN-266) and the
-residual moderate heading-order (RUN-267).
+the residual moderate finding is heading-order (RUN-267); a follow-up
+contrast dump on the fixed build (admin matrix, both themes) returns
+**zero** `color-contrast` nodes.
 
-Dark/light deltas are confined to `color-contrast` node counts (e.g.
-/pools 5 light vs 11 dark; /history/:id 14 light vs 10 dark) — the
-structural findings are theme-independent. This appendix is deleted when
-the last item ships (§4.4).
+**Fixed in RUN-266** (verified by an axe `color-contrast`-only re-scan
+of the admin page matrix in both themes: 108 flagged nodes → 0):
+
+- Light `--muted-foreground` darkened 0.556 → 0.545 (4.35 → 4.54:1 on
+  `--muted`); dark `--destructive` lightened 0.704 → 0.72 and light
+  `--destructive` darkened 0.577 → 0.52 (tinted-badge text ≥4.5:1,
+  same AA-darkening treatment RUN-256 gave success/warning).
+- New text-only accent token `--link` (light = `--primary`; dark
+  lightened to ≥4.5:1 on background and primary/10 tints) — dark mode
+  was rendering dark-blue `text-primary` as text on dark surfaces
+  (2.3–2.6:1). All `text-primary` text/icon usages became `text-link`.
+- Alpha-diluted status texts (`text-muted-foreground/70`,
+  `/80`, `/90`, `text-success/80`, `text-destructive/80`, `/90`)
+  switched to the full-color token — opacity blending cannot pass
+  4.5:1 for small text.
+- LogTerminal is theme-independent now: the shell sets
+  `text-terminal-fg`, and the status pill, Auto-scroll toggle, and
+  line meta use `terminal-*` tokens (light-theme body text was
+  inheriting into the always-dark console, and muted/primary tokens
+  resolved to light-theme values there).
+
+The remaining moderate findings (heading-order) are theme-independent.
+This appendix is deleted when the last item ships (§4.4).
 
 ### §4.2 keyboard-only pass — first results (Chrome, assistant-driven)
 

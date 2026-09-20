@@ -161,7 +161,7 @@ export function ProfilesPage() {
                       className={cn(
                         "inline-flex items-center gap-1 text-xs font-semibold",
                         prof.installationsCount === 0
-                          ? "text-primary hover:text-primary/80"
+                          ? "text-link hover:text-link/80"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >

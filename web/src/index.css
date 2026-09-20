@@ -31,10 +31,14 @@
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
+    --muted-foreground: oklch(0.545 0 0); /* AA-darkened from preset 0.556: 4.54:1 on --muted (RUN-266) */
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
+    --destructive: oklch(0.52 0.21 27.325); /* AA-darkened from preset 0.577 like success/warning (RUN-266): text on /5–/20 tints ≥4.5:1 */
+    /* Text-only accent (RUN-266): primary is a button fill; text/icons/badges that
+     * render it as foreground use --link, which lightens in dark mode to keep ≥4.5:1.
+     * Light equals --primary. */
+    --link: oklch(0.5 0.134 242.749);
     /* App-specific tokens (not preset-owned): re-add if `apply --preset` rewrites this file.
      * Light-mode success/warning are darkened below the chart-ramp values for WCAG AA
      * (RUN-256): both render as small text — tinted badges (bg-X/10 text-X, ≥4.5:1 vs
@@ -96,7 +100,8 @@
     --muted-foreground: oklch(0.708 0 0);
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
+    --destructive: oklch(0.72 0.19 22.216); /* AA-lightened from preset 0.704: ≥4.5:1 on destructive/10 tints (RUN-266) */
+    --link: oklch(0.75 0.11 240); /* text/link accent, ≥4.5:1 on background and primary/10 tints */
     /* App-specific: same values in both modes EXCEPT light-mode success/warning, which are
      * AA-darkened there (RUN-256); dark-mode values already pass on dark surfaces. */
     --success: oklch(0.627 0.17 149.2);
@@ -145,6 +150,7 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-link: var(--link);
     --color-success: var(--success);
     --color-success-foreground: var(--success-foreground);
     --color-warning: var(--warning);
