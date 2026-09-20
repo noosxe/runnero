@@ -47,9 +47,14 @@ Semantic tokens (preset-owned, both modes):
   accent, destructive, border, input, ring, sidebar-*, chart-1..5
 
 App-specific additions (re-add if `apply --preset` rewrites index.css):
-  --success  oklch(0.627 0.17 149.2)   status pills, healthy states
-  --warning  oklch(0.666 0.179 58.318) degraded states (= preset's --chart-3 amber)
+  --success  oklch(0.5 0.17 149.2)    light (dark: 0.627) — status pills, healthy states
+  --warning  oklch(0.52 0.179 58.318) light (dark: 0.666) — degraded states
   --notice   oklch(0.545 0.2 295)      interrupted jobs (violet; brighter in dark mode)
+
+Light-mode success/warning are AA-darkened below the chart-ramp values (RUN-256): they
+render as small badge text in two pairings — tinted (`bg-X/10` + `text-X`) and filled
+(`text-X-foreground` white) — and must hold 4.5:1 in both. Dark mode keeps the ramp
+values (both pairings already pass on dark surfaces).
 ```
 
 **Job status colors** — one vocabulary (the `job_history.status` CHECK in

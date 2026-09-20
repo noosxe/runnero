@@ -23,19 +23,26 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
+    /* Brand deltas vs the shadcn default (RUN-256 audit): the blue primary family and
+     * the amber chart ramp are the base-maia preset identity — kept deliberately.
+     * Everything else matches ui.shadcn.com/docs/theming defaults (neutral, oklch). */
     --primary: oklch(0.5 0.134 242.749);
     --primary-foreground: oklch(0.977 0.013 236.62);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
     --muted-foreground: oklch(0.556 0 0);
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.577 0.245 27.325);
-    /* App-specific tokens (not preset-owned): re-add if `apply --preset` rewrites this file */
-    --success: oklch(0.627 0.17 149.2);
+    /* App-specific tokens (not preset-owned): re-add if `apply --preset` rewrites this file.
+     * Light-mode success/warning are darkened below the chart-ramp values for WCAG AA
+     * (RUN-256): both render as small text — tinted badges (bg-X/10 text-X, ≥4.5:1 vs
+     * the tint) and filled blocks (text-X-foreground white, ≥4.5:1 on the fill).
+     * Charts keep the preset ramp (--chart-1..5 untouched). */
+    --success: oklch(0.5 0.17 149.2); /* tinted 4.69:1, filled 5.18:1 */
     --success-foreground: oklch(0.985 0 0);
-    --warning: oklch(0.666 0.179 58.318); /* = preset's --chart-3 amber */
+    --warning: oklch(0.52 0.179 58.318); /* tinted 4.99:1, filled 5.55:1 */
     --warning-foreground: oklch(0.985 0 0);
     --notice: oklch(0.545 0.2 295); /* app-specific violet (interrupted jobs) */
     --notice-foreground: oklch(0.985 0 0);
@@ -83,14 +90,15 @@
     --popover-foreground: oklch(0.985 0 0);
     --primary: oklch(0.443 0.11 240.79);
     --primary-foreground: oklch(0.977 0.013 236.62);
-    --secondary: oklch(0.274 0.006 286.033);
+    --secondary: oklch(0.269 0 0); /* zinc residue aligned to upstream (RUN-256; matches --accent) */
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
     --muted-foreground: oklch(0.708 0 0);
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
-    /* App-specific: same values in both modes, mirroring the preset's mode-invariant chart ramp */
+    /* App-specific: same values in both modes EXCEPT light-mode success/warning, which are
+     * AA-darkened there (RUN-256); dark-mode values already pass on dark surfaces. */
     --success: oklch(0.627 0.17 149.2);
     --success-foreground: oklch(0.985 0 0);
     --warning: oklch(0.666 0.179 58.318);
