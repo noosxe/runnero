@@ -336,7 +336,6 @@ attributes each finding via the run's node targets plus code inspection.
 
 | # | Rule (impact) | Where | Attribution | Fix phase |
 | :--- | :--- | :--- | :--- | :--- |
-| A5 | `heading-order` (moderate) | /, /pools, /pools/:id?tab=config, /settings, /settings?tab=users | Heading level skips in page/card headers | RUN-267 |
 | A7 | Onboarding wizard | not scannable | Recorded skip: the seeded database redirects /onboarding; wizard coverage via the §4.2 keyboard pass and flows 01/02 | manual |
 
 **Fixed in RUN-263** (verified by the scan staying report-only green and
@@ -385,8 +384,19 @@ of the admin page matrix in both themes: 108 flagged nodes → 0):
   inheriting into the always-dark console, and muted/primary tokens
   resolved to light-theme values there).
 
-The remaining moderate findings (heading-order) are theme-independent.
-This appendix is deleted when the last item ships (§4.4).
+**Fixed in RUN-267** (verified by an axe `heading-order`-only scan of
+the flagged routes plus the full page matrix: 0 violations):
+
+- `CardTitle` renders `<h2>` (was `<h3>`, RUN-211) — cards sit directly
+  under the page `<h1>`, so h3 was a hard skip on every card-bearing
+  page. Styling is unchanged (classes pin font size/weight).
+- The three hand-rolled section headings joined the outline as `<h2>`:
+  the pool cards' pool names (/pools), "Execution History"
+  (/pools/:id), and the Renovate tab's "Pending Image Notifications" /
+  "Configured Pool Images" labels (/settings).
+
+This appendix is deleted when the last item ships (§4.4). Onboarding
+(A7, manual) is the sole residual entry.
 
 ### §4.2 keyboard-only pass — first results (Chrome, assistant-driven)
 

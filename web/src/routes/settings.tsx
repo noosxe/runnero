@@ -501,9 +501,9 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           {/* Pending Notifications */}
           {updates && updates.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Pending Image Notifications
-              </h3>
+              </h2>
               <ImageUpdateNotification updates={updates} poolNameLookup={poolNameLookup} />
             </div>
           ) : (
@@ -519,9 +519,9 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           {/* Pools Image Registry Overview */}
           <Card className="py-0">
             <div className="border-b border-border/60 p-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Configured Pool Images
-              </h3>
+              </h2>
             </div>
             <DataTable table={poolImagesTable} empty={poolImagesEmpty} />
           </Card>

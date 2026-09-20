@@ -300,7 +300,7 @@ export function PoolsPage() {
                   {/* Pool Header */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-lg font-bold text-foreground">{p.name}</h3>
+                      <h2 className="text-lg font-bold text-foreground">{p.name}</h2>
                       {poolTargetList(p).length > 1 && (
                         <div className="mt-0.5">
                           <TargetCountBadge pool={p} />
