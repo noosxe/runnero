@@ -37,7 +37,8 @@ export const bootColumns = () =>
     }),
     columnHelper.display({
       id: "current",
-      header: "",
+      // SR name for the visually empty current-boot column (docs/36 §5.8).
+      header: () => <span className="sr-only">Current boot</span>,
       cell: ({ row }) =>
         row.original.isCurrent ? (
           <Badge

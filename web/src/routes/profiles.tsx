@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "../hooks/use-page-title";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,6 +33,7 @@ interface ProfileModalState {
 }
 
 export function ProfilesPage() {
+  usePageTitle("Git Auth Profiles");
   // Auth profiles guard runner-registration secrets - an admin surface in
   // its entirety (docs/35 section 2.2). The server denies viewers anyway;
   // the gate only avoids rendering a broken editing surface.

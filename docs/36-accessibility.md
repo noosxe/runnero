@@ -334,13 +334,33 @@ attributes each finding via the run's node targets plus code inspection.
 
 | # | Rule (impact) | Where | Attribution | Fix phase |
 | :--- | :--- | :--- | :--- | :--- |
-| A1 | `button-name` (critical) | /pools, /history — 3 nodes each, both themes | Filter `SelectTrigger`s whose `SelectValue` renders empty until a value is picked (exactly 3 selects per page); targets are `#base-ui-*` generated ids | RUN-263 |
-| A2 | `color-contrast` (serious) | every scanned page, both themes, 2–14 nodes each | Flagged classes include `.bg-muted`, `.text-muted-foreground/70`; RUN-256 realigned tokens but component-level pairs still fail | RUN-263 |
-| A3 | `landmark-no-duplicate-main`, `landmark-main-is-top-level`, `landmark-unique` (moderate) | every app page | The app shell renders `<main>` (app-shell.tsx) and the sidebar primitive renders a second, nested `<main>` (ui/sidebar.tsx) | RUN-263 |
-| A4 | `region` (moderate) | every app page ×3; /login ×6 | Toaster and page chrome sit outside landmarks; /login additionally has **no** `main` at all (`landmark-one-main`) | RUN-263 |
-| A5 | `heading-order` (moderate) | /, /pools, /pools/:id?tab=config, /settings, /settings?tab=users | Heading level skips in page/card headers | RUN-263 |
-| A6 | `empty-table-header` (minor) | /logs `th:nth-child(5)`, /settings?tab=users `th:nth-child(4)` | The row-actions column header carries no text | RUN-263 |
+| A2 | `color-contrast` (serious) | every scanned page, both themes, 2–14 nodes each | Flagged classes include `.bg-muted`, `.text-muted-foreground/70`; RUN-256 realigned tokens but component-level pairs still fail | RUN-266 |
+| A5 | `heading-order` (moderate) | /, /pools, /pools/:id?tab=config, /settings, /settings?tab=users | Heading level skips in page/card headers | RUN-267 |
 | A7 | Onboarding wizard | not scannable | Recorded skip: the seeded database redirects /onboarding; wizard coverage via the §4.2 keyboard pass and flows 01/02 | manual |
+
+**Fixed in RUN-263** (verified by the scan staying report-only green and
+the post-fix keyboard pass):
+
+- A1 `button-name` (critical) — the six filter `SelectTrigger`s on
+  /pools and /history carry `aria-label`s.
+- A3 duplicate/nested `<main>` — `SidebarInset` is now a `<div>`; the
+  shell's `<main id="main-content">` is the only main.
+- A4 (partial) — /login and /onboarding render their own `<main>`;
+  /login now scans **clean** in both themes. The remaining `region`
+  findings (×4 per app page, moderate) are the sidebar brand block and
+  scroll container, the Base UI toast portal, and the skip link itself —
+  all fixed-position or deliberately landmark-preceding chrome, accepted
+  as primitive-managed.
+- A6 `empty-table-header` — logs boot/removals action columns and the
+  users-table actions column carry sr-only names.
+
+§5.1 titles + route-change announcements, §5.2 skip link, and §5.3
+`aria-sort` shipped in the same PR. Measured effect (same matrix):
+admin pages 64 rule hits / 136 nodes → **27 / 106** (light) and 138 →
+**108** (dark); viewer 45 / 102 → **19 / 80** and 107 → **85**;
+/login 2 rules → **0**. Zero critical and zero minor findings remain;
+the residual serious finding is color-contrast (RUN-266) and the
+residual moderate heading-order (RUN-267).
 
 Dark/light deltas are confined to `color-contrast` node counts (e.g.
 /pools 5 light vs 11 dark; /history/:id 14 light vs 10 dark) — the
@@ -364,8 +384,10 @@ Executed against the seeded debug stack via real CDP key events:
   (`All`/`stdout`/`stderr`) expose `aria-pressed`; Enter toggles
   auto-scroll, the label and state update, focus is retained.
 - **Sortable headers**: operable via keyboard (native button), but no
-  `aria-sort` state — confirmed live (documented gap, RUN-263).
-- **No skip link**: first Tab lands on the nav (documented gap, RUN-263).
+  `aria-sort` state — confirmed live (**fixed in RUN-263**: DataTable now
+  sets `aria-sort` on every header cell).
+- **No skip link**: first Tab lands on the nav (**fixed in RUN-263**:
+  "Skip to content" is now the shell's first focusable element).
 - The `aria-live="polite" region` on every page is the Base UI toast
   viewport (`pointer-events-none fixed inset-…`) — toast announcements
   already covered by the primitive (§3.1).

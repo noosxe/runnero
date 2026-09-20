@@ -23,6 +23,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { usePools, useAuthProfiles, useSession } from "../lib/api/query-hooks";
+import { usePageTitle } from "../hooks/use-page-title";
 import { useWatchPools } from "../lib/api/streaming-hooks";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { LinkButton } from "../lib/link-button";
@@ -46,6 +47,7 @@ import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targe
 import { PoolHealthStatus, type Pool } from "../gen/api_pb";
 
 export function PoolsPage() {
+  usePageTitle("Runner Pools");
   const isAdmin = useIsAdmin();
   const { data: pools, isLoading } = usePools();
   // Admin-bucket read gated for viewers (docs/35 section 2.2): the
@@ -183,7 +185,7 @@ export function PoolsPage() {
               { value: "forgejo", label: "Forgejo" },
             ]}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by provider">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -206,7 +208,7 @@ export function PoolsPage() {
               { value: "global", label: "Global" },
             ]}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by scope">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -230,7 +232,7 @@ export function PoolsPage() {
               { value: "paused", label: "Paused" },
             ]}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by health">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -12,10 +12,12 @@ import {
 } from "@/components/ui/empty";
 import { LinkButton } from "../lib/link-button";
 import { usePools } from "../lib/api/query-hooks";
+import { usePageTitle } from "../hooks/use-page-title";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, Layers, Calendar } from "lucide-react";
 
 export function RenovatePage() {
+  usePageTitle("Renovate Bot");
   const { data: pools, isLoading } = usePools();
 
   // Pool renovate table (docs/31 §5 phase 1): hook lives at the component

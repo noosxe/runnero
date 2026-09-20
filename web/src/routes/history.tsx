@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "../hooks/use-page-title";
 import type { SortingState } from "@tanstack/react-table";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +27,7 @@ import { jobHistoryColumns } from "./history-columns";
 import { DataTable, useAppTable } from "../lib/tables";
 
 export function HistoryPage() {
+  usePageTitle("Job History");
   const [search, setSearch] = useState("");
   const [selectedPool, setSelectedPool] = useState<string>("0");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -181,7 +183,7 @@ export function HistoryPage() {
               ...(pools ?? []).map((p) => ({ value: p.id.toString(), label: p.name })),
             ]}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by pool">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -207,7 +209,7 @@ export function HistoryPage() {
               { value: "running", label: "Running" },
             ]}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -229,7 +231,7 @@ export function HistoryPage() {
             }}
             items={[10, 25, 50].map((n) => ({ value: n, label: `${n} / page` }))}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Rows per page">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

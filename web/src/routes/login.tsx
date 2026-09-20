@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Card } from "@/components/ui/card";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { usePageTitle } from "../hooks/use-page-title";
 import { create } from "@bufbuild/protobuf";
 import { useStore } from "@tanstack/react-form";
 import { LoginRequestSchema } from "../gen/api_pb";
@@ -19,6 +20,7 @@ interface LoginFormValues {
 const LOGIN_FIELDS = ["username", "password"] as const;
 
 export function LoginPage() {
+  usePageTitle("Sign In");
   const [error, setError] = useState<string | null>(null);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
@@ -107,7 +109,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
+    <main className="relative flex min-h-screen items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
       {/* Top Corner Theme Switcher */}
       <div className="absolute top-4 right-4 flex items-center rounded-xl border border-border bg-card p-1 shadow-xs bg-muted">
         <ToggleGroup
@@ -206,6 +208,6 @@ export function LoginPage() {
           </Button>
         </form>
       </Card>
-    </div>
+    </main>
   );
 }

@@ -140,7 +140,8 @@ export function UsersCard() {
         }),
         columnHelper.display({
           id: "actions",
-          header: "",
+          // SR name for the icon-only actions column (docs/36 §5.8).
+          header: () => <span className="sr-only">Actions</span>,
           cell: (info) => {
             const user = info.row.original;
             const isSelf = user.username === currentUsername;

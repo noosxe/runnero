@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "../hooks/use-page-title";
 import { DataTable, useAppTable } from "../lib/tables";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,7 @@ import { PoolHealthStatus } from "../gen/api_pb";
 import { recentJobsColumns, formatDuration } from "./dashboard-columns";
 
 export function DashboardPage() {
+  usePageTitle("Dashboard");
   const [timeframeHours, setTimeframeHours] = useState(DEFAULT_STATS_TIMEFRAME_HOURS);
   const isAdmin = useIsAdmin();
 

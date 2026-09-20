@@ -62,6 +62,7 @@ import { PoolPollStatus } from "../components/pools/pool-poll-status";
 import { poolTargetList, TargetCountBadge } from "../components/pools/pool-targets";
 import { PoolDeleteModal } from "../components/pools/pool-delete-modal";
 import { useIsAdmin } from "../lib/api/query-hooks";
+import { usePageTitle } from "../hooks/use-page-title";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { DataTable, useAppTable } from "../lib/tables";
 import { resolveRouteTab } from "../lib/route-tab";
@@ -104,6 +105,8 @@ export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
   const isAdmin = useIsAdmin();
   const { data: pools } = usePools();
   const pool = pools?.find((p) => p.id === poolIdBigInt);
+  // Detail title carries the entity (docs/36 §5.1): "<pool> · Pools · Runnero".
+  usePageTitle(pool ? `${pool.name} · Pools` : "Pools");
   // Admin-bucket read gated for viewers (docs/35 section 2.2).
   const { data: authProfiles } = useAuthProfiles(isAdmin);
   const { data: session } = useSession();
