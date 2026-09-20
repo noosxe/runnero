@@ -120,6 +120,7 @@ Tabbed routes keep the active tab in the route's search params (`?tab=…`) inst
 - Clamping goes through the shared `resolveRouteTab(raw, allowed, fallback)` helper (`web/src/lib/route-tab.ts`): a missing, unknown, or role-forbidden value renders the fallback tab — never a hidden surface, never a crash.
 - Tab buttons `navigate()` instead of `setState`, so every switch is a history entry.
 - `/settings` specifics: visible tabs are role-scoped (docs/35 §2.4 — instance + security for every role, the rest admin-only). Admins default to Global Constraints, viewers to Security; a viewer deep link like `/settings?tab=users` clamps back to Security.
+- `/pools/$poolId` specifics (RUN-258): tabs are `runners` (default) | `config` | `renovate`; unknown values clamp back to `runners`, and the param is optional so every existing deep link into pool detail keeps working.
 
 ---
 

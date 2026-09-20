@@ -38,7 +38,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { useParams, Link } from "@tanstack/react-router";
+import { useParams, useNavigate, Link } from "@tanstack/react-router";
 import {
   usePools,
   useRunners,
@@ -64,6 +64,7 @@ import { PoolDeleteModal } from "../components/pools/pool-delete-modal";
 import { useIsAdmin } from "../lib/api/query-hooks";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { DataTable, useAppTable } from "../lib/tables";
+import { resolveRouteTab } from "../lib/route-tab";
 import { renovateRunColumns } from "./renovate-run-columns";
 import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
 import {
@@ -87,7 +88,16 @@ import {
   Check,
 } from "lucide-react";
 
-export function PoolDetailPage() {
+export interface PoolDetailPageSearch {
+  tab?: string;
+}
+
+/** Pool detail tabs (RUN-258): the clamp set for `?tab=` values. */
+const POOL_DETAIL_TABS = ["runners", "config", "renovate"] as const;
+
+type PoolDetailTab = (typeof POOL_DETAIL_TABS)[number];
+
+export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
   const { poolId } = useParams({ strict: false }) as { poolId?: string };
   const poolIdBigInt = poolId ? BigInt(poolId) : 0n;
 
@@ -101,7 +111,11 @@ export function PoolDetailPage() {
   const { data: runners, isLoading: runnersLoading } = useRunners(poolIdBigInt);
   const { isConnected: isStreamActive } = useWatchRunners(poolIdBigInt);
 
-  const [activeTab, setActiveTab] = useState<"runners" | "config" | "renovate">("runners");
+  // Tab selection is URL state (RUN-258): `/pools/$poolId?tab=…` deep links
+  // work and browser back/forward restores the previous tab. Unknown values
+  // clamp back to the runners default.
+  const navigate = useNavigate();
+  const activeTab = resolveRouteTab(search.tab, POOL_DETAIL_TABS, "runners");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);
@@ -206,6 +220,14 @@ export function PoolDetailPage() {
       </div>
     );
   }
+
+  const selectTab = (tab: PoolDetailTab) => {
+    void navigate({
+      to: "/pools/$poolId",
+      params: { poolId: pool.id.toString() },
+      search: { tab },
+    });
+  };
 
   const activeInstances = runners?.filter((r) => r.status === "busy").length ?? 0;
   const idleInstances = runners?.filter((r) => r.status === "idle").length ?? 0;
@@ -343,7 +365,7 @@ export function PoolDetailPage() {
       <div className="flex border-b border-border ">
         <button
           type="button"
-          onClick={() => setActiveTab("runners")}
+          onClick={() => selectTab("runners")}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "runners"
@@ -358,7 +380,7 @@ export function PoolDetailPage() {
 
         <button
           type="button"
-          onClick={() => setActiveTab("config")}
+          onClick={() => selectTab("config")}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "config"
@@ -372,7 +394,7 @@ export function PoolDetailPage() {
 
         <button
           type="button"
-          onClick={() => setActiveTab("renovate")}
+          onClick={() => selectTab("renovate")}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "renovate"
