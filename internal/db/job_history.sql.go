@@ -462,6 +462,28 @@ func (q *Queries) GetJobStatsSince(ctx context.Context, createdAt time.Time) (Ge
 	return i, err
 }
 
+const getLatestJobRetentionPathByRunnerName = `-- name: GetLatestJobRetentionPathByRunnerName :one
+SELECT log_retention_path
+FROM job_history
+WHERE runner_name = ?
+  AND log_retention_path IS NOT NULL
+  AND log_retention_path != ''
+ORDER BY completed_at DESC, id DESC
+LIMIT 1
+`
+
+// Resolves a runner's most recent historical log capture path by container
+// name (RUN-252): captures are filed on disk under the Docker container ID,
+// while the UI and job history key runners by name. Ordered newest-first so
+// reused names resolve to the latest capture; open rows (no completed_at,
+// no retention path) never match.
+func (q *Queries) GetLatestJobRetentionPathByRunnerName(ctx context.Context, runnerName string) (sql.NullString, error) {
+	row := q.db.QueryRowContext(ctx, getLatestJobRetentionPathByRunnerName, runnerName)
+	var log_retention_path sql.NullString
+	err := row.Scan(&log_retention_path)
+	return log_retention_path, err
+}
+
 const getOpenJobRow = `-- name: GetOpenJobRow :one
 SELECT id FROM job_history
 WHERE pool_id = ? AND runner_name = ? AND completed_at IS NULL

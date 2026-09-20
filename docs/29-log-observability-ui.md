@@ -40,15 +40,23 @@ Everything the UI needs already exists on disk and in code:
 | Artifact | Location | Format | Writer |
 | --- | --- | --- | --- |
 | Supervisor boot logs | `logs/supervisor/boot-<unix>-<bootid8>[.<n>].ndjson` | slog JSON lines; first line `{boot_id, started_at, version}` | `logging.BootFileSink` (docs/28 §5.1) |
-| Runner stdout captures | `logs/<runner-id>.log.jsonl.gz` | gzipped JSONL `{timestamp, stream, content}` | `orchestrator.CaptureAndCompressLogs` (M25 store, shared) |
+| Runner stdout captures | `logs/<container-id>.log.jsonl.gz` — keyed by Docker container ID; reads accept the container name via job-history resolution (RUN-252) | gzipped JSONL `{timestamp, stream, content}` | `orchestrator.CaptureAndCompressLogs` (M25 store, shared) |
 | Removal records | `logs/removals.jsonl` | one `RemovalRecord` JSON object per line | `orchestrator.RemovalLogger` (docs/28 §5.4) |
 | Retention sweeper | — | boot + hourly, LRU across all of `logs/`, 1 GiB budget | `logging.SweepLogs` |
 
 RPC surface today (`LogService`, `internal/server/log.go`):
 
 - `StreamRunnerLogs(runner_id)` — live `docker logs --follow` on a
-  **running** container (multiplexed-framing aware).
-- `GetRunnerLogs(runner_id)` — reads the capture file by runner id.
+  **running** container (multiplexed-framing aware); Docker resolves
+  container name or ID, so both work live.
+- `GetRunnerLogs(runner_id)` — reads the capture file by runner id
+  (container ID). Accepts a container **name** too (RUN-252): when no
+  capture exists under the exact id, the name is resolved through
+  `job_history.log_retention_path` (latest closed row, newest first),
+  reduced to its base name and re-validated with the same
+  `safeLogResourceName` rule, so a resolved lookup can only ever land on
+  another file inside `logs/`. Best-effort: an unresolvable name keeps
+  the not-found error.
 
 Web today: `LogTerminal` renders both on `history-detail` (running vs
 completed jobs) and `pool-detail` (live tail). The captures/removals/boot

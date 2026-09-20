@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,17 +32,19 @@ type LogService struct {
 	dataDir     string
 	logStreamer LogStreamer
 	bootLog     BootLogFile
+	resolver    RunnerLogResolver
 }
 
 // NewLogService constructs a LogService instance. bootLog (optional) reports
 // the boot file the supervisor is currently appending to (docs/29 §5.1);
 // without it, live-following boot logs is refused and the newest file is
 // treated as current on a best-effort basis in listings.
-func NewLogService(dataDir string, logStreamer LogStreamer, bootLog BootLogFile) *LogService {
+func NewLogService(dataDir string, logStreamer LogStreamer, bootLog BootLogFile, resolver RunnerLogResolver) *LogService {
 	return &LogService{
 		dataDir:     dataDir,
 		logStreamer: logStreamer,
 		bootLog:     bootLog,
+		resolver:    resolver,
 	}
 }
 
@@ -196,6 +199,21 @@ func (s *LogService) GetRunnerLogs(ctx context.Context, req *connect.Request[sup
 	}
 
 	srcPath := runnerLogPath(s.dataDir, runnerID)
+	if _, statErr := os.Stat(srcPath); errors.Is(statErr, fs.ErrNotExist) && s.resolver != nil {
+		// RUN-252: captures are filed under the container ID, but callers key
+		// runners by container name (history page, /logs Runners tab). Resolve
+		// the name through job history's retention path; the resolver only
+		// ever returns validated ids, so the rebuilt path stays inside
+		// DATA_DIR/logs (docs/29 §5.2). Best-effort: a failed resolution keeps
+		// the original not-found error path.
+		if id, resErr := s.resolver.LatestCaptureRunnerID(ctx, runnerID); resErr == nil && id != runnerID {
+			if alt := runnerLogPath(s.dataDir, id); alt != srcPath {
+				if _, altErr := os.Stat(alt); altErr == nil {
+					srcPath = alt
+				}
+			}
+		}
+	}
 	f, err := os.Open(srcPath)
 	if err != nil {
 		if os.IsNotExist(err) {

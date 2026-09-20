@@ -268,6 +268,7 @@ func runDaemonContext(ctx context.Context) error {
 		RegistryChecker:     regClient,
 		SystemStats:         poolCtrl,
 		LogStreamer:         dockerClient,
+		RunnerLogResolver:   server.NewDBRunnerLogResolver(database),
 		RenovateExecutor:    renovateExecutor,
 		CronScheduler:       cronScheduler,
 		DataDir:             cfg.DataDir,

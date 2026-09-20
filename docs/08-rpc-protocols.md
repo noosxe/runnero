@@ -573,7 +573,10 @@ service LogService {
   rpc StreamRunnerLogs (StreamRunnerLogsRequest) returns (stream LogChunk);
 
   // Historical logs for completed/exited runners (last tail_lines entries,
-  // default 500, cap 5000)
+  // default 500, cap 5000). runner_id accepts the Docker container ID
+  // (the capture-file key) or the container name (RUN-252): names resolve
+  // through job_history.log_retention_path, always re-validated to a file
+  // inside DATA_DIR/logs
   rpc GetRunnerLogs (GetRunnerLogsRequest) returns (GetRunnerLogsResponse);
 
   // List retained supervisor boot files (stat-only + 1-line header reads)

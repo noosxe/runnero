@@ -88,6 +88,12 @@ type Querier interface {
 	GetHourlyJobStatsSince(ctx context.Context, createdAt time.Time) ([]GetHourlyJobStatsSinceRow, error)
 	GetJobHistoryById(ctx context.Context, id int64) (JobHistory, error)
 	GetJobStatsSince(ctx context.Context, createdAt time.Time) (GetJobStatsSinceRow, error)
+	// Resolves a runner's most recent historical log capture path by container
+	// name (RUN-252): captures are filed on disk under the Docker container ID,
+	// while the UI and job history key runners by name. Ordered newest-first so
+	// reused names resolve to the latest capture; open rows (no completed_at,
+	// no retention path) never match.
+	GetLatestJobRetentionPathByRunnerName(ctx context.Context, runnerName string) (sql.NullString, error)
 	GetLatestRenovateRunByPoolId(ctx context.Context, poolID int64) (RenovateRun, error)
 	GetOpenJobRow(ctx context.Context, arg GetOpenJobRowParams) (int64, error)
 	GetOpenWebhookJobByID(ctx context.Context, jobID sql.NullInt64) (GetOpenWebhookJobByIDRow, error)

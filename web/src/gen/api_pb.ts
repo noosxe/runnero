@@ -700,8 +700,8 @@ export type GetSessionResponse = Message<"supervisor.v1.GetSessionResponse"> & {
   /**
    * Product version of the running supervisor binary (ldflags-stamped
    * main.version, RUN-249/250; e.g. "v0.3.0-379-g2eb9bc2"). Surfaced to
-   * authenticated clients for the sidebar footer and the settings
-   * Instance card (RUN-251, docs/09 §4).
+   * authenticated clients for the sidebar footer (docs/09 §3.1) and the
+   * settings Instance card (RUN-251).
    *
    * @generated from field: string version = 6;
    */
