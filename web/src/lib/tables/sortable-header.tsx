@@ -8,6 +8,18 @@ type SortableHeaderProps<TData extends RowData> = {
 };
 
 /**
+ * Map TanStack's sort state to the `aria-sort` token for a <th>
+ * (docs/36 §5.3): `false → "none"`, `"asc" → "ascending"`,
+ * `"desc" → "descending"`. Applied by DataTable to every header cell so
+ * SR users hear the live sort state, not just the button labels.
+ */
+export function ariaSortValue(sorted: false | "asc" | "desc"): "none" | "ascending" | "descending" {
+  if (sorted === "asc") return "ascending";
+  if (sorted === "desc") return "descending";
+  return "none";
+}
+
+/**
  * Sortable column header affordance (docs/31 §4.4): a button toggling
  * asc → desc, with a direction indicator. Rendered from a column's
  * `header` renderer; only columns that opt in show it — every other

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { usePageTitle } from "../hooks/use-page-title";
 import { useAppForm, applyFieldErrors } from "../lib/forms";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,7 @@ const CONSTRAINT_BOUNDS: Record<
 };
 
 export function SettingsPage({ search }: { search: SettingsPageSearch }) {
+  usePageTitle("Settings");
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   // Tab selection is URL state (RUN-257): `/settings?tab=…` deep links

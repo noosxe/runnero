@@ -1,4 +1,5 @@
 import { cn } from "cn";
+import { ariaSortValue } from "./sortable-header";
 import { flexRender } from "@tanstack/react-table";
 import { useEffect, useRef, useState } from "react";
 import type { ReactTable, RowData } from "@tanstack/react-table";
@@ -78,6 +79,7 @@ export function DataTable<TData extends RowData>({
               {headerGroup.headers.map((header, headerIndex) => (
                 <TableHead
                   key={header.id}
+                  aria-sort={ariaSortValue(header.column.getIsSorted())}
                   className={cn(
                     header.column.columnDef.meta?.headerClassName,
                     headerIndex === 0 && pinFirst && PIN_HEAD,

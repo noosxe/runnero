@@ -86,9 +86,15 @@ function ShellMain() {
 
   const activeRunners = stats?.totalActiveRunners ?? 0;
   const idleRunners = stats?.totalIdleRunners ?? 0;
+  // Route-change announcement (docs/36 §5.1): one polite live region for the
+  // whole shell. The region renders the CURRENT page label directly —
+  // screen readers announce the text change on navigation, no state needed.
   return (
     <SidebarInset>
-      {/* Top Header */}
+      {/* Route announcement (docs/36 §5.1). */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {currentNav?.label ?? "Dashboard"}
+      </div>
       <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-8">
         <div className="flex items-center gap-2">
           <SidebarTrigger className="-ml-1" />
@@ -175,8 +181,10 @@ function ShellMain() {
         </div>
       </header>
 
-      {/* Page Content View */}
-      <main className="flex-1 p-6 md:p-8">
+      {/* Page Content View (docs/36 §5.2: skip-link target). */}
+      {/* Page Content View (docs/36 §5.2: skip-link target). tabIndex=-1
+          lets the skip link actually move focus here when followed. */}
+      <main id="main-content" tabIndex={-1} className="flex-1 p-6 md:p-8">
         <Outlet />
       </main>
     </SidebarInset>
@@ -338,6 +346,14 @@ export function AppShell() {
 
   return (
     <SidebarProvider open={open} onOpenChange={handleOpenChange}>
+      {/* Skip link (docs/36 §5.2): first focusable element — renders before
+          the sidebar so it is the very first Tab stop in the DOM. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
       <NavSidebar />
       <ShellMain />
     </SidebarProvider>

@@ -2,6 +2,7 @@ import { useParams, Link } from "@tanstack/react-router";
 import { JobStatusBadge } from "@/components/common/job-status-badge";
 import { Card } from "@/components/ui/card";
 import { useJobRecord, useRunnerLogs } from "../lib/api/query-hooks";
+import { usePageTitle } from "../hooks/use-page-title";
 import { useStreamRunnerLogs } from "../lib/api/streaming-hooks";
 import { LogTerminal } from "../components/terminal/log-terminal";
 import { ArrowLeft, Clock, Timer, Server, Calendar } from "lucide-react";
@@ -41,6 +42,8 @@ export function HistoryDetailPage() {
   const { data: job, isLoading: isJobLoading } = useJobRecord(numericJobId);
 
   const runnerName = job?.runnerName || jobId || "";
+  // Detail title carries the entity (docs/36 §5.1).
+  usePageTitle(runnerName ? `${runnerName} · History` : "History");
   const isRunning = job?.status === "running";
 
   // If the job is active/running, stream live; otherwise fetch stored historical archive

@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "cn";
 import { useNavigate } from "@tanstack/react-router";
+import { usePageTitle } from "../hooks/use-page-title";
 import { create } from "@bufbuild/protobuf";
 import { useStore } from "@tanstack/react-form";
 import {
@@ -138,6 +139,7 @@ function toIntOrZero(raw: string): number {
 }
 
 export function OnboardingPage() {
+  usePageTitle("Onboarding");
   const { data: status } = useOnboardingStatus();
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
@@ -655,7 +657,7 @@ export function OnboardingPage() {
   ];
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
+    <main className="relative flex min-h-screen flex-col items-center justify-center p-4 bg-muted/50 text-foreground transition-colors ">
       {/* Theme Switcher */}
       <div className="absolute top-4 right-4 flex items-center rounded-xl border border-border bg-card p-1 shadow-xs bg-muted">
         <ToggleGroup
@@ -1697,6 +1699,6 @@ export function OnboardingPage() {
           </form>
         )}
       </Card>
-    </div>
+    </main>
   );
 }

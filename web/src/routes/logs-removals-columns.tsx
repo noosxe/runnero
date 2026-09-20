@@ -140,7 +140,8 @@ export const removalsColumns = () =>
     }),
     columnHelper.display({
       id: "actions",
-      header: "",
+      // SR name for the icon-only actions column (docs/36 §5.8).
+      header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
           <ViewCaptureCell runnerId={row.original.runnerId} />

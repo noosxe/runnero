@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { usePageTitle } from "../hooks/use-page-title";
 import { useNavigate } from "@tanstack/react-router";
 import { useIsAdmin } from "@/lib/api/query-hooks";
 import {
@@ -364,6 +365,7 @@ function RunnersTab({ initialRunner }: { initialRunner?: string }) {
 }
 
 export function LogsPage({ search }: { search: LogsPageSearch }) {
+  usePageTitle("Logs");
   const navigate = useNavigate();
   // Supervisor boot logs and removal records are admin surfaces
   // (docs/35 section 2.2, OQ-1); viewers get the runner logs tab.
