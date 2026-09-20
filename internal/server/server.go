@@ -135,6 +135,11 @@ type Options struct {
 	// LogStreamer is the provider for streaming live container logs (RUN-49).
 	LogStreamer LogStreamer
 
+	// RunnerLogResolver resolves runner names to the container ids their
+	// historical captures are filed under (RUN-252). Optional: when nil,
+	// GetRunnerLogs only accepts the exact capture id.
+	RunnerLogResolver RunnerLogResolver
+
 	// BootLog reports which supervisor boot log file the process is currently
 	// appending to (docs/29 §5.1, RUN-218). Optional: when nil, listings mark
 	// the newest boot file as current on a best-effort basis and live-follow
@@ -298,7 +303,7 @@ func New(opts Options) *Server {
 
 	// Mount LogService if DataDir or LogStreamer is provided (RUN-49)
 	if opts.DataDir != "" || opts.LogStreamer != nil {
-		logSvc := NewLogService(opts.DataDir, opts.LogStreamer, opts.BootLog)
+		logSvc := NewLogService(opts.DataDir, opts.LogStreamer, opts.BootLog, opts.RunnerLogResolver)
 		path, handler := supervisorv1connect.NewLogServiceHandler(logSvc, s.ConnectHandlerOptions()...)
 		s.MountConnectHandler(path, handler)
 	}
