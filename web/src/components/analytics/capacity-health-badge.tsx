@@ -68,7 +68,11 @@ export function CapacityHealthBadge({ avgQueueSeconds }: CapacityHealthProps) {
         ) : (
           <AlertOctagon />
         )}
-        <span>{info.label}</span>
+        <span>
+          {info.label}
+          {/* §5.7: the tooltip must not be the only carrier of the description */}
+          <span className="sr-only">: {info.description}</span>
+        </span>
       </TooltipTrigger>
       <TooltipContent>{info.description}</TooltipContent>
     </Tooltip>

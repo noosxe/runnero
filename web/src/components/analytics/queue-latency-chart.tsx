@@ -80,6 +80,45 @@ export function QueueLatencyChart({
     [points],
   );
 
+  // sr-only current-state summary for screen readers (docs/36 §5.6); the SVG is decorative
+  const summary = useMemo(() => {
+    if (points.length === 0) return "";
+    const latencies = points.map((p) => p.avgQueueSeconds);
+    let sum = 0;
+    let peak = 0;
+    let jobs = 0;
+    let runtimeSum = 0;
+    for (const p of points) {
+      sum += p.avgQueueSeconds;
+      runtimeSum += p.avgRuntimeSeconds;
+      jobs += p.totalJobs;
+      if (p.avgQueueSeconds > peak) peak = p.avgQueueSeconds;
+    }
+    const avg = sum / points.length;
+    // Trend compares the mean of the first and second half of the window
+    const half = Math.floor(points.length / 2);
+    let firstHalf = 0;
+    let secondHalf = 0;
+    for (let i = 0; i < half; i++) firstHalf += latencies[i];
+    for (let i = half; i < points.length; i++) secondHalf += latencies[i];
+    firstHalf = half > 0 ? firstHalf / half : avg;
+    secondHalf = points.length - half > 0 ? secondHalf / (points.length - half) : avg;
+    const trend =
+      secondHalf > firstHalf * 1.15
+        ? "rising"
+        : secondHalf < firstHalf * 0.85
+          ? "falling"
+          : "stable";
+    const window = timeframeHours === 24 ? "last 24 hours" : "last 7 days";
+    const runtimeAvg = (runtimeSum / points.length).toFixed(1);
+    return (
+      `Queue wait-time latency ${window}: average ${avg.toFixed(1)} seconds, ` +
+      `peak ${peak.toFixed(1)} seconds, trend ${trend}. ` +
+      `${jobs} jobs dispatched, average runtime ${runtimeAvg} seconds ` +
+      `across ${points.length} intervals.`
+    );
+  }, [points, timeframeHours]);
+
   // Max latency ceiling for the Y axis (minimum 10s for visual clarity)
   const maxLatency = useMemo(() => {
     let max = 10;
@@ -122,6 +161,8 @@ export function QueueLatencyChart({
 
       {/* Chart Canvas */}
       <CardContent className="relative">
+        {/* Screen-reader summary; the chart itself is decorative (§5.6) */}
+        {summary && <p className="sr-only">{summary}</p>}
         {points.length === 0 ? (
           <div className="flex h-52 flex-col items-center justify-center text-center text-xs text-muted-foreground">
             <Clock className="mb-1 size-6 text-muted-foreground/50" />
@@ -131,7 +172,7 @@ export function QueueLatencyChart({
             </p>
           </div>
         ) : (
-          <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto">
+          <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto" aria-hidden>
             <AreaChart accessibilityLayer data={data} margin={{ left: 12, right: 12, top: 8 }}>
               <defs>
                 <linearGradient id="fillLatency" x1="0" y1="0" x2="0" y2="1">

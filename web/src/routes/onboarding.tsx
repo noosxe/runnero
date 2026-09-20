@@ -807,6 +807,7 @@ export function OnboardingPage() {
                       <field.TextField
                         label="Admin Username"
                         id="admin-username"
+                        autoComplete="username"
                         onBlurExtra={() => runAdminEvaluation("login")}
                       />
                     )}
@@ -817,6 +818,7 @@ export function OnboardingPage() {
                       <field.PasswordField
                         label="Admin Password"
                         id="admin-password"
+                        autoComplete="current-password"
                         autoFocus
                         onBlurExtra={() => runAdminEvaluation("login")}
                       />
@@ -855,6 +857,7 @@ export function OnboardingPage() {
                     <field.TextField
                       label="Admin Username"
                       id="admin-username"
+                      autoComplete="username"
                       autoFocus
                       onBlurExtra={() => runAdminEvaluation("setup")}
                     />
@@ -866,6 +869,7 @@ export function OnboardingPage() {
                     <field.PasswordField
                       label="Password (min 12 characters)"
                       id="admin-password"
+                      autoComplete="new-password"
                       onBlurExtra={() => runAdminEvaluation("setup")}
                     />
                   )}
@@ -876,6 +880,7 @@ export function OnboardingPage() {
                     <field.PasswordField
                       label="Confirm Password"
                       id="admin-confirm-password"
+                      autoComplete="new-password"
                       onBlurExtra={() => runAdminEvaluation("setup")}
                     />
                   )}

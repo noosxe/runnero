@@ -161,7 +161,7 @@ First focusable element in the app shell: "Skip to content" →
 - Server-paged tables announce result context via the page controls'
   accessible names (e.g. "Page 2 of 7") — naming sweep, not structure.
 
-### 5.4 LogTerminal live-region policy — decision
+### 5.4 LogTerminal live-region policy — decision (shipped in RUN-264)
 
 The terminal viewport (a DOM log list, not a canvas) gets:
 
@@ -182,7 +182,7 @@ The terminal viewport (a DOM log list, not a canvas) gets:
 This is the pragmatic AA answer: operable, predictable, and honest about
 what live log streaming means for SR users.
 
-### 5.5 Forms & validation
+### 5.5 Forms & validation (shipped in RUN-264)
 
 - Sweep: every field primitive carries the `aria-invalid` +
   `aria-describedby` error pairing (text/password/checkbox have it;
@@ -194,7 +194,7 @@ what live log streaming means for SR users.
 - Login/inputs get `autocomplete` hints (`username`, `current-password`,
   `new-password`) — UX hardening with security upside (§7).
 
-### 5.6 Charts & data alternatives
+### 5.6 Charts & data alternatives (shipped in RUN-264)
 
 Every chart card (dashboard queue latency, capacity health) gets an
 accessible name; the SVG is `aria-hidden` (decorative), and the card carries
@@ -203,13 +203,15 @@ a visually-hidden current-state summary built from the same query data
 data already exists as a table elsewhere, the summary links to it instead
 of duplicating.
 
-### 5.7 Dialogs, wizard, menus, tooltips
+### 5.7 Dialogs, wizard, menus, tooltips (shipped in RUN-264)
 
 Base UI provides trap/restore/keyboard patterns. Fix-by-audit items:
 initial focus lands on the first meaningful control (not the close button);
 AlertDialog confirms are keyboard-first; tooltips are not the only carrier
 of essential information (icon buttons must have accessible names, §5.8);
-pool wizard's step indicator exposes current step (`aria-current="step"`).
+pool wizard's step indicator exposes current step (`aria-current="step"`; shipped in
+RUN-264, as are real step headings — `h3` under the dialog title, which Base UI renders
+as `h2`).
 
 ### 5.8 Icon-only buttons & naming sweep
 
@@ -223,7 +225,7 @@ Confirm `:focus-visible` rings on every interactive primitive in both
 themes, including badge-dense rows and the terminal header controls. Fix
 with Tailwind ring utilities per primitive; no global reset.
 
-### 5.10 Login, passkey & auth surfaces
+### 5.10 Login, passkey & auth surfaces (shipped in RUN-264)
 
 Labels associated (they are — audit confirms), error messages announced on
 failed login (route live region), passkey ceremony prompts carry accessible

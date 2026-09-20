@@ -21,6 +21,7 @@ export function SubmitButton({ children, className }: SubmitButtonProps) {
       type="submit"
       className={className}
       aria-disabled={submitting || undefined}
+      aria-busy={submitting || undefined} /* docs/36 §5.5: busy state announced */
       onClick={(e) => {
         if (submitting) {
           e.preventDefault();
