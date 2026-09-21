@@ -13,19 +13,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DataTable, useAppTable } from "../../lib/tables";
-import {
-  useOnboardingStatus,
-  useRevokeOtherSessions,
-  useRevokeSession,
-  useSessions,
-} from "../../lib/api/query-hooks";
-import type { SessionInfo } from "../../gen/api_pb";
-import type { AppTableFeatures } from "../../lib/tables/use-app-table";
+import { DataTable, useAppTable } from "../lib/tables";
+import { useRevokeOtherSessions, useRevokeSession, useSessions } from "../lib/api/query-hooks";
+import type { SessionInfo } from "../gen/api_pb";
+import type { AppTableFeatures } from "../lib/tables/use-app-table";
 import { MonitorSmartphone, ShieldOff } from "lucide-react";
 import { timestampDate, type Timestamp } from "@bufbuild/protobuf/wkt";
-import { ChangePasswordCard } from "./change-password-card";
-import { PasskeysCard } from "./passkeys-card";
 
 const columnHelper = createColumnHelper<AppTableFeatures, SessionInfo>();
 
@@ -36,21 +29,17 @@ function fmtTs(ts?: Timestamp | null): string {
 }
 
 /**
- * Security tab (RUN-232, docs/32 §7): the caller's active sessions with
+ * Account › Sessions tab (RUN-232, docs/32 §7; moved from the settings
+ * Security tab in RUN-282/docs/37): the caller's active sessions with
  * device labels, the current-session marker, per-row revoke and a
  * confirm-guarded "revoke all other sessions". Token material never
  * reaches this surface - only row ids and display metadata.
  */
-export function SecurityTab() {
+export function AccountSessionsTab() {
   const { data: sessions, isLoading } = useSessions();
   const revokeSession = useRevokeSession();
   const revokeOthers = useRevokeOtherSessions();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // Cached from the authenticated route guard's beforeLoad fetch - no extra
-  // RPC. The passkey card renders only when WebAuthn is configured
-  // (docs/34 section 3.5).
-  const { data: onboarding } = useOnboardingStatus();
-  const passkeyAvailable = onboarding?.passkeyAvailable ?? false;
 
   const columns = useMemo(
     () =>
@@ -132,63 +121,62 @@ export function SecurityTab() {
   const others = (sessions ?? []).filter((s) => !s.isCurrent).length;
 
   return (
-    <div className="flex flex-col gap-6">
-      <ChangePasswordCard />
-      {passkeyAvailable && <PasskeysCard />}
-      <Card>
-        <CardHeader className="border-b border-border/60">
-          <CardTitle className="text-base font-bold">Active Sessions</CardTitle>
-          <CardDescription className="text-xs">
-            Every browser or client signed in with your account. Revoking a session signs that
-            device out server-side; the current session is marked.
-          </CardDescription>
-          {others > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              disabled={revokeOthers.isPending}
-              onClick={() => setConfirmOpen(true)}
-            >
-              <MonitorSmartphone className="size-4" />
-              Revoke all other sessions ({others})
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            table={table}
-            empty={<span className="text-sm text-muted-foreground">Loading sessions…</span>}
-          />
-          {isLoading && (
-            <p className="mt-2 text-xs text-muted-foreground" aria-busy="true">
-              Loading…
-            </p>
-          )}
-        </CardContent>
+    <Card>
+      <CardHeader className="border-b border-border/60">
+        <CardTitle className="flex items-center gap-2 text-base font-bold">
+          <MonitorSmartphone className="size-4" />
+          Active Sessions
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Every browser or client signed in with your account. Revoking a session signs that device
+          out server-side; the current session is marked.
+        </CardDescription>
+        {others > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            disabled={revokeOthers.isPending}
+            onClick={() => setConfirmOpen(true)}
+          >
+            <MonitorSmartphone className="size-4" />
+            Revoke all other sessions ({others})
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        <DataTable
+          table={table}
+          empty={<span className="text-sm text-muted-foreground">Loading sessions…</span>}
+        />
+        {isLoading && (
+          <p className="mt-2 text-xs text-muted-foreground" aria-busy="true">
+            Loading…
+          </p>
+        )}
+      </CardContent>
 
-        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Revoke all other sessions?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Every device except this one will be signed out. This cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  setConfirmOpen(false);
-                  revokeOthers.mutate();
-                }}
-              >
-                Revoke others
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </Card>
-    </div>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke all other sessions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every device except this one will be signed out. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOpen(false);
+                revokeOthers.mutate();
+              }}
+            >
+              Revoke others
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
 }

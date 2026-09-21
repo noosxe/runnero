@@ -1,13 +1,12 @@
 import { test, expect } from "../fixtures";
 
-test.describe("Flow 10: Session Control (Security Tab & Logout)", () => {
-  test("security tab lists the current session and logout invalidates it server-side", async ({
+test.describe("Flow 10: Session Control (Sessions Tab & Logout)", () => {
+  test("sessions tab lists the current session and logout invalidates it server-side", async ({
     authedPage: page,
   }) => {
-    await page.goto("/settings");
-
-    // Open the Security tab (RUN-232, docs/32 §7).
-    await page.getByRole("button", { name: "Security" }).click();
+    // The sessions surface lives on the account page since RUN-282
+    // (docs/32 §7, docs/37).
+    await page.goto("/account/sessions");
     await expect(page.getByText("Active Sessions")).toBeVisible();
 
     // Every listed session carries a parsed device label (the Playwright
@@ -20,7 +19,7 @@ test.describe("Flow 10: Session Control (Security Tab & Logout)", () => {
     // Logout through the user menu: the Logout RPC deletes the session row
     // and expires the cookie server-side (docs/32 §3.5) - not just a
     // client-side cache clear.
-    await page.getByText("Supervisor Admin").click();
+    await page.getByTestId("user-nav-trigger").click();
     await page.getByRole("menuitem", { name: /Sign Out/i }).click();
     await page.waitForURL(/login/);
 
@@ -35,7 +34,7 @@ test.describe("Flow 10: Session Control (Security Tab & Logout)", () => {
   }) => {
     await page.goto("/");
 
-    await page.getByText("Supervisor Admin").click();
+    await page.getByTestId("user-nav-trigger").click();
     await page.getByRole("menuitem", { name: /Sign Out/i }).click();
     await page.waitForURL(/login/);
     await expect(page.getByLabel("Username")).toBeVisible();

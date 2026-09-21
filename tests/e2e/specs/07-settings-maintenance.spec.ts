@@ -40,15 +40,15 @@ test.describe("Flow 07: System Settings & Maintenance", () => {
     await page.goto("/settings");
     await expect(page.getByText("System Concurrency & Resource Limits")).toBeVisible();
 
-    await page.getByRole("button", { name: "Security" }).click();
-    await expect(page.getByText("Active Sessions")).toBeVisible();
-    await expect(page).toHaveURL(/\/settings\?tab=security$/);
+    await page.getByRole("button", { name: "Users" }).click();
+    await expect(page.getByTestId("users-card")).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\?tab=users$/);
 
     await page.goBack();
     await expect(page.getByText("System Concurrency & Resource Limits")).toBeVisible();
 
     await page.goForward();
-    await expect(page.getByText("Active Sessions")).toBeVisible();
-    await expect(page).toHaveURL(/\/settings\?tab=security$/);
+    await expect(page.getByTestId("users-card")).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\?tab=users$/);
   });
 });

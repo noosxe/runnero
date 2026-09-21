@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { createRouterMock } from "@/test/router-mock";
 import { SettingsPage } from "./settings";
@@ -56,13 +55,6 @@ vi.mock("../lib/api/query-hooks", () => ({
     data: mockSettings,
     isLoading: false,
   }),
-  useOnboardingStatus: () => ({
-    data: { passkeyAvailable: false },
-  }),
-  usePasskeys: () => ({ data: [], isLoading: false }),
-  useEnrollPasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useRenamePasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeletePasskey: () => ({ mutate: vi.fn(), isPending: false }),
   useSetAppSetting: () => ({
     mutateAsync: mockSetMutate,
   }),
@@ -83,32 +75,6 @@ vi.mock("../lib/api/query-hooks", () => ({
   }),
   useDismissImageUpdate: () => ({
     mutateAsync: vi.fn(),
-  }),
-  useSessions: () => ({
-    data: [
-      {
-        id: 1n,
-        deviceLabel: "Firefox 130 on Linux",
-        createdAt: timestampFromDate(new Date("2026-09-01T10:00:00Z")),
-        lastSeenAt: timestampFromDate(new Date("2026-09-16T09:00:00Z")),
-        expiresAt: timestampFromDate(new Date("2026-09-17T10:00:00Z")),
-        absoluteExpiresAt: timestampFromDate(new Date("2026-10-01T10:00:00Z")),
-        isCurrent: true,
-      },
-    ],
-    isLoading: false,
-  }),
-  useRevokeSession: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-  }),
-  useRevokeOtherSessions: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-  }),
-  useChangePassword: () => ({
-    mutateAsync: vi.fn(),
-    isPending: false,
   }),
 }));
 
@@ -180,20 +146,6 @@ describe("SettingsPage", () => {
     expect(screen.getAllByText("pool-arm64-prod").length).toBeGreaterThan(0);
   });
 
-  it("navigates to the security tab via the URL (RUN-257)", () => {
-    const { rerender } = render(<SettingsPage search={{}} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /security/i }));
-    expect(mockNavigate).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "/settings", search: { tab: "security" } }),
-    );
-
-    rerender(<SettingsPage search={{ tab: "security" }} />);
-    expect(screen.getByText("Active Sessions")).toBeInTheDocument();
-    expect(screen.getByText("Firefox 130 on Linux")).toBeInTheDocument();
-    expect(screen.getByText("Current session")).toBeInTheDocument();
-  });
-
   it("deep-links straight to the users tab for an admin (RUN-257)", () => {
     render(<SettingsPage search={{ tab: "users" }} />);
     expect(screen.getByTestId("users-card")).toBeInTheDocument();
@@ -206,24 +158,25 @@ describe("SettingsPage", () => {
   });
 });
 
-// Role gating (RUN-236, docs/35 section 2.4): a viewer's settings page is
-// the Security tab only; admins additionally see the Users tab.
+// Role gating (RUN-236, docs/35 section 2.4, amended by RUN-282): a
+// viewer's settings page is the Instance tab only — personal account
+// surfaces live on /account; admins additionally see the admin tabs.
 describe("SettingsPage role gating", () => {
-  it("shows only the security tab for a viewer", () => {
+  it("shows only the instance tab for a viewer", () => {
     mockIsAdmin = false;
     render(<SettingsPage search={{}} />);
 
-    expect(screen.getByText("Security")).toBeInTheDocument();
+    expect(screen.getByTestId("instance-card")).toBeInTheDocument();
     expect(screen.queryByText("Global Constraints")).not.toBeInTheDocument();
     expect(screen.queryByText("Users")).not.toBeInTheDocument();
     mockIsAdmin = true;
   });
 
-  it("clamps an admin-only deep link to security for a viewer (RUN-257)", () => {
+  it("clamps an admin-only deep link to the instance tab for a viewer (RUN-257)", () => {
     mockIsAdmin = false;
     render(<SettingsPage search={{ tab: "users" }} />);
 
-    expect(screen.getByText("Active Sessions")).toBeInTheDocument();
+    expect(screen.getByTestId("instance-card")).toBeInTheDocument();
     expect(screen.queryByText("Users")).not.toBeInTheDocument();
     mockIsAdmin = true;
   });

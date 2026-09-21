@@ -15,7 +15,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -206,6 +205,9 @@ function NavSidebar() {
 
   const displayName = session?.username || "admin";
   const initials = displayName.slice(0, 2).toUpperCase();
+  // Role label for the footer menu (RUN-282): session role drives it, so
+  // the label tracks role changes instead of hardcoding "Supervisor Admin".
+  const roleLabel = session?.role === "admin" ? "Administrator" : "Viewer";
 
   const handleLogout = () => {
     // Real Logout RPC (docs/32 section 3.5): the server deletes the session
@@ -272,28 +274,34 @@ function NavSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
+              <DropdownMenuTrigger
+                render={<SidebarMenuButton size="lg" data-testid="user-nav-trigger" />}
+              >
                 <Avatar className="size-8 rounded-lg">
                   <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold text-foreground">{displayName}</span>
-                  <span className="truncate text-xs text-muted-foreground">Supervisor Admin</span>
+                  <span className="truncate text-xs text-muted-foreground">{roleLabel}</span>
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="end" className="min-w-56">
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel className="flex items-center gap-2">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void navigate({ to: "/account/security" });
+                    }}
+                  >
                     <Avatar className="size-8 rounded-lg">
                       <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-semibold">{displayName}</span>
                       <span className="truncate text-xs font-normal text-muted-foreground">
-                        Supervisor Admin
+                        {roleLabel}
                       </span>
                     </div>
-                  </DropdownMenuLabel>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                     <LogOut />

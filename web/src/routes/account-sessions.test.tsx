@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { SecurityTab } from "./security-tab";
+import { AccountSessionsTab } from "./account-sessions";
 
 const mockSessions = [
   {
@@ -26,9 +26,8 @@ const mockSessions = [
 
 const mockRevokeMutate = vi.fn();
 const mockRevokeOthersMutate = vi.fn();
-let mockPasskeyAvailable = false;
 
-vi.mock("../../lib/api/query-hooks", () => ({
+vi.mock("../lib/api/query-hooks", () => ({
   useSessions: () => ({
     data: mockSessions,
     isLoading: false,
@@ -41,42 +40,15 @@ vi.mock("../../lib/api/query-hooks", () => ({
     mutate: mockRevokeOthersMutate,
     isPending: false,
   }),
-  useChangePassword: () => ({
-    mutateAsync: vi.fn(),
-    isPending: false,
-  }),
-  useOnboardingStatus: () => ({
-    data: { passkeyAvailable: mockPasskeyAvailable },
-  }),
-  // PasskeysCard is a separate suite (passkeys-card.test.tsx); these stubs
-  // only satisfy its imports when it renders here.
-  usePasskeys: () => ({ data: [], isLoading: false }),
-  useEnrollPasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useRenamePasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeletePasskey: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-describe("SecurityTab", () => {
+describe("AccountSessionsTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPasskeyAvailable = false;
-  });
-
-  it("hides the passkeys card when WebAuthn is not configured", () => {
-    render(<SecurityTab />);
-
-    expect(screen.queryByText("Passkeys")).not.toBeInTheDocument();
-  });
-
-  it("shows the passkeys card when WebAuthn is configured", () => {
-    mockPasskeyAvailable = true;
-    render(<SecurityTab />);
-
-    expect(screen.getByText("Passkeys")).toBeInTheDocument();
   });
 
   it("renders every session with its device label", () => {
-    render(<SecurityTab />);
+    render(<AccountSessionsTab />);
 
     expect(screen.getByText("Firefox 130 on Linux")).toBeInTheDocument();
     expect(screen.getByText("curl 8.5.0")).toBeInTheDocument();
@@ -84,14 +56,14 @@ describe("SecurityTab", () => {
   });
 
   it("marks exactly the current session", () => {
-    render(<SecurityTab />);
+    render(<AccountSessionsTab />);
 
     expect(screen.getByText("Current session")).toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
   it("revokes a single session from its row", async () => {
-    render(<SecurityTab />);
+    render(<AccountSessionsTab />);
 
     // Scope to the curl row: it is not the current session.
     const curlRow = screen.getByText("curl 8.5.0").closest("tr");
@@ -103,7 +75,7 @@ describe("SecurityTab", () => {
   });
 
   it("confirms before revoking all other sessions", async () => {
-    render(<SecurityTab />);
+    render(<AccountSessionsTab />);
 
     fireEvent.click(screen.getByText(/revoke all other sessions \(1\)/i));
     expect(mockRevokeOthersMutate).not.toHaveBeenCalled();

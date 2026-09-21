@@ -19,11 +19,10 @@ test.describe("Flow 12: Passkey (WebAuthn) Login", () => {
     await login(page);
     await attachVirtualAuthenticator(page);
 
-    // Enroll through the Security tab: password re-check (docs/34 §4.2),
-    // then the browser creation prompt fires automatically.
-    await page.goto("/settings");
-    await page.getByRole("button", { name: "Security" }).click();
-    await expect(page.getByText("Active Sessions")).toBeVisible();
+    // Enroll through the account Security tab (RUN-282): password re-check
+    // (docs/34 §4.2), then the browser creation prompt fires automatically.
+    await page.goto("/account/security");
+    await expect(page.getByTestId("add-passkey-button")).toBeVisible();
 
     await page.getByTestId("add-passkey-button").click();
     // Scope to the dialog: the change-password card also has a
@@ -40,7 +39,7 @@ test.describe("Flow 12: Passkey (WebAuthn) Login", () => {
 
     // Log out; the login screen now offers the passkey entry point
     // (GetOnboardingStatus.passkey_available).
-    await page.getByText("Supervisor Admin").click();
+    await page.getByTestId("user-nav-trigger").click();
     await page.getByRole("menuitem", { name: /Sign Out/i }).click();
     await page.waitForURL(/login/);
     await expect(page.getByTestId("passkey-login-button")).toBeVisible();
@@ -50,9 +49,8 @@ test.describe("Flow 12: Passkey (WebAuthn) Login", () => {
     await page.getByTestId("passkey-login-button").click();
     await page.waitForURL((url) => !url.pathname.includes("/login"));
 
-    // A real session was issued: the auth gate accepts /settings.
-    await page.goto("/settings");
-    await page.getByRole("button", { name: "Security" }).click();
+    // A real session was issued: the auth gate accepts /account.
+    await page.goto("/account/sessions");
     await expect(page.getByText("Active Sessions")).toBeVisible();
   });
 
@@ -60,9 +58,9 @@ test.describe("Flow 12: Passkey (WebAuthn) Login", () => {
     // The passkey from the previous test persists in the suite database;
     // the password path must be entirely unaffected (docs/34 §3.3: two
     // independent complete paths).
-    await page.goto("/settings");
-    await page.getByRole("button", { name: "Security" }).click();
+    await page.goto("/account/sessions");
     await expect(page.getByText("Active Sessions")).toBeVisible();
+    await page.goto("/account/security");
     await expect(page.getByText("E2E virtual key")).toBeVisible();
   });
 
@@ -73,8 +71,8 @@ test.describe("Flow 12: Passkey (WebAuthn) Login", () => {
     await attachVirtualAuthenticator(page);
 
     // Enroll, then remove the passkey server-side.
-    await page.goto("/settings");
-    await page.getByRole("button", { name: "Security" }).click();
+    await page.goto("/account/security");
+    await expect(page.getByTestId("add-passkey-button")).toBeVisible();
     await page.getByTestId("add-passkey-button").click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Current password").fill(ADMIN_PASSWORD);
@@ -90,7 +88,7 @@ test.describe("Flow 12: Passkey (WebAuthn) Login", () => {
     // The authenticator still holds the credential locally, but the server
     // no longer knows it: Finish must reject, and the login screen must
     // say so instead of stranding the user (docs/34 §5.4).
-    await page.getByText("Supervisor Admin").click();
+    await page.getByTestId("user-nav-trigger").click();
     await page.getByRole("menuitem", { name: /Sign Out/i }).click();
     await page.waitForURL(/login/);
     await page.getByTestId("passkey-login-button").click();

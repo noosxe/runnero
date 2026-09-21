@@ -500,9 +500,12 @@ Config additions:
 | `webauthn_origins` | `https://<rp_id>` | CSV; validated against RP ID at startup |
 
 There is no "require passkey" switch: the password path is half of the
-recovery story (§3.2), so it stays enabled by design. The Security tab
-instead recommends enrolling a second passkey on a different device/sync
-account.
+recovery story (§3.2), so it stays enabled by design. The account Security
+tab instead recommends enrolling a second passkey on a different
+device/sync account. Since RUN-282 the enrollment surface is
+`/account/security`: the passkeys card shows for every role when WebAuthn
+is configured, and for admins only as an Empty state (naming the config
+keys) when it is not.
 
 ## 10. Security implications (threat walk)
 
@@ -539,7 +542,7 @@ account.
   passkey list rendering incl. sync/clone chips; enrollment flow happy path
   with a mocked ceremony client.
 - **E2E** (Playwright, Chromium): CDP `WebAuthn.enable` + virtual
-  authenticator — enroll on the Security tab, log out, passwordless login
+  authenticator — enroll on the account Security tab, log out, passwordless login
   with the virtual passkey, password-fallback login, wrong-key rejection,
   `GetOnboardingStatus` flag flips. Runs with `webauthn_rp_id=localhost` in
   the E2E compose env (the
