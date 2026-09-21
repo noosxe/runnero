@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1
+#
+# Base image: ubuntu:24.04 is deliberate — it matches the OS/version of
+# GitHub's official hosted runners (ImageOS=ubuntu24) for maximum workflow
+# parity. All packaged runners are glibc builds (no musl variant upstream),
+# so an alpine-based image is not viable. Both stages use this base.
 
 # ------------------------------------------------------------------------------
 # Stage 1: Downloader
@@ -147,17 +152,23 @@ RUN usermod -aG sudo runner \
 RUN mkdir -p /opt/hostedtoolcache \
     && chown -R 1001:1001 /opt/hostedtoolcache
 
-# Copy verified binaries and runner distribution from downloader stage (read-only for non-root runner)
+# Copy verified binaries and the runner distribution from the downloader
+# stage. The GitHub dist is owned by the runner user directly at COPY time
+# (--chown) so no extra recursive-chown layer is needed; it writes
+# .credentials/_diag here at registration time. The Gitea/Forgejo binaries
+# stay root-owned and world-executable.
 COPY --from=downloader --chown=root:root --chmod=755 /build/bin/act_runner /usr/local/bin/act_runner
 COPY --from=downloader --chown=root:root --chmod=755 /build/bin/forgejo-runner /usr/local/bin/forgejo-runner
-COPY --from=downloader /build/actions-runner /actions-runner
+COPY --from=downloader --chown=1001:1001 /build/actions-runner /actions-runner
 
-# Setup workspace and install agent runtime dependencies
+# Setup workspace and install agent runtime dependencies. Dependencies land
+# root-owned (the runner only reads them at runtime); only _work, which
+# receives checked-out job files, is created and owned by the runner user.
 WORKDIR /actions-runner
 RUN ./bin/installdependencies.sh \
     && mkdir -p /actions-runner/_work \
-    && chown -R 1001:1001 /actions-runner \
-    && chmod -R 755 /actions-runner
+    && chown 1001:1001 /actions-runner/_work \
+    && chmod 755 /actions-runner/_work
 
 # Copy and secure the orchestration entrypoint script (executable by runner, owned by root)
 COPY --chown=root:root --chmod=755 src/entrypoint.sh /entrypoint.sh
