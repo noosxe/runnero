@@ -383,7 +383,7 @@ curl -Iv https://runner.example.com/healthz
 Expected output:
 - TLS handshake negotiates `TLSv1.3` (or `TLSv1.2`).
 - HTTP response code `200 OK`.
-- Response contains `{ "status": "ok", ... }`.
+- Response contains `{ "status": "healthy", ... }` (endpoint contract: docs/02 §5).
 
 ### 2. Secure Cookie Verification
 Test authentication response headers to verify the `Secure` cookie flag is set:
