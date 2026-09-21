@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { usePageTitle } from "../hooks/use-page-title";
 import { useAppForm, applyFieldErrors } from "../lib/forms";
 import { cn } from "cn";
@@ -32,28 +32,16 @@ import { UsersCard } from "../components/settings/users-card";
 import { InstanceCard } from "../components/settings/instance-card";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
 import { Sliders, RefreshCw, Database, Save, Archive, Users, Info } from "lucide-react";
-import { resolveRouteTab } from "../lib/route-tab";
-
-export interface SettingsPageSearch {
-  tab?: string;
-}
 
 /**
  * Settings tabs and their role visibility (docs/35 section 2.4, amended by
  * RUN-282): the instance tab is the only viewer surface - personal account
  * management moved to /account - and the remaining tabs are admin-only.
- * Tab selection lives in the URL (RUN-257), so this list is the clamp set
- * for `?tab=` values.
+ * Tabs are path segments (RUN-283): each tab is its own route
+ * (`/settings/<tab>`), and the router redirects role-forbidden tabs, so the
+ * component always renders a visible tab.
  */
-type SettingsTab = "instance" | "constraints" | "images" | "backups" | "users";
-
-const SETTINGS_TABS: readonly { id: SettingsTab; adminOnly: boolean }[] = [
-  { id: "instance", adminOnly: false },
-  { id: "constraints", adminOnly: true },
-  { id: "images", adminOnly: true },
-  { id: "backups", adminOnly: true },
-  { id: "users", adminOnly: true },
-];
+export type SettingsTab = "instance" | "constraints" | "images" | "backups" | "users";
 
 /**
  * Global constraints form (docs/30 §5.4): the four retention/quota values
@@ -85,27 +73,15 @@ const CONSTRAINT_BOUNDS: Record<
   jobRetentionDays: { min: 1, max: 365, label: "History Retention Period" },
 };
 
-export function SettingsPage({ search }: { search: SettingsPageSearch }) {
+export function SettingsPage({ tab }: { tab: SettingsTab }) {
   usePageTitle("Settings");
   const isAdmin = useIsAdmin();
-  const navigate = useNavigate();
-  // Tab selection is URL state (RUN-257): `/settings?tab=…` deep links
-  // work and browser back/forward restores the previous tab. Visible tabs
-  // are role-scoped (docs/35 section 2.4): a viewer's settings page is the
-  // Instance tab only, so unknown or admin-only `?tab=` values clamp to
-  // the role default — admins land on Global Constraints, viewers on
-  // Instance (RUN-282: personal security surfaces live on /account). The
-  // session query is prefetched by the authenticated route guard, so the
-  // role (and thus the default) is known on first paint.
-  const visibleTabs = SETTINGS_TABS.filter((t) => isAdmin || !t.adminOnly);
-  const activeTab = resolveRouteTab(
-    search.tab,
-    visibleTabs.map((t) => t.id),
-    isAdmin ? "constraints" : "instance",
-  );
-  const selectTab = (tab: SettingsTab) => {
-    void navigate({ to: "/settings", search: { tab } });
-  };
+  // Tab selection is a path segment (RUN-283): `/settings/<tab>` deep links
+  // work and browser back/forward walks the tab history. The route layer
+  // owns the defaults and role gating — admins land on Global Constraints,
+  // viewers on Instance (docs/35 section 2.4, RUN-282) — so the component
+  // renders whichever tab its route handed it.
+  const activeTab = tab;
 
   // Admin-bucket read: only fired for admins (docs/35 section 2.2).
   const { data: settings, isLoading: settingsLoading } = useAppSettings(isAdmin);
@@ -244,11 +220,13 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-border ">
+      <div className="flex border-b border-border " role="tablist" aria-label="Settings sections">
         {/* Tab: Instance - informational for every role (RUN-251, docs/09 §4) */}
-        <button
-          type="button"
-          onClick={() => selectTab("instance")}
+        <Link
+          to="/settings/instance"
+          role="tab"
+          aria-selected={activeTab === "instance"}
+          aria-current={activeTab === "instance" ? "page" : undefined}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "instance"
@@ -258,12 +236,14 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
         >
           <Info className="size-4" />
           <span>Instance</span>
-        </button>
+        </Link>
 
         {isAdmin && (
-          <button
-            type="button"
-            onClick={() => selectTab("constraints")}
+          <Link
+            to="/settings/constraints"
+            role="tab"
+            aria-selected={activeTab === "constraints"}
+            aria-current={activeTab === "constraints" ? "page" : undefined}
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "constraints"
@@ -273,13 +253,15 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           >
             <Sliders className="size-4" />
             <span>Global Constraints</span>
-          </button>
+          </Link>
         )}
 
         {isAdmin && (
-          <button
-            type="button"
-            onClick={() => selectTab("images")}
+          <Link
+            to="/settings/images"
+            role="tab"
+            aria-selected={activeTab === "images"}
+            aria-current={activeTab === "images" ? "page" : undefined}
             className={cn(
               "relative flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "images"
@@ -290,13 +272,15 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
             <RefreshCw className="size-4" />
             <span>Runner Image Updates</span>
             {updates && updates.length > 0 && <WarningBadge>{updates.length}</WarningBadge>}
-          </button>
+          </Link>
         )}
 
         {isAdmin && (
-          <button
-            type="button"
-            onClick={() => selectTab("backups")}
+          <Link
+            to="/settings/backups"
+            role="tab"
+            aria-selected={activeTab === "backups"}
+            aria-current={activeTab === "backups" ? "page" : undefined}
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "backups"
@@ -306,13 +290,15 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           >
             <Database className="size-4" />
             <span>Database & Retention</span>
-          </button>
+          </Link>
         )}
 
         {isAdmin && (
-          <button
-            type="button"
-            onClick={() => selectTab("users")}
+          <Link
+            to="/settings/users"
+            role="tab"
+            aria-selected={activeTab === "users"}
+            aria-current={activeTab === "users" ? "page" : undefined}
             className={cn(
               "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
               activeTab === "users"
@@ -322,7 +308,7 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           >
             <Users className="size-4" />
             <span>Users</span>
-          </button>
+          </Link>
         )}
       </div>
 

@@ -15,7 +15,7 @@ test("admin creates a viewer, who sees the read-only surface", async ({ page }) 
 
   // Create the viewer via the Users tab (admin-only surface).
   await page.goto("/settings");
-  await page.getByRole("button", { name: "Users" }).click();
+  await page.getByRole("tab", { name: "Users" }).click();
   await expect(page.getByTestId("users-card")).toBeVisible();
   await page.getByTestId("add-user-button").click();
   const dialog = page.getByRole("dialog");
@@ -41,15 +41,16 @@ test("admin creates a viewer, who sees the read-only surface", async ({ page }) 
   // amended by RUN-282: personal surfaces moved to /account).
   await page.goto("/settings");
   await expect(page.getByTestId("instance-card")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Security" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Global Constraints" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Security" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Users" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Global Constraints" })).toHaveCount(0);
 
-  // An admin-only deep link clamps back to instance for a viewer (RUN-257):
-  // the param never renders a hidden admin surface.
-  await page.goto("/settings?tab=users");
+  // An admin-only deep link redirects to the instance tab for a viewer
+  // (RUN-283): the path never renders a hidden admin surface.
+  await page.goto("/settings/users");
+  await expect(page).toHaveURL(/\/settings\/instance$/);
   await expect(page.getByTestId("instance-card")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Users" })).toHaveCount(0);
 
   // The account page is for every role; the passkeys card shows because the
   // E2E stack configures WebAuthn (RUN-282).
@@ -72,7 +73,7 @@ test("promotes the viewer to admin; the change applies to their session", async 
   await login(page);
 
   await page.goto("/settings");
-  await page.getByRole("button", { name: "Users" }).click();
+  await page.getByRole("tab", { name: "Users" }).click();
   await page.getByTestId("users-card").waitFor({ state: "visible" });
   const row = page.getByRole("row", { name: new RegExp(VIEWER_USERNAME) });
   await row.waitFor({ state: "visible" });
@@ -93,7 +94,7 @@ test("promotes the viewer to admin; the change applies to their session", async 
   await page.waitForURL((url) => !url.pathname.includes("/login"));
 
   await page.goto("/settings");
-  await expect(page.getByRole("button", { name: "Users" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Users" })).toBeVisible();
 });
 
 test("a viewer's passkey signs in at viewer role", async ({ page }) => {
@@ -101,7 +102,7 @@ test("a viewer's passkey signs in at viewer role", async ({ page }) => {
   // uses: demote through the users tab as admin.
   await login(page);
   await page.goto("/settings");
-  await page.getByRole("button", { name: "Users" }).click();
+  await page.getByRole("tab", { name: "Users" }).click();
   const row = page.getByRole("row", { name: new RegExp(VIEWER_USERNAME) });
   await row.waitFor({ state: "visible" });
   await row.getByRole("button", { name: `Change role for ${VIEWER_USERNAME}` }).click();
@@ -137,7 +138,7 @@ test("a viewer's passkey signs in at viewer role", async ({ page }) => {
 
   await page.goto("/settings");
   await expect(page.getByTestId("instance-card")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Users" })).toHaveCount(0);
   await page.goto("/account/sessions");
   await expect(page.getByText("Active Sessions")).toBeVisible();
 });

@@ -218,14 +218,14 @@ log rendering:
    **View capture** → runner tab prefilled with the record's runner id;
    **View boot** → supervisor tab pinned to that `boot_id`'s files.
 3. **Runners** — lookup by runner id (free-text, prefilled via
-   `/logs?tab=runners&runner=<id>` deep links from removal rows and job
+   `/logs/runners?runner=<id>` deep links from removal rows and job
    history) → tail-capped capture in `LogTerminal`.
 
 Client wiring follows the existing conventions: TanStack Query for the
 list endpoints, the `streaming-hooks` pattern for
 `StreamSupervisorLog`, structural `data-testid`s for E2E (no styling
 classes as selectors — the #283 rule). No new client state machine: tabs
-are URL-driven (`/logs?tab=…`), which keeps deep links and browser
+are path-driven (`/logs/<tab>` since RUN-283), which keeps deep links and browser
 back/forward free.
 
 ### 5.4 Retention & permission parity

@@ -29,26 +29,28 @@ test.describe("Flow 07: System Settings & Maintenance", () => {
     await expect.poll(bg).toBe(lightBg);
   });
 
-  test("settings tabs live in the URL: deep link + back/forward (RUN-257)", async ({
+  test("settings tabs are path segments: deep link + back/forward (RUN-283)", async ({
     authedPage: page,
   }) => {
     // Deep link straight into an admin-only tab.
-    await page.goto("/settings?tab=users");
+    await page.goto("/settings/users");
     await expect(page.getByTestId("users-card")).toBeVisible();
 
-    // Tab clicks push history entries: back/forward must restore tabs.
+    // Bare /settings canonicalizes to the admin default tab.
     await page.goto("/settings");
     await expect(page.getByText("System Concurrency & Resource Limits")).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\/constraints$/);
 
-    await page.getByRole("button", { name: "Users" }).click();
+    // Tab clicks push history entries: back/forward must restore tabs.
+    await page.getByRole("tab", { name: "Users" }).click();
     await expect(page.getByTestId("users-card")).toBeVisible();
-    await expect(page).toHaveURL(/\/settings\?tab=users$/);
+    await expect(page).toHaveURL(/\/settings\/users$/);
 
     await page.goBack();
     await expect(page.getByText("System Concurrency & Resource Limits")).toBeVisible();
 
     await page.goForward();
     await expect(page.getByTestId("users-card")).toBeVisible();
-    await expect(page).toHaveURL(/\/settings\?tab=users$/);
+    await expect(page).toHaveURL(/\/settings\/users$/);
   });
 });

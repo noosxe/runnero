@@ -54,7 +54,7 @@ function ViewCaptureCell({ runnerId }: { runnerId: string }) {
       size="xs"
       variant="outline"
       data-testid="logs-removal-view-capture"
-      onClick={() => navigate({ to: "/logs", search: { tab: "runners", runner: runnerId } })}
+      onClick={() => navigate({ to: "/logs/runners", search: { runner: runnerId } })}
     >
       View capture
     </Button>
@@ -70,7 +70,7 @@ function ViewBootCell({ bootId }: { bootId: string }) {
       variant="outline"
       data-testid="logs-removal-view-boot"
       disabled={!bootId}
-      onClick={() => navigate({ to: "/logs", search: { tab: "supervisor", boot: bootId } })}
+      onClick={() => navigate({ to: "/logs/supervisor", search: { boot: bootId } })}
     >
       View boot
     </Button>

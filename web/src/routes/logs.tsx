@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { usePageTitle } from "../hooks/use-page-title";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useIsAdmin } from "@/lib/api/query-hooks";
 import {
   usePools,
@@ -27,17 +27,14 @@ import { removalsColumns } from "./logs-removals-columns";
 import { bootColumns, shortBootId } from "./logs-boot-columns";
 import { DataTable, useAppTable } from "../lib/tables";
 
-export interface LogsPageSearch {
-  tab?: string;
-  runner?: string;
-  boot?: string;
-}
+/** Log view tabs — each one is its own route path under /logs (RUN-283). */
+export type LogsTab = "supervisor" | "removals" | "runners";
 
-const TABS = [
+const TABS: readonly { id: LogsTab; label: string }[] = [
   { id: "supervisor", label: "Supervisor" },
   { id: "removals", label: "Removals" },
   { id: "runners", label: "Runners" },
-] as const;
+];
 
 const REMOVAL_REASONS = [
   "reap",
@@ -55,8 +52,8 @@ function SupervisorTab({ deepLinkBoot }: { deepLinkBoot?: string }) {
   const navigate = useNavigate();
   const boots = useSupervisorBoots();
   // Selected boot is local state seeded from the URL: row clicks update it
-  // directly (and mirror into the URL), while /logs?boot=… deep links seed it
-  // on mount.
+  // directly (and mirror into the URL), while /logs/supervisor?boot=…
+  // deep links seed it on mount.
   const [selectedBoot, setSelectedBoot] = useState<string | undefined>(deepLinkBoot);
   const [follow, setFollow] = useState(false);
 
@@ -88,8 +85,8 @@ function SupervisorTab({ deepLinkBoot }: { deepLinkBoot?: string }) {
     }
     setSelectedBoot(file);
     void navigate({
-      to: "/logs",
-      search: { tab: "supervisor", boot: file },
+      to: "/logs/supervisor",
+      search: { boot: file },
     });
   };
 
@@ -364,21 +361,14 @@ function RunnersTab({ initialRunner }: { initialRunner?: string }) {
   );
 }
 
-export function LogsPage({ search }: { search: LogsPageSearch }) {
+export function LogsPage({ tab, runner, boot }: { tab: LogsTab; runner?: string; boot?: string }) {
   usePageTitle("Logs");
-  const navigate = useNavigate();
   // Supervisor boot logs and removal records are admin surfaces
-  // (docs/35 section 2.2, OQ-1); viewers get the runner logs tab.
+  // (docs/35 section 2.2, OQ-1); viewers get the runner logs tab. Tabs are
+  // path segments (RUN-283): each tab is its own route, the router owns
+  // the role defaults, and this strip only renders the visible ones.
   const isAdmin = useIsAdmin();
   const visibleTabs = TABS.filter((t) => isAdmin || t.id === "runners");
-
-  const tab = visibleTabs.some((t) => t.id === search.tab)
-    ? (search.tab as string)
-    : visibleTabs[0].id;
-
-  const selectTab = (id: string) => {
-    void navigate({ to: "/logs", search: { tab: id } });
-  };
 
   return (
     <div className="flex h-full flex-col gap-6 p-6">
@@ -400,12 +390,13 @@ export function LogsPage({ search }: { search: LogsPageSearch }) {
         aria-label="Log views"
       >
         {visibleTabs.map((t) => (
-          <button
+          <Link
             key={t.id}
+            to={`/logs/${t.id}`}
             role="tab"
             aria-selected={tab === t.id}
+            aria-current={tab === t.id ? "page" : undefined}
             data-testid={`logs-tab-${t.id}`}
-            onClick={() => selectTab(t.id)}
             className={cn(
               "rounded-lg px-4 py-1.5 text-sm font-medium transition-colors",
               tab === t.id
@@ -414,13 +405,13 @@ export function LogsPage({ search }: { search: LogsPageSearch }) {
             )}
           >
             {t.label}
-          </button>
+          </Link>
         ))}
       </div>
 
-      {tab === "supervisor" && <SupervisorTab deepLinkBoot={search.boot} />}
+      {tab === "supervisor" && <SupervisorTab deepLinkBoot={boot} />}
       {tab === "removals" && <RemovalsTab />}
-      {tab === "runners" && <RunnersTab initialRunner={search.runner} />}
+      {tab === "runners" && <RunnersTab initialRunner={runner} />}
     </div>
   );
 }

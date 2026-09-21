@@ -271,7 +271,7 @@ test.describe("Flow 14: Job Execution History", () => {
     await expect(page.getByText("Listening for Jobs.").first()).toBeVisible();
 
     // --- /logs Runners tab: first by-NAME lookup driven from the UI. -----
-    await page.goto("/logs?tab=runners");
+    await page.goto("/logs/runners");
     await page.getByTestId("logs-runner-input").fill(runnerName);
     await page.getByTestId("logs-runner-load").click();
     await expect(page.getByText("Historical Archive")).toBeVisible();

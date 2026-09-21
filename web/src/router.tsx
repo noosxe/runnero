@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "./components/layout/app-shell";
 import { DashboardPage } from "./routes/dashboard";
 import { PoolsPage } from "./routes/pools";
-import { LogsPage, type LogsPageSearch } from "./routes/logs";
+import { LogsPage, type LogsTab } from "./routes/logs";
 import { PoolDetailPage, type PoolDetailPageSearch } from "./routes/pool-detail";
 import { HistoryPage } from "./routes/history";
 import { HistoryDetailPage } from "./routes/history-detail";
@@ -19,7 +19,7 @@ import { RenovatePage } from "./routes/renovate";
 import { AccountPage } from "./routes/account";
 import { AccountSecurityTab } from "./routes/account-security";
 import { AccountSessionsTab } from "./routes/account-sessions";
-import { SettingsPage, type SettingsPageSearch } from "./routes/settings";
+import { SettingsPage, type SettingsTab } from "./routes/settings";
 import { LoginPage } from "./routes/login";
 import { OnboardingPage } from "./routes/onboarding";
 import { GuardErrorPage } from "./routes/guard-error";
@@ -145,17 +145,66 @@ const historyDetailRoute = createRoute({
   component: HistoryDetailPage,
 });
 
+// Logs (RUN-283): tabs are path segments, not ?tab= params — each tab is
+// its own route so deep links, refresh, and back/forward restore it without
+// clamping. Data state stays in search params: ?boot= seeds the boot viewer
+// and ?runner= prefills the capture lookup (docs/29).
 const logsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "/logs",
-  validateSearch: (search: Record<string, unknown>): LogsPageSearch => ({
-    tab: typeof search.tab === "string" ? search.tab : undefined,
-    runner: typeof search.runner === "string" ? search.runner : undefined,
+  component: () => <Outlet />,
+});
+
+const logsIndexRoute = createRoute({
+  getParentRoute: () => logsRoute,
+  path: "/",
+  beforeLoad: async ({ context }) => {
+    // /logs is not a surface of its own: canonicalize to the role default.
+    const tab: LogsTab = context.session.role === "admin" ? "supervisor" : "runners";
+    throw redirect({ to: `/logs/${tab}`, replace: true });
+  },
+});
+
+const logsSupervisorRoute = createRoute({
+  getParentRoute: () => logsRoute,
+  path: "supervisor",
+  validateSearch: (search: Record<string, unknown>): { boot?: string } => ({
     boot: typeof search.boot === "string" ? search.boot : undefined,
   }),
-  component: function LogsRouteComponent() {
-    const search = logsRoute.useSearch();
-    return <LogsPage search={search} />;
+  // Supervisor boot logs are an admin surface (docs/35 section 2.2, OQ-1);
+  // a viewer deep link canonicalizes to the runner logs tab.
+  beforeLoad: ({ context }) => {
+    if (context.session.role !== "admin") {
+      throw redirect({ to: "/logs/runners", replace: true });
+    }
+  },
+  component: function LogsSupervisorRoute() {
+    const { boot } = logsSupervisorRoute.useSearch();
+    return <LogsPage tab="supervisor" boot={boot} />;
+  },
+});
+
+const logsRemovalsRoute = createRoute({
+  getParentRoute: () => logsRoute,
+  path: "removals",
+  // Removal records are an admin surface (docs/35 section 2.2, OQ-1).
+  beforeLoad: ({ context }) => {
+    if (context.session.role !== "admin") {
+      throw redirect({ to: "/logs/runners", replace: true });
+    }
+  },
+  component: () => <LogsPage tab="removals" />,
+});
+
+const logsRunnersRoute = createRoute({
+  getParentRoute: () => logsRoute,
+  path: "runners",
+  validateSearch: (search: Record<string, unknown>): { runner?: string } => ({
+    runner: typeof search.runner === "string" ? search.runner : undefined,
+  }),
+  component: function LogsRunnersRoute() {
+    const { runner } = logsRunnersRoute.useSearch();
+    return <LogsPage tab="runners" runner={runner} />;
   },
 });
 
@@ -201,21 +250,44 @@ const renovateRoute = createRoute({
   component: RenovatePage,
 });
 
+// Settings (RUN-283): tabs are path segments, not ?tab= params (matching
+// the /account pattern, docs/37). Each tab is its own route; admin-only
+// tabs redirect a viewer deep link to the instance tab (docs/35 §2.4).
 const settingsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "/settings",
-  // Tab is URL state (RUN-257): deep links like /settings?tab=users work
-  // and back/forward walks the tab history. Values are clamped against the
-  // role-scoped tab list in SettingsPage (admins default to constraints,
-  // viewers to security).
-  validateSearch: (search: Record<string, unknown>): SettingsPageSearch => ({
-    tab: typeof search.tab === "string" ? search.tab : undefined,
-  }),
-  component: function SettingsRouteComponent() {
-    const search = settingsRoute.useSearch();
-    return <SettingsPage search={search} />;
+  component: () => <Outlet />,
+});
+
+const settingsIndexRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/",
+  beforeLoad: async ({ context }) => {
+    // /settings is not a surface of its own: canonicalize to the role
+    // default — admins land on Global Constraints, viewers on Instance.
+    const tab: SettingsTab = context.session.role === "admin" ? "constraints" : "instance";
+    throw redirect({ to: `/settings/${tab}`, replace: true });
   },
 });
+
+function settingsTabRoute(tab: SettingsTab, adminOnly: boolean) {
+  return createRoute({
+    getParentRoute: () => settingsRoute,
+    path: tab,
+    beforeLoad: ({ context }) => {
+      if (adminOnly && context.session.role !== "admin") {
+        throw redirect({ to: "/settings/instance", replace: true });
+      }
+    },
+    component: () => <SettingsPage tab={tab} />,
+  });
+}
+
+const settingsInstanceRoute = settingsTabRoute("instance", false);
+const settingsConstraintsRoute = settingsTabRoute("constraints", true);
+const settingsImagesRoute = settingsTabRoute("images", true);
+const settingsBackupsRoute = settingsTabRoute("backups", true);
+const settingsUsersRoute = settingsTabRoute("users", true);
 
 // Route Tree
 const routeTree = rootRoute.addChildren([
@@ -227,11 +299,23 @@ const routeTree = rootRoute.addChildren([
     poolDetailRoute,
     historyRoute,
     historyDetailRoute,
-    logsRoute,
+    logsRoute.addChildren([
+      logsIndexRoute,
+      logsSupervisorRoute,
+      logsRemovalsRoute,
+      logsRunnersRoute,
+    ]),
     profilesRoute,
     renovateRoute,
     accountRoute.addChildren([accountIndexRoute, accountSecurityRoute, accountSessionsRoute]),
-    settingsRoute,
+    settingsRoute.addChildren([
+      settingsIndexRoute,
+      settingsInstanceRoute,
+      settingsConstraintsRoute,
+      settingsImagesRoute,
+      settingsBackupsRoute,
+      settingsUsersRoute,
+    ]),
   ]),
 ]);
 

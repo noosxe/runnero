@@ -114,12 +114,12 @@ graph TD
 **Guard RPC failures fail closed (RUN-243).** The matrix above is only evaluated on a *successful* `GetOnboardingStatus` response. When the RPC itself fails (network blip, unreachable supervisor), the guards propagate the error instead of synthesizing a fresh-install default — the router renders a dedicated guard-error screen ("Can't reach the supervisor", retry button) on `/login`, `/onboarding`, and all protected routes. A failed status check must never look like a fresh install, or a transient error would strand a fully onboarded operator on the onboarding wizard, one submit away from re-running SetupAdmin against an existing database.
 ### 2.2 URL-Driven Tab State (RUN-257)
 
-Tabbed routes keep the active tab in the route's search params (`?tab=…`) instead of component state, so browser back/forward walks the tab history and deep links open the exact tab. This mirrors the `/logs` pattern (docs/29: "tabs are URL-driven").
+Tabbed routes keep the active tab as a **path segment** (`/settings/users`, `/logs/removals`, `/account/security`) instead of component state — each tab is its own child route, so browser back/forward walks the tab history and deep links open the exact tab (RUN-283, following the /account pattern from docs/37). Data state rides search params (`/logs/supervisor?boot=…`, `/logs/runners?runner=…`). The pool detail page (RUN-258) still uses a `?tab=` search param; migrating it is tracked separately.
 
 - `validateSearch` on the route types the param as an optional string; the page component owns clamping.
 - Clamping goes through the shared `resolveRouteTab(raw, allowed, fallback)` helper (`web/src/lib/route-tab.ts`): a missing, unknown, or role-forbidden value renders the fallback tab — never a hidden surface, never a crash.
 - Tab buttons `navigate()` instead of `setState`, so every switch is a history entry.
-- `/settings` specifics: visible tabs are role-scoped (docs/35 §2.4 — instance + security for every role, the rest admin-only). Admins default to Global Constraints, viewers to Security; a viewer deep link like `/settings?tab=users` clamps back to Security.
+- `/settings` specifics (RUN-282/RUN-283): tabs are `instance` / `constraints` / `images` / `backups` / `users`; visible tabs are role-scoped (docs/35 §2.4 — instance for every role, the rest admin-only; personal surfaces moved to `/account`). `/settings` redirects to the role default — Global Constraints for admins, Instance for viewers — and a viewer deep link like `/settings/users` redirects to `/settings/instance` at the route level.
 - `/pools/$poolId` specifics (RUN-258): tabs are `runners` (default) | `config` | `renovate`; unknown values clamp back to `runners`, and the param is optional so every existing deep link into pool detail keeps working.
 
 ---

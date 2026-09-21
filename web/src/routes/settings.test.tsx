@@ -80,7 +80,7 @@ vi.mock("../lib/api/query-hooks", () => ({
 
 describe("SettingsPage", () => {
   it("renders global constraints form and allows modifying retention days", async () => {
-    render(<SettingsPage search={{}} />);
+    render(<SettingsPage tab="constraints" />);
 
     expect(screen.getByText("Supervisor Settings & Administration")).toBeInTheDocument();
     expect(screen.getByText("Global Runner Quota")).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("SettingsPage", () => {
   });
 
   it("blocks save when a constraint leaves its class C range (RUN-222)", async () => {
-    render(<SettingsPage search={{}} />);
+    render(<SettingsPage tab="constraints" />);
 
     const timeoutInput = screen.getByLabelText(/graceful drain timeout/i) as HTMLInputElement;
     await waitFor(() => expect(timeoutInput.value).toBe("400"));
@@ -131,30 +131,22 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("navigates to the runner image updates tab via the URL (RUN-257)", () => {
-    const { rerender } = render(<SettingsPage search={{}} />);
+  it("links the runner image updates tab as a path segment (RUN-283)", () => {
+    const { rerender } = render(<SettingsPage tab="constraints" />);
 
-    fireEvent.click(screen.getByRole("button", { name: /runner image updates/i }));
-    expect(mockNavigate).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "/settings", search: { tab: "images" } }),
-    );
+    const imagesTab = screen.getByRole("tab", { name: /runner image updates/i });
+    expect(imagesTab.getAttribute("href")).toBe("/settings/images");
 
-    // The router owns the tab: rendering with the param shows the content.
-    rerender(<SettingsPage search={{ tab: "images" }} />);
+    // The router owns the tab: the route hands the component a fixed tab.
+    rerender(<SettingsPage tab="images" />);
     expect(screen.getByText("Runner Image Update Management")).toBeInTheDocument();
     expect(screen.getByText("Pending Image Notifications")).toBeInTheDocument();
     expect(screen.getAllByText("pool-arm64-prod").length).toBeGreaterThan(0);
   });
 
-  it("deep-links straight to the users tab for an admin (RUN-257)", () => {
-    render(<SettingsPage search={{ tab: "users" }} />);
+  it("deep-links straight to the users tab for an admin (RUN-283)", () => {
+    render(<SettingsPage tab="users" />);
     expect(screen.getByTestId("users-card")).toBeInTheDocument();
-  });
-
-  it("clamps unknown tab values to the admin default (RUN-257)", () => {
-    render(<SettingsPage search={{ tab: "not-a-tab" }} />);
-    expect(screen.getByText("System Concurrency & Resource Limits")).toBeInTheDocument();
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
 
@@ -164,7 +156,7 @@ describe("SettingsPage", () => {
 describe("SettingsPage role gating", () => {
   it("shows only the instance tab for a viewer", () => {
     mockIsAdmin = false;
-    render(<SettingsPage search={{}} />);
+    render(<SettingsPage tab="instance" />);
 
     expect(screen.getByTestId("instance-card")).toBeInTheDocument();
     expect(screen.queryByText("Global Constraints")).not.toBeInTheDocument();
@@ -172,18 +164,13 @@ describe("SettingsPage role gating", () => {
     mockIsAdmin = true;
   });
 
-  it("clamps an admin-only deep link to the instance tab for a viewer (RUN-257)", () => {
-    mockIsAdmin = false;
-    render(<SettingsPage search={{ tab: "users" }} />);
-
-    expect(screen.getByTestId("instance-card")).toBeInTheDocument();
-    expect(screen.queryByText("Users")).not.toBeInTheDocument();
-    mockIsAdmin = true;
-  });
-
+  // Route-level gating (RUN-283): the route layer redirects admin-only
+  // deep links for viewers (covered by the E2E viewer flow), so the
+  // component only ever receives a visible tab. This suite pins that an
+  // admin deep link renders the users card.
   it("shows the users tab for an admin (deep link)", async () => {
     mockIsAdmin = true;
-    render(<SettingsPage search={{ tab: "users" }} />);
+    render(<SettingsPage tab="users" />);
     await waitFor(() => expect(screen.getByTestId("users-card")).toBeInTheDocument());
   });
 });
