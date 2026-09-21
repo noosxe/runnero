@@ -847,3 +847,46 @@ At, Completed At, Duration, Queue Wait) and pool runners (State, Uptime).
 Sorting is client-side over the currently displayed rows only, cycles
 asc → desc → reset, and never changes the server query. All other columns and
 tables keep static headers.
+
+## 11. Accessibility Conventions (RUN-255, docs/36)
+
+The product targets WCAG 2.2 AA with automated enforcement: the E2E suite
+fails on serious/critical axe violations across the full route × role ×
+theme matrix, and `web/src/test/axe-composites.test.tsx` axe-scans the
+shared composites in vitest (both gates in docs/13 §3.4). The conventions
+below are what those gates assume; new UI that follows them passes.
+
+- **Heading outline:** every page root is one `<h1>` (per-route `usePageTitle`
+  supplies the document title; the visible h1 stays in the page).
+  `CardTitle` renders `<h2>` — cards sit directly under the page h1, so
+  card titles must not skip a level. Sections inside a dialog nest under
+  the dialog title (Base UI renders `DialogTitle` as `<h2>`), so wizard
+  step headings are `<h3>`.
+- **Naming:** icon-only controls carry an accessible name — `aria-label`
+  on the control (the LogTerminal filter input) or visible text in the
+  toggle (Pause, Auto-scroll). A `placeholder` is never a name.
+- **Live regions:** route changes announce through one polite
+  `role="status"` region in the app shell; failed submissions (login,
+  passkey, wizard step) render `role="alert"` banners. The LogTerminal
+  viewport is `role="log"` with `aria-live="off"` **permanently** (docs/36
+  §5.4): streaming stdout must not be dictated; users pause and read.
+  Do not enable polite streaming.
+- **Tables:** sortable headers cycle asc → desc → reset and the shell
+  publishes `aria-sort` on every header cell (§10.3); action columns use
+  sr-only header names.
+- **Charts:** decorative SVGs are `aria-hidden` and their card carries an
+  sr-only current-state summary computed from the same query data;
+  tooltips are never the only carrier of information (badge descriptions
+  duplicate as sr-only text).
+- **Forms:** every field pairs `aria-invalid` with `aria-describedby` →
+  the inline error (`role="alert"`) — the docs/30 §5.6 markup contract,
+  which `ui/field.tsx` implements. Submit buttons set `aria-disabled`
+  while gated and `aria-busy` while submitting. Credential fields declare
+  `autoComplete` (`username`, `current-password`, `new-password`).
+- **Focus:** `:focus-visible` rings on everything interactive; dialogs
+  open with focus on the first meaningful control, trap it, restore it on
+  close, and failed wizard steps focus the first invalid field.
+- **Theme tokens:** text and icons use AA-tuned tokens (`--link` for
+  accent text/icons, per-theme `--muted-foreground`/`--destructive`);
+  alpha-diluted small text (`/70`–`/90`) cannot pass 4.5:1 and is not
+  used. The LogTerminal is theme-independent (`terminal-*` tokens only).

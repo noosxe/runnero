@@ -130,7 +130,10 @@ Findings land in a new "Appendix A — Baseline findings" section of this doc:
 per finding — surface, WCAG SC, axe rule or manual origin, impact
 (minor/moderate/serious/critical), fix phase mapping. The audit PR records
 the baseline; later PRs tick items off. The appendix is deleted when the
-last item ships.
+last item ships. (Completed in RUN-265: every fix item shipped — A1/A3/A4
+in RUN-263, contrast in RUN-266, A5 in RUN-267 — and the appendix was
+removed. The one permanent exception, the onboarding recorded skip, lives
+where it is enforced: the scan spec's matrix comment and docs/13 §3.4.)
 
 ## 5. Phase 2 — Fix by area
 
@@ -232,7 +235,7 @@ failed login (route live region), passkey ceremony prompts carry accessible
 names, and the virtual-authenticator E2E flow keeps working unchanged
 (§7 — no ceremony change).
 
-## 6. Phase 3 — Automated enforcement
+## 6. Phase 3 — Automated enforcement (shipped in RUN-265)
 
 ### 6.1 E2E gate
 
@@ -254,6 +257,21 @@ plus route load, the spec adds roughly 3–4 minutes to the containerized
 suite (playwright playtime today: 1.6 m for 31 tests). Accepted; if it
 grows, the scan is the first candidate to split into its own Make target
 (`test-e2e-a11y`) that CI runs in the same workflow job.
+
+**Shakedown (first enforcing runs, RUN-265):** the flip immediately paid
+for itself — four latent issues the report-only era never surfaced were
+caught and fixed before the gate went green: recharts' keyboard
+accessibility layer (tabbable svg) rendered inside the decorative
+chart's `aria-hidden` subtree (now `accessibilityLayer={false}`); the
+terminal header's Copy/Export/Clear buttons and the stream-filter "All"
+chip still carried theme tokens inside the always-dark console (now
+terminal tokens, the §5.4 class of bug); solid `bg-warning` fills in
+dark theme paired near-white `--warning-foreground` with the light amber
+at 3.06:1 (dark `--warning-foreground` is now dark); and dark
+`--success` on its own /10 tint measured 4.42:1 (AA-lightened to 0.66).
+Scans also must not sample loading states: history pages wait for their
+data-dependent controls to settle, transitions are frozen while
+scanning, and onboarding remains the one recorded skip.
 
 ### 6.2 Vitest gate
 
@@ -323,80 +341,6 @@ scan set reuses flow 13's promotion pattern in reverse (seeded viewer).
 - docs/09 (frontend design, token/contrast history from RUN-256),
   docs/30 (form validation & error rendering), docs/31 (table toolkit),
   docs/13 (E2E suite conventions).
-
-## Appendix A — Baseline findings (RUN-262)
-
-Recorded by the first full run of `tests/e2e/specs/15-a11y-scan.spec.ts`
-(axe-core 4.13.0; tags `wcag2a`, `wcag2aa`, `wcag22aa`, `best-practice`)
-against the seeded E2E stack: 21 page scans per theme across
-unauth/admin/viewer, onboarding recorded as a justified skip. Full
-per-URL data rides the HTML report (`axe-<role>-<theme>` text + `-raw`
-JSON attachments); the table below deduplicates across roles/themes and
-attributes each finding via the run's node targets plus code inspection.
-
-| # | Rule (impact) | Where | Attribution | Fix phase |
-| :--- | :--- | :--- | :--- | :--- |
-| A7 | Onboarding wizard | not scannable | Recorded skip: the seeded database redirects /onboarding; wizard coverage via the §4.2 keyboard pass and flows 01/02 | manual |
-
-**Fixed in RUN-263** (verified by the scan staying report-only green and
-the post-fix keyboard pass):
-
-- A1 `button-name` (critical) — the six filter `SelectTrigger`s on
-  /pools and /history carry `aria-label`s.
-- A3 duplicate/nested `<main>` — `SidebarInset` is now a `<div>`; the
-  shell's `<main id="main-content">` is the only main.
-- A4 (partial) — /login and /onboarding render their own `<main>`;
-  /login now scans **clean** in both themes. The remaining `region`
-  findings (×4 per app page, moderate) are the sidebar brand block and
-  scroll container, the Base UI toast portal, and the skip link itself —
-  all fixed-position or deliberately landmark-preceding chrome, accepted
-  as primitive-managed.
-- A6 `empty-table-header` — logs boot/removals action columns and the
-  users-table actions column carry sr-only names.
-
-§5.1 titles + route-change announcements, §5.2 skip link, and §5.3
-`aria-sort` shipped in the same PR. Measured effect (same matrix):
-admin pages 64 rule hits / 136 nodes → **27 / 106** (light) and 138 →
-**108** (dark); viewer 45 / 102 → **19 / 80** and 107 → **85**;
-/login 2 rules → **0**. Zero critical and zero minor findings remain;
-the residual moderate finding is heading-order (RUN-267); a follow-up
-contrast dump on the fixed build (admin matrix, both themes) returns
-**zero** `color-contrast` nodes.
-
-**Fixed in RUN-266** (verified by an axe `color-contrast`-only re-scan
-of the admin page matrix in both themes: 108 flagged nodes → 0):
-
-- Light `--muted-foreground` darkened 0.556 → 0.545 (4.35 → 4.54:1 on
-  `--muted`); dark `--destructive` lightened 0.704 → 0.72 and light
-  `--destructive` darkened 0.577 → 0.52 (tinted-badge text ≥4.5:1,
-  same AA-darkening treatment RUN-256 gave success/warning).
-- New text-only accent token `--link` (light = `--primary`; dark
-  lightened to ≥4.5:1 on background and primary/10 tints) — dark mode
-  was rendering dark-blue `text-primary` as text on dark surfaces
-  (2.3–2.6:1). All `text-primary` text/icon usages became `text-link`.
-- Alpha-diluted status texts (`text-muted-foreground/70`,
-  `/80`, `/90`, `text-success/80`, `text-destructive/80`, `/90`)
-  switched to the full-color token — opacity blending cannot pass
-  4.5:1 for small text.
-- LogTerminal is theme-independent now: the shell sets
-  `text-terminal-fg`, and the status pill, Auto-scroll toggle, and
-  line meta use `terminal-*` tokens (light-theme body text was
-  inheriting into the always-dark console, and muted/primary tokens
-  resolved to light-theme values there).
-
-**Fixed in RUN-267** (verified by an axe `heading-order`-only scan of
-the flagged routes plus the full page matrix: 0 violations):
-
-- `CardTitle` renders `<h2>` (was `<h3>`, RUN-211) — cards sit directly
-  under the page `<h1>`, so h3 was a hard skip on every card-bearing
-  page. Styling is unchanged (classes pin font size/weight).
-- The three hand-rolled section headings joined the outline as `<h2>`:
-  the pool cards' pool names (/pools), "Execution History"
-  (/pools/:id), and the Renovate tab's "Pending Image Notifications" /
-  "Configured Pool Images" labels (/settings).
-
-This appendix is deleted when the last item ships (§4.4). Onboarding
-(A7, manual) is the sole residual entry.
 
 ### §4.2 keyboard-only pass — first results (Chrome, assistant-driven)
 

@@ -104,10 +104,13 @@
     --link: oklch(0.75 0.11 240); /* text/link accent, ≥4.5:1 on background and primary/10 tints */
     /* App-specific: same values in both modes EXCEPT light-mode success/warning, which are
      * AA-darkened there (RUN-256); dark-mode values already pass on dark surfaces. */
-    --success: oklch(0.627 0.17 149.2);
+    /* AA-lightened from 0.627: text-success on success/10 tints measured 4.42:1 (RUN-265 gate); 0.66 gives ≥4.8:1 */
+    --success: oklch(0.66 0.17 149.2);
     --success-foreground: oklch(0.985 0 0);
     --warning: oklch(0.666 0.179 58.318);
-    --warning-foreground: oklch(0.985 0 0);
+    /* Dark warning is a light amber: solid fills (warning-foreground text on
+       bg-warning) need dark text — white measured 3.06:1 (RUN-265 gate). */
+    --warning-foreground: oklch(0.26 0.05 45);
     --notice: oklch(0.72 0.17 295);
     --notice-foreground: oklch(0.205 0 0);
     --border: oklch(1 0 0 / 10%);

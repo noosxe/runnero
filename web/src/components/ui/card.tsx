@@ -35,7 +35,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 // Deliberate divergence from upstream shadcn/ui (new-york-v4 renders a <div>):
 // an <h2> gives card titles real heading semantics for assistive tech. Cards sit
 // directly under the page <h1>, so h2 keeps the document outline non-skipping
-// (docs/36 Appendix A, A5 — fixed in RUN-267). Rendering is identical — classes
+// (heading-order finding, fixed in RUN-267). Rendering is identical — classes
 // pin font size/weight, and Tailwind's preflight resets native h2 styling.
 // Originally h3 (RUN-211); demoted one level when the skip was axe-flagged.
 function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {

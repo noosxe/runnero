@@ -1,14 +1,23 @@
 import AxeBuilder from "@axe-core/playwright";
-import type { Page, TestInfo } from "@playwright/test";
+import type { Locator, Page, TestInfo } from "@playwright/test";
 import { test, expect } from "../fixtures";
 
 // Flow 15: Accessibility baseline scan (RUN-262, docs/36 §4). axe-core runs
-// across the route × role × theme matrix and REPORTS violations into the
-// HTML report without failing the suite — enforcement flips in phase 3
-// (RUN-265, docs/36 §6). The only hard assertions here are matrix-drift
-// guards: every URL in the matrix must actually produce a scan (or a
-// recorded, justified skip).
+// Flow 15: Accessibility enforcement scan (RUN-262 baseline, RUN-265 flip,
+// docs/36 §6). axe-core runs across the route × role × theme matrix and the
+// test FAILS on any violation with impact serious or critical; moderate and
+// minor findings are reported into the HTML report without failing
+// (visibility without flakiness). No rule is disabled here — if a waiver
+// ever becomes necessary it must carry an inline comment with the finding
+// reference, justification, and a review date (docs/36 §6.1; the onboarding
+// recorded skip below is the template). The remaining hard assertions are
+// matrix-drift guards: every URL in the matrix must actually produce a scan
+// (or a recorded, justified skip).
 //
+// Runs after flow 13/14 alphabetically: the suite database then already has
+// the e2e-viewer account and at least one completed job, so the viewer and
+// history-detail scans can reuse those artifacts. ensureViewer re-creates
+// the account if the database was seeded without flow 13.
 // Runs after flow 13/14 alphabetically: the suite database then already has
 // the e2e-viewer account and at least one completed job, so the viewer and
 // history-detail scans can reuse those artifacts. ensureViewer re-creates
@@ -44,6 +53,8 @@ type ScanResult = {
     // Up to 5 axe node targets (CSS-ish selectors) so triage can pinpoint
     // the offending elements straight from the report.
     targets: string[];
+    // One-line reason per node (measured colors, etc.) for triage.
+    summaries: string[];
   }>;
 };
 
@@ -51,6 +62,13 @@ async function scanPage(page: Page, target: ScanTarget, result: ScanResult): Pro
   const url = await target.goto(page);
   await target.ready(page);
 
+  // Freeze CSS transitions/animations while scanning: sampling a mid-fade
+  // disabled button or an animating row measures dimmed text and produces
+  // false findings (RUN-265 shakedown).
+  await page.addStyleTag({
+    content:
+      "*, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; transition: none !important; }",
+  });
   const builder = new AxeBuilder({ page }).withTags([
     "wcag2a",
     "wcag2aa",
@@ -67,6 +85,9 @@ async function scanPage(page: Page, target: ScanTarget, result: ScanResult): Pro
     nodes: v.nodes.length,
     help: v.help,
     targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")),
+    summaries: v.nodes
+      .slice(0, 5)
+      .map((n) => (n.failureSummary ?? "").replace(/\s*\n\s*/g, " ").slice(0, 220)),
   }));
 }
 
@@ -90,6 +111,9 @@ function summarize(results: ScanResult[]): string {
       lines.push(`      [${v.impact ?? "?"}] ${v.id} ×${v.nodes}: ${v.help}`);
       for (const t of v.targets) {
         lines.push(`          ↳ ${t}`);
+      }
+      for (const sm of v.summaries) {
+        if (sm) lines.push(`          ⚑ ${sm}`);
       }
     }
   }
@@ -173,6 +197,29 @@ async function gotoOnboarding(page: Page): Promise<{ url: string; skipped: boole
 
 // ---- scan matrices (docs/36 §4.1) ----------------------------------------
 
+// The history pages render data-dependent controls (Export CSV, terminal
+// Copy/Export) that are disabled while their query/stream is in flight; the
+// scan must see the settled page, not the loading state. toBeEnabled alone
+// is not enough: the button's disabled:opacity-50 fades back to 1 through a
+// CSS transition, and axe sampling mid-fade measures dimmed text — a false
+// finding. Wait out the transition, then scan.
+const settledEnabled = async (locator: Locator): Promise<void> => {
+  await expect(locator).toBeEnabled();
+  await expect(locator).toHaveCSS("opacity", "1");
+};
+
+const historyReady = async (page: Page): Promise<void> => {
+  await headingReady()(page);
+  await settledEnabled(page.getByRole("button", { name: /Export CSV/i }));
+};
+
+// The detail page's terminal controls (Copy/Export) are disabled while the
+// capture loads — same settled-page requirement, different controls.
+const historyDetailReady = async (page: Page): Promise<void> => {
+  await headingReady()(page);
+  await settledEnabled(page.getByRole("button", { name: /Copy/i }).first());
+};
+
 const headingReady =
   (name?: string | RegExp) =>
   async (page: Page): Promise<void> => {
@@ -206,9 +253,9 @@ const ADMIN_SCANS: ScanTarget[] = [
   {
     name: "history",
     goto: async (p) => (await p.goto("/history"), "/history"),
-    ready: headingReady(),
+    ready: historyReady,
   },
-  { name: "history-detail", goto: gotoHistoryDetail, ready: headingReady() },
+  { name: "history-detail", goto: gotoHistoryDetail, ready: historyDetailReady },
   {
     name: "profiles",
     goto: async (p) => (await p.goto("/profiles"), "/profiles"),
@@ -264,9 +311,9 @@ const VIEWER_SCANS: ScanTarget[] = [
   {
     name: "history",
     goto: async (p) => (await p.goto("/history"), "/history"),
-    ready: headingReady(),
+    ready: historyReady,
   },
-  { name: "history-detail", goto: gotoHistoryDetail, ready: headingReady() },
+  { name: "history-detail", goto: gotoHistoryDetail, ready: historyDetailReady },
   {
     name: "renovate",
     goto: async (p) => (await p.goto("/renovate"), "/renovate"),
@@ -377,6 +424,20 @@ async function runMatrix(
   ).toBe(true);
 
   await attachResults(testInfo, `${label}-${theme}`, results);
+
+  // The gate (docs/36 §6.1): zero serious/critical violations across the
+  // matrix. Moderate/minor stay report-only — they ride the attachments
+  // above. Attachments are written before this assert so a failure still
+  // carries the full per-URL data for triage.
+  const blocking = results.flatMap((r) =>
+    r.violations
+      .filter((v) => v.impact === "serious" || v.impact === "critical")
+      .map((v) => `  ${r.url} [${v.impact}] ${v.id} ×${v.nodes}: ${v.help}`),
+  );
+  expect(
+    blocking,
+    `a11y gate (${label}-${theme}): ${blocking.length} serious/critical violation(s)\n${blocking.join("\n")}`,
+  ).toEqual([]);
 }
 
 for (const theme of ["light", "dark"] as const) {
