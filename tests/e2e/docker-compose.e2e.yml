@@ -72,6 +72,10 @@ services:
       - SUPERVISOR_WEBAUTHN_ORIGINS=http://localhost:8090
     networks:
       - e2e-net
+    # Liveness-only by design: the suite just needs a listening process
+    # before Playwright starts. Readiness probes (docker reachability, pool
+    # control loop) belong to scenario assertions, not the boot gate.
+    # Endpoint contract: docs/02 §5.
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8090/healthz"]
       interval: 2s

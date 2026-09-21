@@ -94,7 +94,7 @@ Before proceeding with the implementation of the AIO Supervisor, the following a
 
 ## 19. Supervisor Health Check Endpoints
 - No document defines HTTP health/readiness endpoints (e.g., `GET /healthz`, `GET /readyz`) for the supervisor container. These are essential for Docker Compose `healthcheck` directives, load balancer integrations, and production monitoring. What should each check validate (DB connectivity, Docker socket reachability, active control loop)?
-> **✅ Resolved**: Standard paths `GET /healthz` (liveness) and `GET /readyz` (readiness). Liveness validates: process alive + DB accessible. Readiness validates: DB connectivity + auditor/control loop running. Docker socket unreachable results in "degraded" status (still "ready" but flagged). Response format is JSON with per-check detail: `{ "status": "ready", "checks": { "db": "ok", "docker": "degraded", "auditor": "ok" } }`.
+> **✅ Resolved**: `GET /healthz` (liveness) and `GET /readyz` (readiness) — the full contract (per-check semantics, `degraded` vs `not_ready`, response codes, and compose wiring) is now specified in [docs/02 §5](02-architecture-design.md).
 
 ## 20. Log Capture Mechanism for Runner Containers
 - The dashboard promises streaming logs and the schema has `log_retention_path`, but the docs never define *how* runner container stdout/stderr is captured by the supervisor. Options: Docker container logs API (`docker logs`), volume-mounted log files, Docker logging driver configuration? This decision affects the streaming RPC design, retention, and disk usage.

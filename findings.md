@@ -24,9 +24,9 @@
 | Missing Functionality | 4 | 1 | 0 | 3 | 0 |
 | Design ↔ Implementation Gaps | 4 | 1 | 1 | 2 | 0 |
 | Code Quality | 5 | 0 | 0 | 5 | 0 |
-| Infrastructure / Docker | 2 | 0 | 0 | 2 | 0 |
+| Infrastructure / Docker | 2 | 1 | 0 | 1 | 0 |
 | Testing Gaps | 3 | 0 | 0 | 2 | 1 |
-| **Total** | **24** | **5** | **3** | **15** | **1** |
+| **Total** | **24** | **6** | **3** | **14** | **1** |
 
 ### Remaining actionable work, by priority
 
@@ -35,8 +35,7 @@
 3. **MISS-04** — `cap_drop` hardening is required by AGENTS.md but documented nowhere; the one in-repo reference points at a docs section that doesn't cover it.
 4. **SEC-05** — `/actions-runner` layer bloat (`COPY` without `--chown` + separate `chown -R`).
 5. **TEST-02** — `entrypoint.sh` is never exercised against a real container daemon by any gate.
-6. **INFRA-02** — standalone runner service has no healthcheck.
-7. **GAP-02** — `install-tools.sh`: no strict mode, unpinned tools (increasingly vestigial next to the Nix dev shell).
+6. **GAP-02** — `install-tools.sh`: no strict mode, unpinned tools (increasingly vestigial next to the Nix dev shell).
 
 ---
 
@@ -194,16 +193,25 @@ standalone runner's mount comment.
 
 ---
 
-### INFRA-02: Standalone Runner Service Missing Health Check — ⚠️ STILL VALID
+### INFRA-02: Standalone Runner Service Missing Health Check — ✅ RESOLVED (RUN-268, in this PR)
 
 **File**: [docker-compose.yml](docker-compose.yml) (`runner` service)
 **Original severity**: High → Medium (optional `runner-standalone` profile; the supervisor-managed path is the primary deployment)
 
-Unchanged: the `runner` service has `init: true` and `restart: unless-stopped`
-but no `healthcheck`. Docker/compose cannot detect a wedged runner process.
+Fixed in RUN-268: the standalone `runner` service now carries a
+provider-agnostic healthcheck — `pgrep -f
+'Runner.Listener|act_runner|forgejo-runner'` with `start_period: 120s`
+covering first registration — so a wedged or crash-looping runner is visible
+to compose/monitoring tooling. `procps` was added to the runner image's
+runtime stage for the probe, and the image keeps carrying **no**
+`HEALTHCHECK` instruction on purpose (ephemeral job runners would gain
+meaningless health noise) — the decision is recorded in docs/02 §5.3.
 
-**Recommendation**: a `CMD-SHELL` check on the runner process or a sentinel
-file written by `entrypoint.sh`.
+The same change set settled the rest of the healthcheck story: the
+supervisor service now probes `/readyz` only (strictest useful signal,
+`start_period` tuned for s6 init + migrations), the full `/healthz`–`/readyz`
+contract is documented in docs/02 §5, OQ #19 points there, and docs/10's
+probe example was corrected (`"status": "healthy"`, not `"ok"`).
 
 ---
 

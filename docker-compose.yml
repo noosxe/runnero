@@ -41,11 +41,19 @@ services:
       # Docker daemon socket to spawn ephemeral runner containers (see security note in README)
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8090/healthz && curl -f http://localhost:8090/readyz || exit 1"]
+      # /readyz is the strictest useful signal: a 200 requires the database and
+      # the pool control loop to pass, while a Docker outage stays 200 "degraded"
+      # (docs/02 §5) — exactly what compose should tolerate. /healthz adds
+      # nothing: the server answering /readyz proves liveness, and its only
+      # probe (db ping) duplicates a readiness check. Not-ready answers 503,
+      # which curl -f turns into an unhealthy container.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8090/readyz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      # s6 init (socket-perm adaptation) plus migrations can outlast a cold
+      # curl; failures inside start_period do not count against retries.
+      start_period: 30s
 
   # Optional Standalone Static Runner (Single repository, no supervisor daemon)
   runner:
@@ -68,6 +76,21 @@ services:
       - RUNNER_WORKDIR=${RUNNER_WORKDIR:-_work}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      # Provider-agnostic liveness: pgrep matches whichever runner binary
+      # entrypoint.sh exec'd — Runner.Listener (GitHub), act_runner (Gitea),
+      # forgejo-runner (Forgejo). procps is installed in the runtime stage
+      # for this probe. start_period covers first registration, which needs a
+      # reachable provider. Compose health status is informational here:
+      # `restart` reacts to process exits, not to unhealthy. The image
+      # deliberately carries no HEALTHCHECK instruction — the same image runs
+      # as ephemeral supervisor-spawned job containers, where health status
+      # would be meaningless noise (docs/02 §5).
+      test: ["CMD-SHELL", "pgrep -f 'Runner.Listener|act_runner|forgejo-runner' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
 
 volumes:
   supervisor-data:

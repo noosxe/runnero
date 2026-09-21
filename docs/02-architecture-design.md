@@ -275,3 +275,56 @@ pools:
     cpu_limit: "2.0"
     memory_limit: "4g"
 ```
+
+---
+
+## 5. Health & Readiness Endpoints
+
+The supervisor serves two unauthenticated probes — `GET /healthz` (liveness)
+and `GET /readyz` (readiness; resolved open question #19). Both are exempt
+from session auth and allowlisted in the security middleware
+(`internal/server/server.go`), so orchestrators, Docker Compose, and reverse
+proxies can gate on them without credentials. Implementation lives in a
+pluggable probe registry (`internal/server/health.go`); probes register at
+boot in `cmd/runnero-supervisor/daemon.go` and run per-request under the
+request's context, so a slow dependency cannot pin the endpoint open.
+
+### 5.1 `GET /healthz` — liveness
+
+Answers *is the process able to run at all?* Every registered liveness
+probe must pass (today: the SQLite ping). Degraded dependencies do not
+fail liveness.
+
+- All probes pass → `200 {"status":"healthy","checks":{...}}`
+- Any probe fails → `503 {"status":"unhealthy",...}`
+
+### 5.2 `GET /readyz` — readiness
+
+Answers *should traffic be routed here?* Registered readiness probes: the
+SQLite ping, Docker daemon reachability, and the pool control-loop
+heartbeat. Docker being unreachable is **degraded, not failed** — pools
+cannot reconcile while it is down, but the API keeps serving — so the
+endpoint stays `200 {"status":"ready","checks":{"docker":"degraded",...}}`
+with the degradation visible in the body. Only a failed probe produces
+`503 {"status":"not_ready",...}`.
+
+### 5.3 Compose wiring (and the deliberate image-level omission)
+
+- **Supervisor** (`docker-compose.yml`): probes `/readyz` only — it is the
+  strictest useful signal (db + control loop required, degraded docker
+  tolerated, 503 when not ready), and `/healthz` adds nothing: the server
+  answering `/readyz` proves liveness, and its db ping duplicates a
+  readiness probe. `start_period: 30s` covers s6 init and migrations.
+- **Standalone runner** (`docker-compose.yml`, `runner-standalone`
+  profile): provider-agnostic `pgrep` probe matching whichever binary
+  `entrypoint.sh` exec'd — `Runner.Listener` (GitHub), `act_runner`
+  (Gitea), `forgejo-runner` (Forgejo); `procps` is installed in the
+  runtime stage for it, and `start_period` covers first registration.
+- **The runner image carries no `HEALTHCHECK` instruction on purpose**: the
+  same image runs as the ephemeral, minutes-lived job containers spawned
+  by the supervisor, where per-container health status would be
+  meaningless noise. Runner health probes live at the compose layer,
+  which only the long-lived standalone profile uses.
+- **E2E compose** gates service boot on `/healthz` only: the suite needs a
+  listening process before Playwright starts; readiness belongs to
+  scenario assertions.

@@ -88,6 +88,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tar \
     ca-certificates \
     git \
+    procps \
     git-lfs \
     jq \
     iproute2 \
