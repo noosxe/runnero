@@ -49,11 +49,6 @@ func LabelsMatch(poolLabelsRaw string, requiredLabels []string) bool {
 
 // MatchPoolForEvent finds the most specific matching runner pool for a webhook event.
 // Pools are evaluated based on provider, label compatibility, and URL scope hierarchy (repo > org > global).
-func MatchPoolForEvent(pools []db.RunnerPool, providerName string, event *webhook.WorkflowJobEvent) *db.RunnerPool {
-	p, _ := MatchPoolForEventWithTargets(pools, nil, providerName, event)
-	return p
-}
-
 // MatchPoolForEventWithTargets finds the most specific matching runner pool and target URL for a webhook event.
 // poolTargets optionally maps pool ID to configured targets from pool_targets table.
 func MatchPoolForEventWithTargets(pools []db.RunnerPool, poolTargets map[int64][]string, providerName string, event *webhook.WorkflowJobEvent) (*db.RunnerPool, string) {
@@ -96,9 +91,6 @@ func MatchPoolForEventWithTargets(pools []db.RunnerPool, poolTargets map[int64][
 		}
 
 		targets := poolTargets[p.ID]
-		if len(targets) == 0 && p.RepositoryUrl != "" {
-			targets = []string{p.RepositoryUrl}
-		}
 
 		for _, rawTarget := range targets {
 			targetURL := NormalizeRepositoryURL(rawTarget)
@@ -165,10 +157,6 @@ func MatchPoolForEventWithTargets(pools []db.RunnerPool, poolTargets map[int64][
 				bestTargetURL = rawTarget
 			}
 		}
-	}
-
-	if bestPool != nil && bestTargetURL == "" {
-		bestTargetURL = bestPool.RepositoryUrl
 	}
 
 	return bestPool, bestTargetURL

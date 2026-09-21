@@ -30,7 +30,7 @@ vi.mock("./lib/api/query-hooks", () => ({
         id: 1n,
         name: "test-pool",
         provider: "github",
-        repositoryUrl: "https://github.com/test/repo",
+        targetUrls: ["https://github.com/test/repo"],
         activeRunners: 1,
         minIdleRunners: 1,
         maxConcurrency: 5,

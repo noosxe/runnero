@@ -124,11 +124,13 @@ func TestPoolControllerDiagnosticsLifecycle(t *testing.T) {
 				ID:             150,
 				Name:           "pool-test-diag",
 				Provider:       "github",
-				RepositoryUrl:  "https://github.com/org/repo",
 				MinIdleRunners: 1,
 				MaxConcurrency: 5,
 				AuthProfileID:  10,
 			},
+		},
+		targets: map[int64][]string{
+			150: {"https://github.com/org/repo"},
 		},
 	}
 

@@ -14,7 +14,6 @@ func TestProtoSchemasAndStubs(t *testing.T) {
 		Id:                       1,
 		Name:                     "test-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/owner/repo",
 		MinIdleRunners:           2,
 		MaxConcurrency:           10,
 		Labels:                   []string{"self-hosted", "arm64"},

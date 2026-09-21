@@ -313,7 +313,10 @@ message Pool {
     pattern: "^[a-z0-9-]+$"
   }];
   string provider = 3;
-  string repository_url = 4;
+  // RUN-277: repository_url (field 4) was a synced duplicate of the first
+  // pool target; dropped in migration 013. Reserved to prevent reuse.
+  reserved 4;
+  reserved "repository_url";
   int32 min_idle_runners = 5 [(buf.validate.field).int32.gte = 0];
   int32 max_concurrency = 6 [(buf.validate.field).int32.gte = 0];
   repeated string labels = 7;

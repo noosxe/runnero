@@ -44,7 +44,6 @@ func seedJobRetentionPath(t *testing.T, database *db.DB, runnerName, retentionPa
 	pool, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:           "pool-" + runnerName + "-" + uniq,
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/org/repo",
 		AuthProfileID:  profile.ID,
 		Scope:          "repo",
 		MinIdleRunners: 1,

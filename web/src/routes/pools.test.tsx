@@ -10,7 +10,6 @@ const mockPools = [
     id: 1n,
     name: "arm64-prod-pool",
     provider: "github",
-    repositoryUrl: "https://github.com/noosxe/runnero",
     scope: "repo",
     minIdleRunners: 2,
     maxConcurrency: 10,
@@ -30,7 +29,7 @@ const mockPools = [
     id: 2n,
     name: "gitea-org-pool",
     provider: "gitea",
-    repositoryUrl: "https://gitea.example.com/devops",
+    targetUrls: ["https://gitea.example.com/devops"],
     scope: "org",
     minIdleRunners: 1,
     maxConcurrency: 5,
@@ -185,7 +184,7 @@ describe("PoolsPage", () => {
     mockPoolsData = mockPools;
     render(<PoolsPage />);
 
-    // gitea-org-pool has one target (repositoryUrl fallback): no badge, and no
+    // gitea-org-pool has one target: no badge, and no
     // repo URL is rendered on the card either — the pool name identifies it
     expect(screen.queryByText("1 repos")).not.toBeInTheDocument();
     expect(screen.queryByText("https://gitea.example.com/devops")).not.toBeInTheDocument();

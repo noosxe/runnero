@@ -180,7 +180,7 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:           "secure-pool",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/myorg/repo",
+			TargetUrls:     []string{"https://github.com/myorg/repo"},
 			Scope:          "repo",
 			RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 			MaxConcurrency: 5,
@@ -198,7 +198,7 @@ func TestRPCResponses_NoSecretLeakage(t *testing.T) {
 			Id:             createPoolRes.Msg.Pool.Id,
 			Name:           "secure-pool",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/myorg/repo",
+			TargetUrls:     []string{"https://github.com/myorg/repo"},
 			Scope:          "repo",
 			RunnerImage:    "ghcr.io/noosxe/runnero:v2",
 			MaxConcurrency: 10,

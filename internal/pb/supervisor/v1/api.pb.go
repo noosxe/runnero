@@ -1625,7 +1625,6 @@ type Pool struct {
 	// Slug, mirroring the wizard's own client-side rule (/^[a-z0-9-]+$/).
 	Name           string          `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Provider       string          `protobuf:"bytes,3,opt,name=provider,proto3" json:"provider,omitempty"`
-	RepositoryUrl  string          `protobuf:"bytes,4,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
 	MinIdleRunners int32           `protobuf:"varint,5,opt,name=min_idle_runners,json=minIdleRunners,proto3" json:"min_idle_runners,omitempty"`
 	MaxConcurrency int32           `protobuf:"varint,6,opt,name=max_concurrency,json=maxConcurrency,proto3" json:"max_concurrency,omitempty"`
 	Labels         []string        `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty"`
@@ -1719,13 +1718,6 @@ func (x *Pool) GetName() string {
 func (x *Pool) GetProvider() string {
 	if x != nil {
 		return x.Provider
-	}
-	return ""
-}
-
-func (x *Pool) GetRepositoryUrl() string {
-	if x != nil {
-		return x.RepositoryUrl
 	}
 	return ""
 }
@@ -7024,12 +7016,11 @@ const file_api_proto_rawDesc = "" +
 	"\thost_arch\x18\x03 \x01(\tR\bhostArch\x12\x17\n" +
 	"\ahost_os\x18\x04 \x01(\tR\x06hostOs\x12\x12\n" +
 	"\x04role\x18\x05 \x01(\tR\x04role\x12\x18\n" +
-	"\aversion\x18\x06 \x01(\tR\aversion\"\x8d\r\n" +
+	"\aversion\x18\x06 \x01(\tR\aversion\"\xfc\f\n" +
 	"\x04Pool\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12)\n" +
 	"\x04name\x18\x02 \x01(\tB\x15\xbaH\x12r\x10\x10\x012\f^[a-z0-9-]+$R\x04name\x12\x1a\n" +
-	"\bprovider\x18\x03 \x01(\tR\bprovider\x12%\n" +
-	"\x0erepository_url\x18\x04 \x01(\tR\rrepositoryUrl\x121\n" +
+	"\bprovider\x18\x03 \x01(\tR\bprovider\x121\n" +
 	"\x10min_idle_runners\x18\x05 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\x0eminIdleRunners\x120\n" +
 	"\x0fmax_concurrency\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\x0emaxConcurrency\x12\x16\n" +
 	"\x06labels\x18\a \x03(\tR\x06labels\x12!\n" +
@@ -7065,7 +7056,7 @@ const file_api_proto_rawDesc = "" +
 	"lastPollAt\x123\n" +
 	"\x16last_poll_queued_count\x18\x1e \x01(\x05R\x13lastPollQueuedCount\x12&\n" +
 	"\x0flast_poll_error\x18\x1f \x01(\tR\rlastPollError:\xb4\x01\xbaH\xb0\x01\x1a\xad\x01\n" +
-	"\x1dpool.min_idle.max_concurrency\x12@min_idle_runners must not exceed max_concurrency (0 = unlimited)\x1aJthis.max_concurrency == 0 || this.min_idle_runners <= this.max_concurrency\"e\n" +
+	"\x1dpool.min_idle.max_concurrency\x12@min_idle_runners must not exceed max_concurrency (0 = unlimited)\x1aJthis.max_concurrency == 0 || this.min_idle_runners <= this.max_concurrencyJ\x04\b\x04\x10\x05R\x0erepository_url\"e\n" +
 	"\x0eRenovateConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12#\n" +
 	"\rcron_schedule\x18\x02 \x01(\tR\fcronSchedule\x12\x14\n" +

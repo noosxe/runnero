@@ -81,7 +81,10 @@ func setupDemandPollingHarness(t *testing.T, pool db.RunnerPool, scalingMode pro
 	h.reconciler = reconciler
 
 	h.ctrl = orchestrator.NewPoolController(orchestrator.ControllerOptions{
-		DB:               &mockPoolRepo{pools: []db.RunnerPool{pool}},
+		DB: &mockPoolRepo{
+			pools:   []db.RunnerPool{pool},
+			targets: map[int64][]string{pool.ID: {pollTargetURL}},
+		},
 		ContainerEngine:  mockEngine,
 		ProviderResolver: resolver,
 		Reconciler:       reconciler,
@@ -97,12 +100,15 @@ func (h *demandPollingHarness) spawnCount() int {
 	return h.spawned
 }
 
+// pollTargetURL is the harness pool's primary (only) target, seeded into the
+// mock repo's pool_targets (RUN-277: replaces the legacy repository_url fallback).
+const pollTargetURL = "https://github.com/acme/repo"
+
 func githubPollPool(id int64, fallback bool, interval int64, scope string) db.RunnerPool {
 	return db.RunnerPool{
 		ID:                  id,
 		Name:                "github-poll",
 		Provider:            "github",
-		RepositoryUrl:       "https://github.com/acme/repo",
 		Scope:               scope,
 		AuthProfileID:       10,
 		MinIdleRunners:      0,
@@ -156,8 +162,8 @@ func TestPoolController_PollFallbackEnabledSpawnsForQueued(t *testing.T) {
 	if target.Scope != provider.ScopeRepo {
 		t.Errorf("expected repo scope on poll target, got %q", target.Scope)
 	}
-	if target.URL != pool.RepositoryUrl {
-		t.Errorf("expected pool target URL %q, got %q", pool.RepositoryUrl, target.URL)
+	if target.URL != pollTargetURL {
+		t.Errorf("expected pool target URL %q, got %q", pollTargetURL, target.URL)
 	}
 	if !strings.Contains(target.Labels, "self-hosted") {
 		t.Errorf("expected pool labels on poll target, got %q", target.Labels)
@@ -182,7 +188,6 @@ func TestPoolController_PollFallbackThrottledByInterval(t *testing.T) {
 		ID:                  302,
 		Name:                "github-throttled",
 		Provider:            "github",
-		RepositoryUrl:       "https://github.com/acme/repo",
 		Scope:               "repo",
 		AuthProfileID:       10,
 		MinIdleRunners:      1,

@@ -247,7 +247,7 @@ func (s *PoolQuotaTestSuite) TestPoolQuotaValidation() {
 		Pool: &supervisorv1.Pool{
 			Name:           "negative-idle-pool",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/org/repo",
+			TargetUrls:     []string{"https://github.com/org/repo"},
 			AuthProfileId:  authProfile.ID,
 			MinIdleRunners: -1,
 			MaxConcurrency: 5,
@@ -262,7 +262,7 @@ func (s *PoolQuotaTestSuite) TestPoolQuotaValidation() {
 		Pool: &supervisorv1.Pool{
 			Name:           "negative-max-pool",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/org/repo",
+			TargetUrls:     []string{"https://github.com/org/repo"},
 			AuthProfileId:  authProfile.ID,
 			MinIdleRunners: 0,
 			MaxConcurrency: -1,
@@ -277,7 +277,7 @@ func (s *PoolQuotaTestSuite) TestPoolQuotaValidation() {
 		Pool: &supervisorv1.Pool{
 			Name:           "bad-prov-pool",
 			Provider:       "bitbucket",
-			RepositoryUrl:  "https://bitbucket.org/org/repo",
+			TargetUrls:     []string{"https://bitbucket.org/org/repo"},
 			AuthProfileId:  authProfile.ID,
 			MinIdleRunners: 1,
 			MaxConcurrency: 5,
@@ -292,7 +292,7 @@ func (s *PoolQuotaTestSuite) TestPoolQuotaValidation() {
 		Pool: &supervisorv1.Pool{
 			Name:           "bad-auth-pool",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/org/repo",
+			TargetUrls:     []string{"https://github.com/org/repo"},
 			AuthProfileId:  0, // Invalid!
 			MinIdleRunners: 1,
 			MaxConcurrency: 5,
@@ -307,7 +307,7 @@ func (s *PoolQuotaTestSuite) TestPoolQuotaValidation() {
 		Pool: &supervisorv1.Pool{
 			Name:           "valid-pool",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/org/repo",
+			TargetUrls:     []string{"https://github.com/org/repo"},
 			AuthProfileId:  authProfile.ID,
 			MinIdleRunners: 2,
 			MaxConcurrency: 5,

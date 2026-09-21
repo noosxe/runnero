@@ -1344,7 +1344,9 @@ func (c *PoolController) deregisterRunner(ctx context.Context, r RunnerStatus) e
 				}
 				targetURL := r.TargetURL
 				if targetURL == "" {
-					targetURL = p.RepositoryUrl
+					if targets := c.loadPoolTargets(ctx, p); len(targets) > 0 {
+						targetURL = targets[0]
+					}
 				}
 				if err := dereg.DeregisterRunner(ctx, provider.RegistrationScope(p.Scope), targetURL, runnerName); err != nil {
 					c.logger.Warn("failed to deregister runner via provider API", "runner", runnerName, "target", targetURL, "err", err)
@@ -1402,9 +1404,6 @@ func (c *PoolController) loadPoolTargets(ctx context.Context, p db.RunnerPool) [
 				return urls
 			}
 		}
-	}
-	if strings.TrimSpace(p.RepositoryUrl) != "" {
-		return []string{strings.TrimSpace(p.RepositoryUrl)}
 	}
 	return nil
 }
@@ -1606,7 +1605,11 @@ func (c *PoolController) enrichedCloseStatus(ctx context.Context, gitProv provid
 	ctx, cancel := context.WithTimeout(ctx, conclusionEnrichTimeout)
 	defer cancel()
 
-	jobs, err := lister.RunnerLatestJobs(ctx, provider.RegistrationScope(p.Scope), p.RepositoryUrl, forgeID)
+	targets := c.loadPoolTargets(ctx, p)
+	if len(targets) == 0 {
+		return "completed", 0
+	}
+	jobs, err := lister.RunnerLatestJobs(ctx, provider.RegistrationScope(p.Scope), targets[0], forgeID)
 	if err != nil {
 		c.logger.Warn("conclusion enrichment failed, closing as completed", "pool", p.Name, "forge_id", forgeID, "err", err)
 		return "completed", 0
@@ -2010,7 +2013,11 @@ func (c *PoolController) spawnSingleRunner(ctx context.Context, p db.RunnerPool,
 	}
 
 	if targetURL == "" {
-		targetURL = p.RepositoryUrl
+		targets := c.loadPoolTargets(ctx, p)
+		if len(targets) == 0 {
+			return fmt.Errorf("pool %q has no targets", p.Name)
+		}
+		targetURL = targets[0]
 	}
 
 	token, err := gitProv.GetRegistrationToken(ctx, provider.RegistrationScope(p.Scope), targetURL)
@@ -2325,8 +2332,6 @@ func (c *PoolController) drainQueue(ctx context.Context) {
 			targets := c.loadPoolTargets(ctx, p)
 			if len(targets) > 0 {
 				targetURL = targets[int(poolActive)%len(targets)]
-			} else {
-				targetURL = p.RepositoryUrl
 			}
 		}
 

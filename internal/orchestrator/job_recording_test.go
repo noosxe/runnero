@@ -28,7 +28,7 @@ func newJobRecHarness(t *testing.T, pool db.RunnerPool) *jobRecHarness {
 		providers: map[int64]provider.GitProvider{pool.AuthProfileID: h.mockProv},
 	}
 	h.ctrl = orchestrator.NewPoolController(orchestrator.ControllerOptions{
-		DB:               &mockPoolRepo{pools: []db.RunnerPool{pool}},
+		DB:               &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {busySyncTargetURL}}},
 		ContainerEngine:  h.engine,
 		ProviderResolver: resolver,
 		Reconciler:       h.reconciler,

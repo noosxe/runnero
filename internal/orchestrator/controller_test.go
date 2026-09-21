@@ -20,8 +20,22 @@ type mockPoolRepo struct {
 	pools      []db.RunnerPool
 	settings   map[string]string
 	tombstones map[int64]bool
-	terr       error // tombstone lookup error (fail-safe path)
+	targets    map[int64][]string // pool targets (RUN-277: replaces the legacy repository_url fallback)
+	terrs      map[int64]error    // per-pool target listing error
+	terr       error              // tombstone lookup error (fail-safe path)
 	err        error
+}
+
+func (m *mockPoolRepo) ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error) {
+	if m.terrs != nil && m.terrs[poolID] != nil {
+		return nil, m.terrs[poolID]
+	}
+	urls := m.targets[poolID]
+	out := make([]db.PoolTarget, 0, len(urls))
+	for i, u := range urls {
+		out = append(out, db.PoolTarget{ID: int64(i + 1), PoolID: poolID, TargetUrl: u})
+	}
+	return out, nil
 }
 
 func (m *mockPoolRepo) PoolTombstoneExists(ctx context.Context, poolID int64) (bool, error) {
@@ -155,7 +169,6 @@ func TestPoolController_BootAndMinIdleProvisioning(t *testing.T) {
 		ID:             118,
 		Name:           "ci-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 3,
@@ -167,7 +180,7 @@ func TestPoolController_BootAndMinIdleProvisioning(t *testing.T) {
 		MemoryLimit:    sql.NullString{String: "4g", Valid: true},
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -323,14 +336,13 @@ func TestPoolController_HandleContainerEvent_ReapAndReplenish(t *testing.T) {
 		ID:             119,
 		Name:           "event-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/event-repo",
 		Scope:          "repo",
 		AuthProfileID:  20,
 		MinIdleRunners: 2,
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/event-repo"}}}
 	tokensFetched := 0
 	gitProv := &mockGitProvider{}
 	gitProv.tokensIssued = make([]string, 0)
@@ -426,14 +438,13 @@ func TestPoolController_HandleContainerEvent_DoubleDeliveryBenign(t *testing.T) 
 		ID:             120,
 		Name:           "double-delivery-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/double-repo",
 		Scope:          "repo",
 		AuthProfileID:  21,
 		MinIdleRunners: 1,
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/double-repo"}}}
 	gitProv := &mockGitProvider{tokensIssued: make([]string, 0)}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{21: gitProv},
@@ -523,7 +534,6 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 		ID:             100,
 		Name:           "pool-a",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo-a",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
@@ -534,7 +544,6 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 		ID:             101,
 		Name:           "pool-b",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo-b",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
@@ -542,7 +551,7 @@ func TestPoolController_GlobalQuotaSaturationAndFairQueueDrain(t *testing.T) {
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{poolA, poolB}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{poolA, poolB}, targets: map[int64][]string{poolA.ID: {"https://github.com/owner/repo-a"}, poolB.ID: {"https://github.com/owner/repo-b"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -727,7 +736,6 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 		ID:                       120,
 		Name:                     "timeout-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/owner/timeout-repo",
 		Scope:                    "repo",
 		AuthProfileID:            10,
 		MinIdleRunners:           2,
@@ -736,7 +744,7 @@ func TestPoolController_HungRunnerAutoTermination(t *testing.T) {
 		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/timeout-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -900,7 +908,6 @@ func TestPoolController_HungRunnerCheck_DisabledWhenLifetimeZero(t *testing.T) {
 		ID:                       121,
 		Name:                     "no-limit-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/owner/no-limit-repo",
 		Scope:                    "repo",
 		AuthProfileID:            10,
 		MinIdleRunners:           1,
@@ -908,7 +915,7 @@ func TestPoolController_HungRunnerCheck_DisabledWhenLifetimeZero(t *testing.T) {
 		MaxRunnerLifetimeSeconds: 0,
 		RunnerImage:              "ghcr.io/noosxe/runnero:latest",
 	}
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/no-limit-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{providers: map[int64]provider.GitProvider{10: gitProv}}
 
@@ -954,12 +961,11 @@ func TestPoolController_GracefulShutdown_SIGTERM(t *testing.T) {
 		ID:            117,
 		Name:          "shutdown-pool",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/owner/shutdown-repo",
 		Scope:         "repo",
 		AuthProfileID: 1,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/shutdown-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{1: gitProv},
@@ -1065,12 +1071,11 @@ func TestPoolController_GracefulShutdown_TimeoutExceeded(t *testing.T) {
 		ID:            121,
 		Name:          "timeout-shutdown-pool",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/owner/timeout-repo",
 		Scope:         "repo",
 		AuthProfileID: 1,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/timeout-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{1: gitProv},
@@ -1138,12 +1143,11 @@ func TestPoolController_ImmediateShutdown_SIGINT(t *testing.T) {
 		ID:            122,
 		Name:          "immediate-pool",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/owner/immediate-repo",
 		Scope:         "repo",
 		AuthProfileID: 1,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/immediate-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{1: gitProv},
@@ -1198,7 +1202,6 @@ func TestPoolController_PerPoolSettingsRuntimeReload(t *testing.T) {
 		ID:             100,
 		Name:           "pool-a",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo-a",
 		Scope:          "repo",
 		AuthProfileID:  1,
 		MinIdleRunners: 1,
@@ -1207,7 +1210,8 @@ func TestPoolController_PerPoolSettingsRuntimeReload(t *testing.T) {
 	}
 
 	repo := &mockPoolRepo{
-		pools: []db.RunnerPool{poolA},
+		targets: map[int64][]string{100: {"https://github.com/owner/repo-a"}},
+		pools:   []db.RunnerPool{poolA},
 		settings: map[string]string{
 			"total_allowed_runners": "10",
 		},
@@ -1368,7 +1372,6 @@ func TestPoolController_ImageUpdateHandoff_Replenisher(t *testing.T) {
 		ID:             124,
 		Name:           "handoff-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -1376,7 +1379,7 @@ func TestPoolController_ImageUpdateHandoff_Replenisher(t *testing.T) {
 		RunnerImage:    oldImage,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -1494,7 +1497,6 @@ func TestPoolController_ForgejoPollingScaling_AuditLoopPicksUpQueuedJob(t *testi
 		ID:             125,
 		Name:           "forgejo-ci",
 		Provider:       "forgejo",
-		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -1503,7 +1505,7 @@ func TestPoolController_ForgejoPollingScaling_AuditLoopPicksUpQueuedJob(t *testi
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://forgejo.example.com/owner/repo"}}}
 	gitProv := &mockGitProvider{
 		scalingMode: provider.ScalingPolling,
 		queuedJobs:  0,
@@ -1575,7 +1577,6 @@ func TestPoolController_ForgejoPollingScaling_MaxConcurrencyRespected(t *testing
 		ID:             126,
 		Name:           "forgejo-capped",
 		Provider:       "forgejo",
-		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -1584,7 +1585,7 @@ func TestPoolController_ForgejoPollingScaling_MaxConcurrencyRespected(t *testing
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://forgejo.example.com/owner/repo"}}}
 	gitProv := &mockGitProvider{
 		scalingMode: provider.ScalingPolling,
 		queuedJobs:  0,
@@ -1649,7 +1650,6 @@ func TestPoolController_ForgejoPollingScaling_GlobalQuotaSaturation(t *testing.T
 		ID:             127,
 		Name:           "forgejo-quota",
 		Provider:       "forgejo",
-		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -1658,7 +1658,7 @@ func TestPoolController_ForgejoPollingScaling_GlobalQuotaSaturation(t *testing.T
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://forgejo.example.com/owner/repo"}}}
 	gitProv := &mockGitProvider{
 		scalingMode: provider.ScalingPolling,
 		queuedJobs:  0,
@@ -1728,7 +1728,6 @@ func TestPoolController_ForgejoPollingScaling_ErrorHandledGracefully(t *testing.
 		ID:             128,
 		Name:           "forgejo-err",
 		Provider:       "forgejo",
-		RepositoryUrl:  "https://forgejo.example.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
@@ -1737,7 +1736,7 @@ func TestPoolController_ForgejoPollingScaling_ErrorHandledGracefully(t *testing.
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://forgejo.example.com/owner/repo"}}}
 	gitProv := &mockGitProvider{
 		scalingMode: provider.ScalingPolling,
 		pollErr:     fmt.Errorf("temporary network timeout"),
@@ -1795,7 +1794,6 @@ func TestPoolController_WebhookProviderDoesNotPoll(t *testing.T) {
 		ID:             129,
 		Name:           "github-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -1804,7 +1802,7 @@ func TestPoolController_WebhookProviderDoesNotPoll(t *testing.T) {
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 	gitProv := &mockGitProvider{
 		scalingMode: provider.ScalingWebhook,
 		queuedJobs:  10,
@@ -1918,7 +1916,6 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 		ID:             118,
 		Name:           "ci-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 3,
@@ -1927,7 +1924,7 @@ func TestPoolControllerRecycleIdleRunners(t *testing.T) {
 		AllowDocker:    true,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -2049,7 +2046,6 @@ func TestPoolController_RenameDoesNotDisturbRunners(t *testing.T) {
 		ID:             121,
 		Name:           "ci-race",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -2058,7 +2054,7 @@ func TestPoolController_RenameDoesNotDisturbRunners(t *testing.T) {
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 		AllowDocker:    true,
 	}
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{providers: map[int64]provider.GitProvider{10: gitProv}}
 

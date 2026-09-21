@@ -108,7 +108,6 @@ type RunnerPool struct {
 	ID                       int64          `json:"id"`
 	Name                     string         `json:"name"`
 	Provider                 string         `json:"provider"`
-	RepositoryUrl            string         `json:"repository_url"`
 	Scope                    string         `json:"scope"`
 	AuthProfileID            int64          `json:"auth_profile_id"`
 	MinIdleRunners           int64          `json:"min_idle_runners"`

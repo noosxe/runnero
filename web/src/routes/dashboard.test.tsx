@@ -31,7 +31,7 @@ const mockPools = [
     id: 1n,
     name: "pool-arm64-prod",
     provider: "github",
-    repositoryUrl: "https://github.com/org/repo",
+    targetUrls: ["https://github.com/org/repo"],
     activeRunners: 2,
     minIdleRunners: 1,
     maxConcurrency: 10,

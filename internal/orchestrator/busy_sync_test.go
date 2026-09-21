@@ -38,9 +38,16 @@ func (m *multiTargetPoolRepo) ListPoolTargetsByPoolId(ctx context.Context, poolI
 	return m.targets[poolID], nil
 }
 
+// busySyncTargetURL is the busy-sync fixtures' primary target, seeded into the
+// mock repos' pool_targets (RUN-277: replaces the legacy repository_url fallback).
+const busySyncTargetURL = "https://github.com/my-org/my-repo"
+
 func newBusySyncHarness(t *testing.T, pool db.RunnerPool) *busySyncHarness {
 	t.Helper()
-	return newBusySyncHarnessWithDB(t, pool, &mockPoolRepo{pools: []db.RunnerPool{pool}})
+	return newBusySyncHarnessWithDB(t, pool, &mockPoolRepo{
+		pools:   []db.RunnerPool{pool},
+		targets: map[int64][]string{pool.ID: {busySyncTargetURL}},
+	})
 }
 
 // newBusySyncHarnessWithTargets wires the standard busy-sync harness against
@@ -140,7 +147,6 @@ func busySyncPool(name string, minIdle, maxConcurrency int) db.RunnerPool {
 		ID:             1,
 		Name:           name,
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/my-org/my-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: int64(minIdle),
@@ -326,7 +332,10 @@ func TestBusySync_ProviderWithoutListerUntouched(t *testing.T) {
 	h := newBusySyncHarness(t, pool)
 	// Swap in a provider without RunnerLister support.
 	h.ctrl = orchestrator.NewPoolController(orchestrator.ControllerOptions{
-		DB:               &mockPoolRepo{pools: []db.RunnerPool{pool}},
+		DB: &mockPoolRepo{
+			pools:   []db.RunnerPool{pool},
+			targets: map[int64][]string{pool.ID: {busySyncTargetURL}},
+		},
 		ContainerEngine:  h.engine,
 		ProviderResolver: &mockGitProviderResolver{providers: map[int64]provider.GitProvider{10: &plainGitProvider{}}},
 		Reconciler:       h.reconciler,

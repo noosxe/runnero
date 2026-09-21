@@ -28,10 +28,16 @@ func TestDeleteRunnerPoolTombstoned(t *testing.T) {
 	}
 	for _, id := range []int64{1, 2} {
 		if _, err := database.sqlDB.Exec(
-			`INSERT INTO runner_pools (id, name, provider, repository_url, scope, auth_profile_id, labels, runner_image)
-			 VALUES (?, ?, 'github', 'https://example.invalid/x', 'repo', 1, '[]', 'ghcr.io/noosxe/runnero:latest')`,
+			`INSERT INTO runner_pools (id, name, provider, scope, auth_profile_id, labels, runner_image)
+			 VALUES (?, ?, 'github', 'repo', 1, '[]', 'ghcr.io/noosxe/runnero:latest')`,
 			id, fmt.Sprintf("pool-%d", id),
 		); err != nil {
+			if _, err := database.sqlDB.Exec(
+				`INSERT INTO pool_targets (pool_id, target_url) VALUES (?, 'https://example.invalid/x')`,
+				id,
+			); err != nil {
+				t.Fatalf("seed pool target %d: %v", id, err)
+			}
 			t.Fatalf("seed pool %d: %v", id, err)
 		}
 	}

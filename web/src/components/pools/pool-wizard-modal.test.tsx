@@ -201,7 +201,6 @@ describe("PoolWizardModal", () => {
     expect(submitted.name).toBe("multi-target-ci");
     expect(submitted.provider).toBe("github");
     expect(submitted.scope).toBe("repo");
-    expect(submitted.repositoryUrl).toBe("https://github.com/acme-corp/frontend-monorepo");
     expect(submitted.targetUrls).toEqual([
       "https://github.com/acme-corp/frontend-monorepo",
       "https://github.com/acme-corp/backend-core",
@@ -373,7 +372,6 @@ function makeEditPool(overrides: Record<string, unknown> = {}): Pool {
     id: 101n,
     name: "ci-edit-pool",
     provider: "github",
-    repositoryUrl: "https://github.com/acme-corp/frontend-monorepo",
     scope: "repo",
     authProfileId: 10n,
     minIdleRunners: 1,

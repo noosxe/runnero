@@ -2,7 +2,6 @@
 INSERT INTO runner_pools (
     name,
     provider,
-    repository_url,
     scope,
     auth_profile_id,
     min_idle_runners,
@@ -18,7 +17,7 @@ INSERT INTO runner_pools (
     poll_fallback,
     poll_interval_seconds
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 ) RETURNING *;
 
 -- name: GetRunnerPoolById :one
@@ -40,7 +39,6 @@ SELECT COUNT(*) FROM runner_pools;
 UPDATE runner_pools
 SET name = ?,
     provider = ?,
-    repository_url = ?,
     scope = ?,
     auth_profile_id = ?,
     min_idle_runners = ?,

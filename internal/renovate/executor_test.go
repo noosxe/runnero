@@ -20,6 +20,7 @@ import (
 type mockRenovateDB struct {
 	mu           sync.Mutex
 	pool         db.RunnerPool
+	poolTargets  []db.PoolTarget // returned by ListPoolTargetsByPoolId (RUN-277)
 	poolErr      error
 	config       db.RenovateConfig
 	configErr    error
@@ -29,16 +30,20 @@ type mockRenovateDB struct {
 	createRunErr error
 }
 
+func (m *mockRenovateDB) ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error) {
+	return m.poolTargets, nil
+}
+
 func newMockRenovateDB() *mockRenovateDB {
 	return &mockRenovateDB{
 		runs:        make(map[int64]db.RenovateRun),
 		byContainer: make(map[string]int64),
 		nextID:      1,
+		poolTargets: []db.PoolTarget{{ID: 1, PoolID: 1, TargetUrl: "https://github.com/owner/repo"}},
 		pool: db.RunnerPool{
 			ID:            1,
 			Name:          "prod-runners",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/owner/repo",
 			AuthProfileID: 10,
 			AllowDocker:   true,
 			CpuLimit:      sql.NullString{String: "2.0", Valid: true},

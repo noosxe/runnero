@@ -84,7 +84,6 @@ func TestOnboardingStatusLifecycle(t *testing.T) {
 	_, err = database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:          "test-pool",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/org/repo",
 		Scope:         "repo",
 		AuthProfileID: prof.ID,
 		Labels:        "linux",

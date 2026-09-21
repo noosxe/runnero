@@ -46,7 +46,7 @@ Before proceeding with the implementation of the AIO Supervisor, the following a
 
 ## 9. Missing `scope` Column on `runner_pools`
 - The `GitProvider` interface defines `RegistrationScope` with values `repo`, `org`, and `global`, but the `runner_pools` table has no `scope` column. Org-level and global-level runner pools cannot be persisted or distinguished. Should we add a `scope TEXT NOT NULL CHECK(scope IN ('repo', 'org', 'global'))` column?
-> **✅ Resolved**: Added `scope TEXT NOT NULL DEFAULT 'repo' CHECK(scope IN ('repo', 'org', 'global'))` column to `runner_pools` table. When scope is `org`, `repository_url` holds the org URL. When `global`, it holds the instance base URL. See updated `07-database-schema.md`.
+> **✅ Resolved**: Added `scope TEXT NOT NULL DEFAULT 'repo' CHECK(scope IN ('repo', 'org', 'global'))` column to `runner_pools` table. When scope is `org`, `repository_url` holds the org URL. When `global`, it holds the instance base URL. See updated `07-database-schema.md`. *(RUN-277 update: the `repository_url` column was later dropped in migration 013 — org/global URLs live in `pool_targets` alone.)*
 
 ## 10. Global Settings Keys & Defaults
 - The `app_settings` table is a generic key/value store. The product requirements define `Total Allowed Runners` and `Total Idle Warm Pool` as global settings (Onboarding Step 3). We need to formalize: what are all expected keys, their value types, validation constraints, and default values? Should this be documented in the schema migration as seed data?

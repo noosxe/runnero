@@ -145,7 +145,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "gitea-pool",
 			Provider:      "gitea",
-			RepositoryUrl: "https://gitea.local/owner/repo",
+			TargetUrls:    []string{"https://gitea.local/owner/repo"},
 			AuthProfileId: authProfile.ID,
 			AllowDocker:   false, // Invalid!
 		},
@@ -161,7 +161,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "bad-pool",
 			Provider:      "bitbucket",
-			RepositoryUrl: "https://bitbucket.org/owner/repo",
+			TargetUrls:    []string{"https://bitbucket.org/owner/repo"},
 			AuthProfileId: authProfile.ID,
 		},
 	})
@@ -176,7 +176,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "bad-auth-pool",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/org/repo",
+			TargetUrls:    []string{"https://github.com/org/repo"},
 			AuthProfileId: 99999,
 		},
 	})
@@ -210,7 +210,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:                     "github-arm64",
 			Provider:                 "github",
-			RepositoryUrl:            "https://github.com/org/repo",
+			TargetUrls:               []string{"https://github.com/org/repo"},
 			Scope:                    "repo",
 			AuthProfileId:            authProfile.ID,
 			MinIdleRunners:           2,
@@ -269,7 +269,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "github-arm64",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/org/repo",
+			TargetUrls:    []string{"https://github.com/org/repo"},
 			Scope:         "repo",
 			AuthProfileId: authProfile.ID,
 		},
@@ -286,7 +286,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "bad-cron-pool",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/org/repo",
+			TargetUrls:    []string{"https://github.com/org/repo"},
 			Scope:         "repo",
 			AuthProfileId: authProfile.ID,
 			Renovate: &supervisorv1.RenovateConfig{
@@ -324,7 +324,7 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 			Id:                       createdPool.Id,
 			Name:                     "github-arm64",
 			Provider:                 "github",
-			RepositoryUrl:            "https://github.com/org",
+			TargetUrls:               []string{"https://github.com/org"},
 			Scope:                    "org",
 			AuthProfileId:            authProfile.ID,
 			MinIdleRunners:           4,
@@ -437,7 +437,7 @@ func TestPoolServiceWatchPools(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:           "watch-pool",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/org/repo",
+			TargetUrls:     []string{"https://github.com/org/repo"},
 			AuthProfileId:  authProf.ID,
 			MinIdleRunners: 1,
 			MaxConcurrency: 5,
@@ -586,14 +586,16 @@ func TestPoolServiceListRunnersAndTerminate(t *testing.T) {
 		t.Fatalf("CreateAuthProfile failed: %v", err)
 	}
 
-	pool, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
-		Name:           "runner-mgmt-pool",
-		Provider:       "github",
-		RepositoryUrl:  "https://github.com/org/repo",
-		AuthProfileID:  authProf.ID,
-		Scope:          "repo",
-		MinIdleRunners: 1,
-		MaxConcurrency: 5,
+	pool, err := database.CreatePool(ctx, db.PoolCreate{
+		Pool: db.CreateRunnerPoolParams{
+			Name:           "runner-mgmt-pool",
+			Provider:       "github",
+			AuthProfileID:  authProf.ID,
+			Scope:          "repo",
+			MinIdleRunners: 1,
+			MaxConcurrency: 5,
+		},
+		Targets: []string{"https://github.com/org/repo"},
 	})
 	if err != nil {
 		t.Fatalf("CreateRunnerPool failed: %v", err)
@@ -699,14 +701,16 @@ func TestPoolServiceWatchRunners(t *testing.T) {
 		t.Fatalf("CreateAuthProfile failed: %v", err)
 	}
 
-	pool, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
-		Name:           "stream-pool",
-		Provider:       "github",
-		RepositoryUrl:  "https://github.com/org/repo",
-		AuthProfileID:  authProf.ID,
-		Scope:          "repo",
-		MinIdleRunners: 1,
-		MaxConcurrency: 5,
+	pool, err := database.CreatePool(ctx, db.PoolCreate{
+		Pool: db.CreateRunnerPoolParams{
+			Name:           "stream-pool",
+			Provider:       "github",
+			AuthProfileID:  authProf.ID,
+			Scope:          "repo",
+			MinIdleRunners: 1,
+			MaxConcurrency: 5,
+		},
+		Targets: []string{"https://github.com/org/repo"},
 	})
 	if err != nil {
 		t.Fatalf("CreateRunnerPool failed: %v", err)
@@ -1001,15 +1005,17 @@ func TestPoolServiceOperationalDiagnostics(t *testing.T) {
 	}
 
 	// Create test pool
-	p, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
-		Name:           "diag-pool",
-		Provider:       "github",
-		RepositoryUrl:  "https://github.com/org/diag",
-		Scope:          "repo",
-		MinIdleRunners: 2,
-		MaxConcurrency: 5,
-		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
-		AuthProfileID:  authProf.ID,
+	p, err := database.CreatePool(ctx, db.PoolCreate{
+		Pool: db.CreateRunnerPoolParams{
+			Name:           "diag-pool",
+			Provider:       "github",
+			Scope:          "repo",
+			MinIdleRunners: 2,
+			MaxConcurrency: 5,
+			RunnerImage:    "ghcr.io/noosxe/runnero:latest",
+			AuthProfileID:  authProf.ID,
+		},
+		Targets: []string{"https://github.com/org/diag"},
 	})
 	if err != nil {
 		t.Fatalf("failed to create pool: %v", err)
@@ -1156,7 +1162,6 @@ func editPoolPayload(poolID, profileID int64, name string) *supervisorv1.Pool {
 		Id:                       poolID,
 		Name:                     name,
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/acme/widgets",
 		TargetUrls:               []string{"https://github.com/acme/widgets", "https://github.com/acme/gadgets"},
 		Scope:                    "repo",
 		AuthProfileId:            profileID,
@@ -1212,7 +1217,7 @@ func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "dup-pool",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/acme/other",
+			TargetUrls:    []string{"https://github.com/acme/other"},
 			Scope:         "repo",
 			AuthProfileId: profile.ID,
 			AllowDocker:   true,
@@ -1435,7 +1440,7 @@ func TestPoolServiceDemandPollingValidation(t *testing.T) {
 	giteaReq := newReq(&supervisorv1.Pool{
 		Name:          "gitea-poll",
 		Provider:      "gitea",
-		RepositoryUrl: "https://gitea.local/owner/repo",
+		TargetUrls:    []string{"https://gitea.local/owner/repo"},
 		AuthProfileId: authProfile.ID,
 		AllowDocker:   true,
 		PollFallback:  true,
@@ -1449,7 +1454,7 @@ func TestPoolServiceDemandPollingValidation(t *testing.T) {
 		req := newReq(&supervisorv1.Pool{
 			Name:                fmt.Sprintf("github-bad-interval-%d", bad),
 			Provider:            "github",
-			RepositoryUrl:       "https://github.com/acme/repo",
+			TargetUrls:          []string{"https://github.com/acme/repo"},
 			AuthProfileId:       authProfile.ID,
 			PollFallback:        true,
 			PollIntervalSeconds: bad,
@@ -1463,7 +1468,7 @@ func TestPoolServiceDemandPollingValidation(t *testing.T) {
 	okReq := newReq(&supervisorv1.Pool{
 		Name:                "github-poll-ok",
 		Provider:            "github",
-		RepositoryUrl:       "https://github.com/acme/repo",
+		TargetUrls:          []string{"https://github.com/acme/repo"},
 		AuthProfileId:       authProfile.ID,
 		PollFallback:        true,
 		PollIntervalSeconds: 60,
@@ -1481,7 +1486,7 @@ func TestPoolServiceDemandPollingValidation(t *testing.T) {
 	defaultReq := newReq(&supervisorv1.Pool{
 		Name:          "github-poll-default",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/acme/repo",
+		TargetUrls:    []string{"https://github.com/acme/repo"},
 		AuthProfileId: authProfile.ID,
 	})
 	defaultRes, err := client.CreatePool(ctx, defaultReq)
@@ -1566,7 +1571,7 @@ func TestDeletePoolDrainModePassThrough(t *testing.T) {
 			Pool: &supervisorv1.Pool{
 				Name:                     name,
 				Provider:                 "github",
-				RepositoryUrl:            "https://github.com/" + name + "-org",
+				TargetUrls:               []string{"https://github.com/" + name + "-org"},
 				Scope:                    "org",
 				AuthProfileId:            authProfile.ID,
 				MinIdleRunners:           0,
@@ -1695,7 +1700,7 @@ func TestPoolServiceMemorySwapValidation(t *testing.T) {
 				Pool: &supervisorv1.Pool{
 					Name:            fmt.Sprintf("swap-pool-%d", i),
 					Provider:        "github",
-					RepositoryUrl:   "https://github.com/acme/repo",
+					TargetUrls:      []string{"https://github.com/acme/repo"},
 					AuthProfileId:   authProfile.ID,
 					Scope:           "repo",
 					RunnerImage:     "ghcr.io/noosxe/runnero:latest",
@@ -1773,7 +1778,7 @@ func TestPoolServicePidsLimitValidation(t *testing.T) {
 				Pool: &supervisorv1.Pool{
 					Name:          fmt.Sprintf("pids-pool-%d", i),
 					Provider:      "github",
-					RepositoryUrl: "https://github.com/acme/repo",
+					TargetUrls:    []string{"https://github.com/acme/repo"},
 					AuthProfileId: authProfile.ID,
 					Scope:         "repo",
 					RunnerImage:   "ghcr.io/noosxe/runnero:latest",

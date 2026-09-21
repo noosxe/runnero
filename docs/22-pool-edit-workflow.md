@@ -132,7 +132,7 @@ request are ignored and the response is rebuilt from the persisted row.
 | Renovate `enabled` / `cron_schedule` / `image` | **Control** | Affects the Renovate scheduler only. |
 | `name` | **Control** | Metadata-only rename — no runner interaction (§5.4, as amended by RUN-126). |
 | `auth_profile_id` | **Spawn identity** | Idle runners are registered under the old profile; recycle so respawns mint tokens via the new profile. (Secret *rotation inside* a profile already propagates to future spawns — docs/17.) |
-| `repository_url` / `target_urls`, `scope` | **Spawn identity** | Idle runners are registered against old targets; recycle. |
+| `target_urls`, `scope` | **Spawn identity** | Idle runners are registered against old targets; recycle. (RUN-277: the legacy `repository_url` mirror was folded into `target_urls`.) |
 | `labels`, `runner_image`, `allow_docker`, `cpu_limit`, `memory_limit` | **Spawn identity** | Baked into the container at spawn; recycle idle so the warm pool reflects the edit immediately instead of at lifetime expiry. |
 | `provider` | **Immutable** | Rejected with `CodeInvalidArgument` (§5.3). |
 

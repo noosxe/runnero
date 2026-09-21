@@ -23,7 +23,6 @@ func TestPoolController_ScaleToZero_HoldsZeroContainersWhenIdle(t *testing.T) {
 		ID:             159,
 		Name:           "scale-zero-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/scale-zero-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 0, // Scale-to-zero enabled
@@ -32,7 +31,7 @@ func TestPoolController_ScaleToZero_HoldsZeroContainersWhenIdle(t *testing.T) {
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/scale-zero-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -98,7 +97,6 @@ func TestPoolController_ScaleToZero_QueuedEventSpawnsOnDemandAndReconcilePreserv
 		ID:             155,
 		Name:           "zero-webhook-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/zero-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 0,
@@ -107,7 +105,7 @@ func TestPoolController_ScaleToZero_QueuedEventSpawnsOnDemandAndReconcilePreserv
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/zero-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -214,7 +212,6 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 		ID:             156,
 		Name:           "lifecycle-zero-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/lifecycle-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 0,
@@ -223,7 +220,7 @@ func TestPoolController_ScaleToZero_LifecycleFullLoopEphemerallyReturnsToZero(t 
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/lifecycle-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -370,7 +367,6 @@ func TestPoolController_ScaleToZero_StaleOrphanedRunnerDrainedAfterGracePeriod(t
 		ID:             157,
 		Name:           "stale-zero-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/stale-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 0,
@@ -379,7 +375,7 @@ func TestPoolController_ScaleToZero_StaleOrphanedRunnerDrainedAfterGracePeriod(t
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/stale-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -481,7 +477,6 @@ func TestPoolController_ScaleToZero_LiveTransitionFromStandbyDrainsToZero(t *tes
 		ID:             158,
 		Name:           "standby-to-zero-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/standby-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2, // Starts with 2 warm standby runners
@@ -490,7 +485,7 @@ func TestPoolController_ScaleToZero_LiveTransitionFromStandbyDrainsToZero(t *tes
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/standby-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -573,7 +568,6 @@ func TestPoolController_ScaleToZero_LifetimeNeverCapsGracePeriod(t *testing.T) {
 		ID:                       158,
 		Name:                     "uncapped-grace-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/test-org/uncapped-repo",
 		Scope:                    "repo",
 		AuthProfileID:            10,
 		MinIdleRunners:           0,
@@ -583,7 +577,7 @@ func TestPoolController_ScaleToZero_LifetimeNeverCapsGracePeriod(t *testing.T) {
 		MaxRunnerLifetimeSeconds: 60, // 1 minute — far below the 5 minute grace
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/uncapped-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},

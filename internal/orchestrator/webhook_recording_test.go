@@ -21,7 +21,6 @@ func newWebhookRecHarness(t *testing.T, rec *mockJobRecorder) (*orchestrator.Poo
 		ID:             160,
 		Name:           "enrich-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -29,7 +28,7 @@ func newWebhookRecHarness(t *testing.T, rec *mockJobRecorder) (*orchestrator.Poo
 		Labels:         `["self-hosted","linux"]`,
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},

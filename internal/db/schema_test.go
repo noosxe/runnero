@@ -27,8 +27,8 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Version failed: %v", err)
 	}
-	if ver != 12 {
-		t.Fatalf("database version = %d, want 12", ver)
+	if ver != 13 {
+		t.Fatalf("database version = %d, want 13", ver)
 	}
 
 	// Verify all 11 tables and their columns field-for-field per docs/07.
@@ -44,7 +44,7 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 			"id", "name", "auth_method", "app_id", "private_key_encrypted", "token_encrypted", "created_at", "updated_at",
 		},
 		"runner_pools": {
-			"id", "name", "provider", "repository_url", "scope", "auth_profile_id",
+			"id", "name", "provider", "scope", "auth_profile_id",
 			"min_idle_runners", "max_concurrency", "labels", "runner_image",
 			"allow_docker", "max_runner_lifetime_seconds", "cpu_limit", "memory_limit",
 			"memory_swap_limit", "pids_limit", "poll_fallback", "poll_interval_seconds",
@@ -123,8 +123,8 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 
 	// 2. runner_pools.provider
 	_, err = database.SQL().Exec(`
-		INSERT INTO runner_pools (name, provider, repository_url, auth_profile_id, labels, runner_image)
-		VALUES ('p1', 'invalid_provider', 'https://github.com/o/r', 1, '[]', 'img');
+		INSERT INTO runner_pools (name, provider, auth_profile_id, labels, runner_image)
+		VALUES ('p1', 'invalid_provider', 1, '[]', 'img');
 	`)
 	if err == nil {
 		t.Error("expected CHECK constraint failure for invalid provider, got nil")
@@ -132,8 +132,8 @@ func TestInitialSchemaTablesAndSeeds(t *testing.T) {
 
 	// 3. runner_pools.scope
 	_, err = database.SQL().Exec(`
-		INSERT INTO runner_pools (name, provider, repository_url, scope, auth_profile_id, labels, runner_image)
-		VALUES ('p2', 'github', 'https://github.com/o/r', 'invalid_scope', 1, '[]', 'img');
+		INSERT INTO runner_pools (name, provider, scope, auth_profile_id, labels, runner_image)
+		VALUES ('p2', 'github', 'invalid_scope', 1, '[]', 'img');
 	`)
 	if err == nil {
 		t.Error("expected CHECK constraint failure for invalid scope, got nil")
@@ -165,8 +165,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 
 	// Initial state: version 6
 	ver, err := database.Version(ctx, nil)
-	if err != nil || ver != 12 {
-		t.Fatalf("Version after boot = %d (err: %v), want 12", ver, err)
+	if err != nil || ver != 13 {
+		t.Fatalf("Version after boot = %d (err: %v), want 13", ver, err)
 	}
 
 	// Rollback all migrations down to version 0
@@ -202,8 +202,8 @@ func TestInitialSchemaUpDownIdempotent(t *testing.T) {
 	}
 
 	verUp, err := database.Version(ctx, nil)
-	if err != nil || verUp != 12 {
-		t.Fatalf("Version after Migrate up = %d (err: %v), want 12", verUp, err)
+	if err != nil || verUp != 13 {
+		t.Fatalf("Version after Migrate up = %d (err: %v), want 13", verUp, err)
 	}
 
 	// Verify app_settings seeded again
