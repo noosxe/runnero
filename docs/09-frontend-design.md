@@ -158,6 +158,25 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 
 ## 4. Comprehensive Page Specifications & Wireframes
 
+> [!NOTE]
+> **v1.0.0 UI feature gating (RUN-289).** Renovate automation and the
+> Gitea/Forgejo providers have never been validated against real platforms, so
+> the UI disables every surface that could configure or trigger them. Per the
+> "disable, don't hide" decision the surfaces stay visible but unusable:
+> - **Renovate:** the sidebar entry is unclickable (`aria-disabled` + hint);
+>   `/renovate` and the pool detail Renovate tab render a "disabled for
+>   v1.0.0" notice card instead of interactive content; the wizard's and the
+>   onboarding's Renovate toggles are locked off (submitting never writes
+>   renovate config from the UI — an existing pool's stored config is
+>   preserved on edit).
+> - **Gitea/Forgejo:** the provider/auth-method options in the onboarding
+>   wizard, the auth-profile modal, and the pool wizard's profile select are
+>   rendered disabled ("unavailable"). Viewing and editing existing pools or
+>   profiles of those providers still works; only *new* configuration is
+>   blocked.
+> The flags live in `web/src/lib/feature-gates.ts`; flipping them restores the
+> surfaces without further changes (the backend is untouched).
+
 ### 4.1 Page 1: 5-Step Onboarding Wizard (`/onboarding`)
 
 **Goal**: Seamless zero-config first boot initialization (OQ #15, OQ #32, docs/01 §2.1). **Step 1 (Admin Setup) is strictly mandatory** to secure the daemon; all subsequent steps (2–5) are **optional** and can be skipped individually or bypassed entirely via a top-level **"Skip to Dashboard"** shortcut.
@@ -458,6 +477,11 @@ stream data, so toggling the chart's timeframe sticks.
 ---
 
 ### 4.9 Page 9: Renovate Bot Management (`/renovate`)
+
+> [!WARNING]
+> Gated for v1.0.0 (RUN-289, see the note at the top of this section): the
+> page renders the disabled notice card instead of the dashboard below. The
+> wireframe describes the post-gating target state.
 
 ```text
 +-----------------------------------------------------------------------------------------------+

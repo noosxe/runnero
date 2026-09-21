@@ -14,6 +14,8 @@ import { LinkButton } from "../lib/link-button";
 import { usePools } from "../lib/api/query-hooks";
 import { usePageTitle } from "../hooks/use-page-title";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FeatureDisabledNotice } from "../components/common/feature-disabled";
+import { FEATURES } from "../lib/feature-gates";
 import { Bot, Layers, Calendar } from "lucide-react";
 
 export function RenovatePage() {
@@ -30,6 +32,35 @@ export function RenovatePage() {
 
   const totalPools = pools?.length ?? 0;
   const enabledPools = pools?.filter((p) => p.renovate?.enabled).length ?? 0;
+
+  // v1.0.0 gating (RUN-289): the surface stays visible (nav entry, header)
+  // but its interactive content is replaced by the disabled notice.
+  if (!FEATURES.renovate) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground ">
+              Renovate Bot Dashboard
+            </h1>
+            <Badge className="border-primary/30 bg-primary/10 text-link font-medium">
+              <Bot />
+              <span className="font-mono text-[10px]">Managed Automation</span>
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground ">
+            Automated dependency updates, scheduled scans, and on-demand maintenance runs across
+            runner pools.
+          </p>
+        </div>
+        <FeatureDisabledNotice
+          title="Renovate Bot automation is disabled"
+          icon={Bot}
+          testId="renovate-disabled-notice"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

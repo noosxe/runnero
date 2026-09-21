@@ -240,22 +240,19 @@ describe("PoolDetailPage", () => {
     });
   });
 
-  it("switches to Renovate tab and triggers manual run", async () => {
-    mockTriggerRenovateAsync.mockResolvedValueOnce({
-      success: true,
-      runId: 102n,
-    });
+  // v1.0.0 gating (RUN-289): the Renovate tab stays visible but is not a
+  // link, and the route renders the disabled notice instead of the tab body.
+  it("renders the Renovate tab disabled with a notice instead of automation content (RUN-289)", () => {
     render(<PoolDetailPage tab="renovate" />);
 
-    expect(screen.getByText("Renovate Status & Automation")).toBeInTheDocument();
-    expect(screen.getAllByText("1 dependency update PR created")).toHaveLength(2);
+    const renovateTab = screen.getByRole("tab", { name: /renovate bot/i });
+    expect(renovateTab).toHaveAttribute("aria-disabled", "true");
+    expect(renovateTab).toHaveAttribute("aria-selected", "false");
 
-    const triggerBtn = screen.getByRole("button", { name: /trigger renovate run/i });
-    fireEvent.click(triggerBtn);
-
-    await waitFor(() => {
-      expect(mockTriggerRenovateAsync).toHaveBeenCalledWith(10n);
-    });
+    expect(screen.getByTestId("renovate-disabled-notice")).toBeInTheDocument();
+    expect(screen.queryByText("Renovate Status & Automation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /trigger renovate run/i })).not.toBeInTheDocument();
+    expect(mockTriggerRenovateAsync).not.toHaveBeenCalled();
   });
 
   it("triggers Check for Updates in Pool Configuration tab", async () => {

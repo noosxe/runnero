@@ -181,12 +181,13 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     expect(screen.getByLabelText("Pool Name")).toHaveValue("default-pool");
     expect(screen.getByLabelText("Repository / Organization URL")).toBeInTheDocument();
 
-    // Enable Renovate toggle
+    // Renovate toggle is gated for v1.0.0 (RUN-289): visible, unchangeable.
     const renovateCheckbox = screen.getByRole("checkbox", {
       name: "Enable Renovate Dependency Automation",
     });
+    expect(renovateCheckbox).toHaveAttribute("data-disabled");
     fireEvent.click(renovateCheckbox);
-    expect(screen.getByLabelText("Cron Schedule")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Cron Schedule")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Next: Review & Launch/i }));
 
@@ -207,10 +208,6 @@ describe("OnboardingPage (Full 5 Steps)", () => {
             provider: "github",
             authProfileId: 42n,
             allowDocker: true,
-            renovate: expect.objectContaining({
-              enabled: true,
-              cronSchedule: "0 2 * * *",
-            }),
           }),
         }),
       );
@@ -218,11 +215,10 @@ describe("OnboardingPage (Full 5 Steps)", () => {
     });
   });
 
-  it("locks allowDocker to enabled when Gitea or Forgejo provider is selected", async () => {
+  // v1.0.0 gating (RUN-289): Gitea/Forgejo methods stay visible but cannot
+  // be selected, so no untested provider can be onboarded from the UI.
+  it("gates Gitea and Forgejo provider methods as disabled (RUN-289)", async () => {
     mockSetupAdmin.mockResolvedValueOnce({});
-    mockCreateAuthProfile.mockResolvedValueOnce({ profile: { id: 7n } });
-    mockSetAppSetting.mockResolvedValue({});
-
     render(<OnboardingPage />);
 
     // Step 1
@@ -238,31 +234,16 @@ describe("OnboardingPage (Full 5 Steps)", () => {
       expect(screen.getByText("Step 2 of 5: Connect Git Provider")).toBeInTheDocument();
     });
 
-    // Select Gitea PAT
-    fireEvent.click(screen.getByRole("button", { name: "Gitea PAT" }));
-    fireEvent.change(screen.getByLabelText("Personal Access Token (PAT)"), {
-      target: { value: "gitea_token_abc" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Next: Safeguards/i }));
+    const giteaBtn = screen.getByRole("button", { name: "Gitea PAT" });
+    const forgejoBtn = screen.getByRole("button", { name: "Forgejo PAT" });
+    expect(giteaBtn).toBeDisabled();
+    expect(giteaBtn).toHaveAttribute("title", expect.stringContaining("Disabled for v1.0.0"));
+    expect(forgejoBtn).toBeDisabled();
 
-    await waitFor(() => {
-      expect(screen.getByText("Step 3 of 5: Global Scaling Safeguards")).toBeInTheDocument();
-    });
-
-    // Step 3 -> Step 4
-    fireEvent.click(screen.getByRole("button", { name: /Next: Initial Pool/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Step 4 of 5: Initial Runner Pool Setup")).toBeInTheDocument();
-    });
-
-    // Verify Docker policy lock per docs/05 §4
-    const dockerCheckbox = screen.getByRole("checkbox", {
-      name: "Allow Docker in Container",
-    });
-    expect(dockerCheckbox).toHaveAttribute("aria-checked", "true");
-    expect(dockerCheckbox).toHaveAttribute("data-disabled");
-    expect(screen.getByText(/Locked to Enabled for GITEA runners/i)).toBeInTheDocument();
+    // Clicking the gated method is a no-op: the PAT field stays GitHub-bound
+    // and the flow continues with the default GitHub selection.
+    fireEvent.click(giteaBtn);
+    expect(screen.getByLabelText("Personal Access Token (PAT)")).toBeInTheDocument();
   });
 
   it("displays error banner if admin setup API call fails in Step 1", async () => {

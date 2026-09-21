@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRouterMock } from "@/test/router-mock";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { RenovatePage } from "./renovate";
-import { Toaster } from "@/components/ui/toast";
+import { FEATURE_DISABLED_HINT } from "../lib/feature-gates";
 
 const mockPools = [
   {
@@ -66,35 +66,18 @@ describe("RenovatePage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders Renovate dashboard with metrics, pool status, and trigger controls", async () => {
-    mockTriggerAsync.mockResolvedValueOnce({
-      success: true,
-      runId: 105n,
-    });
-
-    render(
-      <>
-        <RenovatePage />
-        <Toaster />
-      </>,
-    );
+  // v1.0.0 gating (RUN-289): the page stays visible but its interactive
+  // content is replaced by the disabled notice.
+  it("renders the header with a disabled notice instead of the dashboard (RUN-289)", () => {
+    render(<RenovatePage />);
 
     expect(screen.getByText("Renovate Bot Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Configured Pools")).toBeInTheDocument();
-    expect(screen.getByText("Renovate Active")).toBeInTheDocument();
-    expect(screen.getByText("arm64-prod-pool")).toBeInTheDocument();
-    expect(screen.getByText("amd64-staging-pool")).toBeInTheDocument();
-    expect(screen.getByText("Enabled")).toBeInTheDocument();
-    expect(screen.getByText("Disabled")).toBeInTheDocument();
+    expect(screen.getByTestId("renovate-disabled-notice")).toBeInTheDocument();
+    expect(screen.getByText(FEATURE_DISABLED_HINT)).toBeInTheDocument();
 
-    const triggerButtons = screen.getAllByRole("button", { name: /trigger/i });
-    fireEvent.click(triggerButtons[0]);
-
-    await waitFor(() => {
-      expect(mockTriggerAsync).toHaveBeenCalledWith(1n);
-    });
-
-    // Success surfaces through the toast system.
-    expect(await screen.findByText("Run #105 triggered")).toBeVisible();
+    // No interactive dashboard content leaks through.
+    expect(screen.queryByText("Configured Pools")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: /trigger/i })).toHaveLength(0);
+    expect(mockTriggerAsync).not.toHaveBeenCalled();
   });
 });

@@ -51,6 +51,7 @@ import {
 } from "../../lib/forms";
 import { getSuggestedRunnerLabels } from "../../lib/utils/labels";
 import { authMethodLabel } from "../../lib/utils/auth-methods";
+import { FEATURE_DISABLED_HINT, FEATURES, isProviderGated } from "../../lib/feature-gates";
 import {
   Server,
   X,
@@ -297,8 +298,18 @@ export function PoolWizardModal({
 
   const selectableAuthProfiles = useMemo(() => {
     if (!authProfiles) return undefined;
-    if (!isEdit || !pool) return authProfiles;
+    if (!isEdit || !pool) {
+      // v1.0.0 gating (RUN-289): Gitea/Forgejo profiles cannot back a NEW
+      // pool. They still render in the select as disabled options below.
+      return authProfiles.filter((p) => !isProviderGated(p.authMethod));
+    }
     return authProfiles.filter((p) => providerFamilyOf(p.authMethod) === pool.provider);
+  }, [authProfiles, isEdit, pool]);
+
+  // Gated profiles kept visible (but unselectable) in create mode.
+  const gatedAuthProfiles = useMemo(() => {
+    if (!authProfiles || (isEdit && pool)) return [];
+    return authProfiles.filter((p) => isProviderGated(p.authMethod));
   }, [authProfiles, isEdit, pool]);
 
   const selectedAuthProfile = useMemo(() => {
@@ -578,13 +589,17 @@ export function PoolWizardModal({
       // The interval is a DB-level knob in v1 (docs/24 §5.4); omitted here so the
       // server applies/preserves the stored cadence.
       pollFallback: deducedProvider === "github" ? pollFallback : false,
-      renovate: renovateEnabled
-        ? {
-            enabled: true,
-            cronSchedule: effectiveRenovateCron,
-            image: effectiveRenovateImage,
-          }
-        : undefined,
+      renovate: FEATURES.renovate
+        ? renovateEnabled
+          ? {
+              enabled: true,
+              cronSchedule: effectiveRenovateCron,
+              image: effectiveRenovateImage,
+            }
+          : undefined
+        : // Gated (RUN-289): never write renovate config from the UI; keep
+          // the pool's stored value so editing an existing pool is lossless.
+          (pool?.renovate ?? undefined),
       authProfileId: selectedAuthProfile?.id ?? 0n,
       scope,
       cpuLimit: cpuLimit.trim() || "2.0",
@@ -877,6 +892,15 @@ export function PoolWizardModal({
                       {(selectableAuthProfiles ?? []).map((prof) => (
                         <SelectItem key={prof.id.toString()} value={prof.id.toString()}>
                           {prof.name} ({authMethodLabel(prof.authMethod)})
+                        </SelectItem>
+                      ))}
+                      {gatedAuthProfiles.map((prof) => (
+                        <SelectItem
+                          key={prof.id.toString()}
+                          value={`gated-${prof.id.toString()}`}
+                          disabled
+                        >
+                          {prof.name} ({authMethodLabel(prof.authMethod)}) — unavailable
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -1426,19 +1450,30 @@ export function PoolWizardModal({
                 </FieldContent>
               </Field>
 
-              {/* Renovate Bot Section */}
+              {/* Renovate Bot Section — gated for v1.0.0 (RUN-289): the
+                  toggle stays visible but cannot be changed; submitting
+                  preserves the pool's stored renovate config untouched. */}
               <div className="rounded-xl border border-border bg-muted/50 p-3 flex flex-col gap-3">
                 <Field orientation="horizontal">
                   <Checkbox
                     id="wizard-renovate-enabled"
                     checked={renovateEnabled}
+                    disabled={!FEATURES.renovate}
                     onCheckedChange={(v) => setRenovateEnabled(v === true)}
                   />
-                  <FieldLabel htmlFor="wizard-renovate-enabled">
+                  <FieldLabel
+                    htmlFor="wizard-renovate-enabled"
+                    className={cn(!FEATURES.renovate && "opacity-60")}
+                  >
                     <Bot className="size-4 text-link " />
                     Enable Automated Renovate Dependency Scans
                   </FieldLabel>
                 </Field>
+                {!FEATURES.renovate && (
+                  <FieldDescription className="text-[11px]">
+                    {FEATURE_DISABLED_HINT}
+                  </FieldDescription>
+                )}
 
                 {renovateEnabled && (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-border ">

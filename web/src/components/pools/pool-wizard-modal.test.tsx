@@ -288,29 +288,25 @@ describe("PoolWizardModal", () => {
     console.log("HAS DETAIL TEXT:", document.body.innerHTML.includes("already exists"));
     expect(handleClose).not.toHaveBeenCalled();
   });
-  it("locks docker-in-docker when provider is Forgejo or Gitea", async () => {
+  // v1.0.0 gating (RUN-289): Gitea/Forgejo profiles stay visible in the
+  // create-mode select but cannot be chosen, so no untested provider pool
+  // can be created. The docker-lock behavior itself is covered in edit
+  // mode (see the forgejo edit test below).
+  it("renders gated Gitea/Forgejo auth profiles as unselectable in create mode (RUN-289)", async () => {
     render(<PoolWizardModal isOpen={true} onClose={vi.fn()} authProfiles={defaultAuthProfiles} />);
 
-    // Switch to internal-forgejo
     const user = userEvent.setup();
     await user.click(screen.getAllByRole("combobox", { name: /Git Authentication Profile/i })[0]);
-    await user.click(await screen.findByRole("option", { name: /internal-forgejo/ }));
-    expect(screen.getByText("forgejo")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Pool Name \(Slug\)/i), {
-      target: { value: "forgejo-pool" },
-    });
-    fireEvent.click(screen.getByText("Continue to Scope & Targets"));
+    const forgejoOption = await screen.findByRole("option", { name: /internal-forgejo/ });
+    expect(forgejoOption).toHaveTextContent(/unavailable/);
+    expect(forgejoOption).toHaveAttribute("data-disabled");
+    expect(forgejoOption).toHaveAttribute("aria-disabled", "true");
 
-    fireEvent.click(screen.getByText("Select All Filtered"));
-    fireEvent.click(screen.getByText("Continue to Specifications"));
-
-    // Check Docker checkbox is disabled and locked
-    const dockerCheckbox = screen.getByRole("checkbox", {
-      name: /Enable Docker-in-Docker socket access/i,
-    });
-    expect(dockerCheckbox).toHaveAttribute("aria-checked", "true");
-    expect(dockerCheckbox).toHaveAttribute("data-disabled");
+    // Selection stays on the GitHub profile; the deduced provider is github.
+    await user.click(await screen.findByRole("option", { name: /corp-github-app/ }));
+    expect(screen.getByText("github")).toBeInTheDocument();
+    expect(screen.queryByText("forgejo")).not.toBeInTheDocument();
   });
 
   it("renders guided GitHub App installation callout when 0 targets discovered and installUrl is present", () => {

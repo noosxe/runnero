@@ -39,6 +39,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { useParams, Link } from "@tanstack/react-router";
+import { FEATURES, FEATURE_DISABLED_HINT } from "../lib/feature-gates";
+import { FeatureDisabledNotice } from "../components/common/feature-disabled";
 import {
   usePools,
   useRunners,
@@ -386,23 +388,39 @@ export function PoolDetailPage({ tab }: { tab: PoolDetailTab }) {
           <span>Pool Configuration</span>
         </Link>
 
-        <Link
-          to="/pools/$poolId/renovate"
-          params={{ poolId: pool.id.toString() }}
-          role="tab"
-          aria-selected={activeTab === "renovate"}
-          aria-current={activeTab === "renovate" ? "page" : undefined}
-          className={cn(
-            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
-            activeTab === "renovate"
-              ? "border-primary text-link"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Bot className="size-3.5" />
-          <span>Renovate Bot</span>
-          {pool.renovate?.enabled && <span className="size-1.5 rounded-full bg-success" />}
-        </Link>
+        {FEATURES.renovate ? (
+          <Link
+            to="/pools/$poolId/renovate"
+            params={{ poolId: pool.id.toString() }}
+            role="tab"
+            aria-selected={activeTab === "renovate"}
+            aria-current={activeTab === "renovate" ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
+              activeTab === "renovate"
+                ? "border-primary text-link"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Bot className="size-3.5" />
+            <span>Renovate Bot</span>
+            {pool.renovate?.enabled && <span className="size-1.5 rounded-full bg-success" />}
+          </Link>
+        ) : (
+          // Gated for v1.0.0 (RUN-289): the tab stays visible but is not a
+          // link; the route itself renders the disabled notice for direct URLs.
+          <span
+            role="tab"
+            aria-selected={false}
+            aria-disabled="true"
+            title={`Renovate Bot — ${FEATURE_DISABLED_HINT}`}
+            className="flex cursor-not-allowed items-center gap-2 border-b-2 border-transparent px-4 py-2.5 text-xs font-semibold text-muted-foreground opacity-60"
+          >
+            <Bot className="size-3.5" />
+            <span>Renovate Bot</span>
+            {pool.renovate?.enabled && <span className="size-1.5 rounded-full bg-success" />}
+          </span>
+        )}
       </div>
 
       {/* Tab Content: Runners & Containers Table */}
@@ -654,7 +672,16 @@ export function PoolDetailPage({ tab }: { tab: PoolDetailTab }) {
       )}
 
       {/* Tab Content: Renovate Bot */}
-      {activeTab === "renovate" && <PoolRenovateTab pool={pool} />}
+      {activeTab === "renovate" &&
+        (FEATURES.renovate ? (
+          <PoolRenovateTab pool={pool} />
+        ) : (
+          <FeatureDisabledNotice
+            title="Renovate Bot automation is disabled"
+            icon={Bot}
+            testId="renovate-disabled-notice"
+          />
+        ))}
 
       {/* Edit Pool Modal (docs/22 §7.1) — conditionally mounted so edit-mode
           prefill state initializes fresh from the pool on every open */}

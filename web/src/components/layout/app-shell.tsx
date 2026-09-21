@@ -52,6 +52,7 @@ import {
   Activity,
   LogOut,
 } from "lucide-react";
+import { FEATURES, FEATURE_DISABLED_HINT } from "../../lib/feature-gates";
 import { useTheme, type Theme } from "../../hooks/use-theme";
 import { useSystemStats, useSession, useLogout } from "../../lib/api/query-hooks";
 import { useWatchDashboard } from "../../lib/api/streaming-hooks";
@@ -64,7 +65,7 @@ const navItems = [
   { to: "/history", label: "Job History", icon: History },
   { to: "/logs", label: "Logs", icon: ScrollText },
   { to: "/profiles", label: "Auth Profiles", icon: KeyRound },
-  { to: "/renovate", label: "Renovate Bot", icon: Bot },
+  { to: "/renovate", label: "Renovate Bot", icon: Bot, gated: !FEATURES.renovate },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -251,9 +252,23 @@ function NavSidebar() {
                 return (
                   <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton
-                      isActive={isActive}
+                      isActive={isActive && !item.gated}
+                      disabled={item.gated}
                       tooltip={item.label}
-                      render={<Link to={item.to} aria-label={item.label} />}
+                      render={
+                        item.gated ? (
+                          // Gated for v1.0.0 (RUN-289): visible but unclickable.
+                          // pointer-events-none on the disabled button blocks the
+                          // tooltip, so the native title carries the hint.
+                          <span
+                            aria-label={item.label}
+                            aria-disabled="true"
+                            title={`${item.label} — ${FEATURE_DISABLED_HINT}`}
+                          />
+                        ) : (
+                          <Link to={item.to} aria-label={item.label} />
+                        )
+                      }
                     >
                       <Icon />
                       <span>{item.label}</span>
