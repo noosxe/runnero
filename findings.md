@@ -1,356 +1,408 @@
 # 🔍 Full Codebase Review — Findings Report
 
-> **Project**: `noosxe/runnero` — Self-Hosted GitHub/Gitea/Forgejo Actions Runner Supervisor  
-> **Date**: 2026-09-07  
+> **Project**: `noosxe/runnero` — Self-Hosted GitHub/Gitea/Forgejo Actions Runner Supervisor
+> **Original review**: 2026-09-07
+> **Re-verified**: 2026-09-21 against `main @ e8235b1`
 > **Scope**: All source code, documentation, infrastructure, CI/CD, frontend, and protobuf definitions
+
+> [!NOTE]
+> **2026-09-21 re-verification.** Every finding below was re-checked against the
+> current tree. Status banners mark each item: ✅ **RESOLVED** (fixed or invalid
+> by design), 🟦 **WAIVED — WORKING AS DESIGNED** (still true, but a documented,
+> deliberate product decision), ⚠️ **STILL VALID** (actionable), and 🔶
+> **PARTIALLY RESOLVED**. Line numbers and evidence have been updated to the
+> current tree. Severity shown is the **original** rating; re-rated severity is
+> noted where the risk has changed.
 
 ---
 
 ## Summary
 
-| Category | Critical | High | Medium | Low |
-|---|:---:|:---:|:---:|:---:|
-| Security | 2 | 2 | 2 | 1 |
-| Missing Functionality | 0 | 2 | 3 | 1 |
-| Design ↔ Implementation Gaps | 0 | 1 | 3 | 2 |
-| Code Quality / Bugs | 0 | 0 | 2 | 3 |
-| Infrastructure / Docker | 1 | 1 | 2 | 2 |
-| Testing Gaps | 0 | 0 | 2 | 1 |
-| **Total** | **3** | **6** | **14** | **10** |
+| Category | Findings | ✅ Resolved | 🟦 Waived / WAD | ⚠️ Still valid | 🔶 Partial |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Security | 6 | 3 | 2 | 1 | 0 |
+| Missing Functionality | 4 | 1 | 0 | 3 | 0 |
+| Design ↔ Implementation Gaps | 4 | 1 | 1 | 2 | 0 |
+| Code Quality | 5 | 0 | 0 | 5 | 0 |
+| Infrastructure / Docker | 2 | 0 | 0 | 2 | 0 |
+| Testing Gaps | 3 | 0 | 0 | 2 | 1 |
+| **Total** | **24** | **5** | **3** | **15** | **1** |
+
+### Remaining actionable work, by priority
+
+1. **INFRA-01** — socket security note referenced by `docker-compose.yml` does not exist in the README (stale pointer); no socket-proxy / `:ro` guidance anywhere.
+2. **MISS-02** — image-update notifications are in-memory only *and* undocumented as intentional.
+3. **MISS-04** — `cap_drop` hardening is required by AGENTS.md but documented nowhere; the one in-repo reference points at a docs section that doesn't cover it.
+4. **SEC-05** — `/actions-runner` layer bloat (`COPY` without `--chown` + separate `chown -R`).
+5. **TEST-02** — `entrypoint.sh` is never exercised against a real container daemon by any gate.
+6. **INFRA-02** — standalone runner service has no healthcheck.
+7. **GAP-02** — `install-tools.sh`: no strict mode, unpinned tools (increasingly vestigial next to the Nix dev shell).
 
 ---
 
-## 🔴 Critical Issues
+## ✅ Resolved Issues
 
-### SEC-01: Supervisor Container Runs as Root
+### SEC-01: Supervisor Container Runs as Root — ✅ RESOLVED
 
-**File**: [Dockerfile.supervisor](file:///home/mechsoull/Projects/runnero/Dockerfile.supervisor)  
-**Severity**: Critical
+**File**: [Dockerfile.supervisor](Dockerfile.supervisor)
+**Original severity**: Critical
 
-The `Dockerfile.supervisor` never includes a `USER` directive in the final stage. The supervisor daemon and all s6-managed processes run as `root` inside the container. This violates the project's own security requirements in [AGENTS.md](file:///home/mechsoull/Projects/runnero/AGENTS.md) ("Non-Root Execution") and [05-security-and-isolation.md](file:///home/mechsoull/Projects/runnero/docs/05-security-and-isolation.md).
+Fixed. The final stage now creates a dedicated non-root user —
+`addgroup -g 10000 supervisor && adduser -u 10000 -G supervisor -D …` (explicitly
+"per docs/05-security-and-isolation.md") — an s6 init service
+(`deploy/supervisor/s6-rc.d/init-socket-perms/`) reads the mounted
+`/var/run/docker.sock` GID at boot and adapts group membership, and the daemon
+run script execs via `s6-setuidgid supervisor`. The supervisor daemon itself no
+longer runs as root.
 
-> [!CAUTION]
-> Combined with the Docker socket mount, a root-running supervisor container with `/var/run/docker.sock` access is a container-escape-to-host-root vector.
-
-**Recommendation**: Create a non-root user (e.g., `supervisor:supervisor`) in the final stage and run the s6 process tree under it, or document a rootless Docker alternative.
-
----
-
-### SEC-02: Runner Container Has Passwordless Sudo
-
-**File**: [Dockerfile](file:///home/mechsoull/Projects/runnero/Dockerfile#L113)  
-**Severity**: Critical
-
-```dockerfile
-echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-```
-
-While the runner correctly runs as user `1001`, the passwordless sudo grant completely negates the non-root benefit. Any workflow code (which is untrusted by definition) can trivially escalate to root via `sudo`.
-
-**Recommendation**: Remove the blanket sudo rule. If specific elevated commands are needed, allowlist them explicitly (e.g., `runner ALL=(ALL) NOPASSWD: /usr/bin/docker`).
+Residual (accepted): s6-overlay's brief init phase runs as root — inherent to
+the s6-overlay bootstrap model, needed for the socket-perm adaptation and
+setuid drop. Rootless-Docker/Podman alternatives are tracked as *Future
+Mitigation* in docs/05 §4.
 
 ---
 
-### INFRA-01: Docker Socket Mounted Read-Write Without Security Warning
+### SEC-03: No Server-Side Logout / Session Revocation RPC — ✅ RESOLVED
 
-**File**: [docker-compose.yml](file:///home/mechsoull/Projects/runnero/docker-compose.yml#L27)  
-**Severity**: Critical
+**File**: [api.proto](proto/api.proto)
+**Original severity**: High
 
-Both `supervisor` and `runner` services mount `/var/run/docker.sock` with full read-write access. While this is architecturally required for orchestration, the compose file lacks any security notice, and there is no `:ro` option or socket proxy (e.g., Tecnativa/docker-socket-proxy) configured.
+Fixed (RUN-229, docs/32). `AuthService` now defines:
 
-**Recommendation**:
-- Add YAML comments warning about the privilege escalation risk
-- Document socket proxy alternatives in README/deploy docs
-- Consider read-only mount for the standalone runner service (`:ro`)
+- `rpc Logout` — deletes the caller's session row and clears the cookie (proto line 38);
+- `rpc RevokeSession` — per-row revoke, current-row revoke behaves like Logout;
+- `rpc RevokeAllOtherSessions`.
 
----
-
-## 🟠 High Severity Issues
-
-### SEC-03: No Server-Side Logout / Session Revocation RPC
-
-**Files**: [api.proto](file:///home/mechsoull/Projects/runnero/proto/api.proto#L11-L20), [query-hooks.ts](file:///home/mechsoull/Projects/runnero/web/src/lib/api/query-hooks.ts#L159-L165)  
-**Severity**: High
-
-The `AuthService` proto defines `SetupAdmin`, `Login`, and `GetSession` — but **no `Logout` RPC**. The frontend's `useLogout()` hook only clears the local TanStack Query cache:
-
-```typescript
-export function useLogout() {
-  const queryClient = useQueryClient();
-  return () => {
-    queryClient.setQueryData(queryKeys.session, null);
-    queryClient.invalidateQueries({ queryKey: queryKeys.session });
-  };
-}
-```
-
-This means the JWT session cookie is **never invalidated server-side**. The session token remains valid until natural expiry. If a token is stolen, there is no way to revoke it.
-
-The DB layer already has `DeleteSessionByTokenHash()` and `DeleteSessionsByUserId()` — the server-side plumbing exists but is never exposed via RPC.
-
-**Recommendation**: Add a `Logout` RPC to `AuthService` that deletes the session from the DB and clears the `HttpOnly` cookie.
+Sessions are opaque DB-backed tokens with device labels and idle/absolute
+clocks; the Security tab exposes all of it (E2E spec `10-session-control.spec.ts`).
 
 ---
 
-### SEC-04: No `AuthProfileService.UpdateAuthProfile` RPC
+### SEC-04: No `AuthProfileService.UpdateAuthProfile` RPC — ✅ RESOLVED
 
-**File**: [api.proto](file:///home/mechsoull/Projects/runnero/proto/api.proto#L216-L220)  
-**Severity**: High
+**File**: [api.proto](proto/api.proto#L510)
+**Original severity**: High
 
-`AuthProfileService` only defines `List`, `Create`, and `Delete`. There is no `Update` RPC. If a user needs to rotate a PAT token or replace a GitHub App private key, they must delete and re-create the entire profile, which cascades to deleting all associated runner pools.
-
-The DB layer (`UpdateAuthProfile` in [auth_profiles.sql.go](file:///home/mechsoull/Projects/runnero/internal/db/auth_profiles.sql.go#L155)) and the crypto re-encryption logic ([crypto.go](file:///home/mechsoull/Projects/runnero/internal/db/crypto.go#L195)) are fully implemented — but never exposed via RPC.
-
-**Recommendation**: Add `UpdateAuthProfile` RPC to the proto and connect it to the existing DB method.
+Fixed. `rpc UpdateAuthProfile(UpdateAuthProfileRequest)` exists (proto line 510),
+connected to the DB layer's re-encryption path. Token/PAT rotation no longer
+requires delete + re-create.
 
 ---
 
-### MISS-01: Missing `register.sh` Script
+### MISS-03: No Custom Network in Docker Compose — ✅ RESOLVED (invalid by design)
 
-**Files**: [AGENTS.md](file:///home/mechsoull/Projects/runnero/AGENTS.md#L199), [02-architecture-design.md](file:///home/mechsoull/Projects/runnero/docs/02-architecture-design.md#L91)  
-**Severity**: High
+**Files**: [docker-compose.yml](docker-compose.yml), [provider.go](internal/orchestrator/provider.go#L12)
+**Original severity**: Medium
 
-Both AGENTS.md and the architecture doc reference `src/register.sh` as a companion script. This file does not exist. Only [src/entrypoint.sh](file:///home/mechsoull/Projects/runnero/src/entrypoint.sh) is present.
-
-The registration logic was inlined into `entrypoint.sh`, but the documentation still references the separate file.
-
-**Recommendation**: Either create `register.sh` as documented, or update AGENTS.md and docs/02 to remove the reference.
-
----
-
-### INFRA-02: Runner Service Missing Health Check
-
-**File**: [docker-compose.yml](file:///home/mechsoull/Projects/runnero/docker-compose.yml#L36-L54)  
-**Severity**: High
-
-The `supervisor` service has a well-defined `healthcheck` using `/healthz` and `/readyz`, but the `runner` service has **no health check at all**. Docker/compose will have no way to know if the runner is actually healthy.
-
-**Recommendation**: Add a basic healthcheck (e.g., checking if the runner PID is alive or using a sentinel file).
+Not an issue. The orchestrator creates and manages the `runnero-supervisor`
+bridge itself (`DefaultNetworkName`, `EnsureNetwork` — OQ #22); compose doesn't
+need to pre-define it. Runner containers never call the supervisor directly —
+they register with the provider — so there is no supervisor↔runner same-network
+requirement to satisfy.
 
 ---
 
-## 🟡 Medium Severity Issues
+### GAP-03: AGENTS.md References Non-Existent `register.sh` — ✅ RESOLVED
 
-### SEC-05: Dockerfile Layer Bloat From Separate `chown`
+**File**: [AGENTS.md](AGENTS.md)
+**Original severity**: Low
 
-**File**: [Dockerfile](file:///home/mechsoull/Projects/runnero/Dockerfile#L120-L127)  
-**Severity**: Medium
-
-```dockerfile
-COPY --from=downloader /build/actions-runner /actions-runner
-RUN ./bin/installdependencies.sh \
-    && mkdir -p /actions-runner/_work \
-    && chown -R 1001:1001 /actions-runner \
-    && chmod -R 755 /actions-runner
-```
-
-The `COPY` without `--chown` followed by a separate `chown -R` effectively doubles the layer size of the `/actions-runner` directory (~300-500MB). Unlike the `act_runner` and `forgejo-runner` binaries which correctly use `COPY --chown=root:root --chmod=755`, the main runner directory doesn't.
-
-**Recommendation**: Use `COPY --from=downloader --chown=1001:1001 /build/actions-runner /actions-runner` and run `installdependencies.sh` before `COPY`.
+Fixed. AGENTS.md no longer references `register.sh`. (The docs/02 reference
+survives — see GAP-04 below.)
 
 ---
 
-### SEC-06: VACUUM INTO Potential SQL Injection
+## 🟦 Waived — Working as Designed
 
-**File**: [backup.go](file:///home/mechsoull/Projects/runnero/internal/db/backup.go#L56)  
-**Severity**: Medium
+### SEC-02: Runner Container Has Passwordless Sudo — 🟦 WAIVED (documented decision)
 
-```go
-query := fmt.Sprintf("VACUUM INTO '%s';", escaped)
-```
+**File**: [Dockerfile](Dockerfile#L138-L143)
+**Original severity**: Critical
 
-The `VACUUM INTO` path is constructed via string formatting rather than parameterized queries. While `escaped` applies basic sanitization, this is a deviation from the project's otherwise perfect parameterized-query discipline via `sqlc`. The `destPath` is internally controlled (not user-facing), which significantly reduces risk.
+Still true — `runner ALL=(ALL:ALL) NOPASSWD:ALL` remains — but it is now an
+explicitly documented product decision, not an oversight:
 
-**Recommendation**: Document that `destPath` is never user-supplied, or investigate if `modernc.org/sqlite` supports parameterized `VACUUM INTO`.
+- docs/05 records the rationale (hosted-runner contract: community workflows
+  call `sudo apt-get install …` in setup steps), the trust-boundary analysis
+  (sudo widens only *in-container* blast radius; pool trust is the admin's
+  decision), the ephemerality argument, and the deployment caveat
+  (`no-new-privileges` must stay off the runner service).
+- The sudoers drop-ins are `visudo -c`-validated at build time, with an
+  `env_keep` rule preserving `RUNNER_*`/provider env across the entrypoint's
+  sudo re-exec (docs/18 §3.7, RUN-162).
 
----
-
-### MISS-02: `ImageUpdateService` Has No Dedicated Database Table
-
-**Files**: [api.proto](file:///home/mechsoull/Projects/runnero/proto/api.proto#L480-L535), DB migrations  
-**Severity**: Medium
-
-The `ImageUpdateService` defines 4 RPCs (`CheckImageUpdate`, `PullImage`, `ListImageUpdates`, `DismissImageUpdate`) with a full `ImageUpdate` message type. However, there is **no `image_updates` table** in any migration. The service uses in-memory state only.
-
-This means:
-- Image update notifications are lost on supervisor restart
-- No persistent history of image updates exists
-- The `DismissImageUpdate` action is also ephemeral
-
-**Recommendation**: Add a `004_image_updates.sql` migration creating an `image_updates` table, or document that in-memory tracking is intentional.
+The original recommendation (blanket-removal / command allowlist) conflicts
+with the documented workflow-parity requirement and is **rejected**. Sudo
+cannot grant capabilities outside the container's bounding set.
 
 ---
 
-### MISS-03: No Custom Network in Docker Compose
+### SEC-06: `VACUUM INTO` String Formatting — 🟦 WAIVED (accept, document)
 
-**File**: [docker-compose.yml](file:///home/mechsoull/Projects/runnero/docker-compose.yml)  
-**Severity**: Medium
+**File**: [backup.go](internal/db/backup.go#L55-L56)
+**Original severity**: Medium → effectively Low
 
-The compose file uses the default Docker bridge network. The orchestrator code references a custom network `ghrs-supervisor` ([provider.go](file:///home/mechsoull/Projects/runnero/internal/orchestrator/provider.go#L11)), but the compose file doesn't define or use it. This means spawned runner containers may not be on the same network as the supervisor.
+Unchanged: `query := fmt.Sprintf("VACUUM INTO '%s';", escaped)` with
+`strings.ReplaceAll(destPath, "'", "''")` escaping. The sole caller is the
+internal backup manager (`backup.go:76`); `destPath` derives from server config
+(data dir + generated filename), never from user input. SQLite's `VACUUM INTO`
+target can be parameterized in principle, but the practical risk here is nil.
 
-**Recommendation**: Define a custom bridge network in `docker-compose.yml` that aligns with `ghrs-supervisor`.
-
----
-
-### MISS-04: Missing `cap_drop` Documentation
-
-**Files**: [AGENTS.md](file:///home/mechsoull/Projects/runnero/AGENTS.md#L173), [docker-compose.yml](file:///home/mechsoull/Projects/runnero/docker-compose.yml)  
-**Severity**: Medium
-
-AGENTS.md explicitly requires: *"Document minimal Docker configurations (e.g., dropping capabilities with `cap_drop`)"*. Neither the docker-compose file nor the README include any `cap_drop` directives or documentation about Linux capability restrictions.
-
-**Recommendation**: Add `cap_drop: [ALL]` + necessary `cap_add` to docker-compose services, and document in README.
+Remaining nit: no comment at the call site states that `destPath` is
+internally controlled. A one-line comment would close this out.
 
 ---
 
-### GAP-01: `open-questions.md` Specifies CORS Strict Denial — Implementation Confirms but No Config Exposed
+### GAP-01: CORS Strict Denial With No Configuration Knob — 🟦 WAIVED (intentional, but undocumented)
 
-**File**: [server.go](file:///home/mechsoull/Projects/runnero/internal/server/server.go#L440)  
-**Severity**: Medium
+**File**: [server.go](internal/server/server.go#L482)
+**Original severity**: Medium → Low
 
-Security headers and CORS denial are implemented (comment references OQ #25, #26). However, there is no configuration option to adjust CORS policy for deployments behind API gateways or custom domains.
+Still factually true: CORS is strictly denied (same-origin only, OQ #25/#26)
+with a webhook-receiver bypass, and there is no `SUPERVISOR_CORS_*` env var.
+This is the intended security posture — the deployment story is reverse-proxy
+TLS termination on one origin (README, docs/05) — so adding a cross-origin
+escape hatch is not wanted.
 
-**Recommendation**: Add a `SUPERVISOR_CORS_ALLOWED_ORIGINS` env var for operators who need cross-origin access.
-
----
-
-### GAP-02: `install-tools.sh` Missing Strict Mode
-
-**File**: [install-tools.sh](file:///home/mechsoull/Projects/runnero/scripts/install-tools.sh#L3)  
-**Severity**: Medium
-
-The script only uses `set -e`. Per AGENTS.md, all shell scripts should use `set -euo pipefail`. Additionally, all tools are installed with `@latest` instead of pinned versions, creating non-reproducible dev environments.
-
-**Recommendation**: Add `set -euo pipefail` and pin tool versions.
+The legitimate residue is documentation: the same-origin policy lives only in
+code comments. It should be stated in docs/05 (or docs/08).
 
 ---
 
-### TEST-01: Missing E2E Tests for Job History and Image Updates
+## ⚠️ Still Valid Issues
 
-**Files**: [tests/e2e/](file:///home/mechsoull/Projects/runnero/tests/e2e/)  
-**Severity**: Medium
+### INFRA-01: Docker Socket Mounted Read-Write; Security Guidance Stale — ⚠️ STILL VALID (sharpened)
 
-Playwright E2E specs cover specs 01-07 (Bootstrap through Settings). Missing coverage:
-- Job History page navigation and filtering
-- Image Update notification/dismissal workflows
+**Files**: [docker-compose.yml](docker-compose.yml), README.md, docs/05 §4
+**Original severity**: Critical → Medium (DooD is architecturally required; docs/05 §4 covers the trust boundary)
 
-**Recommendation**: Add E2E spec files for History and Image Update flows.
+Current state:
 
----
+- The compose comment on the supervisor's socket mount says *"see security note
+  in README"* — **the README contains no docker.sock security note at all**.
+  The pointer is stale (or was never written).
+- docs/05 §4 ("Docker Socket Isolation (DooD Safety)") documents the
+  runner-side boundary (socket not mounted into runner containers by default,
+  GitHub-only opt-in, rootless/Podman deferred) — but says nothing about the
+  **supervisor's** full-rw host socket mount, socket proxies
+  (e.g. Tecnativa/docker-socket-proxy), or `:ro` options.
+- The standalone `runner` service still mounts the socket rw with no comment.
 
-### TEST-02: No Integration Tests for Shell Scripts Beyond Unit Tests
-
-**File**: [Makefile](file:///home/mechsoull/Projects/runnero/Makefile#L64-L65)  
-**Severity**: Medium
-
-The `test-scripts` target runs `tests/unit/entrypoint_test.sh` which is a unit-level test. There are no integration tests that verify the entrypoint script actually works inside the runner Docker image with real (or mocked) runner binaries.
-
-**Recommendation**: Add a docker-compose based integration test that boots the runner image and verifies registration flow.
-
----
-
-## 🟢 Low Severity Issues
-
-### GAP-03: AGENTS.md References Non-Existent `register.sh` in Architecture Diagram
-
-**File**: [AGENTS.md](file:///home/mechsoull/Projects/runnero/AGENTS.md#L199)  
-**Severity**: Low
-
-The repository structure in AGENTS.md shows:
-```
-├── src/
-│   ├── entrypoint.sh
-│   └── register.sh    ← does not exist
-```
-
-**Recommendation**: Remove `register.sh` from the structure diagram.
+**Recommendation**: write the README security note the compose comment already
+promises (socket exposure rationale + socket-proxy mention), and align the
+standalone runner's mount comment.
 
 ---
 
-### GAP-04: Architecture Doc References `src/register.sh`
+### INFRA-02: Standalone Runner Service Missing Health Check — ⚠️ STILL VALID
 
-**File**: [02-architecture-design.md](file:///home/mechsoull/Projects/runnero/docs/02-architecture-design.md#L91)  
-**Severity**: Low
+**File**: [docker-compose.yml](docker-compose.yml) (`runner` service)
+**Original severity**: High → Medium (optional `runner-standalone` profile; the supervisor-managed path is the primary deployment)
 
-Same stale reference as GAP-03.
+Unchanged: the `runner` service has `init: true` and `restart: unless-stopped`
+but no `healthcheck`. Docker/compose cannot detect a wedged runner process.
 
----
-
-### QUAL-01: `resp.Body.Close()` Errors Silently Ignored in Registry Client
-
-**File**: [internal/registry/client.go](file:///home/mechsoull/Projects/runnero/internal/registry/client.go) (lines ~155, 177, 206)  
-**Severity**: Low
-
-```go
-defer func() { _ = resp.Body.Close() }()
-```
-
-While idiomatic Go, consistently ignoring close errors in an HTTP proxy context could mask underlying connection issues. This is a minor observability gap.
+**Recommendation**: a `CMD-SHELL` check on the runner process or a sentinel
+file written by `entrypoint.sh`.
 
 ---
 
-### QUAL-02: s6 `run` Script Lacks `set -euo pipefail`
+### SEC-05: Dockerfile Layer Bloat From Separate `chown` — ⚠️ STILL VALID
 
-**File**: [deploy/supervisor/s6-rc.d/supervisor/run](file:///home/mechsoull/Projects/runnero/deploy/supervisor/s6-rc.d/supervisor/run)  
-**Severity**: Low
+**File**: [Dockerfile](Dockerfile#L152-L158) (lines 152–158)
+**Original severity**: Medium
 
-The 2-line s6 exec script uses `#!/command/with-contenv sh` and doesn't include strict mode. While acceptable for s6 exec-chain scripts, it deviates from the project's shell scripting standards.
+Unchanged: `COPY --from=downloader /build/actions-runner /actions-runner`
+(no `--chown`) is followed by a separate `RUN` that does
+`chown -R 1001:1001 /actions-runner` (alongside `installdependencies.sh`),
+duplicating the ~300–500 MB directory in layers. The sibling runner binaries
+right below (lines 150–151) correctly use `COPY --chown=root:root --chmod=755`.
 
----
-
-### QUAL-03: Unnecessary `apk del xz tar` in Supervisor Dockerfile
-
-**File**: [Dockerfile.supervisor](file:///home/mechsoull/Projects/runnero/Dockerfile.supervisor#L88)  
-**Severity**: Low
-
-After `apk add --no-cache ... xz tar`, the script removes them with `apk del xz tar`. Since `--no-cache` was used, there's no package cache to clean. The `apk del` is cosmetically valid (reduces image size by removing the packages themselves) but could be combined into the same `RUN` layer more cleanly.
-
----
-
-### QUAL-04: `Dockerfile` Uses `ubuntu:24.04` — Not the Minimal Base Recommended
-
-**File**: [Dockerfile](file:///home/mechsoull/Projects/runnero/Dockerfile#L7)  
-**Severity**: Low
-
-AGENTS.md recommends "lightweight, minimal, and secure base images (such as Alpine Linux or a minimal Debian-slim distro)". The runner Dockerfile uses `ubuntu:24.04` (full Ubuntu). This is likely justified by the GitHub Actions runner's dependency requirements, but should be documented.
+**Recommendation**: `COPY --from=downloader --chown=1001:1001
+/build/actions-runner /actions-runner` and run `installdependencies.sh` in its
+own layer.
 
 ---
 
-### QUAL-05: `runner_pools.repository_url` Column Retained After Multi-Target Migration
+### MISS-01 / GAP-04: Docs Still Reference `register.sh` — ⚠️ STILL VALID (downgraded to docs/02 only)
 
-**File**: [003_pool_targets.sql](file:///home/mechsoull/Projects/runnero/internal/db/migrations/003_pool_targets.sql)  
-**Severity**: Low
+**File**: [02-architecture-design.md](docs/02-architecture-design.md#L91)
+**Original severity**: High (MISS-01) / Low (GAP-04)
 
-Migration 003 creates `pool_targets` and backfills from `runner_pools.repository_url`, but the `repository_url` column is never dropped from `runner_pools`. This creates data duplication between the legacy column and the new join table.
-
-**Recommendation**: Add a follow-up migration that drops the `repository_url` column from `runner_pools`, or document why it's retained for backward compatibility.
+AGENTS.md is fixed; **docs/02 line 91 still lists `register.sh`** in the
+repository structure ("entrypoint.sh, register.sh"). The file doesn't exist —
+registration logic is inlined in `entrypoint.sh`. One-line docs fix; MISS-01's
+"High" rating no longer applies since only a doc tree-diagram is wrong.
 
 ---
 
-### TEST-03: No Vitest Config File
+### MISS-02: `ImageUpdateService` Has No Persistent Store — ⚠️ STILL VALID
 
-**File**: [web/](file:///home/mechsoull/Projects/runnero/web/)  
-**Severity**: Low
+**Files**: [api.proto](proto/api.proto#L902), [image_update.go](internal/server/image_update.go#L88-L98), `internal/db/migrations/` (through 012)
+**Original severity**: Medium
 
-The Vitest configuration appears to be inline within `vite.config.ts`. While this works, a dedicated `vitest.config.ts` improves discoverability and separation of concerns.
+Unchanged: the service keeps notifications in a `sync.RWMutex`-guarded
+`map[int64]*supervisorv1.ImageUpdate`; no `image_updates` table exists in any
+migration, and no doc marks the ephemerality as intentional. Consequences
+stand: notifications and dismissals are lost on supervisor restart; no update
+history.
+
+**Recommendation**: either add a persistence migration (and prune on
+pull/dismiss) or document the in-memory design choice where the service is
+described.
+
+---
+
+### MISS-04: Missing `cap_drop` Documentation — ⚠️ STILL VALID (sharpened: dangling reference)
+
+**Files**: AGENTS.md, docker-compose.yml, docs/05
+**Original severity**: Medium
+
+AGENTS.md still requires documenting minimal Docker configurations
+(`cap_drop`), and neither the compose file nor the README carries any.
+**New wrinkle**: the only in-repo mention — docs/05 line 80,
+"`cap_drop` hardening (§4 guidance) remains fully effective" — points at §4,
+which is *Docker Socket Isolation* and contains **no cap_drop guidance
+whatsoever**. The reference is dangling.
+
+**Recommendation**: add a short hardening subsection (suggested
+`cap_drop: [ALL]` + `cap_add` allowlist per service, and the
+`no-new-privileges` runner caveat that docs/05 *does* already cover) and fix
+the §4 cross-reference.
+
+---
+
+### GAP-02: `install-tools.sh` Missing Strict Mode; Tools Unpinned — ⚠️ STILL VALID
+
+**File**: [install-tools.sh](scripts/install-tools.sh#L3)
+**Original severity**: Medium → Low
+
+Unchanged: `set -e` only, every tool installed `@latest`. Context has shifted,
+though: the Nix dev shell is now the canonical toolchain (AGENTS.md mandates
+it), so this script is increasingly vestigial — which argues for pinning or
+retiring it rather than investing in it.
+
+---
+
+### TEST-01: Missing E2E for Image-Update Workflows — 🔶 PARTIALLY RESOLVED
+
+**Files**: [tests/e2e/specs/](tests/e2e/specs/)
+**Original severity**: Medium
+
+The job-history half is done: `14-job-history-flow.spec.ts` covers history
+navigation and filtering. Still missing: an E2E spec exercising image-update
+notification/dismissal (the settings "Pending Image Notifications" section has
+no E2E coverage). The E2E stack's mock docker daemon would need to emulate the
+inspect/pull surface — same machinery the suite already fakes for spawns.
+
+---
+
+### TEST-02: No Integration Test Exercising the Entrypoint Against a Real Daemon — ⚠️ STILL VALID
+
+**Files**: `tests/unit/` (3 shell unit suites), [Makefile](Makefile)
+**Original severity**: Medium
+
+Unchanged: `make test-scripts` runs `entrypoint_test.sh`,
+`parity_packages_test.sh`, and `playwright_lockstep_test.sh` — all unit-level.
+The Playwright suite uses a **mock** docker daemon, so `entrypoint.sh`
+(registration, re-exec, graceful deregistration) is never executed against a
+real container daemon anywhere in CI. The standalone-runner compose profile
+would be the natural vehicle for a smoke-level integration test.
+
+---
+
+### TEST-03: No Dedicated Vitest Config File — ⚠️ STILL VALID (cosmetic)
+
+**File**: [vite.config.ts](web/vite.config.ts)
+**Original severity**: Low
+
+Unchanged: Vitest config remains inline in `vite.config.ts` (test block with
+jsdom environment and setup files). Works fine; a `vitest.config.ts` split
+remains a nice-to-have.
+
+---
+
+### QUAL-01: `resp.Body.Close()` Errors Silently Ignored in Registry Client — ⚠️ STILL VALID
+
+**File**: [internal/registry/client.go](internal/registry/client.go) (lines 155, 177, 206, 267)
+**Original severity**: Low
+
+Unchanged: four `defer func() { _ = resp.Body.Close() }()` sites. Idiomatic Go;
+response bodies on GETs carry nothing worth reading on close. Observability nit
+only.
+
+---
+
+### QUAL-02: s6 `run` Script Lacks Strict Mode — ⚠️ STILL VALID (cosmetic)
+
+**File**: [deploy/supervisor/s6-rc.d/supervisor/run](deploy/supervisor/s6-rc.d/supervisor/run)
+**Original severity**: Low
+
+Still a bare `#!/command/with-contenv sh` + single `exec s6-setuidgid
+supervisor …` line — no `set -euo pipefail`. The script is now a one-line exec
+chain (and gained the important part: the setuid drop, per SEC-01), so strict
+mode has nothing to guard. Fine to leave as is; noting for completeness.
+
+---
+
+### QUAL-03: `apk del xz tar` in Supervisor Dockerfile — ⚠️ STILL VALID (cosmetic)
+
+**File**: [Dockerfile.supervisor](Dockerfile.supervisor#L88)
+**Original severity**: Low
+
+Unchanged: `xz tar` are installed with `--no-cache` (line 58) and removed with
+`apk del` (line 88) in a later layer. Unlike cache cleaning, this genuinely
+shrinks the image (the packages themselves are deleted); it just re-adds them
+to the earlier layer's size. Purely stylistic.
+
+---
+
+### QUAL-04: Runner Base Image Is Full `ubuntu:24.04` — ⚠️ STILL VALID (partially mitigated)
+
+**File**: [Dockerfile](Dockerfile#L7,L66)
+**Original severity**: Low
+
+Unchanged: both stages use full `ubuntu:24.04`. The choice is defensible — the
+GitHub Actions runner and its dependency stack target Ubuntu, and
+docs/18 documents the package-parity tiering — but the base-image decision
+itself (why not a slimmer base for the downloader stage, why full Ubuntu for
+the runtime) still isn't stated explicitly. A sentence in the Dockerfile header
+comment or docs/18 would close it.
+
+---
+
+### QUAL-05: `runner_pools.repository_url` Retained Alongside `pool_targets` — ⚠️ STILL VALID (nuanced)
+
+**Files**: [001_initial_schema.sql](internal/db/migrations/001_initial_schema.sql#L36), [server/pool.go](internal/server/pool.go#L220-L287), migrations 003+
+**Original severity**: Low
+
+Unchanged in substance: migration 003 backfilled `pool_targets` from
+`runner_pools.repository_url` but never dropped the legacy column — and unlike
+the original report assumed, the column is not dead weight: the write path
+still maintains it (create/update set it, audit diffs it — `pool.go` 249/287)
+and reads it as a fallback when a pool has no targets (`pool.go` 220–221). So
+it's a live, synced duplicate of the first target.
+
+**Recommendation**: either drop it in a follow-up migration (collapsing the
+fallback onto `pool_targets`) or document why the mirror is kept.
 
 ---
 
 ## ✅ What's Working Well
 
-These areas are implemented cleanly and match the design docs:
+These areas are implemented cleanly and match the design docs (re-confirmed 2026-09-21):
 
 | Area | Assessment |
 |---|---|
 | **Go Backend Architecture** | Modular, well-tested, zero TODOs/FIXMEs. Strict DI, context propagation, and slog logging. |
-| **ConnectRPC Services** | All 8 services fully implemented with proper binary wire protocol enforcement. |
-| **Database Layer** | sqlc-generated queries, Goose migrations, AES-256 encryption, HKDF key derivation — all solid. |
-| **Orchestrator** | Complete lifecycle management with scale-to-zero, ephemeral containers, webhook scaling, and graceful shutdown. |
-| **Frontend** | React 19 + TypeScript + TanStack Router/Query + TailwindCSS. Strict typing, no `@ts-ignore`. |
-| **Security Headers & Auth** | HttpOnly/SameSite cookies, security middleware, CORS denial, audit logging. |
-| **CI/CD Pipelines** | 5 workflow files covering build, test, lint, and deploy. Path-based filtering with Dependabot. |
-| **Entrypoint Script** | Fully AGENTS.md-compliant: `set -euo pipefail`, signal traps, graceful deregistration. |
+| **ConnectRPC Services** | All services fully implemented with proper binary wire protocol enforcement; session lifecycle (login/logout/revoke) is complete. |
+| **Database Layer** | sqlc-generated queries, Goose migrations (through 012), AES-256 encryption, HKDF key derivation — all solid. |
+| **Orchestrator** | Complete lifecycle management with scale-to-zero, ephemeral containers, webhook scaling, busy-sync, ghost sweep, and graceful shutdown. |
+| **Frontend** | React 19 + TypeScript + TanStack Router/Query + TailwindCSS. Strict typing, no `@ts-ignore`; WCAG 2.2 AA enforced by test gates (RUN-255). |
+| **Security Headers & Auth** | Opaque HttpOnly/SameSite=Strict session cookies, login lockout, passkeys (WebAuthn), security middleware, CORS denial, audit logging. |
+| **CI/CD Pipelines** | Workflow files covering build, test, lint, and deploy. Path-based filtering with Dependabot. |
+| **Entrypoint Script** | Fully compliant: `set -euo pipefail`, signal traps, graceful deregistration, sudo re-exec with env preservation. |
 | **Health Probes** | `/healthz` (liveness) and `/readyz` (readiness) with pluggable probe registries. |
 | **Backup & Recovery** | VACUUM INTO snapshots, configurable interval and retention. |
 | **Proto Design** | Clean, consistent naming. Secrets never exposed in read RPCs. |
-| **Test Coverage** | Exceptionally thorough Go tests (CLI, orchestrator, DB, providers, security). |
+| **Test Coverage** | Exceptionally thorough Go tests, 16-containerized E2E specs (bootstrap → viewer role → a11y enforcement), shell unit suites, and a Vitest axe gate. |
