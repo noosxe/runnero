@@ -193,6 +193,45 @@ The supervisor interacts with Docker over HTTP (`tcp://e2e-mock-docker:2375`):
 
 **Simulating a job completion** = release the busy flag at the forge (`PUT /_admin/runners`, §3.2) **and** exit the container (`POST /_admin/containers/{name}/exit`) — flow-08 wraps both in an `exitMockContainer`-style helper. The half-states remain writable on purpose: flipping busy without an exit exercises busy-sync drift (docs/19), and removing a container outside the supervisor exercises the ghost sweep (docs/20). Flow-08's post-completion assertion is the strict production outcome: the former-busy runner is reaped via the die event and the pool settles at `min_idle` with no excess-idle drain (RUN-164's loosened assertion was re-tightened as part of RUN-165).
 
+### 3.4 Accessibility Scanning (`15-a11y-scan.spec.ts`, RUN-262/RUN-265, docs/36)
+
+The a11y scan is a PR gate, not a report: `@axe-core/playwright` (axe-core
+4.13.0, tags `wcag2a`, `wcag2aa`, `wcag22aa`, `best-practice`) scans every
+route in the §4.1 matrix of docs/36 — 21 page scans per theme across the
+unauthenticated/admin/viewer roles, in **both light and dark themes** (6
+Playwright tests total; theme is pinned per run through the
+`runnero-theme` storage key). **The test fails on any violation with
+impact serious or critical.** Moderate and minor findings stay
+report-only: they are printed to the console and attached to the HTML
+report (`axe-<role>-<theme>` text summary + `-raw` JSON) without failing,
+so visibility never costs flakiness.
+
+- **Waiver policy (docs/36 §6.1):** no axe rule is disabled anywhere in
+  the spec. If a waiver ever becomes necessary it must carry an inline
+  comment with the finding reference, why it cannot be fixed now, and a
+  review date — silent exceptions defeat the point of the gate. The one
+  recorded matrix exception is the onboarding wizard: a seeded database
+  redirects `/onboarding`, so the scan records a justified skip (the
+  wizard is covered by the manual keyboard pass, docs/36 §4.2, and flows
+  01/02).
+- **Matrix-drift guard:** every matrix entry must produce a real scan or
+  a recorded skip — dropped URLs fail the test even when no violation
+  exists.
+- **Vitest composites:** `web/src/test/axe-composites.test.tsx` runs
+  axe (jsdom) over the shared composites where semantic regressions
+  start — form fields (default + error state), the data table (sorted
+  with a pinned first column), LogTerminal controls, and the toast
+  viewport. `color-contrast` is disabled there (jsdom has no layout;
+  contrast is owned by tokens, RUN-256, and the E2E scans). Runs inside
+  `make test-web`.
+- **Local run:** the scan rides the standard gates —
+  `nix develop --command make test-e2e` (full suite, includes the scan)
+  and `nix develop --command make test-web` (composites). Violation
+  details land in `tests/e2e/playwright-report/index.html` under the
+  attachments of the failing test. Budget: ~3–4 minutes added to the
+  E2E suite; if it grows, the scan splits into a dedicated
+  `test-e2e-a11y` target (docs/36 §6.1).
+
 ---
 
 ## 4. Human-Usable Flow Test Specifications

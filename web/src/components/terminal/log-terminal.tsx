@@ -228,6 +228,9 @@ export function LogTerminal({
             onClick={() => setAutoScroll((prev) => !prev)}
             aria-pressed={autoScroll}
             className={cn(
+              // Terminal tokens only: the console is always dark, so theme
+              // tokens would flip contrast one theme away (docs/36 §5.4).
+              "border-terminal-border/60 bg-transparent text-terminal-muted hover:bg-terminal-raised/60 hover:text-terminal-fg",
               autoScroll && "border-terminal-accent/40 bg-terminal-accent/10 text-terminal-accent",
             )}
           >
@@ -243,6 +246,9 @@ export function LogTerminal({
             size="xs"
             onClick={handleCopyAll}
             disabled={displayedLogs.length === 0}
+            className={cn(
+              "border-terminal-border/60 bg-transparent text-terminal-muted hover:bg-terminal-raised/60 hover:text-terminal-fg",
+            )}
           >
             {copied ? (
               <Check data-icon="inline-start" className="text-success" />
@@ -257,6 +263,9 @@ export function LogTerminal({
             size="xs"
             onClick={handleDownload}
             disabled={displayedLogs.length === 0}
+            className={cn(
+              "border-terminal-border/60 bg-transparent text-terminal-muted hover:bg-terminal-raised/60 hover:text-terminal-fg",
+            )}
           >
             <Download data-icon="inline-start" />
             <span>Export</span>
@@ -267,7 +276,7 @@ export function LogTerminal({
               variant="outline"
               size="xs"
               onClick={onClear}
-              className="text-muted-foreground hover:text-destructive"
+              className="border-terminal-border/60 bg-transparent text-terminal-muted hover:bg-terminal-raised/60 hover:text-terminal-err"
             >
               <Trash2 data-icon="inline-start" />
               <span>Clear</span>
@@ -302,7 +311,7 @@ export function LogTerminal({
               size="xs"
               onClick={() => setStreamFilter("all")}
               aria-pressed={streamFilter === "all"}
-              className={cn(streamFilter === "all" && "bg-muted text-foreground")}
+              className={cn(streamFilter === "all" && "bg-terminal-raised/60 text-terminal-fg")}
             >
               All
             </Button>

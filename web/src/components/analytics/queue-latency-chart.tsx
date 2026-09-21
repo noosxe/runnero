@@ -173,7 +173,14 @@ export function QueueLatencyChart({
           </div>
         ) : (
           <ChartContainer config={chartConfig} className="h-56 w-full aspect-auto" aria-hidden>
-            <AreaChart accessibilityLayer data={data} margin={{ left: 12, right: 12, top: 8 }}>
+            <AreaChart
+              // Decorative per docs/36 §5.6: the sr-only summary carries the data,
+              // so recharts' keyboard accessibility layer (tabbable svg, default
+              // on) stays off — it would land inside aria-hidden.
+              accessibilityLayer={false}
+              data={data}
+              margin={{ left: 12, right: 12, top: 8 }}
+            >
               <defs>
                 <linearGradient id="fillLatency" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--color-latency)" stopOpacity={0.25} />
