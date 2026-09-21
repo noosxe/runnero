@@ -67,7 +67,7 @@ test.describe("Flow 09: Log Observability", () => {
     // second "reap" record for the same container milliseconds after the
     // manual terminate (RUN-224), and the list is newest-first, so the
     // unfiltered first row may be that reap record.
-    await page.goto("/logs?tab=removals");
+    await page.goto("/logs/removals");
     await page.getByTestId("logs-filter-reason").click();
     await page.getByRole("option", { name: "manual", exact: true }).click();
     await page.getByTestId("logs-filter-apply").click();
@@ -92,7 +92,7 @@ test.describe("Flow 09: Log Observability", () => {
     // Row action: jump back to the boot that wrote the record. Re-apply the
     // manual filter: navigation resets it, and the unfiltered first row can
     // again be the die-event reap record (RUN-224).
-    await page.goto("/logs?tab=removals");
+    await page.goto("/logs/removals");
     await page.getByTestId("logs-filter-reason").click();
     await page.getByRole("option", { name: "manual", exact: true }).click();
     await page.getByTestId("logs-filter-apply").click();
@@ -103,7 +103,7 @@ test.describe("Flow 09: Log Observability", () => {
     await expect(page.getByText("Supervisor Boot Log").first()).toBeVisible();
 
     // Filters narrow the removal list without clearing the record.
-    await page.goto("/logs?tab=removals");
+    await page.goto("/logs/removals");
     await page.getByTestId("logs-filter-reason").click();
     await page.getByRole("option", { name: "manual", exact: true }).click();
     await page.getByTestId("logs-filter-apply").click();

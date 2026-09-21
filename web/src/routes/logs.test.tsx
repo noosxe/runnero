@@ -115,8 +115,10 @@ vi.mock("@/lib/api/streaming-hooks", () => ({
 
 vi.mock("@tanstack/react-router", () => createRouterMock({ useNavigate: () => mockNavigate }));
 
-function renderPage(search: { tab?: string; runner?: string; boot?: string } = {}) {
-  return render(<LogsPage search={search} />);
+function renderPage(
+  opts: { tab?: "supervisor" | "removals" | "runners"; runner?: string; boot?: string } = {},
+) {
+  return render(<LogsPage tab={opts.tab ?? "supervisor"} runner={opts.runner} boot={opts.boot} />);
 }
 
 describe("LogsPage", () => {
@@ -129,6 +131,8 @@ describe("LogsPage", () => {
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Logs" })).toBeInTheDocument();
+    // Tabs are path segments (RUN-283): the strip links to /logs/<tab>.
+    expect(screen.getByTestId("logs-tab-runners").getAttribute("href")).toBe("/logs/runners");
     expect(screen.getAllByTestId("logs-boot-row")).toHaveLength(2);
     // Newest boot (isCurrent) is listed first and carries the badge.
     expect(screen.getAllByTestId("logs-boot-row")[0].getAttribute("data-boot-file")).toBe(
@@ -188,8 +192,8 @@ describe("LogsPage", () => {
     fireEvent.click(screen.getAllByTestId("logs-removal-view-capture")[0]);
 
     expect(mockNavigate).toHaveBeenCalledWith({
-      to: "/logs",
-      search: { tab: "runners", runner: "runner-id-123" },
+      to: "/logs/runners",
+      search: { runner: "runner-id-123" },
     });
   });
 
@@ -199,8 +203,8 @@ describe("LogsPage", () => {
     fireEvent.click(screen.getAllByTestId("logs-removal-view-boot")[0]);
 
     expect(mockNavigate).toHaveBeenCalledWith({
-      to: "/logs",
-      search: { tab: "supervisor", boot: "cafe0001aaaa" },
+      to: "/logs/supervisor",
+      search: { boot: "cafe0001aaaa" },
     });
   });
 

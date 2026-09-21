@@ -274,7 +274,7 @@ const ADMIN_SCANS: ScanTarget[] = [
   },
   {
     name: "settings-users",
-    goto: async (p) => (await p.goto("/settings?tab=users"), "/settings?tab=users"),
+    goto: async (p) => (await p.goto("/settings/users"), "/settings/users"),
     ready: async (p) => {
       await expect(p.getByTestId("users-card")).toBeVisible();
     },
@@ -377,7 +377,7 @@ const UNAUTH_SCANS: ScanTarget[] = [
 // unauthenticated-page helper: the redirect fires after goto resolves, so
 // the URL still contains /login when the helper checks it).
 async function ensureViewerSession(page: Page): Promise<void> {
-  await page.goto("/settings?tab=users");
+  await page.goto("/settings/users");
   await expect(page.getByTestId("users-card")).toBeVisible();
   const viewerRow = page
     .getByTestId("users-card")

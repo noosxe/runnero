@@ -90,7 +90,7 @@ Scan matrix (helper-driven, lives in one spec):
 | Route set | Roles | Themes |
 | :--- | :--- | :--- |
 | `/login`, `/onboarding` (step 1) | unauthenticated | light, dark |
-| `/` dashboard, `/pools`, `/pools/:id` (default tab), `/pools/:id?tab=config`, `/logs`, `/history`, `/history/:id`, `/profiles`, `/renovate`, `/settings` (admin default = constraints), `/settings?tab=users` | admin | light, dark |
+| `/` dashboard, `/pools`, `/pools/:id` (default tab), `/pools/:id?tab=config`, `/logs`, `/history`, `/history/:id`, `/profiles`, `/renovate`, `/settings` (admin default = constraints), `/settings/users` | admin | light, dark |
 | `/`, `/pools`, `/pools/:id`, `/logs`, `/history`, `/history/:id`, `/renovate`, `/settings` (viewer default = security) | viewer | light, dark |
 
 Theme is pinned per scan by seeding `localStorage["runnero-theme"]`
