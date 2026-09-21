@@ -53,6 +53,10 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 
 ---
 
+## 🗺️ Roadmap
+
+- **User Account Page (RUN-282):** *[Design Phase]* — a dedicated `/account` surface opened from a real sidebar-footer menu item (avatar + name), with Security and Sessions tabs as path-based URLs (`/account/security`, `/account/sessions`). Passkey support becomes discoverable: the passkeys card shows for everyone when WebAuthn is configured, and for admins as a shadcn `Empty` state pointing at the required supervisor configuration when it is not. The settings Security tab moves out of `/settings` entirely ([docs/37-user-account-page.md](docs/37-user-account-page.md)).
+
 ## 🔐 Security Notes
 
 ### Docker daemon socket (`/var/run/docker.sock`)
