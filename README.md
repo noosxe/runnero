@@ -50,3 +50,21 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 - **Passkey (WebAuthn) Passwordless Login (RUN-235/247/248, docs/34):** The login screen gains a "Sign in with passkey" button — a discoverable passkey identifies the admin completely (no username, no password), with the username/password form kept as an independent complete fallback. Enrollment lives in the Security tab behind a current-password re-check; the server enforces user verification on every ceremony, keeps ceremony state in memory only (3-minute TTL, single-use, a 32-cap bounded anonymous pool), detects cloned credentials via sign-counter regression and refuses them permanently, and rate-limits anonymous ceremonies through the durable login limiter. WebAuthn ships dark until `SUPERVISOR_WEBAUTHN_RP_ID` is configured; `docs/34` covers the full security model.
 - **Viewer Role & Multi-User Management:** Real viewer accounts with read-only observability (dashboards, job history, runner logs) and an admin-only user-management surface — create, role changes, admin password reset, deletion — with structural last-admin and no-self-delete guard rails. Role changes apply to live sessions on the next request; the procedure-role matrix, audited denials, and per-user session scoping come from the docs/32 foundation (design in [docs/35-viewer-role.md](docs/35-viewer-role.md)).
 
+
+---
+
+## 🔐 Security Notes
+
+### Docker daemon socket (`/var/run/docker.sock`)
+
+The supervisor mounts the **host Docker daemon socket read-write** (see `docker-compose.yml`). This is architecturally required: Runnero is a Docker-outside-of-Docker (DooD) orchestrator — the supervisor talks to the host daemon to spawn, observe, and reap the ephemeral runner containers (`SUPERVISOR_DOCKER_HOST`, default `unix:///var/run/docker.sock`). The standalone runner service (profile `runner-standalone`) mounts the same socket read-write so docker-enabled pools can run workflow containers as siblings; the runner-side trust boundary for that is documented in [docs/05 §4](docs/05-security-and-isolation.md#4-docker-socket-isolation-dood-safety).
+
+**What the exposure means.** Docker socket access is equivalent to **root on the host** — the daemon API can mount any host path into a container, spawn privileged containers, and read host data. Any code-execution bug in the supervisor process chain would therefore yield host-root-equivalent access. The supervisor process itself runs as a non-root user inside its container, which lowers but does not remove this risk: **only run the supervisor on a Docker engine you trust it with** — a dedicated host or VM is the simplest boundary.
+
+**Hardening options (defense-in-depth):**
+
+- **Socket proxy:** front the daemon with a least-privilege Docker API proxy (e.g. [Tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)) that allows only the endpoint families the supervisor needs (container inspect/create/start/remove, image pull, events, and the supervisor-managed bridge network), and point `SUPERVISOR_DOCKER_HOST` at it (`tcp://socket-proxy:2375`).
+- **Host isolation:** keep the supervisor stack on a dedicated engine/host, separate from unrelated workloads, so a socket compromise cannot pivot further.
+- **Rootless runtimes** (rootless Docker, Podman, Sysbox) remain **future work** ([docs/05 §4](docs/05-security-and-isolation.md#4-docker-socket-isolation-dood-safety)) and are not supported today.
+
+Runner-side socket exposure — what workflow containers can and cannot do — is covered separately in [docs/05 §4](docs/05-security-and-isolation.md#4-docker-socket-isolation-dood-safety).

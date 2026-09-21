@@ -36,6 +36,8 @@ By default, the host Docker socket (`/var/run/docker.sock`) is **not** mounted i
 > **Current Scope & Trust Boundary**: Gitea and Forgejo integrations are designed for **private/internal** instances only. The mandatory `allow_docker: true` requirement for these providers is an accepted trade-off within this trust boundary — untrusted third-party workflow code is not expected to run on these pools. Public GitHub is the only provider expected to handle untrusted workflow code, and Docker socket access remains opt-in for GitHub pools.
 >
 > **Future Mitigation** *(deferred)*: Rootless Docker, Podman support, and Sysbox runtime integration are tracked as future enhancements to reduce socket exposure for all providers.
+>
+> **Supervisor side**: the supervisor itself mounts the same host socket read-write to orchestrate DooD — an exposure equivalent to host root, accepted because the supervisor is trusted, non-root-hardened infrastructure; the standalone runner service mounts it for the same reason. Risk analysis and hardening options (socket proxy, host isolation) live in the [README security notes](../README.md#-security-notes).
 
 ## 5. Configuration & Database Security
 

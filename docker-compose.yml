@@ -75,6 +75,10 @@ services:
       - RUNNER_LABELS=${RUNNER_LABELS:-self-hosted,linux,arm64}
       - RUNNER_WORKDIR=${RUNNER_WORKDIR:-_work}
     volumes:
+      # Docker daemon socket, read-write: docker-enabled pools run workflow
+      # containers as siblings of the runner (DooD) — the same host-root
+      # equivalent exposure as the supervisor's mount. See the Docker socket
+      # security note in README and the runner-side boundary in docs/05 §4.
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       # Provider-agnostic liveness: pgrep matches whichever runner binary
