@@ -412,7 +412,7 @@ streaming (auth interceptor already wraps streaming handlers).
    cookie modes, JWT removal, upgrade invalidation; docs/05+07+08 updates;
 2. **Hardened login** — rate limiter, IP extraction, dummy-hash timing, audit
    vocabulary + retention purge, config keys;
-3. **Session control surface** — Logout/List/Revoke RPCs, Security tab,
+3. **Session control surface** — Logout/List/Revoke RPCs, sessions UI (the account Sessions tab since RUN-282),
    frontend auth-context hardening, E2E.
 
 Phases 1–2 are separable; phase 3 depends on 1. Role-matrix/fail-closed

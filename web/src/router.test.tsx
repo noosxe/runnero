@@ -13,7 +13,7 @@ vi.mock("./lib/api/query-hooks", () => ({
   }),
   fetchSession: vi.fn().mockResolvedValue({
     username: "admin",
-    isAdmin: true,
+    role: "admin",
   }),
   useLogout: () => ({ mutate: vi.fn() }),
   useSystemStats: () => ({
@@ -21,7 +21,7 @@ vi.mock("./lib/api/query-hooks", () => ({
     isLoading: false,
   }),
   useSession: () => ({
-    data: { username: "admin", isAdmin: true },
+    data: { username: "admin", role: "admin" },
     isLoading: false,
   }),
   usePools: () => ({
@@ -83,5 +83,9 @@ describe("AppRouter", () => {
     fireEvent.click(screen.getByRole("button", { name: /admin/i }));
 
     expect(await screen.findByRole("menuitem", { name: /sign out/i })).toBeVisible();
+
+    // RUN-282: the identity row is a real menu item that opens the account
+    // page (plus the sign-out item, the only other entry).
+    expect(screen.getByRole("menuitem", { name: /admin/i })).toBeVisible();
   });
 });

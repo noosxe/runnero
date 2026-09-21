@@ -30,6 +30,6 @@ test.describe("Flow 11: Stale Session Cookie Self-Healing (RUN-244)", () => {
 
     // Login itself must not 401 on the stale cookie (the pre-RUN-244 lockout).
     await login(page);
-    await expect(page.getByText("Supervisor Admin")).toBeVisible();
+    await expect(page.getByTestId("user-nav-trigger")).toBeVisible();
   });
 });

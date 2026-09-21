@@ -151,6 +151,7 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 - **Collapsible**: Toggles between expanded (240px) and icon-only rail (64px) on desktop; full drawer on mobile.
 - **Active State**: High-contrast indicator with tinted accent background (`bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold`).
 - **Badge Indicators**: Runner count on `Pools`, pending updates badge on `Settings`.
+- **Identity menu (RUN-282)**: the footer avatar opens a dropdown whose identity row is a real menu item — avatar, username, and live role label — navigating to `/account/security` (the account page's only entry point); sign-out sits below it.
 - **Version line (RUN-251)**: the footer shows the running product version under the identity menu — tiny mono `text-[10px] text-muted-foreground`, short form (`v0.3.0-379`; commit hash dropped), full git-describe string in a tooltip. Sourced from the authenticated `GetSession` payload; post-auth only, so the version never becomes a pre-auth fingerprint.
 
 ---
@@ -487,7 +488,7 @@ stream data, so toggling the chart's timeframe sticks.
 +-----------------------------------------------------------------------------------------------+
 | Supervisor Settings & Administration                                                          |
 +-----------------------------------------------------------------------------------------------+
-| Tabs: [ Instance ]  [ Global Constraints ]  [ Runner Image Updates ]  [ Database & Retention ]  [ Security ]  [ Users ] |
+| Tabs: [ Instance ]  [ Global Constraints ]  [ Runner Image Updates ]  [ Database & Retention ]  [ Users ] |
 +-----------------------------------------------------------------------------------------------+
 | TAB: Instance (all roles, RUN-251)                                                            |
 | +-------------------------------------------------------------------------------------------+ |
@@ -515,8 +516,26 @@ stream data, so toggling the chart's timeframe sticks.
 +-----------------------------------------------------------------------------------------------+
 ```
 
-Security tab — Passkeys card (RUN-248, docs/34 §4.2), rendered only when
-`passkey_available` is true:
+Security tab (removed in RUN-282) — personal surfaces moved to `/account`
+(see §4.11); viewers now land on Instance alone.
+
+### 4.11 Page 11: Account (`/account/security`, `/account/sessions`)
+
+RUN-282 (docs/37): the caller's personal surfaces, reached **only** from the
+sidebar footer identity menu — the avatar row is a real menu item
+(username + live role label) navigating to `/account/security`; sign-out
+stays a separate item. Tabs are **path-based**: each tab is its own route,
+so deep links, refreshes, and back/forward restore the tab without
+`?tab=` params; `/account` redirects to `/account/security`. Both tabs are
+available to every role.
+
+- **Security tab** — Change Password card (docs/32) plus the Passkeys card
+  (RUN-248, docs/34 §4.2). Passkey visibility is role-aware: with
+  `passkey_available` true the card renders for every role (viewer
+  enrollment is intentional — docs/35 §2.5); when WebAuthn is not
+  configured the card renders **for admins only** as a shadcn `Empty` state
+  naming `SUPERVISOR_WEBAUTHN_RP_ID` / `SUPERVISOR_WEBAUTHN_ORIGINS`, so
+  the capability is discoverable instead of silently hidden.
 
 - **List**: name, added, last used, and custody/signal chips — `Synced` vs
   `Device-bound` (docs/34 §3.2) and, when the server flagged the credential,
@@ -533,7 +552,7 @@ Security tab — Passkeys card (RUN-248, docs/34 §4.2), rendered only when
   lever (docs/34 §4.4).
 
 Users tab — account management card (RUN-236, docs/35 §2.4), rendered only
-for admins (a viewer's settings page is the Security tab alone):
+for admins (a viewer's settings page is the Instance tab alone):
 
 - **List**: username (with a `you` badge on the caller's row), role chip
   (`Admin` / `Viewer`), creation date, and per-row actions — role change,

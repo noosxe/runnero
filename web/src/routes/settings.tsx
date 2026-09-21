@@ -31,17 +31,7 @@ import {
 import { UsersCard } from "../components/settings/users-card";
 import { InstanceCard } from "../components/settings/instance-card";
 import { ImageUpdateNotification } from "../components/notifications/image-update-notification";
-import {
-  Sliders,
-  RefreshCw,
-  Database,
-  Save,
-  Archive,
-  ShieldCheck,
-  Users,
-  Info,
-} from "lucide-react";
-import { SecurityTab } from "../components/security/security-tab";
+import { Sliders, RefreshCw, Database, Save, Archive, Users, Info } from "lucide-react";
 import { resolveRouteTab } from "../lib/route-tab";
 
 export interface SettingsPageSearch {
@@ -49,19 +39,19 @@ export interface SettingsPageSearch {
 }
 
 /**
- * Settings tabs and their role visibility (docs/35 section 2.4): the tab
- * strip shows instance + security for every role; the admin surfaces are
- * admin-only. Tab selection lives in the URL (RUN-257), so this list is
- * the clamp set for `?tab=` values.
+ * Settings tabs and their role visibility (docs/35 section 2.4, amended by
+ * RUN-282): the instance tab is the only viewer surface - personal account
+ * management moved to /account - and the remaining tabs are admin-only.
+ * Tab selection lives in the URL (RUN-257), so this list is the clamp set
+ * for `?tab=` values.
  */
-type SettingsTab = "instance" | "constraints" | "images" | "backups" | "security" | "users";
+type SettingsTab = "instance" | "constraints" | "images" | "backups" | "users";
 
 const SETTINGS_TABS: readonly { id: SettingsTab; adminOnly: boolean }[] = [
   { id: "instance", adminOnly: false },
   { id: "constraints", adminOnly: true },
   { id: "images", adminOnly: true },
   { id: "backups", adminOnly: true },
-  { id: "security", adminOnly: false },
   { id: "users", adminOnly: true },
 ];
 
@@ -102,15 +92,16 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
   // Tab selection is URL state (RUN-257): `/settings?tab=…` deep links
   // work and browser back/forward restores the previous tab. Visible tabs
   // are role-scoped (docs/35 section 2.4): a viewer's settings page is the
-  // Security tab only, so unknown or admin-only `?tab=` values clamp to
+  // Instance tab only, so unknown or admin-only `?tab=` values clamp to
   // the role default — admins land on Global Constraints, viewers on
-  // Security. The session query is prefetched by the authenticated route
-  // guard, so the role (and thus the default) is known on first paint.
+  // Instance (RUN-282: personal security surfaces live on /account). The
+  // session query is prefetched by the authenticated route guard, so the
+  // role (and thus the default) is known on first paint.
   const visibleTabs = SETTINGS_TABS.filter((t) => isAdmin || !t.adminOnly);
   const activeTab = resolveRouteTab(
     search.tab,
     visibleTabs.map((t) => t.id),
-    isAdmin ? "constraints" : "security",
+    isAdmin ? "constraints" : "instance",
   );
   const selectTab = (tab: SettingsTab) => {
     void navigate({ to: "/settings", search: { tab } });
@@ -318,20 +309,6 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={() => selectTab("security")}
-          className={cn(
-            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
-            activeTab === "security"
-              ? "border-primary/50 text-link"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <ShieldCheck className="size-4" />
-          <span>Security</span>
-        </button>
-
         {isAdmin && (
           <button
             type="button"
@@ -351,9 +328,6 @@ export function SettingsPage({ search }: { search: SettingsPageSearch }) {
 
       {/* Tab: Instance - build/host info for every role (RUN-251) */}
       {activeTab === "instance" && <InstanceCard />}
-
-      {/* Tab: Security - self-service for every role (docs/35 section 2.2) */}
-      {activeTab === "security" && <SecurityTab />}
 
       {/* Tab: Users - admin-only management surface (RUN-236) */}
       {isAdmin && activeTab === "users" && <UsersCard />}

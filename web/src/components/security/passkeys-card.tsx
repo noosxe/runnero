@@ -37,6 +37,13 @@ import { timestampDate, type Timestamp } from "@bufbuild/protobuf/wkt";
 
 const columnHelper = createColumnHelper<AppTableFeatures, PasskeyInfo>();
 
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 /** Formats a protobuf Timestamp for the passkey table cells. */
 function fmtTs(ts?: Timestamp | null): string {
   if (!ts) return "—";
@@ -48,7 +55,8 @@ function fmtTs(ts?: Timestamp | null): string {
  * passkeys with the password-gated enrollment dialog, rename, delete, and
  * the clone-warning banner (a flagged credential refuses further
  * assertions until removed). Rendered only when WebAuthn is configured -
- * the parent gates on GetOnboardingStatus.passkey_available.
+ * the parent gates on GetOnboardingStatus.passkey_available (RUN-282);
+ * see PasskeysUnconfiguredCard for the unconfigured state.
  */
 export function PasskeysCard() {
   const { data: passkeys, isLoading } = usePasskeys();
@@ -357,6 +365,41 @@ export function PasskeysCard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </Card>
+  );
+}
+
+/**
+ * Unconfigured WebAuthn state (RUN-282, docs/37 §4.3): a card-shaped
+ * Empty state explaining that passkey support needs supervisor
+ * configuration (SUPERVISOR_WEBAUTHN_RP_ID / SUPERVISOR_WEBAUTHN_ORIGINS,
+ * docs/34). Rendered instead of PasskeysCard so the capability is
+ * discoverable on unconfigured stacks instead of silently hidden; the
+ * caller decides role visibility (admins only).
+ */
+export function PasskeysUnconfiguredCard() {
+  return (
+    <Card>
+      <CardHeader className="border-b border-border/60">
+        <CardTitle className="text-base font-bold">Passkeys</CardTitle>
+        <CardDescription className="text-xs">
+          Passwordless sign-in credentials for your account (docs/34).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Fingerprint />
+            </EmptyMedia>
+            <EmptyTitle>Passkey support is not configured</EmptyTitle>
+            <EmptyDescription>
+              Set <code>SUPERVISOR_WEBAUTHN_RP_ID</code> on the supervisor (and optionally
+              <code>SUPERVISOR_WEBAUTHN_ORIGINS</code>) to enable passkey sign-in and enrollment.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </CardContent>
     </Card>
   );
 }

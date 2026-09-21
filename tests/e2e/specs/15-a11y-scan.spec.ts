@@ -279,6 +279,21 @@ const ADMIN_SCANS: ScanTarget[] = [
       await expect(p.getByTestId("users-card")).toBeVisible();
     },
   },
+  // Account pages (RUN-282, docs/37): path-based tabs under /account.
+  {
+    name: "account-security",
+    goto: async (p) => (await p.goto("/account/security"), "/account/security"),
+    ready: async (p) => {
+      await expect(p.getByTestId("add-passkey-button")).toBeVisible();
+    },
+  },
+  {
+    name: "account-sessions",
+    goto: async (p) => (await p.goto("/account/sessions"), "/account/sessions"),
+    ready: async (p) => {
+      await expect(p.getByText("Active Sessions")).toBeVisible();
+    },
+  },
   {
     name: "onboarding",
     goto: async (p) => {
@@ -319,11 +334,28 @@ const VIEWER_SCANS: ScanTarget[] = [
     goto: async (p) => (await p.goto("/renovate"), "/renovate"),
     ready: headingReady(),
   },
-  // Viewer's settings page is the Security tab only (docs/35 §2.4).
+  // Viewer's settings page is the Instance tab only (docs/35 §2.4, as
+  // amended by RUN-282).
   {
     name: "settings-default",
     goto: async (p) => (await p.goto("/settings"), "/settings"),
     ready: headingReady(),
+  },
+  // Account pages are role-wide (RUN-282); the passkeys card renders on the
+  // configured E2E stack for every role.
+  {
+    name: "account-security",
+    goto: async (p) => (await p.goto("/account/security"), "/account/security"),
+    ready: async (p) => {
+      await expect(p.getByTestId("add-passkey-button")).toBeVisible();
+    },
+  },
+  {
+    name: "account-sessions",
+    goto: async (p) => (await p.goto("/account/sessions"), "/account/sessions"),
+    ready: async (p) => {
+      await expect(p.getByText("Active Sessions")).toBeVisible();
+    },
   },
 ];
 
@@ -361,7 +393,7 @@ async function ensureViewerSession(page: Page): Promise<void> {
   }
 
   // Fresh session as the viewer.
-  await page.getByText("Supervisor Admin").first().click();
+  await page.getByTestId("user-nav-trigger").first().click();
   await page.getByRole("menuitem", { name: /Sign Out/i }).click();
   await page.waitForURL(/login/);
   await page.getByLabel("Username").fill(VIEWER_USERNAME);

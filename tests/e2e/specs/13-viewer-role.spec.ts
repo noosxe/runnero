@@ -29,7 +29,7 @@ test("admin creates a viewer, who sees the read-only surface", async ({ page }) 
   ).toBeVisible();
 
   // Log out; sign in as the viewer.
-  await page.getByText("Supervisor Admin").first().click();
+  await page.getByTestId("user-nav-trigger").click();
   await page.getByRole("menuitem", { name: /Sign Out/i }).click();
   await page.waitForURL(/login/);
   await page.getByLabel("Username").fill(VIEWER_USERNAME);
@@ -37,17 +37,26 @@ test("admin creates a viewer, who sees the read-only surface", async ({ page }) 
   await page.getByRole("button", { name: "Sign In", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.includes("/login"));
 
-  // The viewer's settings page is the Security tab only (docs/35 §2.4).
+  // The viewer's settings page is the Instance tab only (docs/35 §2.4, as
+  // amended by RUN-282: personal surfaces moved to /account).
   await page.goto("/settings");
-  await expect(page.getByRole("button", { name: "Security" })).toBeVisible();
+  await expect(page.getByTestId("instance-card")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Security" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Global Constraints" })).toHaveCount(0);
 
-  // An admin-only deep link clamps back to security for a viewer (RUN-257):
+  // An admin-only deep link clamps back to instance for a viewer (RUN-257):
   // the param never renders a hidden admin surface.
   await page.goto("/settings?tab=users");
-  await expect(page.getByText("Active Sessions")).toBeVisible();
+  await expect(page.getByTestId("instance-card")).toBeVisible();
   await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
+
+  // The account page is for every role; the passkeys card shows because the
+  // E2E stack configures WebAuthn (RUN-282).
+  await page.goto("/account/security");
+  await expect(page.getByTestId("add-passkey-button")).toBeVisible();
+  await page.goto("/account/sessions");
+  await expect(page.getByText("Active Sessions")).toBeVisible();
   // Auth profiles are an entirely admin surface; the fetch is gated so no
   // admin-bucket RPC fires from the viewer session (docs/35 section 2.4).
   await page.goto("/profiles");
@@ -75,7 +84,7 @@ test("promotes the viewer to admin; the change applies to their session", async 
 
   // Log out; the promoted user now sees the admin surface without any
   // server-side magic - the role is simply read live on every request.
-  await page.getByText("Supervisor Admin").first().click();
+  await page.getByTestId("user-nav-trigger").click();
   await page.getByRole("menuitem", { name: /Sign Out/i }).click();
   await page.waitForURL(/login/);
   await page.getByLabel("Username").fill(VIEWER_USERNAME);
@@ -100,7 +109,7 @@ test("a viewer's passkey signs in at viewer role", async ({ page }) => {
   await expect(row.getByText("Viewer", { exact: true })).toBeVisible();
 
   // Switch to the viewer's own context: log in and enroll a passkey.
-  await page.getByText("Supervisor Admin").first().click();
+  await page.getByTestId("user-nav-trigger").click();
   await page.getByRole("menuitem", { name: /Sign Out/i }).click();
   await page.waitForURL(/login/);
   await page.getByLabel("Username").fill(VIEWER_USERNAME);
@@ -109,8 +118,8 @@ test("a viewer's passkey signs in at viewer role", async ({ page }) => {
   await page.waitForURL((url) => !url.pathname.includes("/login"));
 
   await attachVirtualAuthenticator(page);
-  await page.goto("/settings");
-  await page.getByRole("button", { name: "Security" }).click();
+  await page.goto("/account/security");
+  await expect(page.getByTestId("add-passkey-button")).toBeVisible();
   await page.getByTestId("add-passkey-button").click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Current password").fill(VIEWER_PASSWORD);
@@ -120,13 +129,15 @@ test("a viewer's passkey signs in at viewer role", async ({ page }) => {
 
   // Passwordless login lands the viewer role (docs/35 §2.5): the Security
   // tab works, the Users tab does not exist.
-  await page.getByText("Supervisor Admin").first().click();
+  await page.getByTestId("user-nav-trigger").click();
   await page.getByRole("menuitem", { name: /Sign Out/i }).click();
   await page.waitForURL(/login/);
   await page.getByTestId("passkey-login-button").click();
   await page.waitForURL((url) => !url.pathname.includes("/login"));
 
   await page.goto("/settings");
-  await expect(page.getByRole("button", { name: "Security" })).toBeVisible();
+  await expect(page.getByTestId("instance-card")).toBeVisible();
   await expect(page.getByRole("button", { name: "Users" })).toHaveCount(0);
+  await page.goto("/account/sessions");
+  await expect(page.getByText("Active Sessions")).toBeVisible();
 });

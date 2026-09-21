@@ -16,6 +16,9 @@ import { HistoryPage } from "./routes/history";
 import { HistoryDetailPage } from "./routes/history-detail";
 import { ProfilesPage } from "./routes/profiles";
 import { RenovatePage } from "./routes/renovate";
+import { AccountPage } from "./routes/account";
+import { AccountSecurityTab } from "./routes/account-security";
+import { AccountSessionsTab } from "./routes/account-sessions";
 import { SettingsPage, type SettingsPageSearch } from "./routes/settings";
 import { LoginPage } from "./routes/login";
 import { OnboardingPage } from "./routes/onboarding";
@@ -156,6 +159,36 @@ const logsRoute = createRoute({
   },
 });
 
+// Account (RUN-282, docs/37): personal surfaces behind the footer menu.
+// Tabs are path segments, not ?tab= params — each tab is its own route so
+// deep links, refresh, and back/forward restore it without clamping.
+const accountRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: "/account",
+  component: AccountPage,
+});
+
+const accountIndexRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "/",
+  beforeLoad: async () => {
+    // /account is not a surface of its own: canonicalize to the first tab.
+    throw redirect({ to: "/account/security", replace: true });
+  },
+});
+
+const accountSecurityRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "security",
+  component: AccountSecurityTab,
+});
+
+const accountSessionsRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "sessions",
+  component: AccountSessionsTab,
+});
+
 const profilesRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "/profiles",
@@ -197,6 +230,7 @@ const routeTree = rootRoute.addChildren([
     logsRoute,
     profilesRoute,
     renovateRoute,
+    accountRoute.addChildren([accountIndexRoute, accountSecurityRoute, accountSessionsRoute]),
     settingsRoute,
   ]),
 ]);
