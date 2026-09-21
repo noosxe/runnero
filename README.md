@@ -12,6 +12,15 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 
 ## ✨ Features
 
+> [!IMPORTANT]
+> **v1.0.0 UI gating (RUN-289):** Renovate automation and the **Gitea /
+> Forgejo** providers have not yet been validated against real platforms. The
+> web UI keeps these surfaces visible but **disabled** — new Gitea/Forgejo
+> pools or auth profiles cannot be created and Renovate cannot be enabled or
+> triggered from the UI. Existing configurations keep rendering, the backend
+> API is unchanged, and the gates live in `web/src/lib/feature-gates.ts` for a
+> post-1.0 flip. GitHub pools work end-to-end.
+
 - **All-in-One Multi-Provider Supervisor:** Database-driven daemon that automatically provisions, monitors, scales, and maintains dynamic pools of ephemeral runner containers across GitHub, Gitea, and Forgejo repositories.
 - **shadcn/ui Component System:** The entire Web UI runs on shadcn/ui primitives (Base UI under the hood) vendored via the shadcn CLI against the owner-generated `b7QqIqFpNQ` preset — Button, Card, Dialog/AlertDialog, Select, Table, Tooltip, Sidebar/Sheet, Toast/Alert/Skeleton, recharts-powered Charts, and `Empty` states — styled exclusively with OKLCH semantic tokens in light/dark; bespoke survivors eliminated across the app (migration history in [docs/27-shadcn-ui-migration.md](docs/27-shadcn-ui-migration.md)).
 - **Embedded Web UI & Flexible Onboarding Wizard:** Single-Page Application (React 19, TypeScript, TanStack Router & Query, TailwindCSS) embedded directly into the Go supervisor binary via `go:embed`. Features an administrator bootstrap setup, optional Git provider, safeguard, and pool configuration with instant "Skip to Dashboard" capability, zero-pool empty states with prerequisite guidance, dark/light theme switching, and live pool management.

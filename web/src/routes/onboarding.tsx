@@ -40,6 +40,7 @@ import {
   applyFieldErrors,
 } from "../lib/forms";
 import { toWireAuthMethod } from "../lib/utils/auth-methods";
+import { FEATURE_DISABLED_HINT, FEATURES, isProviderGated } from "../lib/feature-gates";
 import { getSuggestedRunnerLabels } from "../lib/utils/labels";
 import {
   useOnboardingStatus,
@@ -989,6 +990,12 @@ export function OnboardingPage() {
                         key={m.id}
                         type="button"
                         variant="outline"
+                        disabled={isProviderGated(m.id)}
+                        title={
+                          isProviderGated(m.id)
+                            ? `${m.label} — ${FEATURE_DISABLED_HINT}`
+                            : undefined
+                        }
                         aria-pressed={authMethod === m.id}
                         onClick={() => setAuthMethod(m.id as any)}
                         className={cn(
@@ -1472,9 +1479,15 @@ export function OnboardingPage() {
                     <Checkbox
                       id="enable-renovate"
                       checked={renovateEnabled}
+                      disabled={!FEATURES.renovate}
                       onCheckedChange={(v) => setRenovateEnabled(v === true)}
                     />
                   </Field>
+                  {!FEATURES.renovate && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {FEATURE_DISABLED_HINT}
+                    </p>
+                  )}
 
                   {renovateEnabled && (
                     <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">

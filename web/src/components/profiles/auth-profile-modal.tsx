@@ -6,6 +6,7 @@ import { useStore } from "@tanstack/react-form";
 import { create } from "@bufbuild/protobuf";
 import { CreateAuthProfileRequestSchema, UpdateAuthProfileRequestSchema } from "../../gen/api_pb";
 import { useCreateAuthProfile, useUpdateAuthProfile } from "../../lib/api/query-hooks";
+import { FEATURE_DISABLED_HINT, isProviderGated } from "../../lib/feature-gates";
 import {
   useAppForm,
   validateMessage,
@@ -307,7 +308,15 @@ export function AuthProfileModal({ mode, profile, onClose }: AuthProfileModalPro
               }}
             >
               {AUTH_METHODS.map((m) => (
-                <ToggleGroupItem key={m.id} value={m.id} className="h-auto w-full py-2 text-center">
+                <ToggleGroupItem
+                  key={m.id}
+                  value={m.id}
+                  disabled={isProviderGated(m.id)}
+                  title={
+                    isProviderGated(m.id) ? `${m.label} — ${FEATURE_DISABLED_HINT}` : undefined
+                  }
+                  className="h-auto w-full py-2 text-center"
+                >
                   {m.label}
                 </ToggleGroupItem>
               ))}
