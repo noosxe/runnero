@@ -178,10 +178,12 @@ async function gotoPoolDetailConfig(page: Page): Promise<string> {
   const detailLink = page.locator('a[href^="/pools/"]').first();
   await detailLink.click();
   await page.waitForURL(/\/pools\/\d+/);
-  const path = new URL(page.url()).pathname;
-  await page.goto(`${path}?tab=config`);
+  // The bare detail URL canonicalizes to /runners (RUN-285); strip the tab
+  // segment so the deep link below doesn't stack two segments.
+  const path = new URL(page.url()).pathname.replace(/\/(runners|config|renovate)$/, "");
+  await page.goto(`${path}/config`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  return `${path}?tab=config`;
+  return `${path}/config`;
 }
 
 // The onboarding wizard is not renderable on a seeded stack (the database

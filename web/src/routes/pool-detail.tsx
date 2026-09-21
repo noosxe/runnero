@@ -38,7 +38,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { useParams, useNavigate, Link } from "@tanstack/react-router";
+import { useParams, Link } from "@tanstack/react-router";
 import {
   usePools,
   useRunners,
@@ -65,7 +65,6 @@ import { useIsAdmin } from "../lib/api/query-hooks";
 import { usePageTitle } from "../hooks/use-page-title";
 import { PoolWizardModal } from "../components/pools/pool-wizard-modal";
 import { DataTable, useAppTable } from "../lib/tables";
-import { resolveRouteTab } from "../lib/route-tab";
 import { renovateRunColumns } from "./renovate-run-columns";
 import { PoolHealthStatus, type RunnerInstance, type Pool } from "../gen/api_pb";
 import {
@@ -89,16 +88,10 @@ import {
   Check,
 } from "lucide-react";
 
-export interface PoolDetailPageSearch {
-  tab?: string;
-}
+/** Pool detail tabs (RUN-258; path segments since RUN-285). */
+export type PoolDetailTab = "runners" | "config" | "renovate";
 
-/** Pool detail tabs (RUN-258): the clamp set for `?tab=` values. */
-const POOL_DETAIL_TABS = ["runners", "config", "renovate"] as const;
-
-type PoolDetailTab = (typeof POOL_DETAIL_TABS)[number];
-
-export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
+export function PoolDetailPage({ tab }: { tab: PoolDetailTab }) {
   const { poolId } = useParams({ strict: false }) as { poolId?: string };
   const poolIdBigInt = poolId ? BigInt(poolId) : 0n;
 
@@ -114,11 +107,11 @@ export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
   const { data: runners, isLoading: runnersLoading } = useRunners(poolIdBigInt);
   const { isConnected: isStreamActive } = useWatchRunners(poolIdBigInt);
 
-  // Tab selection is URL state (RUN-258): `/pools/$poolId?tab=…` deep links
-  // work and browser back/forward restores the previous tab. Unknown values
-  // clamp back to the runners default.
-  const navigate = useNavigate();
-  const activeTab = resolveRouteTab(search.tab, POOL_DETAIL_TABS, "runners");
+  // Tab selection is URL state (RUN-258): `/pools/$poolId/<tab>` deep links
+  // work and browser back/forward restores the previous tab. The router owns
+  // the tab (each tab is a child route since RUN-285); the page only renders
+  // the slice it was given.
+  const activeTab = tab;
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRunnerForLogs, setSelectedRunnerForLogs] = useState<RunnerInstance | null>(null);
@@ -223,14 +216,6 @@ export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
       </div>
     );
   }
-
-  const selectTab = (tab: PoolDetailTab) => {
-    void navigate({
-      to: "/pools/$poolId",
-      params: { poolId: pool.id.toString() },
-      search: { tab },
-    });
-  };
 
   const activeInstances = runners?.filter((r) => r.status === "busy").length ?? 0;
   const idleInstances = runners?.filter((r) => r.status === "idle").length ?? 0;
@@ -365,10 +350,13 @@ export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-border ">
-        <button
-          type="button"
-          onClick={() => selectTab("runners")}
+      <div className="flex border-b border-border" role="tablist" aria-label="Pool sections">
+        <Link
+          to="/pools/$poolId/runners"
+          params={{ poolId: pool.id.toString() }}
+          role="tab"
+          aria-selected={activeTab === "runners"}
+          aria-current={activeTab === "runners" ? "page" : undefined}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "runners"
@@ -379,11 +367,14 @@ export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
           <Activity className="size-3.5" />
           <span>Active Containers & Runners</span>
           <Badge variant="secondary">{runners?.length ?? 0}</Badge>
-        </button>
+        </Link>
 
-        <button
-          type="button"
-          onClick={() => selectTab("config")}
+        <Link
+          to="/pools/$poolId/config"
+          params={{ poolId: pool.id.toString() }}
+          role="tab"
+          aria-selected={activeTab === "config"}
+          aria-current={activeTab === "config" ? "page" : undefined}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "config"
@@ -393,11 +384,14 @@ export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
         >
           <Server className="size-3.5" />
           <span>Pool Configuration</span>
-        </button>
+        </Link>
 
-        <button
-          type="button"
-          onClick={() => selectTab("renovate")}
+        <Link
+          to="/pools/$poolId/renovate"
+          params={{ poolId: pool.id.toString() }}
+          role="tab"
+          aria-selected={activeTab === "renovate"}
+          aria-current={activeTab === "renovate" ? "page" : undefined}
           className={cn(
             "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors",
             activeTab === "renovate"
@@ -408,7 +402,7 @@ export function PoolDetailPage({ search }: { search: PoolDetailPageSearch }) {
           <Bot className="size-3.5" />
           <span>Renovate Bot</span>
           {pool.renovate?.enabled && <span className="size-1.5 rounded-full bg-success" />}
-        </button>
+        </Link>
       </div>
 
       {/* Tab Content: Runners & Containers Table */}
