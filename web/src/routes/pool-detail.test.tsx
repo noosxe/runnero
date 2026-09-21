@@ -159,16 +159,11 @@ vi.mock("../lib/api/streaming-hooks", () => ({
   }),
 }));
 
-const mockNavigate = vi.fn();
-
 vi.mock("@tanstack/react-router", () =>
   createRouterMock({
     useParams: () => ({ poolId: "10" }),
-    useNavigate: () => mockNavigate,
   }),
 );
-
-beforeEach(() => mockNavigate.mockClear());
 
 describe("PoolDetailPage", () => {
   beforeEach(() => {
@@ -176,7 +171,7 @@ describe("PoolDetailPage", () => {
   });
 
   it("renders pool overview, live badges, and active runners table", () => {
-    render(<PoolDetailPage search={{}} />);
+    render(<PoolDetailPage tab="runners" />);
 
     expect(screen.getByText("arm64-prod-pool")).toBeInTheDocument();
     expect(screen.getByText("Live Orchestrator Stream")).toBeInTheDocument();
@@ -188,29 +183,29 @@ describe("PoolDetailPage", () => {
     expect(screen.getByText("2m 5s")).toBeInTheDocument();
   });
 
-  it("navigates tab clicks through the URL and clamps unknown values (RUN-258)", () => {
-    const { rerender } = render(<PoolDetailPage search={{}} />);
+  it("renders the tab strip as links owned by the router (RUN-285)", () => {
+    const { rerender } = render(<PoolDetailPage tab="runners" />);
 
-    fireEvent.click(screen.getByRole("button", { name: /pool configuration/i }));
-    expect(mockNavigate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: "/pools/$poolId",
-        params: { poolId: "10" },
-        search: { tab: "config" },
-      }),
+    // Each tab is a link to its path segment; the active one is marked.
+    const configLink = screen.getByRole("tab", { name: /pool configuration/i });
+    expect(configLink).toHaveAttribute("href", "/pools/$poolId/config");
+    expect(screen.getByRole("tab", { name: /active containers/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
+    expect(configLink).toHaveAttribute("aria-selected", "false");
 
-    // The router owns the tab: rendering with the param shows the content.
-    rerender(<PoolDetailPage search={{ tab: "config" }} />);
+    // The router owns the tab: rendering the config segment shows the content.
+    rerender(<PoolDetailPage tab="config" />);
     expect(screen.getByText("Runner Container Image")).toBeInTheDocument();
-
-    // Unknown values clamp back to the runners default.
-    rerender(<PoolDetailPage search={{ tab: "bogus" }} />);
-    expect(screen.queryByText("Runner Container Image")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /pool configuration/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("opens live runner logs viewer modal", async () => {
-    render(<PoolDetailPage search={{}} />);
+    render(<PoolDetailPage tab="runners" />);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Runner actions" })[0]);
 
@@ -223,7 +218,7 @@ describe("PoolDetailPage", () => {
 
   it("opens terminate confirmation dialog and triggers terminate mutation", async () => {
     mockTerminateMutateAsync.mockResolvedValueOnce({});
-    render(<PoolDetailPage search={{}} />);
+    render(<PoolDetailPage tab="runners" />);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Runner actions" })[0]);
 
@@ -250,7 +245,7 @@ describe("PoolDetailPage", () => {
       success: true,
       runId: 102n,
     });
-    render(<PoolDetailPage search={{ tab: "renovate" }} />);
+    render(<PoolDetailPage tab="renovate" />);
 
     expect(screen.getByText("Renovate Status & Automation")).toBeInTheDocument();
     expect(screen.getAllByText("1 dependency update PR created")).toHaveLength(2);
@@ -264,7 +259,7 @@ describe("PoolDetailPage", () => {
   });
 
   it("triggers Check for Updates in Pool Configuration tab", async () => {
-    render(<PoolDetailPage search={{ tab: "config" }} />);
+    render(<PoolDetailPage tab="config" />);
 
     expect(screen.getByText("Runner Container Image")).toBeInTheDocument();
     expect(screen.getByText("ghcr.io/noosxe/runnero:latest")).toBeInTheDocument();
@@ -289,7 +284,7 @@ describe("PoolDetailPage", () => {
       },
     };
 
-    render(<PoolDetailPage search={{ tab: "config" }} />);
+    render(<PoolDetailPage tab="config" />);
 
     expect(screen.getByText(/update available/i)).toBeInTheDocument();
     expect(screen.getByText(/sha256:22222222222/)).toBeInTheDocument();
@@ -309,7 +304,7 @@ describe("PoolDetailPage", () => {
       },
     };
 
-    render(<PoolDetailPage search={{ tab: "config" }} />);
+    render(<PoolDetailPage tab="config" />);
 
     expect(screen.getByText("Image is up-to-date with registry")).toBeInTheDocument();
   });
@@ -321,7 +316,7 @@ describe("PoolDetailPage", () => {
       "https://github.com/noosxe/frontend",
     ];
     try {
-      render(<PoolDetailPage search={{ tab: "config" }} />);
+      render(<PoolDetailPage tab="config" />);
 
       // Header carries only the count badge; target URLs live in the
       // configuration tab
@@ -340,7 +335,7 @@ describe("PoolDetailPage", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
 
-    render(<PoolDetailPage search={{ tab: "config" }} />);
+    render(<PoolDetailPage tab="config" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy labels" }));
 

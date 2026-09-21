@@ -11,7 +11,7 @@ import { AppShell } from "./components/layout/app-shell";
 import { DashboardPage } from "./routes/dashboard";
 import { PoolsPage } from "./routes/pools";
 import { LogsPage, type LogsTab } from "./routes/logs";
-import { PoolDetailPage, type PoolDetailPageSearch } from "./routes/pool-detail";
+import { PoolDetailPage, type PoolDetailTab } from "./routes/pool-detail";
 import { HistoryPage } from "./routes/history";
 import { HistoryDetailPage } from "./routes/history-detail";
 import { ProfilesPage } from "./routes/profiles";
@@ -118,20 +118,39 @@ const poolsRoute = createRoute({
   component: PoolsPage,
 });
 
+// Pool detail (RUN-285): tabs are path segments (/pools/10/config), matching
+// the /settings and /logs pattern (RUN-283). Bare /pools/$poolId canonicalizes
+// to the runners tab; there are no admin-only tabs here — viewers get the same
+// three tabs with read-only surfaces inside (docs/35 section 2.2).
 const poolDetailRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "/pools/$poolId",
-  // Tab is URL state (RUN-258): deep links like /pools/10?tab=config work
-  // and back/forward walks the tab history. Values are clamped against the
-  // tab list in PoolDetailPage (runners is the default).
-  validateSearch: (search: Record<string, unknown>): PoolDetailPageSearch => ({
-    tab: typeof search.tab === "string" ? search.tab : undefined,
-  }),
-  component: function PoolDetailRouteComponent() {
-    const search = poolDetailRoute.useSearch();
-    return <PoolDetailPage search={search} />;
+  component: () => <Outlet />,
+});
+
+const poolDetailIndexRoute = createRoute({
+  getParentRoute: () => poolDetailRoute,
+  path: "/",
+  beforeLoad: async ({ params }) => {
+    throw redirect({
+      to: "/pools/$poolId/runners",
+      params: { poolId: params.poolId },
+      replace: true,
+    });
   },
 });
+
+function poolTabRoute(tab: PoolDetailTab) {
+  return createRoute({
+    getParentRoute: () => poolDetailRoute,
+    path: tab,
+    component: () => <PoolDetailPage tab={tab} />,
+  });
+}
+
+const poolRunnersRoute = poolTabRoute("runners");
+const poolConfigRoute = poolTabRoute("config");
+const poolRenovateRoute = poolTabRoute("renovate");
 
 const historyRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
@@ -296,7 +315,12 @@ const routeTree = rootRoute.addChildren([
   authenticatedRoute.addChildren([
     indexRoute,
     poolsRoute,
-    poolDetailRoute,
+    poolDetailRoute.addChildren([
+      poolDetailIndexRoute,
+      poolRunnersRoute,
+      poolConfigRoute,
+      poolRenovateRoute,
+    ]),
     historyRoute,
     historyDetailRoute,
     logsRoute.addChildren([

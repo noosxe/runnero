@@ -267,30 +267,31 @@ test.describe("Flow 08: Runner Pool Edit Workflow", () => {
 
 // registerRemoteRunner mirrors a tracked runner in the mock provider's
 // registered-runners registry (PUT /_admin/runners), optionally busy.
-test("pool detail tabs live in the URL: back/forward restores tabs (RUN-258)", async ({
+test("pool detail tabs live in the URL: back/forward restores tabs (RUN-258, path segments since RUN-285)", async ({
   onboardedPage: page,
 }) => {
   await openDefaultPoolDetail(page);
 
-  // Default tab: runners.
-  await expect(page.getByRole("button", { name: /active containers & runners/i })).toBeVisible();
+  // Default tab: runners (bare /pools/$id canonicalizes to /pools/$id/runners).
+  await expect(page.getByRole("tab", { name: /active containers & runners/i })).toBeVisible();
+  await expect(page).toHaveURL(/\/pools\/\d+\/runners$/);
 
-  // Switching tabs pushes a history entry and writes the search param.
-  await page.getByRole("button", { name: /pool configuration/i }).click();
+  // Switching tabs pushes a history entry and writes the path segment.
+  await page.getByRole("tab", { name: /pool configuration/i }).click();
   await expect(page.getByText("Runner Container Image")).toBeVisible();
-  await expect(page).toHaveURL(/\/pools\/\d+\?tab=config$/);
+  await expect(page).toHaveURL(/\/pools\/\d+\/config$/);
 
   // The param is a real deep link: a fresh load lands on the same tab.
   await page.reload();
   await expect(page.getByText("Runner Container Image")).toBeVisible();
 
   await page.goBack();
-  await expect(page.getByRole("button", { name: /active containers & runners/i })).toBeVisible();
-  await expect(page).not.toHaveURL(/tab=config/);
+  await expect(page.getByRole("tab", { name: /active containers & runners/i })).toBeVisible();
+  await expect(page).toHaveURL(/\/pools\/\d+\/runners$/);
 
   await page.goForward();
   await expect(page.getByText("Runner Container Image")).toBeVisible();
-  await expect(page).toHaveURL(/tab=config$/);
+  await expect(page).toHaveURL(/\/pools\/\d+\/config$/);
 });
 
 async function registerRemoteRunner(request: APIRequestContext, name: string, busy: boolean) {
