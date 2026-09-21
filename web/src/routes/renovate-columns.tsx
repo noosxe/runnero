@@ -29,8 +29,10 @@ function usePoolRenovateStatus(pool: Pool) {
 function PoolNameCell({ pool }: { pool: Pool }) {
   return (
     <>
+      {/* Renovate context: deep-link the renovate tab, not the runners
+          default (RUN-285 made the tab a path segment). */}
       <Link
-        to="/pools/$poolId"
+        to="/pools/$poolId/renovate"
         params={{ poolId: pool.id.toString() }}
         className="font-semibold text-link hover:underline"
       >
@@ -160,7 +162,7 @@ function ActionsCell({ pool }: { pool: Pool }) {
         <span>{isRunning ? "Running..." : "Trigger"}</span>
       </Button>
       <LinkButton
-        to="/pools/$poolId"
+        to="/pools/$poolId/renovate"
         params={{ poolId: pool.id.toString() }}
         variant="ghost"
         size="xs"
