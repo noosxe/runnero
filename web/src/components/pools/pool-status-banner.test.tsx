@@ -15,10 +15,37 @@ describe("PoolStatusBanner", () => {
     });
 
     render(<PoolStatusBanner pool={pool} />);
+    expect(screen.getByTestId("pool-status-banner")).toBeInTheDocument();
     expect(screen.getByText("Operational State")).toBeInTheDocument();
     expect(screen.getByText("Healthy")).toBeInTheDocument();
     expect(screen.getByText("Monitoring queue for incoming workflow jobs")).toBeInTheDocument();
-    expect(screen.getByText(/Reconciled/)).toBeInTheDocument();
+    expect(screen.getByText("Last Reconciled")).toBeInTheDocument();
+    expect(screen.getByText("Reconcile Loop")).toBeInTheDocument();
+    expect(screen.getByText("~10s cadence")).toBeInTheDocument();
+  });
+
+  it("renders provisioning default intent when none provided", () => {
+    const pool = create(PoolSchema, {
+      id: 3n,
+      name: "warming-pool",
+      healthStatus: PoolHealthStatus.PROVISIONING,
+    });
+
+    render(<PoolStatusBanner pool={pool} />);
+    expect(screen.getByText("Provisioning")).toBeInTheDocument();
+    expect(screen.getByText(/Spawning warm idle runners/)).toBeInTheDocument();
+  });
+
+  it("renders paused default intent when none provided", () => {
+    const pool = create(PoolSchema, {
+      id: 4n,
+      name: "paused-pool",
+      healthStatus: PoolHealthStatus.PAUSED,
+    });
+
+    render(<PoolStatusBanner pool={pool} />);
+    expect(screen.getByText("Paused")).toBeInTheDocument();
+    expect(screen.getByText(/Reconciliation is paused/)).toBeInTheDocument();
   });
 
   it("renders default degraded intent when none provided", () => {
