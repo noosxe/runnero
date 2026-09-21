@@ -54,7 +54,7 @@ describe("TanStack Query hooks with ConnectRPC", () => {
           id: 1n,
           name: "pool-arm64",
           provider: "github",
-          repositoryUrl: "https://github.com/owner/repo",
+          targetUrls: ["https://github.com/owner/repo"],
           activeRunners: 2,
           minIdleRunners: 1,
           maxConcurrency: 5,

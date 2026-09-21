@@ -11,7 +11,7 @@ function validPoolRequest() {
     pool: create(PoolSchema, {
       name: "valid-pool",
       provider: "github",
-      repositoryUrl: "https://github.com/org/repo",
+      targetUrls: ["https://github.com/org/repo"],
       scope: "repo",
       authProfileId: 1n,
       minIdleRunners: 1,

@@ -168,7 +168,6 @@ func TestQueriesRoundTrip(t *testing.T) {
 		pool, err := database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 			Name:                     "arm64-pool",
 			Provider:                 "github",
-			RepositoryUrl:            "https://github.com/myorg/myrepo",
 			Scope:                    "repo",
 			AuthProfileID:            authID,
 			MinIdleRunners:           2,
@@ -205,7 +204,6 @@ func TestQueriesRoundTrip(t *testing.T) {
 		updated, err := database.UpdateRunnerPool(ctx, UpdateRunnerPoolParams{
 			Name:                     "arm64-pool-v2",
 			Provider:                 "github",
-			RepositoryUrl:            "https://github.com/myorg/myrepo",
 			Scope:                    "repo",
 			AuthProfileID:            authID,
 			MinIdleRunners:           3,

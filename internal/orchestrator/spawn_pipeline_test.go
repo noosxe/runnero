@@ -136,7 +136,6 @@ func spawnPipelinePool(id int64) db.RunnerPool {
 		ID:             id,
 		Name:           fmt.Sprintf("spawn-pipeline-%d", id),
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/acme/repo-a",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,

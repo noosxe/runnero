@@ -60,39 +60,41 @@ func TestLabelsMatch(t *testing.T) {
 
 func TestMatchPoolForEvent(t *testing.T) {
 	repoPool := db.RunnerPool{
-		ID:            162,
-		Name:          "repo-pool",
-		Provider:      "github",
-		RepositoryUrl: "https://github.com/octocat/hello-world",
-		Scope:         "repo",
-		Labels:        `["self-hosted","linux"]`,
+		ID:       162,
+		Name:     "repo-pool",
+		Provider: "github",
+		Scope:    "repo",
+		Labels:   `["self-hosted","linux"]`,
 	}
 	orgPool := db.RunnerPool{
-		ID:            163,
-		Name:          "org-pool",
-		Provider:      "github",
-		RepositoryUrl: "https://github.com/octocat",
-		Scope:         "org",
-		Labels:        `["self-hosted","linux"]`,
+		ID:       163,
+		Name:     "org-pool",
+		Provider: "github",
+		Scope:    "org",
+		Labels:   `["self-hosted","linux"]`,
 	}
 	globalPool := db.RunnerPool{
-		ID:            164,
-		Name:          "global-pool",
-		Provider:      "github",
-		RepositoryUrl: "https://github.com",
-		Scope:         "global",
-		Labels:        `["self-hosted","linux"]`,
+		ID:       164,
+		Name:     "global-pool",
+		Provider: "github",
+		Scope:    "global",
+		Labels:   `["self-hosted","linux"]`,
 	}
 	giteaPool := db.RunnerPool{
-		ID:            165,
-		Name:          "gitea-pool",
-		Provider:      "gitea",
-		RepositoryUrl: "https://gitea.example.com/octocat/hello-world",
-		Scope:         "repo",
-		Labels:        `["self-hosted","linux"]`,
+		ID:       165,
+		Name:     "gitea-pool",
+		Provider: "gitea",
+		Scope:    "repo",
+		Labels:   `["self-hosted","linux"]`,
 	}
 
 	pools := []db.RunnerPool{globalPool, orgPool, repoPool, giteaPool}
+	targets := map[int64][]string{
+		globalPool.ID: {"https://github.com"},
+		orgPool.ID:    {"https://github.com/octocat"},
+		repoPool.ID:   {"https://github.com/octocat/hello-world"},
+		giteaPool.ID:  {"https://gitea.example.com/octocat/hello-world"},
+	}
 
 	// 1. Repo match priority (repo > org > global)
 	event1 := &webhook.WorkflowJobEvent{
@@ -106,7 +108,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 			Labels: []string{"self-hosted"},
 		},
 	}
-	matched := orchestrator.MatchPoolForEvent(pools, "github", event1)
+	matched, _ := orchestrator.MatchPoolForEventWithTargets(pools, targets, "github", event1)
 	if matched == nil || matched.Name != "repo-pool" {
 		t.Fatalf("expected repo-pool, got %+v", matched)
 	}
@@ -123,7 +125,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 			Labels: []string{"self-hosted"},
 		},
 	}
-	matched2 := orchestrator.MatchPoolForEvent(pools, "github", event2)
+	matched2, _ := orchestrator.MatchPoolForEventWithTargets(pools, targets, "github", event2)
 	if matched2 == nil || matched2.Name != "org-pool" {
 		t.Fatalf("expected org-pool, got %+v", matched2)
 	}
@@ -140,7 +142,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 			Labels: []string{"self-hosted"},
 		},
 	}
-	matched3 := orchestrator.MatchPoolForEvent(pools, "github", event3)
+	matched3, _ := orchestrator.MatchPoolForEventWithTargets(pools, targets, "github", event3)
 	if matched3 == nil || matched3.Name != "global-pool" {
 		t.Fatalf("expected global-pool, got %+v", matched3)
 	}
@@ -157,7 +159,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 			Labels: []string{"self-hosted"},
 		},
 	}
-	matched4 := orchestrator.MatchPoolForEvent(pools, "gitea", event4)
+	matched4, _ := orchestrator.MatchPoolForEventWithTargets(pools, targets, "gitea", event4)
 	if matched4 == nil || matched4.Name != "gitea-pool" {
 		t.Fatalf("expected gitea-pool, got %+v", matched4)
 	}
@@ -174,7 +176,7 @@ func TestMatchPoolForEvent(t *testing.T) {
 			Labels: []string{"self-hosted", "arm64"},
 		},
 	}
-	matched5 := orchestrator.MatchPoolForEvent([]db.RunnerPool{repoPool}, "github", event5)
+	matched5, _ := orchestrator.MatchPoolForEventWithTargets([]db.RunnerPool{repoPool}, map[int64][]string{repoPool.ID: {"https://github.com/octocat/hello-world"}}, "github", event5)
 	if matched5 != nil {
 		t.Fatalf("expected nil when labels don't match, got %+v", matched5)
 	}
@@ -187,7 +189,6 @@ func TestPoolController_HandleWorkflowJob_Queued_WarmRunnerCoversDemand(t *testi
 		ID:             166,
 		Name:           "webhook-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -199,7 +200,7 @@ func TestPoolController_HandleWorkflowJob_Queued_WarmRunnerCoversDemand(t *testi
 		MemoryLimit:    sql.NullString{String: "4g", Valid: true},
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -305,7 +306,6 @@ func TestPoolController_HandleWorkflowJob_InProgress_ReplenishesIdleStandby(t *t
 		ID:             168,
 		Name:           "lifecycle-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -314,7 +314,7 @@ func TestPoolController_HandleWorkflowJob_InProgress_ReplenishesIdleStandby(t *t
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -451,7 +451,6 @@ func TestPoolController_HandleWorkflowJob_InProgress_ReplenishRespectsMaxConcurr
 		ID:             170,
 		Name:           "capped-backfill-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -460,7 +459,7 @@ func TestPoolController_HandleWorkflowJob_InProgress_ReplenishRespectsMaxConcurr
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -556,7 +555,6 @@ func TestPoolController_ReconcileBackfillsBusyStandbySlot(t *testing.T) {
 		ID:             171,
 		Name:           "poll-backfill-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -565,7 +563,7 @@ func TestPoolController_ReconcileBackfillsBusyStandbySlot(t *testing.T) {
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -642,7 +640,6 @@ func TestPoolController_HandleWorkflowJob_Queued_MaxConcurrencyReached(t *testin
 		ID:             167,
 		Name:           "max-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
@@ -651,7 +648,7 @@ func TestPoolController_HandleWorkflowJob_Queued_MaxConcurrencyReached(t *testin
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -718,7 +715,6 @@ func TestPoolController_HandleWorkflowJob_Queued_GlobalQuotaSaturated(t *testing
 		ID:             114,
 		Name:           "quota-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
@@ -727,7 +723,7 @@ func TestPoolController_HandleWorkflowJob_Queued_GlobalQuotaSaturated(t *testing
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},
@@ -821,7 +817,6 @@ func TestPoolController_HandleWorkflowJob_InProgressAndCompleted(t *testing.T) {
 		ID:             168,
 		Name:           "status-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/test-org/test-repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 1,
@@ -830,7 +825,7 @@ func TestPoolController_HandleWorkflowJob_InProgressAndCompleted(t *testing.T) {
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/test-org/test-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{10: gitProv},

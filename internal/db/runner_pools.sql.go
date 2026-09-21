@@ -25,7 +25,6 @@ const createRunnerPool = `-- name: CreateRunnerPool :one
 INSERT INTO runner_pools (
     name,
     provider,
-    repository_url,
     scope,
     auth_profile_id,
     min_idle_runners,
@@ -41,14 +40,13 @@ INSERT INTO runner_pools (
     poll_fallback,
     poll_interval_seconds
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-) RETURNING id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+) RETURNING id, name, provider, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit
 `
 
 type CreateRunnerPoolParams struct {
 	Name                     string         `json:"name"`
 	Provider                 string         `json:"provider"`
-	RepositoryUrl            string         `json:"repository_url"`
 	Scope                    string         `json:"scope"`
 	AuthProfileID            int64          `json:"auth_profile_id"`
 	MinIdleRunners           int64          `json:"min_idle_runners"`
@@ -69,7 +67,6 @@ func (q *Queries) CreateRunnerPool(ctx context.Context, arg CreateRunnerPoolPara
 	row := q.db.QueryRowContext(ctx, createRunnerPool,
 		arg.Name,
 		arg.Provider,
-		arg.RepositoryUrl,
 		arg.Scope,
 		arg.AuthProfileID,
 		arg.MinIdleRunners,
@@ -90,7 +87,6 @@ func (q *Queries) CreateRunnerPool(ctx context.Context, arg CreateRunnerPoolPara
 		&i.ID,
 		&i.Name,
 		&i.Provider,
-		&i.RepositoryUrl,
 		&i.Scope,
 		&i.AuthProfileID,
 		&i.MinIdleRunners,
@@ -122,7 +118,7 @@ func (q *Queries) DeleteRunnerPool(ctx context.Context, id int64) error {
 }
 
 const getRunnerPoolById = `-- name: GetRunnerPoolById :one
-SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
+SELECT id, name, provider, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
 WHERE id = ? LIMIT 1
 `
 
@@ -133,7 +129,6 @@ func (q *Queries) GetRunnerPoolById(ctx context.Context, id int64) (RunnerPool, 
 		&i.ID,
 		&i.Name,
 		&i.Provider,
-		&i.RepositoryUrl,
 		&i.Scope,
 		&i.AuthProfileID,
 		&i.MinIdleRunners,
@@ -155,7 +150,7 @@ func (q *Queries) GetRunnerPoolById(ctx context.Context, id int64) (RunnerPool, 
 }
 
 const getRunnerPoolByName = `-- name: GetRunnerPoolByName :one
-SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
+SELECT id, name, provider, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
 WHERE name = ? LIMIT 1
 `
 
@@ -166,7 +161,6 @@ func (q *Queries) GetRunnerPoolByName(ctx context.Context, name string) (RunnerP
 		&i.ID,
 		&i.Name,
 		&i.Provider,
-		&i.RepositoryUrl,
 		&i.Scope,
 		&i.AuthProfileID,
 		&i.MinIdleRunners,
@@ -188,7 +182,7 @@ func (q *Queries) GetRunnerPoolByName(ctx context.Context, name string) (RunnerP
 }
 
 const listRunnerPools = `-- name: ListRunnerPools :many
-SELECT id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
+SELECT id, name, provider, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit FROM runner_pools
 ORDER BY name ASC
 `
 
@@ -205,7 +199,6 @@ func (q *Queries) ListRunnerPools(ctx context.Context) ([]RunnerPool, error) {
 			&i.ID,
 			&i.Name,
 			&i.Provider,
-			&i.RepositoryUrl,
 			&i.Scope,
 			&i.AuthProfileID,
 			&i.MinIdleRunners,
@@ -240,7 +233,6 @@ const updateRunnerPool = `-- name: UpdateRunnerPool :one
 UPDATE runner_pools
 SET name = ?,
     provider = ?,
-    repository_url = ?,
     scope = ?,
     auth_profile_id = ?,
     min_idle_runners = ?,
@@ -257,13 +249,12 @@ SET name = ?,
     poll_interval_seconds = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, provider, repository_url, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit
+RETURNING id, name, provider, scope, auth_profile_id, min_idle_runners, max_concurrency, labels, runner_image, allow_docker, max_runner_lifetime_seconds, cpu_limit, memory_limit, created_at, updated_at, poll_fallback, poll_interval_seconds, memory_swap_limit, pids_limit
 `
 
 type UpdateRunnerPoolParams struct {
 	Name                     string         `json:"name"`
 	Provider                 string         `json:"provider"`
-	RepositoryUrl            string         `json:"repository_url"`
 	Scope                    string         `json:"scope"`
 	AuthProfileID            int64          `json:"auth_profile_id"`
 	MinIdleRunners           int64          `json:"min_idle_runners"`
@@ -285,7 +276,6 @@ func (q *Queries) UpdateRunnerPool(ctx context.Context, arg UpdateRunnerPoolPara
 	row := q.db.QueryRowContext(ctx, updateRunnerPool,
 		arg.Name,
 		arg.Provider,
-		arg.RepositoryUrl,
 		arg.Scope,
 		arg.AuthProfileID,
 		arg.MinIdleRunners,
@@ -307,7 +297,6 @@ func (q *Queries) UpdateRunnerPool(ctx context.Context, arg UpdateRunnerPoolPara
 		&i.ID,
 		&i.Name,
 		&i.Provider,
-		&i.RepositoryUrl,
 		&i.Scope,
 		&i.AuthProfileID,
 		&i.MinIdleRunners,

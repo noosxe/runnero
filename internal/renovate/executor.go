@@ -27,6 +27,7 @@ var (
 // RenovateDatabase defines the database operations required for executing and recording Renovate runs.
 type RenovateDatabase interface {
 	GetRunnerPoolById(ctx context.Context, id int64) (db.RunnerPool, error)
+	ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error)
 	GetRenovateConfigByPoolId(ctx context.Context, poolID int64) (db.RenovateConfig, error)
 	CreateRenovateRun(ctx context.Context, arg db.CreateRenovateRunParams) (db.RenovateRun, error)
 	UpdateRenovateRunContainerID(ctx context.Context, arg db.UpdateRenovateRunContainerIDParams) error
@@ -117,11 +118,22 @@ func (e *Executor) Execute(ctx context.Context, poolID int64) (*db.RenovateRun, 
 		return nil, fmt.Errorf("resolving git provider for pool %d: %w", poolID, err)
 	}
 
+	// RUN-277: the pool's primary target (first pool_targets row) replaces the
+	// dropped runner_pools.repository_url column as the renovate repo URL.
+	targets, err := e.db.ListPoolTargetsByPoolId(ctx, poolID)
+	if err != nil {
+		return nil, fmt.Errorf("listing targets for pool %d: %w", poolID, err)
+	}
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("pool %d has no targets for a renovate run", poolID)
+	}
+	repoURL := targets[0].TargetUrl
+
 	var token string
 	if rtp, ok := prov.(provider.RenovateTokenProvider); ok {
-		token, err = rtp.GetRenovateToken(ctx, pool.RepositoryUrl)
+		token, err = rtp.GetRenovateToken(ctx, repoURL)
 	} else {
-		token, err = prov.GetRegistrationToken(ctx, provider.ScopeRepo, pool.RepositoryUrl)
+		token, err = prov.GetRegistrationToken(ctx, provider.ScopeRepo, repoURL)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("retrieving renovate token for pool %d: %w", poolID, err)
@@ -146,7 +158,7 @@ func (e *Executor) Execute(ctx context.Context, poolID int64) (*db.RenovateRun, 
 	taskConfig := orchestrator.RunnerConfig{
 		Name:        containerName,
 		PoolName:    pool.Name,
-		RepoURL:     pool.RepositoryUrl,
+		RepoURL:     repoURL,
 		Token:       token,
 		Image:       image,
 		AllowDocker: pool.AllowDocker,

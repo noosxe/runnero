@@ -235,7 +235,7 @@ func TestAuthProfileServiceCRUDAndSecurity(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "ref-pool",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/org/repo",
+			TargetUrls:    []string{"https://github.com/org/repo"},
 			AuthProfileId: patProfile.Id,
 		},
 	})

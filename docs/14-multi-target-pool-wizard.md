@@ -91,7 +91,7 @@ INSERT INTO pool_targets (pool_id, target_url)
 SELECT id, repository_url FROM runner_pools WHERE repository_url != '';
 ```
 
-The `runner_pools.repository_url` column remains populated with the primary/first target URL for backward compatibility with legacy tooling and queries.
+The `runner_pools.repository_url` column was initially kept populated with the primary/first target URL for backward compatibility. **RUN-277** dropped it (migration `013_drop_pool_repository_url.sql`): every read goes through `pool_targets`, which is the single source of truth for a pool's targets.
 
 ---
 
@@ -129,7 +129,7 @@ message Pool {
   int64 id = 1;
   string name = 2;
   string provider = 3;
-  string repository_url = 4; // primary target URL (backwards compatible)
+  // field 4 (repository_url) reserved — dropped in RUN-277 migration 013
   // ...
   repeated string target_urls = 20; // complete list of target URLs
 }

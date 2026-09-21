@@ -85,7 +85,7 @@ func validPool(profileID int64) *supervisorv1.Pool {
 	return &supervisorv1.Pool{
 		Name:                     "validation-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/org/repo",
+		TargetUrls:               []string{"https://github.com/org/repo"},
 		Scope:                    "repo",
 		AuthProfileId:            profileID,
 		MinIdleRunners:           1,

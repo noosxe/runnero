@@ -116,7 +116,6 @@ func TestRenovateServiceLifecycle(t *testing.T) {
 	pool, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:                     "test-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/org/repo",
 		Scope:                    "repo",
 		AuthProfileID:            authProfile.ID,
 		MinIdleRunners:           2,
@@ -128,6 +127,10 @@ func TestRenovateServiceLifecycle(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("CreateRunnerPool failed: %v", err)
+	}
+	// RUN-277: the renovate run reads its repo URL from the pool's first target.
+	if _, err := database.AddPoolTarget(ctx, db.AddPoolTargetParams{PoolID: pool.ID, TargetUrl: "https://github.com/org/repo"}); err != nil {
+		t.Fatalf("AddPoolTarget failed: %v", err)
 	}
 
 	client := supervisorv1connect.NewRenovateServiceClient(ts.Client(), ts.URL)
@@ -296,8 +299,8 @@ func TestPoolServiceRenovateConfig(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "cron-invalid",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/org/repo",
 			AuthProfileId: authProfile.ID,
+			TargetUrls:    []string{"https://github.com/org/repo"},
 			Renovate: &supervisorv1.RenovateConfig{
 				Enabled:      true,
 				CronSchedule: "not-a-cron-expr",
@@ -315,8 +318,8 @@ func TestPoolServiceRenovateConfig(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:          "renovate-pool",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/org/repo",
 			AuthProfileId: authProfile.ID,
+			TargetUrls:    []string{"https://github.com/org/repo"},
 			Renovate: &supervisorv1.RenovateConfig{
 				Enabled:      true,
 				CronSchedule: "0 4 * * *",
@@ -350,8 +353,8 @@ func TestPoolServiceRenovateConfig(t *testing.T) {
 			Id:            createRes.Msg.Pool.Id,
 			Name:          "renovate-pool",
 			Provider:      "github",
-			RepositoryUrl: "https://github.com/org/repo",
 			AuthProfileId: authProfile.ID,
+			TargetUrls:    []string{"https://github.com/org/repo"},
 			Renovate: &supervisorv1.RenovateConfig{
 				Enabled:      false,
 				CronSchedule: "0 6 * * *",

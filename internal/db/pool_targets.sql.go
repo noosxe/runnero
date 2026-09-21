@@ -61,7 +61,7 @@ func (q *Queries) DeletePoolTargetsByPoolId(ctx context.Context, poolID int64) e
 }
 
 const getPoolByTargetUrl = `-- name: GetPoolByTargetUrl :one
-SELECT rp.id, rp.name, rp.provider, rp.repository_url, rp.scope, rp.auth_profile_id, rp.min_idle_runners, rp.max_concurrency, rp.labels, rp.runner_image, rp.allow_docker, rp.max_runner_lifetime_seconds, rp.cpu_limit, rp.memory_limit, rp.created_at, rp.updated_at, rp.poll_fallback, rp.poll_interval_seconds, rp.memory_swap_limit, rp.pids_limit FROM runner_pools rp
+SELECT rp.id, rp.name, rp.provider, rp.scope, rp.auth_profile_id, rp.min_idle_runners, rp.max_concurrency, rp.labels, rp.runner_image, rp.allow_docker, rp.max_runner_lifetime_seconds, rp.cpu_limit, rp.memory_limit, rp.created_at, rp.updated_at, rp.poll_fallback, rp.poll_interval_seconds, rp.memory_swap_limit, rp.pids_limit FROM runner_pools rp
 JOIN pool_targets pt ON rp.id = pt.pool_id
 WHERE pt.target_url = ?
 LIMIT 1
@@ -74,7 +74,6 @@ func (q *Queries) GetPoolByTargetUrl(ctx context.Context, targetUrl string) (Run
 		&i.ID,
 		&i.Name,
 		&i.Provider,
-		&i.RepositoryUrl,
 		&i.Scope,
 		&i.AuthProfileID,
 		&i.MinIdleRunners,
@@ -163,7 +162,7 @@ func (q *Queries) ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]
 }
 
 const listPoolsByTargetUrl = `-- name: ListPoolsByTargetUrl :many
-SELECT rp.id, rp.name, rp.provider, rp.repository_url, rp.scope, rp.auth_profile_id, rp.min_idle_runners, rp.max_concurrency, rp.labels, rp.runner_image, rp.allow_docker, rp.max_runner_lifetime_seconds, rp.cpu_limit, rp.memory_limit, rp.created_at, rp.updated_at, rp.poll_fallback, rp.poll_interval_seconds, rp.memory_swap_limit, rp.pids_limit FROM runner_pools rp
+SELECT rp.id, rp.name, rp.provider, rp.scope, rp.auth_profile_id, rp.min_idle_runners, rp.max_concurrency, rp.labels, rp.runner_image, rp.allow_docker, rp.max_runner_lifetime_seconds, rp.cpu_limit, rp.memory_limit, rp.created_at, rp.updated_at, rp.poll_fallback, rp.poll_interval_seconds, rp.memory_swap_limit, rp.pids_limit FROM runner_pools rp
 JOIN pool_targets pt ON rp.id = pt.pool_id
 WHERE pt.target_url = ?
 ORDER BY rp.name ASC
@@ -182,7 +181,6 @@ func (q *Queries) ListPoolsByTargetUrl(ctx context.Context, targetUrl string) ([
 			&i.ID,
 			&i.Name,
 			&i.Provider,
-			&i.RepositoryUrl,
 			&i.Scope,
 			&i.AuthProfileID,
 			&i.MinIdleRunners,

@@ -500,7 +500,6 @@ export function OnboardingPage() {
     create(PoolSchema, {
       name: poolValues.poolName.trim(),
       provider: deducedProvider,
-      repositoryUrl: poolValues.repositoryUrl.trim(),
       minIdleRunners: toIntOrZero(poolValues.minIdleRunners),
       maxConcurrency: toIntOrZero(poolValues.maxConcurrency),
       labels: (poolValues.labels.trim() || suggestedLabels)

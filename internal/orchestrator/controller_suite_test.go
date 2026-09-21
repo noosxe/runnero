@@ -68,14 +68,13 @@ func (s *ControllerTestSuite) TestReplenisher_ProviderFailureHandledGracefully()
 		ID:             115,
 		Name:           "failing-prov-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
 		MaxConcurrency: 4,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 
 	// Make provider return error for registration token initially
 	s.mockProv.tokenErr = errors.New("github api rate limit exceeded")
@@ -129,14 +128,13 @@ func (s *ControllerTestSuite) TestReplenisher_EngineFailurePreservesState() {
 		ID:             116,
 		Name:           "engine-fail-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
 		MaxConcurrency: 4,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 
 	spawnCalls := int32(0)
 	s.mockEngine.SpawnRunnerFn = func(ctx context.Context, cfg orchestrator.RunnerConfig) (string, error) {
@@ -170,7 +168,6 @@ func (s *ControllerTestSuite) TestQuota_GlobalQuotaSaturationAndFairQueueDrain()
 		ID:             114,
 		Name:           "quota-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 0,
@@ -178,7 +175,7 @@ func (s *ControllerTestSuite) TestQuota_GlobalQuotaSaturationAndFairQueueDrain()
 		Labels:         `["self-hosted"]`,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 
 	var spawnedMu sync.Mutex
 	spawned := make([]string, 0)
@@ -290,14 +287,13 @@ func (s *ControllerTestSuite) TestLifecycle_ImmediateShutdownTerminatesAll() {
 		ID:             117,
 		Name:           "shutdown-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  10,
 		MinIdleRunners: 2,
 		MaxConcurrency: 4,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 
 	spawnedContainers := make([]string, 0)
 	var spawnMu sync.Mutex

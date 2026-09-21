@@ -74,7 +74,6 @@ export function PoolsPage() {
       const matchesSearch =
         search === "" ||
         p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.repositoryUrl.toLowerCase().includes(search.toLowerCase()) ||
         p.targetUrls?.some((t) => t.toLowerCase().includes(search.toLowerCase()));
 
       const matchesProvider =

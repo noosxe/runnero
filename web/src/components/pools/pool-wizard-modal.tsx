@@ -245,7 +245,7 @@ export function PoolWizardModal({
   const [selectedTargetUrls, setSelectedTargetUrls] = useState<string[]>(() => {
     if (!pool) return [];
     if (pool.targetUrls.length > 0) return pool.targetUrls;
-    return pool.repositoryUrl ? [pool.repositoryUrl] : [];
+    return [];
   });
 
   // Step 3: Specs & Quotas
@@ -399,7 +399,7 @@ export function PoolWizardModal({
     add("Scope", pool.scope || "repo", scope, true);
     add(
       "Targets",
-      normalizeSet(pool.targetUrls.length ? pool.targetUrls : [pool.repositoryUrl]).join(", "),
+      normalizeSet(pool.targetUrls).join(", "),
       normalizeSet(selectedTargetUrls).join(", "),
       true,
     );
@@ -564,7 +564,6 @@ export function PoolWizardModal({
       ...(editingPool ? { id: editingPool.id } : {}),
       name: poolName.trim(),
       provider: deducedProvider,
-      repositoryUrl: selectedTargetUrls[0] || "",
       minIdleRunners,
       maxConcurrency,
       labels:

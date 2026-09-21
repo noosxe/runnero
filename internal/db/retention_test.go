@@ -50,7 +50,6 @@ func TestRetentionPruningAndFileDeletion(t *testing.T) {
 	pool, err := database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:          "retention-pool",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/org/repo",
 		Scope:         "repo",
 		RunnerImage:   "img",
 		AuthProfileID: prof.ID,

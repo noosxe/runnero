@@ -36,7 +36,6 @@ func poolCreateParams(profileID int64, name string) CreateRunnerPoolParams {
 	return CreateRunnerPoolParams{
 		Name:          name,
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/myorg/myrepo",
 		Scope:         "repo",
 		AuthProfileID: profileID,
 		Labels:        `["self-hosted","linux"]`,

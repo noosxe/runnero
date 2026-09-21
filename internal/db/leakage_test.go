@@ -161,7 +161,6 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 	_, err = database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:                     "gh-app-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/myorg/repo-app",
 		Scope:                    "repo",
 		AuthProfileID:            profApp.ID,
 		MinIdleRunners:           2,
@@ -178,7 +177,6 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 	_, err = database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:                     "gh-classic-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/myorg/repo-pat",
 		Scope:                    "repo",
 		AuthProfileID:            profClassicPAT.ID,
 		MinIdleRunners:           1,
@@ -195,7 +193,6 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 	_, err = database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:                     "gh-fine-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/myorg/repo-fine",
 		Scope:                    "repo",
 		AuthProfileID:            profFinePAT.ID,
 		MinIdleRunners:           1,
@@ -212,7 +209,6 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 	_, err = database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:                     "gitea-pool",
 		Provider:                 "gitea",
-		RepositoryUrl:            "https://gitea.example.com/org/repo",
 		Scope:                    "repo",
 		AuthProfileID:            profGitea.ID,
 		MinIdleRunners:           1,
@@ -229,7 +225,6 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 	_, err = database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:                     "forgejo-pool",
 		Provider:                 "forgejo",
-		RepositoryUrl:            "https://forgejo.example.com/org/repo",
 		Scope:                    "repo",
 		AuthProfileID:            profForgejo.ID,
 		MinIdleRunners:           1,
@@ -243,6 +238,26 @@ func TestExportSanitization_NegativeLeakageScan(t *testing.T) {
 		t.Fatalf("CreateRunnerPool forgejo-pool failed: %v", err)
 	}
 
+	// Seed one target per pool (RUN-277: exported repository_url is derived
+	// from the pool's first pool_targets row).
+	poolTargetURLs := map[string]string{
+		"gh-app-pool":     "https://github.com/myorg/repo-app",
+		"gh-classic-pool": "https://github.com/myorg/repo-pat",
+		"gh-fine-pool":    "https://github.com/myorg/repo-fine",
+		"gitea-pool":      "https://gitea.example.com/org/repo",
+		"forgejo-pool":    "https://forgejo.example.com/org/repo",
+	}
+	exportPools, err := database.ListRunnerPools(ctx)
+	if err != nil {
+		t.Fatalf("ListRunnerPools failed: %v", err)
+	}
+	for _, p := range exportPools {
+		if u, ok := poolTargetURLs[p.Name]; ok {
+			if _, err := database.AddPoolTarget(ctx, AddPoolTargetParams{PoolID: p.ID, TargetUrl: u}); err != nil {
+				t.Fatalf("AddPoolTarget %s failed: %v", p.Name, err)
+			}
+		}
+	}
 	// 2. Export sanitized config
 	exportedConfig, err := database.ExportSanitizedConfig(ctx)
 	if err != nil {

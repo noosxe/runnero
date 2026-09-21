@@ -27,12 +27,11 @@ func (m *mockMultiTargetDB) ListPoolTargetsByPoolId(ctx context.Context, poolID 
 
 func TestMatchPoolForEventWithTargets(t *testing.T) {
 	pool := db.RunnerPool{
-		ID:            147,
-		Name:          "multi-repo-pool",
-		Provider:      "github",
-		RepositoryUrl: "https://github.com/acme/repo-alpha",
-		Scope:         "repo",
-		Labels:        `["self-hosted","linux"]`,
+		ID:       147,
+		Name:     "multi-repo-pool",
+		Provider: "github",
+		Scope:    "repo",
+		Labels:   `["self-hosted","linux"]`,
 	}
 
 	poolTargets := map[int64][]string{
@@ -105,7 +104,6 @@ func TestPoolController_MultiTargetStandbyDistribution(t *testing.T) {
 				ID:             148,
 				Name:           "shared-pool",
 				Provider:       "github",
-				RepositoryUrl:  "https://github.com/acme/repo-1",
 				Scope:          "repo",
 				AuthProfileID:  1,
 				MinIdleRunners: 3,
@@ -179,7 +177,6 @@ func TestPoolController_MultiTargetForgejoPolling(t *testing.T) {
 				ID:             149,
 				Name:           "forgejo-multi",
 				Provider:       "forgejo",
-				RepositoryUrl:  "https://forgejo.example.com/org/repo-a",
 				Scope:          "repo",
 				AuthProfileID:  2,
 				MinIdleRunners: 0,

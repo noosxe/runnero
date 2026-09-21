@@ -2,12 +2,12 @@ import type { Pool } from "../../gen/api_pb";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
- * Resolve the effective target list of a pool: the `targetUrls` field, falling
- * back to the legacy single-target `repositoryUrl` field for old records.
+ * Resolve the effective target list of a pool: the `targetUrls` field
+ * (RUN-277: every pool carries at least one target — the legacy
+ * `repositoryUrl` fallback is gone).
  */
-export function poolTargetList(pool: Pick<Pool, "targetUrls" | "repositoryUrl">): string[] {
-  if ((pool.targetUrls?.length ?? 0) > 0) return pool.targetUrls as string[];
-  return pool.repositoryUrl ? [pool.repositoryUrl] : [];
+export function poolTargetList(pool: Pick<Pool, "targetUrls">): string[] {
+  return pool.targetUrls ?? [];
 }
 
 /**
@@ -19,7 +19,7 @@ export function TargetCountBadge({
   pool,
   className = "",
 }: {
-  pool: Pick<Pool, "targetUrls" | "repositoryUrl">;
+  pool: Pick<Pool, "targetUrls">;
   className?: string;
 }) {
   const targets = poolTargetList(pool);

@@ -87,7 +87,6 @@ func TestExportCLI_LeakageScanAndFilePermissions(t *testing.T) {
 	_, err = database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:                     "cli-pool",
 		Provider:                 "github",
-		RepositoryUrl:            "https://github.com/myorg/myrepo",
 		Scope:                    "repo",
 		AuthProfileID:            p2.ID,
 		MinIdleRunners:           1,
@@ -97,6 +96,11 @@ func TestExportCLI_LeakageScanAndFilePermissions(t *testing.T) {
 		AllowDocker:              false,
 		MaxRunnerLifetimeSeconds: 7200,
 	})
+	// RUN-277: exported repository_url is derived from the pool's first target.
+	if _, err := database.AddPoolTarget(ctx, db.AddPoolTargetParams{PoolID: 1, TargetUrl: "https://github.com/myorg/myrepo"}); err != nil {
+		_ = database.Close()
+		t.Fatalf("AddPoolTarget: %v", err)
+	}
 	_ = database.Close()
 	if err != nil {
 		t.Fatalf("CreateRunnerPool: %v", err)

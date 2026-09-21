@@ -73,7 +73,10 @@ func newEnrichHarness(t *testing.T, pool db.RunnerPool, enrich bool) *enrichHarn
 	}
 	h.reconciler = orchestrator.NewReconciler(h.engine)
 	h.ctrl = orchestrator.NewPoolController(orchestrator.ControllerOptions{
-		DB:                &mockPoolRepo{pools: []db.RunnerPool{pool}},
+		DB: &mockPoolRepo{
+			pools:   []db.RunnerPool{pool},
+			targets: map[int64][]string{pool.ID: {busySyncTargetURL}},
+		},
 		ContainerEngine:   h.engine,
 		ProviderResolver:  resolver,
 		Reconciler:        h.reconciler,

@@ -213,14 +213,10 @@ func normalizeValueSet(values []string) []string {
 }
 
 // normalizeTargetSet derives the effective target set from a pool payload:
-// explicit target URLs when present, otherwise the repository URL (mirrors the
-// CreatePool/UpdatePool persistence fallback).
+// the explicit target URLs, trimmed, deduplicated, and sorted (RUN-277: the
+// legacy repository_url fallback is gone — targets are authoritative).
 func normalizeTargetSet(p *supervisorv1.Pool) []string {
-	targets := p.TargetUrls
-	if len(targets) == 0 && strings.TrimSpace(p.RepositoryUrl) != "" {
-		targets = []string{p.RepositoryUrl}
-	}
-	return normalizeValueSet(targets)
+	return normalizeValueSet(p.TargetUrls)
 }
 
 // normalizeStoredTargets converts persisted pool_targets rows into a
@@ -244,9 +240,6 @@ func normalizeLabels(raw string) []string {
 // excluded: they converge through reconcile without touching runners.
 func spawnIdentityChanged(existing db.RunnerPool, existingTargets []string, params db.UpdateRunnerPoolParams, newTargets []string) bool {
 	if existing.AuthProfileID != params.AuthProfileID {
-		return true
-	}
-	if existing.RepositoryUrl != params.RepositoryUrl {
 		return true
 	}
 	if existing.Scope != params.Scope {
@@ -284,7 +277,6 @@ func poolConfigChanges(existing db.RunnerPool, existingTargets []string, updated
 	}
 	add("name", existing.Name, updated.Name, existing.Name != updated.Name)
 	add("auth_profile_id", existing.AuthProfileID, updated.AuthProfileID, existing.AuthProfileID != updated.AuthProfileID)
-	add("repository_url", existing.RepositoryUrl, updated.RepositoryUrl, existing.RepositoryUrl != updated.RepositoryUrl)
 	add("scope", existing.Scope, updated.Scope, existing.Scope != updated.Scope)
 	add("labels", parseLabels(existing.Labels), parseLabels(updated.Labels), !slices.Equal(normalizeLabels(existing.Labels), normalizeLabels(updated.Labels)))
 	add("targets", existingTargets, newTargets, !slices.Equal(existingTargets, newTargets))
@@ -348,10 +340,9 @@ type poolTargetsReader interface {
 	ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]db.PoolTarget, error)
 }
 
-// enrichPoolTargets populates proto.TargetUrls from the pool_targets table,
-// falling back to the legacy single-target repository_url column for records
-// predating multi-target support. Every handler that serializes pools must run
-// them through this: web clients merge several streams (WatchPools,
+// enrichPoolTargets populates proto.TargetUrls from the pool_targets table
+// (RUN-277: the legacy repository_url fallback is gone — every pool carries
+// at least one target). Every handler that serializes pools must run
 // WatchDashboard) into one query cache, so pools serialized with diverging
 // target data make UI elements derived from it (e.g. the target count badge)
 // flip-flop on every stream tick.
@@ -362,8 +353,6 @@ func enrichPoolTargets(ctx context.Context, q poolTargetsReader, p db.RunnerPool
 			urls = append(urls, t.TargetUrl)
 		}
 		proto.TargetUrls = urls
-	} else if p.RepositoryUrl != "" {
-		proto.TargetUrls = []string{p.RepositoryUrl}
 	}
 }
 
@@ -374,7 +363,6 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 		Id:                       p.ID,
 		Name:                     p.Name,
 		Provider:                 p.Provider,
-		RepositoryUrl:            p.RepositoryUrl,
 		MinIdleRunners:           int32(p.MinIdleRunners),
 		MaxConcurrency:           int32(p.MaxConcurrency),
 		Labels:                   parseLabels(p.Labels),
@@ -389,10 +377,6 @@ func ConvertDBPoolToProto(p db.RunnerPool, stats PoolStatsProvider) *supervisorv
 		MaxRunnerLifetimeSeconds: int32(p.MaxRunnerLifetimeSeconds),
 		PollFallback:             p.PollFallback,
 		PollIntervalSeconds:      int32(p.PollIntervalSeconds),
-	}
-
-	if p.RepositoryUrl != "" {
-		protoPool.TargetUrls = []string{p.RepositoryUrl}
 	}
 
 	if stats != nil {
@@ -439,14 +423,9 @@ func validatePoolInput(p *supervisorv1.Pool) error {
 		return invalidArgument(newViolation(RulePoolProviderUnsupported, "provider", "unsupported provider %q; must be 'github', 'gitea', or 'forgejo'", p.Provider))
 	}
 
-	if strings.TrimSpace(p.RepositoryUrl) == "" {
-		if len(p.TargetUrls) > 0 {
-			p.RepositoryUrl = strings.TrimSpace(p.TargetUrls[0])
-		} else {
-			return invalidArgument(newViolation(RulePoolTargetRequired, "repository_url", "repository_url or target_urls must not be empty"))
-		}
+	if len(p.TargetUrls) == 0 {
+		return invalidArgument(newViolation(RulePoolTargetRequired, "target_urls", "target_urls must not be empty"))
 	}
-
 	scope := strings.ToLower(strings.TrimSpace(p.Scope))
 	if scope == "" {
 		scope = "repo"
@@ -456,10 +435,6 @@ func validatePoolInput(p *supervisorv1.Pool) error {
 	}
 
 	targets := p.TargetUrls
-	if len(targets) == 0 && p.RepositoryUrl != "" {
-		targets = []string{p.RepositoryUrl}
-	}
-
 	for _, target := range targets {
 		t := strings.TrimSpace(target)
 		if t == "" {
@@ -576,17 +551,12 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 		}
 	}
 
-	// Seed target URLs, falling back to the repository URL when none were
-	// supplied; trimmed, non-empty entries only.
+	// Seed target URLs; trimmed, non-empty entries only (RUN-277: the legacy
+	// repository_url fallback is gone — the write path requires target_urls).
 	var targets []string
 	for _, t := range pool.TargetUrls {
 		if t = strings.TrimSpace(t); t != "" {
 			targets = append(targets, t)
-		}
-	}
-	if len(targets) == 0 {
-		if repo := strings.TrimSpace(pool.RepositoryUrl); repo != "" {
-			targets = []string{repo}
 		}
 	}
 
@@ -597,7 +567,6 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 		Pool: db.CreateRunnerPoolParams{
 			Name:                     strings.TrimSpace(pool.Name),
 			Provider:                 strings.ToLower(strings.TrimSpace(pool.Provider)),
-			RepositoryUrl:            strings.TrimSpace(pool.RepositoryUrl),
 			Scope:                    scope,
 			AuthProfileID:            pool.AuthProfileId,
 			MinIdleRunners:           int64(pool.MinIdleRunners),
@@ -629,7 +598,6 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 	recordAuditLog(ctx, s.db, "pool.create", "runner_pool", &created.ID, map[string]any{
 		"name":            created.Name,
 		"provider":        created.Provider,
-		"repository_url":  created.RepositoryUrl,
 		"scope":           created.Scope,
 		"min_idle":        created.MinIdleRunners,
 		"max_concurrency": created.MaxConcurrency,
@@ -678,7 +646,6 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		ID:                       pool.Id,
 		Name:                     strings.TrimSpace(pool.Name),
 		Provider:                 provider,
-		RepositoryUrl:            strings.TrimSpace(pool.RepositoryUrl),
 		Scope:                    scope,
 		AuthProfileID:            pool.AuthProfileId,
 		MinIdleRunners:           int64(pool.MinIdleRunners),

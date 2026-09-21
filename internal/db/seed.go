@@ -404,7 +404,6 @@ func (d *DB) ImportSeedConfig(ctx context.Context, cfg *SeedConfig, mode ImportM
 			updated, err := qtx.UpdateRunnerPool(ctx, UpdateRunnerPoolParams{
 				Name:                     pool.Name,
 				Provider:                 pool.Provider,
-				RepositoryUrl:            pool.RepositoryURL,
 				Scope:                    scope,
 				AuthProfileID:            authID,
 				MinIdleRunners:           minIdle,
@@ -427,7 +426,6 @@ func (d *DB) ImportSeedConfig(ctx context.Context, cfg *SeedConfig, mode ImportM
 			created, err := qtx.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 				Name:                     pool.Name,
 				Provider:                 pool.Provider,
-				RepositoryUrl:            pool.RepositoryURL,
 				Scope:                    scope,
 				AuthProfileID:            authID,
 				MinIdleRunners:           minIdle,
@@ -584,11 +582,18 @@ func (d *DB) ExportSanitizedConfig(ctx context.Context) (*SeedConfig, error) {
 		if err := json.Unmarshal([]byte(p.Labels), &labels); err != nil {
 			labels = []string{p.Labels}
 		}
+		// RUN-277: the YAML repository_url field is derived from the pool's
+		// first pool_targets row (the dropped runner_pools column held the
+		// same synced value).
+		primaryURL := ""
+		if targets, err := d.ListPoolTargetsByPoolId(ctx, p.ID); err == nil && len(targets) > 0 {
+			primaryURL = targets[0].TargetUrl
+		}
 
 		pool := SeedPool{
 			Name:                     p.Name,
 			Provider:                 p.Provider,
-			RepositoryURL:            p.RepositoryUrl,
+			RepositoryURL:            primaryURL,
 			Scope:                    p.Scope,
 			AuthProfile:              authProfileNameByID[p.AuthProfileID],
 			MinIdleRunners:           p.MinIdleRunners,

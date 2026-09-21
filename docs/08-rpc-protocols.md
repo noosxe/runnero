@@ -246,7 +246,8 @@ message Pool {
   int64 id = 1;
   string name = 2;
   string provider = 3;
-  string repository_url = 4; // Primary / legacy single target
+  // Field 4 (repository_url) reserved — dropped with migration 013 (RUN-277);
+  // targets live in target_urls.
   int32 min_idle_runners = 5;
   int32 max_concurrency = 6;
   repeated string labels = 7;

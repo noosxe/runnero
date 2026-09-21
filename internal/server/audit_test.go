@@ -145,7 +145,7 @@ func TestAuditLogCoverage_MutatingActions(t *testing.T) {
 		Pool: &supervisorv1.Pool{
 			Name:           "prod-runners",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/owner/repo",
+			TargetUrls:     []string{"https://github.com/owner/repo"},
 			Scope:          "repo",
 			RunnerImage:    "ghcr.io/actions/runner:latest",
 			MaxConcurrency: 5,
@@ -165,7 +165,7 @@ func TestAuditLogCoverage_MutatingActions(t *testing.T) {
 			Id:             poolID,
 			Name:           "prod-runners",
 			Provider:       "github",
-			RepositoryUrl:  "https://github.com/owner/repo",
+			TargetUrls:     []string{"https://github.com/owner/repo"},
 			Scope:          "repo",
 			RunnerImage:    "ghcr.io/actions/runner:v2",
 			MaxConcurrency: 10,

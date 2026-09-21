@@ -48,7 +48,8 @@ CREATE TABLE runner_pools (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     provider TEXT NOT NULL CHECK(provider IN ('github', 'gitea', 'forgejo')),
-    repository_url TEXT NOT NULL,
+    -- repository_url (NOT NULL) dropped in migration 013 (RUN-277): it was a
+    -- synced duplicate of the first pool_targets row; targets are authoritative.
     scope TEXT NOT NULL DEFAULT 'repo' CHECK(scope IN ('repo', 'org', 'global')),
     auth_profile_id INTEGER NOT NULL,
     min_idle_runners INTEGER NOT NULL DEFAULT 1,
@@ -294,5 +295,32 @@ CREATE INDEX idx_webauthn_credentials_user ON webauthn_credentials(user_id);
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE webauthn_credentials;
+-- +goose StatementEnd
+```
+
+## `013_drop_pool_repository_url.sql`
+
+RUN-277 (finding QUAL-05): drops the legacy `runner_pools.repository_url`
+column. Since migration 003 the write path kept it synced to the pool's
+first `pool_targets` row, making it a live duplicate; every read now goes
+through `pool_targets` as the single source of truth. No index, trigger, or
+view references the column, so a plain `DROP COLUMN` is safe. The Down
+migration re-adds the column and re-derives it from the first (lowest-id)
+target, preserving the old invariant.
+
+```sql
+-- +goose Up
+-- +goose StatementBegin
+ALTER TABLE runner_pools DROP COLUMN repository_url;
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+ALTER TABLE runner_pools ADD COLUMN repository_url TEXT NOT NULL DEFAULT '';
+UPDATE runner_pools
+SET repository_url = COALESCE((
+    SELECT pt.target_url FROM pool_targets pt
+    WHERE pt.pool_id = runner_pools.id ORDER BY pt.id LIMIT 1
+), '');
 -- +goose StatementEnd
 ```

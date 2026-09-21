@@ -34,7 +34,6 @@ func newPoolUpdateDB(t *testing.T) (*DB, RunnerPool, RunnerPool, func()) {
 	pool, err := database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:          "pool-update-pool",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/myorg/myrepo",
 		Scope:         "repo",
 		AuthProfileID: profile.ID,
 		Labels:        `["self-hosted","linux"]`,
@@ -62,7 +61,6 @@ func newPoolUpdateDB(t *testing.T) (*DB, RunnerPool, RunnerPool, func()) {
 	bare, err := database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:          "pool-update-bare",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/myorg/bare",
 		Scope:         "repo",
 		AuthProfileID: profile.ID,
 		Labels:        `["self-hosted"]`,
@@ -80,7 +78,6 @@ func poolUpdateParams(pool RunnerPool, name string) UpdateRunnerPoolParams {
 		ID:                       pool.ID,
 		Name:                     name,
 		Provider:                 pool.Provider,
-		RepositoryUrl:            pool.RepositoryUrl,
 		Scope:                    pool.Scope,
 		AuthProfileID:            pool.AuthProfileID,
 		Labels:                   pool.Labels,

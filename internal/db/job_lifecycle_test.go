@@ -33,7 +33,6 @@ func newJobLifecycleDB(t *testing.T) (*DB, int64, func()) {
 	pool, err := database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:          "lifecycle-pool",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/myorg/myrepo",
 		Scope:         "repo",
 		AuthProfileID: profile.ID,
 		Labels:        `["self-hosted","linux"]`,
@@ -203,7 +202,6 @@ func TestCloseStaleOpenJobs(t *testing.T) {
 	poolB, err := database.CreateRunnerPool(ctx, CreateRunnerPoolParams{
 		Name:          "lifecycle-pool-b",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/myorg/other",
 		Scope:         "repo",
 		AuthProfileID: poolProfile.ID,
 		Labels:        `["self-hosted","linux"]`,

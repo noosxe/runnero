@@ -78,7 +78,6 @@ func TestAnalyticsJobHistoryAndStats(t *testing.T) {
 	p1, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:          "analytics-pool-1",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/org/repo1",
 		Scope:         "repo",
 		AuthProfileID: authProf.ID,
 		Labels:        "linux",
@@ -91,7 +90,6 @@ func TestAnalyticsJobHistoryAndStats(t *testing.T) {
 	p2, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:          "analytics-pool-2",
 		Provider:      "github",
-		RepositoryUrl: "https://github.com/org/repo2",
 		Scope:         "repo",
 		AuthProfileID: authProf.ID,
 		Labels:        "linux",
@@ -332,7 +330,6 @@ func TestAnalyticsServiceWatchDashboard(t *testing.T) {
 	pool, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:           "watch-dash-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/org/repo",
 		AuthProfileID:  authProf.ID,
 		Scope:          "repo",
 		MinIdleRunners: 2,
@@ -490,7 +487,6 @@ func TestWatchDashboardAndWatchPoolsAgreeOnPoolTargets(t *testing.T) {
 	pool, err := database.CreateRunnerPool(ctx, db.CreateRunnerPoolParams{
 		Name:           "targets-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/org/repo",
 		AuthProfileID:  authProf.ID,
 		Scope:          "repo",
 		MinIdleRunners: 1,

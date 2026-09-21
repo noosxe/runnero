@@ -30,14 +30,13 @@ func newVetoHarness(t *testing.T, minIdle int64, fleet []orchestrator.RunnerStat
 		ID:             318,
 		Name:           "veto-pool",
 		Provider:       "github",
-		RepositoryUrl:  "https://github.com/owner/repo",
 		Scope:          "repo",
 		AuthProfileID:  30,
 		MinIdleRunners: minIdle,
 		MaxConcurrency: 5,
 		RunnerImage:    "ghcr.io/noosxe/runnero:latest",
 	}
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{30: gitProv},
