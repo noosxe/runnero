@@ -88,7 +88,7 @@ To support clean architecture and swappable components, the Go-based supervisor 
 │   └── server/             # Echo v5 Web Server (Static UI serving, ConnectRPC API)
 ├── proto/                  # ConnectRPC Protobuf schemas (api.proto)
 ├── web/                    # Vite/React/TS Frontend (TanStack Router & Query, TailwindCSS)
-└── src/                    # Runner-image shell scripts (entrypoint.sh, register.sh) — not part of the Go module
+└── src/                    # Runner-image shell scripts (entrypoint.sh, install-parity-packages.sh) — not part of the Go module; runner registration is inlined in entrypoint.sh
 ```
 
 > The Go module (`go.mod`, `github.com/noosxe/runnero`) lives at the **repository root** — packages import as `github.com/noosxe/runnero/internal/...`. The `src/` directory retains only the runner-image shell scripts.
