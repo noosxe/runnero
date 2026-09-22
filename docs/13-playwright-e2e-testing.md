@@ -281,9 +281,11 @@ errors surfaced (no `|| true`) and boots with `--force-recreate
 
 #### Stack isolation (RUN-208)
 
-The self-hosted CI runner executes the suite on the same Docker engine that
-hosts local development, and both drive the same compose file. Three guards
-keep manual invocations from disturbing a CI run (and each other):
+Since the RUN-291 hosted-runner switch, CI executes the suite on an ephemeral
+GitHub-hosted VM with its own Docker engine — CI and local development no
+longer share an engine. The three guards below remain in force for
+local-vs-local collisions (the debug stack and manual E2E runs share the
+host):
 
 - **Project namespacing**: GitHub Actions sets `CI=true`, which the Makefile
   maps to the workflow's fixed compose project `runnero-e2e`; manual runs
@@ -296,15 +298,16 @@ keep manual invocations from disturbing a CI run (and each other):
   the deployment file implies (`runnero`).
 - **Advisory lock**: every E2E make target wraps its compose invocations in
   `flock` on a per-project lockfile (`/tmp/<project>.lock`), serializing
-  concurrent invocations of the same project (two local terminals, or the
-  CI job's own test → clean steps) instead of letting them race. The wait
+  concurrent invocations of the same project (two local terminals, or a
+  manual run overlapping the debug-stack seeder) instead of letting them race. The wait
   is capped by `E2E_LOCK_WAIT` (default 600 s).
 - **In-flight guard**: `clean-e2e` refuses to tear down while the suite's
   Playwright container is still running — exactly the RUN-208 incident's
   failure mode (a local teardown SIGTERMed a CI suite mid-run).
-  `E2E_FORCE_CLEAN=1` overrides the guard; the CI workflow's teardown step
-  sets it because that step only runs after the suite has ended or been
-  killed, when any still-running container is a dead leftover.
+  `E2E_FORCE_CLEAN=1` overrides the guard (used by `make debug-stack`
+  reseeding and other scripted teardowns of dead leftovers). CI itself no
+  longer runs a teardown step: the RUN-291 hosted-runner jobs are discarded
+  whole with their VM.
 
 ```makefile
 E2E_PROJECT ?= $(if $(CI),runnero-e2e,runnero-e2e-$(shell id -un 2>/dev/null || echo local))

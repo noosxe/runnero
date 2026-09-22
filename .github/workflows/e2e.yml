@@ -1,16 +1,17 @@
 name: E2E Suite
 
-# Containerized Playwright end-to-end suite (docs/13), executed on the
-# self-hosted runner pool so the suite can never rot silently again (RUN-131).
-# Runs nightly and on every pull request / main push that touches E2E-relevant
-# inputs; the workflow always includes itself so changes to the CI definition
-# are validated by the CI they define.
+# Containerized Playwright end-to-end suite (docs/13). Runs nightly and on
+# every pull request / main push that touches E2E-relevant inputs; the
+# workflow always includes itself so changes to the CI definition are
+# validated by the CI they define.
 #
-# The suite boots its own compose stack (mock provider, mock Docker, supervisor,
-# Playwright) — the only host requirement is Docker with the compose plugin,
-# which the runner image ships by default (docs/18). Docker layer caching is
-# free here: the shared engine keeps the base and compose-built images warm
-# across runs, so nightly runs rebuild only what changed.
+# The suite boots its own compose stack (mock provider, mock Docker,
+# supervisor, Playwright) on official GitHub-hosted runners (ubuntu-latest),
+# which ship Docker with the compose plugin. The project no longer
+# dogsfoods its own runner pool for CI (RUN-291): each job gets a fresh,
+# ephemeral VM, so base and compose-built images start cold every run —
+# the accepted tradeoff for CI independence from the product's own
+# infrastructure.
 on:
   push:
     branches:
@@ -26,11 +27,12 @@ on:
     - cron: '17 3 * * *'
   workflow_dispatch:
 
-# The compose stack uses fixed container names (project `runnero-e2e`) and the
-# self-hosted runner shares one Docker engine with everything else on the
-# host, so two concurrent suites would collide. Serialize ALL E2E runs
-# repo-wide — and deliberately do NOT cancel in-progress runs: a PR landing
-# mid-nightly must not kill the guardian run halfway through.
+# The compose stack uses fixed container names (project `runnero-e2e`). Each
+# job now runs on its own ephemeral VM, so concurrent suites cannot collide —
+# but the repo-wide group is kept deliberately: at most one suite (and its
+# several-minute cold image build) runs at a time, and in-progress runs are
+# never cancelled — a PR landing mid-nightly must not kill the guardian run
+# halfway through (RUN-131).
 concurrency:
   # `-v2` suffix: the original `e2e-suite` slot is held forever by a stranded run
   # that queued for runner labels which never existed (queued runs on
@@ -83,35 +85,25 @@ jobs:
               - 'Makefile'
               - '.github/workflows/e2e.yml'
 
-  # The suite itself, on the self-hosted pool. Runner containers get the host
-  # Docker socket bound in when their pool is configured with docker access
-  # (`AllowDocker`, docs/03 §2), which is all this job needs: docker CLI +
-  # compose plugin are part of the runner image (docs/18 Tier 1).
+  # The suite runs on a GitHub-hosted runner: Docker and the compose plugin are
+  # preinstalled, so `make test-e2e` boots the compose stack on the job's own
+  # ephemeral VM — no shared engine, no host state left behind afterwards.
   e2e:
-    name: Playwright E2E (self-hosted)
+    name: Playwright E2E
     needs: changes
     if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || needs.changes.outputs.e2e == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
-    runs-on: [self-hosted, linux, amd64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
 
       - name: Run E2E Suite
-        # The job runs on a runnero pool with docker access (AllowDocker): the
-        # host docker.sock is bind-mounted into the runner container and the
-        # image entrypoint grants the `runner` user membership of a group
-        # matching the socket's actual GID (docs/18 §3.7, RUN-162), so compose
-        # runs exactly like on GitHub-hosted runners — no sudo. Compose runs
-        # sibling containers on the host engine; nothing outside the engine's
-        # normal API surface is touched.
+        # The fork guard above (RUN-131) predates the hosted-runner switch and
+        # is kept as a cost/discipline measure: the job carries no secrets and
+        # runs on an ephemeral VM, so fork PRs would be safe to run — they just
+        # don't get free suite minutes.
         run: make test-e2e
 
-      # Resource ownership (AGENTS.md): the shared Docker host must not keep
-      # the compose stack, its networks, or its scratch volumes after the run.
-      # E2E_FORCE_CLEAN bypasses the RUN-208 in-flight guard: this step only
-      # runs after the suite has ended (or been killed by the job timeout),
-      # so any still-running container is a dead leftover to clean up.
-      - name: Tear Down E2E Stack
-        if: always()
-        run: E2E_FORCE_CLEAN=1 make clean-e2e
+      # No teardown step: the job's VM is ephemeral and discarded whole when the
+      # job ends (even on timeout), so there is no shared host state to clean.
