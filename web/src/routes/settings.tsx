@@ -490,7 +490,7 @@ export function SettingsPage({ tab }: { tab: SettingsTab }) {
 
       {/* Tab: Database & Retention */}
       {activeTab === "backups" && (
-        <Card className="px-(--card-spacing)">
+        <Card>
           <CardHeader className="border-b border-border/60">
             <CardTitle className="text-base font-bold">
               Database Retention & Periodic Cleanup
@@ -500,7 +500,10 @@ export function SettingsPage({ tab }: { tab: SettingsTab }) {
             </CardDescription>
           </CardHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* CardContent carries the horizontal padding: padding the Card
+              itself as well double-insets the CardHeader (which has its own
+              px-(--card-spacing)) relative to the body. */}
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                 <Archive className="size-4 text-link" />
@@ -523,7 +526,7 @@ export function SettingsPage({ tab }: { tab: SettingsTab }) {
                 <code>DATA_DIR/supervisor.db</code>.
               </p>
             </div>
-          </div>
+          </CardContent>
         </Card>
       )}
     </div>
