@@ -47,7 +47,7 @@ with `CGO_ENABLED=0` on 2026-09-09):
   supported toolchain (or bump the nix toolchain — the product owner's env).
 - **API surface used:** `tsnet.Server{Dir, Hostname, AuthKey, Logf, UserLogf}`,
   `Start()`, `Close()`, `ListenFunnel("tcp", ":443", tsnet.FunnelOnly())`,
-  `ListenTLS("tcp", ":8443")`.
+  `ListenTLS("tcp", tailnetAddr — default ":8443", docs/38).`
 - **Funnel constraints (upstream KB):** TCP ports **443 / 8443 / 10000** only,
   TLS only with automatic ts.net certificates, requires MagicDNS + HTTPS
   enabled on the tailnet + the `funnel` node attribute in the tailnet policy
@@ -69,7 +69,7 @@ with `CGO_ENABLED=0` on 2026-09-09):
                           │        ▼                                     │
                           │   webhook.Receiver (HMAC) → PoolController   │
                           │                                              │
-  Tailnet devices ──HTTPS │ Tailnet listener :8443 (ListenTLS, ts.net)   │
+  Tailnet devices ──HTTPS │ Tailnet listener :8443* (ListenTLS, ts.net)  │
   https://runnero.<net>.  │   mux: the full server.Handler()             │
   ts.net:8443/* ─────────▶│   (UI + ConnectRPC API + hooks + health)     │
                           │        │                                     │
@@ -84,6 +84,8 @@ with `CGO_ENABLED=0` on 2026-09-09):
                         (UDP WireGuard direct when possible)
 ```
 
+\* Default `:8443`; configurable via `SUPERVISOR_TAILSCALE_UI_PORT` (docs/38).
+
 Three listeners total when enabled:
 
 1. **LAN listener `:8090`** — today's `http.Server`, unchanged, always on.
@@ -96,7 +98,7 @@ Three listeners total when enabled:
    no receiver configured → route unmounted, POST answers 405. **Every other
    path and method on the funnel listener answers 404.** No SPA, no API, no
    cookies, no sessions, no CORS, no health endpoints.
-3. **Tailnet listener `:8443`** — `ListenTLS` with automatic ts.net
+3. **Tailnet listener `:8443` (default; `SUPERVISOR_TAILSCALE_UI_PORT`, docs/38)** — `ListenTLS` with automatic ts.net
    certificates, reachable only inside the tailnet by construction. Serves
    `server.Handler()` verbatim: the complete management UI, ConnectRPC API,
    webhook routes, and health endpoints. The existing supervisor
@@ -107,9 +109,12 @@ Three listeners total when enabled:
    documented today).
 
 The serve/funnel same-port limitation is why the two listeners use different
-ports: `:443` funnel (webhooks), `:8443` tailnet UI. Both are fixed constants —
-the embedded node is dedicated to this supervisor, so port knobs would only add
-surface for no benefit.
+ports: `:443` funnel (webhooks), `:8443` tailnet UI (default). The funnel port
+is fixed — upstream Funnel allows 443/8443/10000 only, and `:443` is the only
+choice that yields a suffix-free public webhook URL. The tailnet UI port is a
+knob as of docs/38 (`SUPERVISOR_TAILSCALE_UI_PORT`, default `8443`); it must
+differ from `:443` while the funnel is enabled (same-port limitation), which
+config validation enforces with a boot error.
 
 **No inbound port publishing.** Both listeners live inside tsnet's userspace
 netstack; the container publishes nothing new. The only connectivity requirement
@@ -139,7 +144,7 @@ is **outbound**: UDP (WireGuard, direct paths where NAT allows) and HTTPS 443
   - funnel: `https://<hostname>.<tailnet>.ts.net/hooks/{github,gitea,forgejo}`
     — this URL goes straight into the provider's webhook configuration
     (docs/03 §4).
-  - UI: `https://<hostname>.<tailnet>.ts.net:8443/`
+  - UI: `https://<hostname>.<tailnet>.ts.net:<ui-port>/` (default `:8443`, docs/38)
   - If the funnel is enabled but no webhook secrets are configured, log a
     warning: the listener will only ever answer 405/404.
 - Graceful shutdown (existing signal path): drain both new `http.Server`s,
@@ -156,7 +161,8 @@ key is present**. Values are trimmed; empty means default/off per row.
 | `SUPERVISOR_TAILSCALE_AUTHKEY` | String | *(empty = feature off)* | Tailscale auth key used once to enroll the node; ignored on later boots while node state exists (upstream behavior). **Required to enable anything below.** |
 | `SUPERVISOR_TAILSCALE_HOSTNAME` | String | `runnero` | Node hostname inside the tailnet; final DNS name is `<hostname>.<tailnet>.ts.net`. Must be unique per tailnet — set it when running more than one supervisor. |
 | `SUPERVISOR_TAILSCALE_FUNNEL` | Bool | `true` | Public funnel listener on `:443` for provider webhooks (FunnelOnly). |
-| `SUPERVISOR_TAILSCALE_UI` | Bool | `true` | Tailnet-only HTTPS management listener on `:8443`. |
+| `SUPERVISOR_TAILSCALE_UI` | Bool | `true` | Tailnet-only HTTPS management listener (port: `SUPERVISOR_TAILSCALE_UI_PORT`, default `8443`). |
+| `SUPERVISOR_TAILSCALE_UI_PORT` | Int | `8443` | TCP port of the tailnet-only HTTPS management listener; any port 1–65535, must differ from `443` while the funnel is enabled (upstream serve/funnel same-port limitation, docs/38). |
 | `SUPERVISOR_TAILSCALE_STATE_DIR` | String | `<SUPERVISOR_DATA_DIR>/tailscale` | tsnet state directory (node identity, `tailscaled.state`). Lives inside the existing supervisor data volume. |
 
 Validation rules (fail boot with a clear message):
@@ -166,6 +172,10 @@ Validation rules (fail boot with a clear message):
   failing boots for users who never opted in).
 - auth key set **and** `FUNNEL=false` **and** `UI=false` → boot error: a node
   with no listeners serves nothing; this is a misconfiguration, not a mode.
+- `SUPERVISOR_TAILSCALE_UI_PORT` (docs/38): empty → default `8443`; otherwise a
+  TCP port 1–65535, else boot error. Funnel on + UI port `443` → boot error
+  (serve/funnel cannot share a port); funnel off + UI port `443` is the
+  documented clean-URL case (`https://<hostname>.<tailnet>.ts.net/`).
 - Bool parsing follows the existing config conventions; unknown/invalid values
   are boot errors in the enabled state.
 

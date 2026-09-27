@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -73,6 +74,22 @@ func (c *Config) Validate() error {
 		}
 		if uiErr != nil {
 			return fmt.Errorf("invalid tailscale ui setting %q: want a boolean (key 'tailscale-ui', env %s)", c.TailscaleUI, EnvTailscaleUI)
+		}
+		// Management port (docs/38): empty means the documented default;
+		// anything set must be a TCP port. Validated in enabled mode only —
+		// off-mode values are never validated (docs/26 §4). The 443 guard
+		// enforces the upstream serve/funnel same-port limitation: the
+		// funnel is always :443.
+		uiPort := DefaultTailscaleUIPort
+		if c.TailscaleUIPort != "" {
+			p, err := strconv.Atoi(c.TailscaleUIPort)
+			if err != nil || p < 1 || p > 65535 {
+				return fmt.Errorf("invalid tailscale ui port %q: want 1-65535 (key 'tailscale-ui-port', env %s)", c.TailscaleUIPort, EnvTailscaleUIPort)
+			}
+			uiPort = strconv.Itoa(p)
+		}
+		if funnel && uiPort == "443" {
+			return fmt.Errorf("tailscale ui port 443 conflicts with the funnel listener (:443): serve and funnel cannot share a port on the same node (key 'tailscale-ui-port', env %s); set %s=false or pick another port", EnvTailscaleUIPort, EnvTailscaleFunnel)
 		}
 		if !funnel && !ui {
 			return fmt.Errorf("tailscale is enabled (env %s set) but both listeners are disabled: set %s=true and/or %s=true, or unset the auth key to turn the integration off", EnvTailscaleAuthKey, EnvTailscaleFunnel, EnvTailscaleUI)

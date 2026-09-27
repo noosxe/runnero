@@ -16,13 +16,14 @@ import (
 // fakeNode is a hermetic Node: real loopback listeners, scripted Start
 // failures, and counters for lifecycle assertions.
 type fakeNode struct {
-	mu        sync.Mutex
-	startErrs []error // popped one per Start call; empty → success
-	starts    int
-	closed    bool
-	failTLS   bool
-	funnelLn  net.Listener
-	tailnetLn net.Listener
+	mu          sync.Mutex
+	startErrs   []error // popped one per Start call; empty → success
+	starts      int
+	closed      bool
+	failTLS     bool
+	funnelLn    net.Listener
+	tailnetLn   net.Listener
+	lastTLSAddr string // most recent ListenTLS addr (docs/38 tests)
 }
 
 func (f *fakeNode) Start() error {
@@ -54,9 +55,10 @@ func (f *fakeNode) ListenFunnel(_, _ string) (net.Listener, error) {
 	return ln, err
 }
 
-func (f *fakeNode) ListenTLS(_, _ string) (net.Listener, error) {
+func (f *fakeNode) ListenTLS(_, addr string) (net.Listener, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.lastTLSAddr = addr
 	ln, err := f.listen()
 	if err == nil {
 		f.tailnetLn = ln
@@ -177,6 +179,35 @@ func TestStartHonorsListenerToggles(t *testing.T) {
 	}
 	if fake.tailnetLn == nil {
 		t.Error("tailnet listener missing despite UI=true")
+	}
+}
+
+// TestStartHonorsCustomTailnetAddr: the management listener opens on the
+// configured address (docs/38); an empty TailnetAddr falls back to the
+// default. The fake records the addr it was asked to listen on.
+func TestStartHonorsCustomTailnetAddr(t *testing.T) {
+	custom := &fakeNode{}
+	stack, err := startFake(t, context.Background(), custom, Config{
+		AuthKey: "k", Hostname: "runnero", StateDir: t.TempDir(), UI: true, TailnetAddr: ":9090",
+	}, Handlers{Funnel: FunnelHandler(nil), Tailnet: okHandler})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = stack.Shutdown(context.Background()) })
+	if custom.lastTLSAddr != ":9090" {
+		t.Errorf("ListenTLS addr = %q, want %q", custom.lastTLSAddr, ":9090")
+	}
+
+	def := &fakeNode{}
+	stack, err = startFake(t, context.Background(), def, Config{
+		AuthKey: "k", Hostname: "runnero", StateDir: t.TempDir(), UI: true,
+	}, Handlers{Funnel: FunnelHandler(nil), Tailnet: okHandler})
+	if err != nil {
+		t.Fatalf("Start (default addr): %v", err)
+	}
+	t.Cleanup(func() { _ = stack.Shutdown(context.Background()) })
+	if def.lastTLSAddr != DefaultTailnetAddr {
+		t.Errorf("ListenTLS addr = %q, want default %q", def.lastTLSAddr, DefaultTailnetAddr)
 	}
 }
 

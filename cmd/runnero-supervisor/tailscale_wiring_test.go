@@ -186,6 +186,9 @@ func TestDaemonTailscaleEnabledServesBothListeners(t *testing.T) {
 	if base := filepath.Base(cfg.StateDir); base != "tailscale" || !filepath.IsAbs(cfg.StateDir) {
 		t.Errorf("StateDir = %q, want an absolute <data-dir>/tailscale", cfg.StateDir)
 	}
+	if cfg.TailnetAddr != ":8443" {
+		t.Errorf("TailnetAddr = %q, want default %q", cfg.TailnetAddr, ":8443")
+	}
 
 	// Funnel listener: webhook-only surface over the real daemon wiring.
 	resp, err := http.Get(fmt.Sprintf("http://%s/", node.funnelLn.Addr().String()))

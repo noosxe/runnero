@@ -325,11 +325,12 @@ func runDaemonContext(ctx context.Context) error {
 		}
 		var err error
 		tsStack, err = startTailscale(ctx, tailscale.Config{
-			AuthKey:  cfg.TailscaleAuthKey,
-			Hostname: cfg.TailscaleHostname,
-			StateDir: cfg.TailscaleStateDir,
-			Funnel:   cfg.TailscaleFunnelOn(),
-			UI:       cfg.TailscaleUIOn(),
+			AuthKey:     cfg.TailscaleAuthKey,
+			Hostname:    cfg.TailscaleHostname,
+			StateDir:    cfg.TailscaleStateDir,
+			Funnel:      cfg.TailscaleFunnelOn(),
+			UI:          cfg.TailscaleUIOn(),
+			TailnetAddr: cfg.TailscaleUIAddr(),
 		}, tailscale.Handlers{
 			Funnel:  tailscale.FunnelHandler(funnelReceiver),
 			Tailnet: srv.Handler(),

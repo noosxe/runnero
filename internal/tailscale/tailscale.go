@@ -21,12 +21,15 @@ import (
 
 var logger = logging.For("tailscale")
 
-// Fixed listener addresses (docs/26 §3): the embedded node is dedicated to
-// this supervisor, so port knobs would only add surface. Funnel and tailnet
-// listeners cannot share a port (upstream serve/funnel limitation).
+// Listener addresses (docs/26 §3, docs/38): the funnel is pinned to :443 —
+// upstream Funnel allows 443/8443/10000 only, and :443 is the only port that
+// yields a suffix-free public webhook URL. The tailnet-only management
+// listener defaults to :8443 and is configurable via
+// SUPERVISOR_TAILSCALE_UI_PORT (docs/38). Funnel and tailnet listeners
+// cannot share a port (upstream serve/funnel limitation).
 const (
-	FunnelAddr  = ":443"
-	TailnetAddr = ":8443"
+	FunnelAddr         = ":443"
+	DefaultTailnetAddr = ":8443"
 )
 
 // Boot retry defaults (docs/26 §3): ride transient control-plane hiccups,
@@ -74,8 +77,13 @@ type Config struct {
 	StateDir string
 	// Funnel opens the public webhook listener on FunnelAddr.
 	Funnel bool
-	// UI opens the tailnet-only management listener on TailnetAddr.
+	// UI opens the tailnet-only management listener on TailnetAddr (the
+	// Config.TailnetAddr address, default DefaultTailnetAddr).
 	UI bool
+	// TailnetAddr is the listen address for the tailnet-only management
+	// listener (docs/38); empty resolves to DefaultTailnetAddr. The funnel
+	// has no equivalent — it stays pinned to FunnelAddr.
+	TailnetAddr string
 }
 
 // Handlers pairs the http.Handler served on each listener.
@@ -109,7 +117,7 @@ type Stack struct {
 // caller's boot (docs/26 §3: on-mode boot is fail-fast).
 func Start(ctx context.Context, cfg Config, handlers Handlers, opts Options) (*Stack, error) {
 	if !cfg.Funnel && !cfg.UI {
-		return nil, fmt.Errorf("tailscale: enabled with no listeners: open the funnel (%s) and/or the management listener (%s), or unset the auth key", FunnelAddr, TailnetAddr)
+		return nil, fmt.Errorf("tailscale: enabled with no listeners: open the funnel (%s) and/or the management listener (%s), or unset the auth key", FunnelAddr, DefaultTailnetAddr)
 	}
 
 	newNode := opts.NewNode
@@ -163,6 +171,10 @@ func Start(ctx context.Context, cfg Config, handlers Handlers, opts Options) (*S
 // fatal for the stack; the caller shuts down what already came up.
 func (s *Stack) serve(cfg Config, handlers Handlers) error {
 	dns := s.node.DNSName()
+	tailnetAddr := cfg.TailnetAddr
+	if tailnetAddr == "" {
+		tailnetAddr = DefaultTailnetAddr
+	}
 	if cfg.Funnel {
 		if err := s.serveOne(FunnelAddr, handlers.Funnel, s.node.ListenFunnel); err != nil {
 			return err
@@ -173,11 +185,11 @@ func (s *Stack) serve(cfg Config, handlers Handlers) error {
 		)
 	}
 	if cfg.UI {
-		if err := s.serveOne(TailnetAddr, handlers.Tailnet, s.node.ListenTLS); err != nil {
+		if err := s.serveOne(tailnetAddr, handlers.Tailnet, s.node.ListenTLS); err != nil {
 			return err
 		}
 		logger.Info("tailscale management listener serving",
-			"url", "https://"+dns+TailnetAddr,
+			"url", "https://"+dns+tailnetAddr,
 		)
 	}
 	return nil
