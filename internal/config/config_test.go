@@ -474,6 +474,7 @@ func TestTailscaleOffByDefaultIgnoresEverything(t *testing.T) {
 	t.Setenv(EnvDBEncryptionKey, testKey)
 	t.Setenv(EnvTailscaleFunnel, "bogus")
 	t.Setenv(EnvTailscaleUI, "also-bogus")
+	t.Setenv(EnvTailscaleUIPort, "bogus")
 	cfg, err := Load(Options{})
 	if err != nil {
 		t.Fatalf("off-mode load must ignore tailscale values: %v", err)
@@ -505,6 +506,9 @@ func TestTailscaleEnabledDefaults(t *testing.T) {
 	if !cfg.TailscaleFunnelOn() {
 		t.Error("funnel off by default, want on")
 	}
+	if addr := cfg.TailscaleUIAddr(); addr != ":8443" {
+		t.Errorf("ui addr = %q, want default %q", addr, ":8443")
+	}
 	if !cfg.TailscaleUIOn() {
 		t.Error("ui off by default, want on")
 	}
@@ -521,6 +525,7 @@ func TestTailscaleEnabledCustomValues(t *testing.T) {
 	t.Setenv(EnvTailscaleHostname, " lab-runnero ")
 	t.Setenv(EnvTailscaleFunnel, "false")
 	t.Setenv(EnvTailscaleUI, "1")
+	t.Setenv(EnvTailscaleUIPort, " 9090 ")
 	t.Setenv(EnvTailscaleStateDir, " /var/lib/runnero-ts ")
 	cfg, err := Load(Options{})
 	if err != nil {
@@ -528,6 +533,9 @@ func TestTailscaleEnabledCustomValues(t *testing.T) {
 	}
 	if cfg.TailscaleAuthKey != "tskey-x" || cfg.TailscaleHostname != "lab-runnero" || cfg.TailscaleStateDir != "/var/lib/runnero-ts" {
 		t.Errorf("string values not trimmed: authkey=%q hostname=%q statedir=%q", cfg.TailscaleAuthKey, cfg.TailscaleHostname, cfg.TailscaleStateDir)
+	}
+	if addr := cfg.TailscaleUIAddr(); addr != ":9090" {
+		t.Errorf("ui addr = %q, want %q", addr, ":9090")
 	}
 	if cfg.TailscaleFunnelOn() {
 		t.Error("funnel on, want false")
@@ -556,6 +564,51 @@ func TestTailscaleBadBoolFailsOnlyWhenEnabled(t *testing.T) {
 	t.Setenv(EnvTailscaleFunnel, "maybe")
 	_, err := Load(Options{})
 	wantErrContaining(t, err, "invalid tailscale funnel setting")
+}
+
+// TestTailscaleUIPortValidation: the management port must be a TCP port
+// (docs/38); malformed or out-of-range values are boot errors in enabled
+// mode, and Atoi-accepted spellings canonicalize ("+9090" → "9090").
+func TestTailscaleUIPortValidation(t *testing.T) {
+	for _, bad := range []string{"abc", "0", "-1", "65536", "99999"} {
+		t.Setenv(EnvDBEncryptionKey, testKey)
+		t.Setenv(EnvTailscaleAuthKey, "tskey-x")
+		t.Setenv(EnvTailscaleUIPort, bad)
+		_, err := Load(Options{})
+		wantErrContaining(t, err, "invalid tailscale ui port")
+	}
+
+	t.Setenv(EnvDBEncryptionKey, testKey)
+	t.Setenv(EnvTailscaleAuthKey, "tskey-x")
+	t.Setenv(EnvTailscaleUIPort, "+9090")
+	cfg, err := Load(Options{})
+	if err != nil {
+		t.Fatalf("canonicalizable port rejected: %v", err)
+	}
+	if addr := cfg.TailscaleUIAddr(); addr != ":9090" {
+		t.Errorf("ui addr = %q, want canonicalized %q", addr, ":9090")
+	}
+}
+
+// TestTailscaleUIPortFunnelConflict: the funnel is always :443 and
+// serve/funnel cannot share a port upstream, so funnel-on + UI port 443 is
+// a boot error (docs/38 §3.1); with the funnel off, UI on :443 is the
+// documented clean-URL case.
+func TestTailscaleUIPortFunnelConflict(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+	t.Setenv(EnvTailscaleAuthKey, "tskey-x")
+	t.Setenv(EnvTailscaleUIPort, "443")
+	_, err := Load(Options{})
+	wantErrContaining(t, err, "conflicts with the funnel listener")
+
+	t.Setenv(EnvTailscaleFunnel, "false")
+	cfg, err := Load(Options{})
+	if err != nil {
+		t.Fatalf("funnel off + ui port 443 must load: %v", err)
+	}
+	if addr := cfg.TailscaleUIAddr(); addr != ":443" {
+		t.Errorf("ui addr = %q, want %q", addr, ":443")
+	}
 }
 
 func TestLoadSessionSettings(t *testing.T) {

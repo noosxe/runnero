@@ -2,7 +2,7 @@
 
 | | |
 | :--- | :--- |
-| Status | **Design** — docs-only PR; code, tests, and the doc deltas listed in §7 land together in the implementation PR. |
+| Status | Implemented — design accepted with the design-doc PR; code, tests, and the §7 doc deltas shipped in the implementation PR. |
 | Related | docs/26 (embedded Tailscale: funnel webhooks + tailnet-only management — shipped) · RUN-155 |
 | Touches | `internal/config` (one new env knob), `internal/tailscale` (config field + default), `cmd/runnero-supervisor/daemon.go` (one plumb-through line), README, `.env.example`, `docker-compose.yml` (env pass-through only), docs/26 §3/§4, docs/03 |
 

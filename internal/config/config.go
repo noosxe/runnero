@@ -77,6 +77,7 @@ const (
 	EnvTailscaleHostname = EnvPrefix + "TAILSCALE_HOSTNAME"
 	EnvTailscaleFunnel   = EnvPrefix + "TAILSCALE_FUNNEL"
 	EnvTailscaleUI       = EnvPrefix + "TAILSCALE_UI"
+	EnvTailscaleUIPort   = EnvPrefix + "TAILSCALE_UI_PORT"
 	EnvTailscaleStateDir = EnvPrefix + "TAILSCALE_STATE_DIR"
 )
 
@@ -113,6 +114,7 @@ const (
 	DefaultTailscaleStateDirName      = "tailscale"
 	DefaultTailscaleFunnel            = "true"
 	DefaultTailscaleUI                = "true"
+	DefaultTailscaleUIPort            = "8443"
 	DefaultLogPersistenceEnabled      = true
 	DefaultLogSupervisorRotationBytes = int64(32 * 1024 * 1024) // 32 MiB per boot file
 	DefaultLogSupervisorMaxFiles      = 10
@@ -160,6 +162,7 @@ var envKeys = map[string]string{
 	EnvTailscaleHostname:          "tailscale-hostname",
 	EnvTailscaleFunnel:            "tailscale-funnel",
 	EnvTailscaleUI:                "tailscale-ui",
+	EnvTailscaleUIPort:            "tailscale-ui-port",
 	EnvTailscaleStateDir:          "tailscale-state-dir",
 	EnvLogPersistenceEnabled:      "log-persistence-enabled",
 	EnvLogSupervisorRotationBytes: "log-supervisor-rotation-bytes",
@@ -219,6 +222,7 @@ type Config struct {
 	TailscaleHostname string `koanf:"tailscale-hostname"`
 	TailscaleFunnel   string `koanf:"tailscale-funnel"`
 	TailscaleUI       string `koanf:"tailscale-ui"`
+	TailscaleUIPort   string `koanf:"tailscale-ui-port"`
 	TailscaleStateDir string `koanf:"tailscale-state-dir"`
 
 	// Durable log persistence (RUN-186, docs/28 §5.5). Byte knobs are raw
@@ -355,6 +359,7 @@ func defaults() map[string]any {
 		"tailscale-hostname":  DefaultTailscaleHostname,
 		"tailscale-funnel":    DefaultTailscaleFunnel,
 		"tailscale-ui":        DefaultTailscaleUI,
+		"tailscale-ui-port":   DefaultTailscaleUIPort,
 		"tailscale-state-dir": "",
 	}
 }
@@ -426,6 +431,14 @@ func (c *Config) normalize() {
 	c.TailscaleHostname = strings.TrimSpace(c.TailscaleHostname)
 	c.TailscaleFunnel = strings.TrimSpace(c.TailscaleFunnel)
 	c.TailscaleUI = strings.TrimSpace(c.TailscaleUI)
+	c.TailscaleUIPort = strings.TrimSpace(c.TailscaleUIPort)
+	// Canonicalize the UI port (docs/38): Atoi-accepted spellings like
+	// "+443"/"0443" collapse to "443" so the accessor and the funnel
+	// same-port guard see one spelling. Non-numeric values are left for
+	// Validate to reject in enabled mode.
+	if p, err := strconv.Atoi(c.TailscaleUIPort); err == nil {
+		c.TailscaleUIPort = strconv.Itoa(p)
+	}
 	c.TailscaleStateDir = strings.TrimSpace(c.TailscaleStateDir)
 	if c.TailscaleEnabled() && c.TailscaleStateDir == "" && c.DataDir != "" {
 		c.TailscaleStateDir = filepath.Join(c.DataDir, DefaultTailscaleStateDirName)
@@ -474,11 +487,23 @@ func (c *Config) TailscaleFunnelOn() bool {
 }
 
 // TailscaleUIOn reports whether the tailnet-only management listener
-// (`:8443`) should open. Call only on a validated config; an unset value
-// means the default (true).
+// (`:8443` by default, docs/38) should open. Call only on a validated
+// config; an unset value means the default (true).
 func (c *Config) TailscaleUIOn() bool {
 	v, _ := parseTailscaleBool(c.TailscaleUI)
 	return v
+}
+
+// TailscaleUIAddr reports the listen address for the tailnet-only
+// management listener (docs/38): ":8443" by default, ":<port>" when
+// SUPERVISOR_TAILSCALE_UI_PORT is set. Call only on a validated config
+// (Validate rejects out-of-range ports in enabled mode); an unset value
+// means the default (8443).
+func (c *Config) TailscaleUIAddr() string {
+	if c.TailscaleUIPort == "" {
+		return ":" + DefaultTailscaleUIPort
+	}
+	return ":" + c.TailscaleUIPort
 }
 
 // parseTailscaleBool interprets the raw funnel/ui settings: empty means the
