@@ -63,6 +63,10 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 
 ---
 
+## 🗺️ Roadmap
+
+- **Configurable Tailscale Management Port (docs/38):** *[Design Phase]* — the tailnet-only HTTPS management listener moves from a hard-coded `:8443` to a configurable TCP port via `SUPERVISOR_TAILSCALE_UI_PORT` (default `8443`, zero change for existing deployments). Enables the clean `https://<hostname>.<tailnet>.ts.net/` management URL by putting the UI on `:443` when the funnel is off, or any tailnet-side port convention; the funnel stays fixed at `:443`, a funnel/UI same-port combination boot-errors clearly ([docs/38-tailscale-ui-port.md](docs/38-tailscale-ui-port.md)).
+
 ## 🔐 Security Notes
 
 ### Docker daemon socket (`/var/run/docker.sock`)
