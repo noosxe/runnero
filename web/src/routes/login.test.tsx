@@ -81,6 +81,23 @@ describe("LoginPage", () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith({ to: "/pools" }));
   });
 
+  it("renders the passkey button before the or divider and the password form", () => {
+    mockPasskeyAvailable = true;
+    render(<LoginPage />);
+
+    const button = screen.getByTestId("passkey-login-button");
+    const separator = screen.getByRole("separator");
+    const form = document.querySelector("form");
+    expect(form).not.toBeNull();
+    // Passkey-first: button → divider → form in document order.
+    expect(
+      button.compareDocumentPosition(separator) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      separator.compareDocumentPosition(form!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("translates an unknown-credential passkey failure into guidance", async () => {
     mockPasskeyAvailable = true;
     mockPasskeyMutateAsync.mockRejectedValueOnce(new Error("bad_request: credential not found"));

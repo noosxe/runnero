@@ -155,14 +155,6 @@ export function LoginPage() {
 
         {passkeyAvailable && (
           <>
-            <div
-              className="mt-6 flex items-center gap-3 text-xs text-muted-foreground"
-              role="separator"
-            >
-              <span className="h-px flex-1 bg-border" />
-              or
-              <span className="h-px flex-1 bg-border" />
-            </div>
             {passkeyError && (
               <div
                 role="alert"
@@ -175,7 +167,7 @@ export function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              className="mt-4 w-full"
+              className="mt-6 w-full"
               disabled={passkeyMutation.isPending}
               onClick={() => void handlePasskey()}
               data-testid="passkey-login-button"
@@ -183,6 +175,14 @@ export function LoginPage() {
               <Fingerprint className="size-4" />
               {passkeyMutation.isPending ? "Waiting for passkey..." : "Sign in with passkey"}
             </Button>
+            <div
+              className="mt-6 flex items-center gap-3 text-xs text-muted-foreground"
+              role="separator"
+            >
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
           </>
         )}
 
