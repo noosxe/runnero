@@ -300,7 +300,9 @@ host):
   `flock` on a per-project lockfile (`/tmp/<project>.lock`), serializing
   concurrent invocations of the same project (two local terminals, or a
   manual run overlapping the debug-stack seeder) instead of letting them race. The wait
-  is capped by `E2E_LOCK_WAIT` (default 600 s).
+  is capped by `E2E_LOCK_WAIT` (default 600 s). `flock` is provided by the
+  Nix devshell (`util-linuxMinimal`), so the targets also run on macOS
+  hosts, which ship no system `flock`.
 - **In-flight guard**: `clean-e2e` refuses to tear down while the suite's
   Playwright container is still running — exactly the RUN-208 incident's
   failure mode (a local teardown SIGTERMed a CI suite mid-run).

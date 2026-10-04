@@ -42,6 +42,10 @@
             curl
             gh
             gnumake
+            # flock for the E2E make targets (Makefile test-e2e/test-e2e-ui/
+            # clean-e2e advisory lock): util-linux ships only on Linux hosts,
+            # so macOS devshells need it provided here to run the suite.
+            util-linuxMinimal
 
             # Frontend & Web UI (M8)
             nodejs
