@@ -192,7 +192,9 @@ message FinishPasskeyEnrollmentRequest {
   // (navigator.credentials.create() result .toJSON()).
   bytes attestation_response_json = 1;
   // User-chosen label; empty defaults to "Passkey".
-  string name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+  // No min_len: an empty label defaults to "Passkey" in the handler
+  // (internal/server/passkey.go) — the documented contract (docs/34 §4.2).
+  string name = 2 [(buf.validate.field).string.max_len = 64];
 }
 
 message FinishPasskeyEnrollmentResponse {
