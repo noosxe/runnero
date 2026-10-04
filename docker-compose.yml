@@ -36,6 +36,10 @@ services:
       - SUPERVISOR_TAILSCALE_UI=${SUPERVISOR_TAILSCALE_UI:-true}
       - SUPERVISOR_TAILSCALE_UI_PORT=${SUPERVISOR_TAILSCALE_UI_PORT:-8443}
       - SUPERVISOR_TAILSCALE_STATE_DIR=${SUPERVISOR_TAILSCALE_STATE_DIR:-}
+      # Passkey (WebAuthn) login (docs/34 §3.5): ships dark unless the RP ID is
+      # set in .env; SUPERVISOR_WEBAUTHN_ORIGINS defaults to https://<rp-id>
+      - SUPERVISOR_WEBAUTHN_RP_ID=${SUPERVISOR_WEBAUTHN_RP_ID:-}
+      - SUPERVISOR_WEBAUTHN_ORIGINS=${SUPERVISOR_WEBAUTHN_ORIGINS:-}
     volumes:
       # Persistent SQLite database, backups, and compressed runner execution logs
       - supervisor-data:/data
