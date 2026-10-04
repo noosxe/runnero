@@ -922,6 +922,8 @@ type FinishPasskeyEnrollmentRequest struct {
 	// (navigator.credentials.create() result .toJSON()).
 	AttestationResponseJson []byte `protobuf:"bytes,1,opt,name=attestation_response_json,json=attestationResponseJson,proto3" json:"attestation_response_json,omitempty"`
 	// User-chosen label; empty defaults to "Passkey".
+	// No min_len: an empty label defaults to "Passkey" in the handler
+	// (internal/server/passkey.go) — the documented contract (docs/34 §4.2).
 	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6978,10 +6980,10 @@ const file_api_proto_rawDesc = "" +
 	"\x1dBeginPasskeyEnrollmentRequest\x122\n" +
 	"\x10current_password\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x0fcurrentPassword\"W\n" +
 	"\x1eBeginPasskeyEnrollmentResponse\x125\n" +
-	"\x17public_key_options_json\x18\x01 \x01(\fR\x14publicKeyOptionsJson\"{\n" +
+	"\x17public_key_options_json\x18\x01 \x01(\fR\x14publicKeyOptionsJson\"y\n" +
 	"\x1eFinishPasskeyEnrollmentRequest\x12:\n" +
-	"\x19attestation_response_json\x18\x01 \x01(\fR\x17attestationResponseJson\x12\x1d\n" +
-	"\x04name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x04name\"W\n" +
+	"\x19attestation_response_json\x18\x01 \x01(\fR\x17attestationResponseJson\x12\x1b\n" +
+	"\x04name\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x18@R\x04name\"W\n" +
 	"\x1fFinishPasskeyEnrollmentResponse\x124\n" +
 	"\apasskey\x18\x01 \x01(\v2\x1a.supervisor.v1.PasskeyInfoR\apasskey\"\x9b\x02\n" +
 	"\vPasskeyInfo\x12\x0e\n" +

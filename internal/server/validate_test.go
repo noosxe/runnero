@@ -10,6 +10,7 @@ import (
 
 	validatev1 "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
+	"github.com/descope/virtualwebauthn"
 	"github.com/noosxe/runnero/internal/db"
 	supervisorv1 "github.com/noosxe/runnero/internal/pb/supervisor/v1"
 	"github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect"
@@ -303,6 +304,103 @@ func TestValidationInterceptor_ValidMessagesPass(t *testing.T) {
 	if _, err := env.auth.GetSession(env.ctx, sessionReq); err != nil {
 		t.Fatalf("GetSession (no annotations) must pass untouched: %v", err)
 	}
+}
+
+// TestValidationInterceptor_PasskeyBlankLabelDefaults is the regression test
+// for blank-label passkey enrollment: FinishPasskeyEnrollmentRequest.name used
+// to carry min_len = 1, so the interceptor rejected the documented
+// "empty defaults to Passkey" flow (proto comment, docs/34 §4.2, handler
+// defaulting) before the handler ever ran — the browser saw
+// "[invalid_argument] must be at least 1 characters" whenever the optional
+// label was left blank. This drives the real handler stack (auth + validation,
+// the runtime order) with a virtual authenticator, exactly like the web does.
+func TestValidationInterceptor_PasskeyBlankLabelDefaults(t *testing.T) {
+	database := setupTestDB(t)
+	srv := server.New(server.Options{
+		Port:      8080,
+		AuthDB:    database,
+		PoolDB:    database,
+		PoolStats: newMockStatsProvider(),
+		Session:   testSessionConfig(),
+		WebAuthn: &server.WebAuthnConfig{
+			RPID:          "localhost",
+			RPDisplayName: "Runnero",
+			Origins:       []string{"http://localhost:8090"},
+		},
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	ctx := context.Background()
+	client := supervisorv1connect.NewAuthServiceClient(ts.Client(), ts.URL)
+	if _, err := client.SetupAdmin(ctx, connect.NewRequest(&supervisorv1.SetupAdminRequest{
+		Username: "admin",
+		Password: "password123456",
+	})); err != nil {
+		t.Fatalf("SetupAdmin failed: %v", err)
+	}
+	loginRes, err := client.Login(ctx, connect.NewRequest(&supervisorv1.LoginRequest{
+		Username: "admin",
+		Password: "password123456",
+	}))
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	cookie := strings.Split(strings.Split(loginRes.Header().Get("Set-Cookie"), ";")[0], "=")[1]
+
+	rp := virtualwebauthn.RelyingParty{ID: "localhost", Name: "Runnero", Origin: "http://localhost:8090"}
+	authenticator := virtualwebauthn.NewAuthenticatorWithOptions(virtualwebauthn.AuthenticatorOptions{
+		UserHandle: []byte{1, 0, 0, 0, 0, 0, 0, 0}, // first admin row (little-endian uint64)
+	})
+	credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+	authenticator.AddCredential(credential)
+
+	// enroll performs one full ceremony through the wire stack and returns
+	// the Finish response; each call mints a fresh challenge.
+	enroll := func(t *testing.T, name string) error {
+		t.Helper()
+		beginReq := connect.NewRequest(&supervisorv1.BeginPasskeyEnrollmentRequest{CurrentPassword: "password123456"})
+		beginReq.Header().Set("Cookie", "session_token="+cookie)
+		begin, err := client.BeginPasskeyEnrollment(ctx, beginReq)
+		if err != nil {
+			t.Fatalf("BeginPasskeyEnrollment failed: %v", err)
+		}
+		opts, err := virtualwebauthn.ParseAttestationOptions(string(begin.Msg.PublicKeyOptionsJson))
+		if err != nil {
+			t.Fatalf("parsing attestation options: %v", err)
+		}
+		attestation := virtualwebauthn.CreateAttestationResponse(rp, authenticator, credential, *opts)
+		finishReq := connect.NewRequest(&supervisorv1.FinishPasskeyEnrollmentRequest{
+			AttestationResponseJson: []byte(attestation),
+			Name:                    name,
+		})
+		finishReq.Header().Set("Cookie", "session_token="+cookie)
+		_, err = client.FinishPasskeyEnrollment(ctx, finishReq)
+		return err
+	}
+
+	// Blank label: must pass validation and take the documented default.
+	if err := enroll(t, ""); err != nil {
+		t.Fatalf("blank-label enrollment rejected: %v", err)
+	}
+
+	// The default is persistent, not just a response echo: ListPasskeys agrees.
+	listReq := connect.NewRequest(&supervisorv1.ListPasskeysRequest{})
+	listReq.Header().Set("Cookie", "session_token="+cookie)
+	listed, lerr := client.ListPasskeys(ctx, listReq)
+	if lerr != nil {
+		t.Fatalf("ListPasskeys failed: %v", lerr)
+	}
+	if len(listed.Msg.Passkeys) != 1 || listed.Msg.Passkeys[0].Name != "Passkey" {
+		t.Fatalf("ListPasskeys = %+v, want one passkey named %q", listed.Msg.Passkeys, "Passkey")
+	}
+
+	// Oversized labels are still rejected — only the min_len half went away.
+	err = enroll(t, strings.Repeat("x", 65))
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("65-char label want CodeInvalidArgument, got: %v", err)
+	}
+	hasRuleID(t, err, "string.max_len")
 }
 
 // The interceptor's fail-closed branch (evaluation errors → CodeUnavailable,

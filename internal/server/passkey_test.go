@@ -315,6 +315,42 @@ func TestPasskeyEnrollmentStoresCredential(t *testing.T) {
 	}
 }
 
+// TestPasskeyEnrollmentBlankLabelDefaults covers the handler half of the
+// "empty defaults to Passkey" contract (proto comment, docs/34 §4.2): called
+// directly, bypassing the validation interceptor, a blank label must store and
+// return the DefaultPasskeyLabel. The interceptor no longer blocks this path —
+// TestValidationInterceptor_PasskeyBlankLabelDefaults pins the wire behavior.
+func TestPasskeyEnrollmentBlankLabelDefaults(t *testing.T) {
+	f := newPasskeyFixture(t, true)
+	begin, err := f.svc.BeginPasskeyEnrollment(f.ctx, connect.NewRequest(&supervisorv1.BeginPasskeyEnrollmentRequest{
+		CurrentPassword: f.password,
+	}))
+	if err != nil {
+		t.Fatalf("BeginPasskeyEnrollment: %v", err)
+	}
+	opts, err := virtualwebauthn.ParseAttestationOptions(string(begin.Msg.PublicKeyOptionsJson))
+	if err != nil {
+		t.Fatalf("parsing attestation options: %v", err)
+	}
+	attestation := virtualwebauthn.CreateAttestationResponse(f.rp, f.auth, f.cred, *opts)
+	finish, err := f.svc.FinishPasskeyEnrollment(f.ctx, connect.NewRequest(&supervisorv1.FinishPasskeyEnrollmentRequest{
+		AttestationResponseJson: []byte(attestation),
+	}))
+	if err != nil {
+		t.Fatalf("FinishPasskeyEnrollment with blank label: %v", err)
+	}
+	if finish.Msg.Passkey.Name != DefaultPasskeyLabel {
+		t.Fatalf("name = %q, want default %q", finish.Msg.Passkey.Name, DefaultPasskeyLabel)
+	}
+	row, ok := f.passDB.rows[finish.Msg.Passkey.Id]
+	if !ok {
+		t.Fatalf("credential row %d not stored", finish.Msg.Passkey.Id)
+	}
+	if row.Name != DefaultPasskeyLabel {
+		t.Fatalf("stored name = %q, want default %q", row.Name, DefaultPasskeyLabel)
+	}
+}
+
 func TestPasskeyPasswordlessLoginIssuesSession(t *testing.T) {
 	f := newPasskeyFixture(t, true)
 	f.enroll()
