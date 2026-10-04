@@ -276,8 +276,10 @@ The authenticated layout (`_authenticated.tsx`) consists of a fixed sidebar navi
 
 Passkey entry point (RUN-248, docs/34 §8): when `GetOnboardingStatus.passkey_available`
 is true (WebAuthn configured; the value is config state, so the button never
-flickers with enrollment), a divider and a **"Sign in with passkey"** button
-render below the form. Clicking it runs the discoverable ceremony — no
+flickers with enrollment), a **"Sign in with passkey"** button renders above an
+"or" divider, with the username/password form below the divider — passkey
+first, password path fully available underneath. Clicking the button runs the
+discoverable ceremony — no
 username, no password: the credential identifies the user — and on success
 navigates exactly like the password submit (same redirect handling, session
 cookie set by the same server path). The button is absent when WebAuthn is
