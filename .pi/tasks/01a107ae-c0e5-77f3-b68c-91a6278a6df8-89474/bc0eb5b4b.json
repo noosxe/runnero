@@ -1,0 +1,29 @@
+{
+  "id": "bc0eb5b4b",
+  "name": "Gates plus E2E suite",
+  "command": "nix develop --command bash -c \"make test && make test-scripts && make test-web && make lint && make lint-web && make vet && make build && shellcheck src/*.sh && shfmt -d src/*.sh && hadolint Dockerfile Dockerfile.supervisor && make test-e2e && make clean-e2e\"",
+  "status": "failed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/bc0eb5b4b.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791153990019,
+  "endTime": 1791154018504,
+  "exitCode": 2,
+  "signal": null,
+  "pid": 38107,
+  "bytesWritten": 8891,
+  "isAgent": false,
+  "surviveReload": false,
+  "error": "Exited with code 2",
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2400,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}

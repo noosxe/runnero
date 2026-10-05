@@ -1,0 +1,27 @@
+{
+  "id": "b8eb3c8c3",
+  "name": "Re-run full PR gates",
+  "command": "nix develop --command bash -c \"make test && make test-scripts && make test-web && make lint && make lint-web && make vet && make build && shellcheck src/*.sh && shfmt -d src/*.sh && hadolint Dockerfile Dockerfile.supervisor\"",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/b8eb3c8c3.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791131983607,
+  "endTime": 1791132019117,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 26613,
+  "bytesWritten": 12826,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}

@@ -109,10 +109,12 @@ const (
 	// DefaultAuditRetention keeps 90 days of audit history (docs/32 section 5.2).
 	DefaultAuditRetention = 2160 * time.Hour
 
-	// Embedded Tailscale defaults (RUN-155, docs/26 §4).
+	// Embedded Tailscale defaults (RUN-155, docs/26 §4). The funnel is
+	// opt-in: it publishes a public webhook endpoint, which only the
+	// deployment receiving provider webhooks needs.
 	DefaultTailscaleHostname          = "runnero"
 	DefaultTailscaleStateDirName      = "tailscale"
-	DefaultTailscaleFunnel            = "true"
+	DefaultTailscaleFunnel            = "false"
 	DefaultTailscaleUI                = "true"
 	DefaultTailscaleUIPort            = "8443"
 	DefaultLogPersistenceEnabled      = true

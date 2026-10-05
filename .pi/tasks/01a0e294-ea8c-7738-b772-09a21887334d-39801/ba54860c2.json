@@ -1,0 +1,29 @@
+{
+  "id": "ba54860c2",
+  "name": "full gate suite",
+  "command": "nix develop --command bash -c \"make test && make test-scripts && make test-web && make lint && make lint-web && make vet && make build && shellcheck src/*.sh && shfmt -d src/*.sh && hadolint Dockerfile Dockerfile.supervisor\"",
+  "description": "Full gate suite for feature/tailscale-ui-port before push",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a0e294-ea8c-7738-b772-09a21887334d-39801/ba54860c2.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1790511288921,
+  "endTime": 1790511323602,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 69762,
+  "bytesWritten": 12820,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 3600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}

@@ -1,0 +1,1134 @@
+=======================================================
+   🛡️ runnero Nix Development Shell Loaded 🛡️
+   Go:              go1.27.1
+   Node:            v24.19.0
+   pnpm:            v11.25.0
+   Make:            v4.4.1
+   golangci-lint:   2.13.2
+   hadolint:        2.14.0
+   oxlint:          1.80.0
+   shellcheck:      0.11.0
+   shfmt:           3.14.1
+=======================================================
+cd web && pnpm run build
+$ tsc -b && vite build
+vite v8.3.1 building client environment for production...
+transforming...
+✓ 3400 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-B_TEQokY.js                                      1,884.49 kB │ gzip: 518.43 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 357ms
+go test ./...
+ok  	github.com/noosxe/runnero/cmd/runnero-supervisor	0.921s
+ok  	github.com/noosxe/runnero/internal/config	0.365s
+ok  	github.com/noosxe/runnero/internal/cron	(cached)
+ok  	github.com/noosxe/runnero/internal/db	6.377s
+ok  	github.com/noosxe/runnero/internal/keys	(cached)
+ok  	github.com/noosxe/runnero/internal/limits	(cached)
+ok  	github.com/noosxe/runnero/internal/logging	0.509s
+ok  	github.com/noosxe/runnero/internal/orchestrator	1.375s
+ok  	github.com/noosxe/runnero/internal/orchestrator/docker	0.477s
+ok  	github.com/noosxe/runnero/internal/pb/supervisor/v1	(cached)
+?   	github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect	[no test files]
+ok  	github.com/noosxe/runnero/internal/provider	0.406s
+ok  	github.com/noosxe/runnero/internal/provider/forgejo	(cached)
+ok  	github.com/noosxe/runnero/internal/provider/gitea	(cached)
+ok  	github.com/noosxe/runnero/internal/provider/github	(cached)
+ok  	github.com/noosxe/runnero/internal/registry	(cached)
+ok  	github.com/noosxe/runnero/internal/renovate	0.435s
+ok  	github.com/noosxe/runnero/internal/server	1.836s
+ok  	github.com/noosxe/runnero/internal/tailscale	0.632s
+?   	github.com/noosxe/runnero/internal/testsupport/fakedocker	[no test files]
+?   	github.com/noosxe/runnero/internal/testsupport/fakegithub	[no test files]
+ok  	github.com/noosxe/runnero/internal/webhook	(cached)
+?   	github.com/noosxe/runnero/tests/e2e/mock/docker	[no test files]
+?   	github.com/noosxe/runnero/tests/e2e/mock/provider	[no test files]
+?   	github.com/noosxe/runnero/web	[no test files]
+bash tests/unit/entrypoint_test.sh
+Running entrypoint unit tests...
+Test 1: GitHub provider mode... PASSED
+Test 2: Gitea provider mode... PASSED
+Test 3: Forgejo provider mode... PASSED
+Test 4: Missing RUNNER_TOKEN fails... PASSED
+Test 5: Missing Provider URL fails... PASSED
+Test 6: GitHub interrupt trap triggers de-registration... PASSED
+Test 7: Gitea interrupt trap triggers de-registration... PASSED
+Test 8: Forgejo interrupt trap triggers de-registration... PASSED
+Test 8: docker.sock group bootstrap and re-exec... PASSED
+Test 9: RUNNER_SOCK_GROUPS_SYNCED skips the socket block... PASSED
+Test 10: root stage usermod + setpriv drop... PASSED
+All entrypoint unit tests passed successfully!
+bash tests/unit/parity_packages_test.sh
+Test: manifest exists and is readable
+PASSED
+Test: manifest contains the full upstream-derived package set (69 entries)
+PASSED
+Test: every entry is a valid apt package name
+PASSED
+Test: no duplicate entries
+PASSED
+Test: entries are LC_ALL=C sorted within each section
+PASSED
+Test: dropped upstream packages are absent (docs/18 §3.2)
+PASSED
+Test: key parity packages are present
+PASSED
+Test: installer passes bash syntax check
+PASSED
+Test: installer runs update/clean around a single install transaction
+PASSED
+Test: installer passes exactly the not-yet-installed set to apt-get
+PASSED (65 packages in one transaction)
+Test: installer is idempotent when everything is installed
+PASSED
+Test: installer fails closed on invalid manifest entries
+PASSED
+All parity package unit tests passed successfully!
+bash tests/unit/playwright_lockstep_test.sh
+Test: pnpm lockfile is committed (tests/e2e/pnpm-lock.yaml)
+PASSED
+Test: @playwright/test is pinned to an exact version in package.json
+PASSED (exact pin: 1.55.1)
+Test: lockfile records @playwright/test at the pinned version
+PASSED
+Test: Dockerfile base image tag matches @playwright/test version
+PASSED (v1.55.1)
+Test: Dockerfile installs with --frozen-lockfile
+PASSED
+All playwright lockstep tests passed.
+cd web && pnpm test
+$ vitest run
+
+ RUN  v5.0.2 /Users/mechsoull/Projects/runnero/web
+
+
+ Test Files  47 passed (47)
+      Tests  270 passed (270)
+   Start at  00:05:03
+   Duration  5.57s (environment 39%, tests 22%, import 20%, setup 10%, transform 9%)
+
+Environment  jsdom was created 47 times · 24.17s total, 39% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+cd web && pnpm run build
+$ tsc -b && vite build
+vite v8.3.1 building client environment for production...
+transforming...
+✓ 3400 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-B_TEQokY.js                                      1,884.49 kB │ gzip: 518.43 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 332ms
+golangci-lint run
+0 issues.
+cd web && pnpm run typecheck && pnpm run lint && pnpm run format:check
+$ tsc -b
+$ oxlint --deny-warnings
+$ oxfmt --check .
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 105ms on 136 files using 14 threads.
+cd web && pnpm run build
+$ tsc -b && vite build
+vite v8.3.1 building client environment for production...
+transforming...
+✓ 3400 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-B_TEQokY.js                                      1,884.49 kB │ gzip: 518.43 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 297ms
+go vet ./...
+cd web && pnpm run build
+$ tsc -b && vite build
+vite v8.3.1 building client environment for production...
+transforming...
+✓ 3400 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-B_TEQokY.js                                      1,884.49 kB │ gzip: 518.43 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 285ms
+go build -ldflags "-X main.version=v0.3.0-421-g9943b17-dirty" -o bin/runnero-supervisor ./cmd/runnero-supervisor
+# Fresh state must not depend on the previous run's teardown: the supervisor
+# keeps its database in an anonymous volume (VOLUME /data), so a stack left
+# behind by a killed run would serve the next run stale state (RUN-166:
+# flow-01 saw adminCreated=true from a leftover mid-onboarding DB and the
+# wizard rendered its login branch instead of step 1). Surface down errors
+# instead of swallowing them, and recreate containers with renewed
+# anonymous volumes so every boot starts empty even if cleanup leaked.
+flock -w 600 /tmp/runnero-e2e-mechsoull.lock bash -c '\
+	docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans && \
+	docker compose -f tests/e2e/docker-compose.e2e.yml up \
+		--build \
+		--force-recreate \
+		--renew-anon-volumes \
+		--abort-on-container-exit \
+		--exit-code-from e2e-playwright'
+ Image runnero-e2e-mechsoull-e2e-mock-docker Building 
+ Image runnero-e2e-mechsoull-e2e-supervisor Building 
+ Image runnero-e2e-mechsoull-e2e-playwright Building 
+ Image runnero-e2e-mechsoull-e2e-mock-provider Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 2.38kB done
+#1 DONE 0.0s
+
+#2 [e2e-playwright internal] load build definition from Dockerfile.playwright
+#2 transferring dockerfile: 977B done
+#2 DONE 0.0s
+
+#3 [e2e-mock-provider internal] load build definition from Dockerfile
+#3 transferring dockerfile: 214B done
+#3 DONE 0.0s
+
+#4 [e2e-supervisor internal] load build definition from Dockerfile.supervisor
+#4 transferring dockerfile: 5.05kB done
+#4 DONE 0.0s
+
+#5 [e2e-mock-docker internal] load build definition from Dockerfile
+#5 transferring dockerfile: 208B done
+#5 DONE 0.0s
+
+#6 [e2e-mock-docker internal] load metadata for docker.io/library/golang:1.27-alpine
+#6 ...
+
+#7 [auth] library/golang:pull token for registry-1.docker.io
+#7 DONE 0.0s
+
+#8 [auth] docker/dockerfile:pull token for registry-1.docker.io
+#8 DONE 0.0s
+
+#9 [e2e-supervisor] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#9 DONE 0.9s
+
+#10 [e2e-mock-provider internal] load .dockerignore
+#10 transferring context: 171B done
+#10 DONE 0.0s
+
+#11 [e2e-playwright] docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#11 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#11 CACHED
+
+#12 [e2e-mock-docker 1/4] FROM docker.io/library/golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+#12 resolve docker.io/library/golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 done
+#12 DONE 0.0s
+
+#13 [e2e-mock-provider internal] load build context
+#13 transferring context: 184B done
+#13 DONE 0.0s
+
+#14 [e2e-mock-provider 3/4] COPY tests/e2e/mock/provider/main.go ./
+#14 CACHED
+
+#15 [e2e-mock-provider 4/4] RUN CGO_ENABLED=0 go build -o /app/mock-provider ./main.go
+#15 CACHED
+
+#16 [e2e-mock-docker internal] load build context
+#16 transferring context: 17.81kB 0.0s done
+#16 DONE 0.0s
+
+#17 [e2e-mock-docker 3/4] COPY tests/e2e/mock/docker/main.go ./
+#17 CACHED
+
+#18 [e2e-mock-docker 2/4] WORKDIR /app
+#18 CACHED
+
+#19 [e2e-mock-docker 4/4] RUN CGO_ENABLED=0 go build -o /app/mock-docker ./main.go
+#19 CACHED
+
+#20 [e2e-mock-provider] exporting to image
+#20 exporting layers done
+#20 exporting manifest sha256:0fbfb6d9d804b97f54be2dd6393f003559750de3ed4c4f738b7eb198407f79b6 done
+#20 exporting config sha256:d4add8dd806722d8926b40ee79e9ee0e47037cd79dde9d227def3e3cf69b5873 done
+#20 exporting attestation manifest sha256:50ef9d0abfff5b427bec65d4c89459e3fadfc3704313fef77e89e77523d5c926 done
+#20 exporting manifest list sha256:1f917f472eaf31aaa23b16b0299c5fed30fad90a0be4ca43cea46441e96908c6 done
+#20 naming to docker.io/library/runnero-e2e-mechsoull-e2e-mock-provider:latest done
+#20 unpacking to docker.io/library/runnero-e2e-mechsoull-e2e-mock-provider:latest done
+#20 DONE 0.1s
+
+#21 [e2e-mock-docker] exporting to image
+#21 exporting layers done
+#21 exporting manifest sha256:dec77c107dff135e905a1288a7e3843fd92708e410f6f69100bfecefbc5ae847 done
+#21 exporting config sha256:7fdee4a9a39696b21b253189c9e5aa595e3110fced5f6718b0da386fc9cafbee done
+#21 exporting attestation manifest sha256:dec1197e58eaf4d9986f4420739ce6bbb74e601f83ca46bdef19dc50dd7c45a2 done
+#21 exporting manifest list sha256:b87f6f296a9d47af478349ac856830ab2a9e69650909400fb3ca4339a1e5ca74 done
+#21 naming to docker.io/library/runnero-e2e-mechsoull-e2e-mock-docker:latest done
+#21 unpacking to docker.io/library/runnero-e2e-mechsoull-e2e-mock-docker:latest 0.0s done
+#21 DONE 0.1s
+
+#22 [e2e-mock-provider] resolving provenance for metadata file
+#22 DONE 0.0s
+
+#23 [e2e-mock-docker] resolving provenance for metadata file
+#23 DONE 0.0s
+
+#6 [e2e-supervisor internal] load metadata for docker.io/library/golang:1.27-alpine
+#6 DONE 1.1s
+
+#24 [e2e-supervisor internal] load metadata for docker.io/library/node:24-alpine
+#24 ...
+
+#25 [auth] library/node:pull token for registry-1.docker.io
+#25 DONE 0.0s
+
+#26 [auth] library/alpine:pull token for registry-1.docker.io
+#26 DONE 0.0s
+
+#24 [e2e-supervisor internal] load metadata for docker.io/library/node:24-alpine
+#24 DONE 0.6s
+
+#27 [e2e-supervisor internal] load metadata for docker.io/library/alpine:3.24
+#27 DONE 0.6s
+
+#10 [e2e-supervisor internal] load .dockerignore
+#10 CACHED
+
+#28 [e2e-supervisor frontend-builder 1/7] FROM docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+#28 resolve docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 done
+#28 DONE 0.0s
+
+#12 [e2e-supervisor backend-builder  1/11] FROM docker.io/library/golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+#12 resolve docker.io/library/golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 done
+#12 DONE 0.0s
+
+#29 [e2e-supervisor stage-2 1/9] FROM docker.io/library/alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+#29 resolve docker.io/library/alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 done
+#29 DONE 0.0s
+
+#30 [e2e-supervisor internal] load build context
+#30 transferring context: 4.21MB 0.0s done
+#30 DONE 0.0s
+
+#31 [e2e-supervisor backend-builder  6/11] COPY cmd/ cmd/
+#31 CACHED
+
+#32 [e2e-supervisor frontend-builder 3/7] RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+#32 CACHED
+
+#33 [e2e-supervisor stage-2 8/9] RUN chmod +x /etc/s6-overlay/s6-rc.d/supervisor/run /etc/s6-overlay/s6-rc.d/supervisor/finish     /etc/s6-overlay/s6-rc.d/init-socket-perms/run.sh
+#33 CACHED
+
+#34 [e2e-supervisor backend-builder  2/11] WORKDIR /build
+#34 CACHED
+
+#35 [e2e-supervisor backend-builder 11/11] RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64     go build -ldflags "-s -w -X main.version=dev" -o /build/bin/runnero-supervisor ./cmd/runnero-supervisor
+#35 CACHED
+
+#36 [e2e-supervisor stage-2 3/9] RUN addgroup -g 10000 supervisor     && adduser -u 10000 -G supervisor -D -h /home/supervisor supervisor
+#36 CACHED
+
+#37 [e2e-supervisor stage-2 7/9] COPY deploy/supervisor/user-bundles.d/ /etc/s6-overlay/user-bundles.d/
+#37 CACHED
+
+#38 [e2e-supervisor stage-2 6/9] COPY deploy/supervisor/s6-rc.d/ /etc/s6-overlay/s6-rc.d/
+#38 CACHED
+
+#39 [e2e-supervisor backend-builder 10/11] COPY --from=frontend-builder /build/web/dist web/dist
+#39 CACHED
+
+#40 [e2e-supervisor stage-2 4/9] COPY --from=backend-builder /build/bin/runnero-supervisor /usr/local/bin/runnero-supervisor
+#40 CACHED
+
+#41 [e2e-supervisor backend-builder  9/11] COPY web/embed.go web/embed.go
+#41 CACHED
+
+#42 [e2e-supervisor backend-builder  8/11] COPY proto/ proto/
+#42 CACHED
+
+#43 [e2e-supervisor stage-2 5/9] RUN ln -s /usr/local/bin/runnero-supervisor /usr/local/bin/supervisor
+#43 CACHED
+
+#44 [e2e-supervisor backend-builder  3/11] RUN apk add --no-cache ca-certificates git
+#44 CACHED
+
+#45 [e2e-supervisor backend-builder  4/11] COPY go.mod go.sum ./
+#45 CACHED
+
+#46 [e2e-supervisor frontend-builder 7/7] RUN pnpm run build
+#46 CACHED
+
+#47 [e2e-supervisor backend-builder  7/11] COPY internal/ internal/
+#47 CACHED
+
+#48 [e2e-supervisor stage-2 2/9] RUN apk add --no-cache ca-certificates curl tzdata xz tar     && mkdir -p /tmp/s6     && cd /tmp/s6     && if [ "arm64" = "amd64" ] || [ -z "arm64" ]; then         S6_ARCH="x86_64";         S6_ARCH_SHA256="e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408";     elif [ "arm64" = "arm64" ]; then         S6_ARCH="aarch64";         S6_ARCH_SHA256="b17f17a82e7a515c682a91edaf2ffdabb73f891981b6c1fd712115693a2f8b4c";     else         echo "Unsupported architecture: arm64" >&2; exit 1;     fi     && S6_NOARCH_SHA256="5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12"     && S6_SYMLINKS_NOARCH_SHA256="a215675c375aca9efecde3065df22b19fb8dcdc1362566931c6b5e778099a0fb"     && S6_SYMLINKS_ARCH_SHA256="6251226709efc0c88800a8c140404d93b391e1b4051ef50fa0e8aac1fdcf738c"     && S6_BASE_URL="https://github.com/just-containers/s6-overlay/releases/download/v3.2.3.2"     && curl -fsSLO "${S6_BASE_URL}/s6-overlay-noarch.tar.xz"     && echo "${S6_NOARCH_SHA256}  s6-overlay-noarch.tar.xz" | sha256sum -c -     && tar -C / -Jxpf s6-overlay-noarch.tar.xz     && curl -fsSLO "${S6_BASE_URL}/s6-overlay-${S6_ARCH}.tar.xz"     && echo "${S6_ARCH_SHA256}  s6-overlay-${S6_ARCH}.tar.xz" | sha256sum -c -     && tar -C / -Jxpf "s6-overlay-${S6_ARCH}.tar.xz"     && curl -fsSLO "${S6_BASE_URL}/s6-overlay-symlinks-noarch.tar.xz"     && echo "${S6_SYMLINKS_NOARCH_SHA256}  s6-overlay-symlinks-noarch.tar.xz" | sha256sum -c -     && tar -C / -Jxpf s6-overlay-symlinks-noarch.tar.xz     && curl -fsSLO "${S6_BASE_URL}/s6-overlay-symlinks-arch.tar.xz"     && echo "${S6_SYMLINKS_ARCH_SHA256}  s6-overlay-symlinks-arch.tar.xz" | sha256sum -c -     && tar -C / -Jxpf s6-overlay-symlinks-arch.tar.xz     && cd /     && rm -rf /tmp/s6     && apk del xz tar
+#48 CACHED
+
+#49 [e2e-supervisor frontend-builder 2/7] WORKDIR /build/web
+#49 CACHED
+
+#50 [e2e-supervisor frontend-builder 4/7] COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+#50 CACHED
+
+#51 [e2e-supervisor frontend-builder 6/7] COPY web/ ./
+#51 CACHED
+
+#52 [e2e-supervisor frontend-builder 5/7] RUN pnpm install --frozen-lockfile
+#52 CACHED
+
+#53 [e2e-supervisor backend-builder  5/11] RUN go mod download
+#53 CACHED
+
+#54 [e2e-supervisor stage-2 9/9] RUN mkdir -p /data && chown 10000:10000 /data
+#54 CACHED
+
+#55 [e2e-supervisor] exporting to image
+#55 exporting layers done
+#55 exporting manifest sha256:9e62539e938a9fba6a8ad85ead1da401e63d4e3b68bb65dbb674c2c90bff43e4 done
+#55 exporting config sha256:dc779d56af6ecda846af3301f2b23e3aacaed08f6d61c5a5fb1fad971162bbbf done
+#55 exporting attestation manifest sha256:61f8c8d00599f5f1fc151e463c71b242ce906f36ff9595e655deeaf9c41da58d done
+#55 exporting manifest list sha256:4bccb5c7f726dda6f811b26a1a5fe4f61dd3eecf3b24836f5cbde6184d8af6ea done
+#55 naming to docker.io/library/runnero-e2e-mechsoull-e2e-supervisor:latest done
+#55 unpacking to docker.io/library/runnero-e2e-mechsoull-e2e-supervisor:latest done
+#55 DONE 0.0s
+
+#10 [e2e-playwright internal] load .dockerignore
+#10 CACHED
+
+#56 [e2e-playwright internal] load metadata for mcr.microsoft.com/playwright:v1.55.1-noble
+#56 DONE 0.8s
+
+#57 [e2e-playwright internal] load build context
+#57 transferring context: 122.65kB done
+#57 DONE 0.0s
+
+#58 [e2e-playwright 1/6] FROM mcr.microsoft.com/playwright:v1.55.1-noble@sha256:2f29369043d81d6d69a815ceb80760f55e85f5020371ad06a4d996f18503ad1c
+#58 resolve mcr.microsoft.com/playwright:v1.55.1-noble@sha256:2f29369043d81d6d69a815ceb80760f55e85f5020371ad06a4d996f18503ad1c done
+#58 DONE 0.0s
+
+#59 [e2e-playwright 3/6] RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+#59 CACHED
+
+#60 [e2e-playwright 5/6] RUN pnpm install --frozen-lockfile
+#60 CACHED
+
+#61 [e2e-playwright 4/6] COPY tests/e2e/package.json tests/e2e/pnpm-lock.yaml ./
+#61 CACHED
+
+#62 [e2e-playwright 2/6] WORKDIR /e2e
+#62 CACHED
+
+#63 [e2e-playwright 6/6] COPY tests/e2e/ ./
+#63 CACHED
+
+#64 [e2e-supervisor] resolving provenance for metadata file
+#64 DONE 0.0s
+
+#65 [e2e-playwright] exporting to image
+#65 exporting layers done
+#65 exporting manifest sha256:d8bc8c9f031776cfac807af52049025dbd1edf69f09ce4836ba7bd9e9e40c6eb done
+#65 exporting config sha256:61947e0d3db07a9fac84287dee2f7b6431e3122f5f2fb26d535bbd4f7aba688e done
+#65 exporting attestation manifest sha256:c71d352613eba546a1de768595e2d50de8d020dd805de3117d11644071ca1084 done
+#65 exporting manifest list sha256:b31358f1f9ad46c07bb5d238c5b36f84057f12a9efd35bd7c194ef22d6847185 done
+#65 naming to docker.io/library/runnero-e2e-mechsoull-e2e-playwright:latest
+#65 naming to docker.io/library/runnero-e2e-mechsoull-e2e-playwright:latest done
+#65 unpacking to docker.io/library/runnero-e2e-mechsoull-e2e-playwright:latest done
+#65 DONE 0.0s
+
+#66 [e2e-playwright] resolving provenance for metadata file
+#66 DONE 0.0s
+ Image runnero-e2e-mechsoull-e2e-mock-docker Built 
+ Image runnero-e2e-mechsoull-e2e-mock-provider Built 
+ Image runnero-e2e-mechsoull-e2e-supervisor Built 
+ Image runnero-e2e-mechsoull-e2e-playwright Built 
+ Network runnero-e2e-mechsoull_e2e-net Creating 
+ Network runnero-e2e-mechsoull_e2e-net Creating 
+ Network runnero-e2e-mechsoull_e2e-net Created 
+ Network runnero-e2e-mechsoull_e2e-net Created 
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Creating 
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Creating 
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Created 
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Created 
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Creating 
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Created 
+ Container runnero-e2e-mechsoull-e2e-playwright-1 Creating 
+ Container runnero-e2e-mechsoull-e2e-playwright-1 Created 
+Attaching to e2e-mock-docker-1, e2e-mock-provider-1, e2e-playwright-1, e2e-supervisor-1
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Starting 
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Starting 
+e2e-mock-docker-1  | 2026/10/04 23:05:22 Starting mock Docker daemon on :2375
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Started 
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Started 
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Waiting 
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Waiting 
+e2e-mock-provider-1  | 2026/10/04 23:05:22 Starting mock Git Provider server on :8095
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Healthy 
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Healthy 
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Starting 
+e2e-supervisor-1     | /package/admin/s6-overlay/libexec/preinit: info: container permissions: uid=0 (root), euid=0, gid=0 (root), egid=0
+e2e-supervisor-1     | /package/admin/s6-overlay/libexec/preinit: info: /run permissions: uid=0 (root), gid=0 (root), perms=oxorgxgruxuwur
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Started 
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Waiting 
+e2e-supervisor-1     | s6-rc: info: service s6rc-oneshot-runner: starting
+e2e-supervisor-1     | s6-rc: info: service fix-attrs: starting
+e2e-supervisor-1     | s6-rc: info: service init-socket-perms: starting
+e2e-supervisor-1     | s6-rc: info: service s6rc-oneshot-runner successfully started
+e2e-supervisor-1     | s6-rc: info: service supervisor: starting
+e2e-supervisor-1     | s6-rc: info: service init-socket-perms successfully started
+e2e-supervisor-1     | s6-rc: info: service supervisor successfully started
+e2e-supervisor-1     | s6-rc: info: service legacy-cont-init: starting
+e2e-supervisor-1     | s6-rc: info: service fix-attrs successfully started
+e2e-supervisor-1     | s6-rc: info: service legacy-services: starting
+e2e-supervisor-1     | s6-rc: info: service legacy-cont-init successfully started
+e2e-supervisor-1     | s6-rc: info: service legacy-services successfully started
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.547610174Z","level":"DEBUG","msg":"configuration loaded","config_file":"","data_dir":"/data","db_path":"/data/supervisor.db","port":8090,"module":"config"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.547792924Z","level":"INFO","msg":"supervisor daemon starting","module":"cli","version":"dev","data_dir":"/data","db_path":"/data/supervisor.db","port":8090}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.547822132Z","level":"DEBUG","msg":"runtime secret derived from master key","module":"keys","db_encryption_key_bytes":32}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556866299Z","level":"INFO","msg":"database migrations applied","module":"db","count":13}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556892882Z","level":"DEBUG","msg":"applied migration","module":"db","path":"001_initial_schema.sql","version":1}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556896007Z","level":"DEBUG","msg":"applied migration","module":"db","path":"002_renovate_runs.sql","version":2}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.55689734Z","level":"DEBUG","msg":"applied migration","module":"db","path":"003_pool_targets.sql","version":3}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556898465Z","level":"DEBUG","msg":"applied migration","module":"db","path":"004_job_history_lifecycle.sql","version":4}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556899632Z","level":"DEBUG","msg":"applied migration","module":"db","path":"005_job_history_open_job_id_index.sql","version":5}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556900715Z","level":"DEBUG","msg":"applied migration","module":"db","path":"006_demand_polling_fallback.sql","version":6}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556901674Z","level":"DEBUG","msg":"applied migration","module":"db","path":"007_pool_memory_swap.sql","version":7}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556902674Z","level":"DEBUG","msg":"applied migration","module":"db","path":"008_pool_pids_limit.sql","version":8}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556904299Z","level":"DEBUG","msg":"applied migration","module":"db","path":"009_session_clocks_role_sourceip.sql","version":9}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.55690559Z","level":"DEBUG","msg":"applied migration","module":"db","path":"010_pool_tombstones.sql","version":10}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.55690709Z","level":"DEBUG","msg":"applied migration","module":"db","path":"011_login_rate_failures.sql","version":11}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556908424Z","level":"DEBUG","msg":"applied migration","module":"db","path":"012_webauthn_credentials.sql","version":12}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.55690984Z","level":"DEBUG","msg":"applied migration","module":"db","path":"013_drop_pool_repository_url.sql","version":13}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.556912007Z","level":"INFO","msg":"database opened successfully","module":"db","path":"/data/supervisor.db"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.55749559Z","level":"INFO","msg":"backup scheduler started","module":"db","interval":"6h0m0s","retention_count":7,"backup_dir":"/data/backups"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.557909465Z","level":"INFO","msg":"retention pruning scheduler started (daily at midnight UTC)","module":"db"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.558119007Z","level":"INFO","msg":"cron scheduler started","module":"cron"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.558140257Z","level":"INFO","msg":"executing control loop boot sequence","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.559162132Z","level":"INFO","msg":"boot state sync completed","module":"controller","adopted":0,"active":0}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.559358132Z","level":"INFO","msg":"control loop boot completed successfully","module":"controller","pools":0}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.559377799Z","level":"INFO","msg":"webhook receiver enabled","module":"cli","providers":"github"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:25.560137632Z","level":"INFO","msg":"http server listening","module":"server","addr":":8090"}
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Healthy 
+ Container runnero-e2e-mechsoull-e2e-playwright-1 Starting 
+ Container runnero-e2e-mechsoull-e2e-playwright-1 Started 
+e2e-playwright-1     | 
+e2e-playwright-1     | Running 38 tests using 1 worker
+e2e-playwright-1     | 
+e2e-playwright-1     |   ✓   1 [chromium] › specs/01-bootstrap-auth.spec.ts:6:3 › Flow 01: System Bootstrap & Authentication › uninitialized supervisor redirects to onboarding page and sets up admin (722ms)
+e2e-playwright-1     |   ✓   2 [chromium] › specs/01-bootstrap-auth.spec.ts:32:3 › Flow 01: System Bootstrap & Authentication › login route protection redirects unauthenticated users (294ms)
+e2e-playwright-1     |   ✓   3 [chromium] › specs/01-bootstrap-auth.spec.ts:46:3 › Flow 01: System Bootstrap & Authentication › valid credentials successfully log in and establish session (1.8s)
+e2e-playwright-1     |   ✓   4 [chromium] › specs/01-smoke.spec.ts:4:3 › E2E Infrastructure Smoke Test › supervisor healthz responds successfully (10ms)
+e2e-playwright-1     |   ✓   5 [chromium] › specs/01-smoke.spec.ts:11:3 › E2E Infrastructure Smoke Test › supervisor root serves embedded SPA index page (249ms)
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:34.840689553Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:34.842596803Z","level":"INFO","msg":"reconciling idle runners for pool","module":"controller","pool":"default-pool","needed":1,"active":0,"queued":0,"target":1,"max_concurrency":5}
+e2e-mock-docker-1    | 2026/10/04 23:05:34 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:34.84384572Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0001","target":"https://github.com/test-org/test-repo"}
+e2e-playwright-1     |   ✓   6 [chromium] › specs/02-onboarding-wizard.spec.ts:4:3 › Flow 02: Onboarding Wizard & Configuration › walks through git provider, safeguards, initial pool and completes onboarding (2.4s)
+e2e-playwright-1     |   ✓   7 [chromium] › specs/03-dashboard-metrics.spec.ts:5:3 › Flow 03: Dashboard & System Metrics › displays key metric summary cards and latency widgets (2.0s)
+e2e-playwright-1     |   ✓   8 [chromium] › specs/04-runner-pools.spec.ts:5:3 › Flow 04: Runner Pools Management › lists created pools and allows filtering (2.0s)
+e2e-playwright-1     |   ✓   9 [chromium] › specs/05-terminal-streaming.spec.ts:5:3 › Flow 05: Runner Pool Detail & Streaming Terminal › navigates to pool detail and verifies pool configuration metrics (2.0s)
+e2e-playwright-1     |   ✓  10 [chromium] › specs/06-renovate-management.spec.ts:6:3 › Flow 06: Renovate Bot Management (gated for v1.0.0) › renovate dashboard shows the disabled notice without interactive controls (2.0s)
+e2e-playwright-1     |   ✓  11 [chromium] › specs/06-renovate-management.spec.ts:20:3 › Flow 06: Renovate Bot Management (gated for v1.0.0) › sidebar renovate entry is visible but unclickable (2.0s)
+e2e-playwright-1     |   ✓  12 [chromium] › specs/07-settings-maintenance.spec.ts:4:3 › Flow 07: System Settings & Maintenance › updates global scaling constraints and toggles theme (2.2s)
+e2e-playwright-1     |   ✓  13 [chromium] › specs/07-settings-maintenance.spec.ts:32:3 › Flow 07: System Settings & Maintenance › settings tabs are path segments: deep link + back/forward (RUN-283) (2.3s)
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:51.896476797Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:51.897297255Z","level":"INFO","msg":"reconciling idle runners for pool","module":"controller","pool":"default-pool","needed":2,"active":1,"queued":0,"target":3,"max_concurrency":5}
+e2e-mock-docker-1    | 2026/10/04 23:05:51 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:51.898206214Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0002","target":"https://github.com/test-org/test-repo"}
+e2e-mock-docker-1    | 2026/10/04 23:05:51 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:51.899028714Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0003","target":"https://github.com/test-org/test-repo"}
+e2e-playwright-1     |   ✓  14 [chromium] › specs/08-pool-edit-workflow.spec.ts:18:3 › Flow 08: Runner Pool Edit Workflow › edits min_idle (control-plane) without runner impact banner (2.6s)
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:54.353738965Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-037ac0","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:54.609649132Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-4ef8bb","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:54.864740465Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-6df465","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.123396882Z","level":"INFO","msg":"recycled idle runners after spawn-identity change","module":"controller","pool":"default-pool","pool_id":1,"recycled":3}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.123559715Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"default-pool","id":"cnt-mock-0002","action":"die"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.12360059Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.124157424Z","level":"INFO","msg":"reconciling idle runners for pool","module":"controller","pool":"default-pool","needed":3,"active":0,"queued":0,"target":3,"max_concurrency":5}
+e2e-mock-docker-1    | 2026/10/04 23:05:55 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.124973882Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0004","target":"https://github.com/test-org/test-repo"}
+e2e-mock-docker-1    | 2026/10/04 23:05:55 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.12564359Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0005","target":"https://github.com/test-org/test-repo"}
+e2e-mock-docker-1    | 2026/10/04 23:05:55 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.126313132Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0006","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.126340715Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"default-pool","id":"cnt-mock-0003","action":"die"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:55.127266049Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"default-pool","id":"cnt-mock-0001","action":"die"}
+e2e-playwright-1     |   ✓  15 [chromium] › specs/08-pool-edit-workflow.spec.ts:47:3 › Flow 08: Runner Pool Edit Workflow › shows the recycle banner for spawn-identity edits and saves (3.3s)
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:57.712052425Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:05:58.105812342Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-playwright-1     |   ✓  16 [chromium] › specs/08-pool-edit-workflow.spec.ts:75:3 › Flow 08: Runner Pool Edit Workflow › renames the pool through the wizard (2.9s)
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:00.606123593Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:00.607296468Z","level":"INFO","msg":"reconciling idle runners for pool","module":"controller","pool":"collision-pool","needed":1,"active":0,"queued":0,"target":1,"max_concurrency":5}
+e2e-mock-docker-1    | 2026/10/04 23:06:00 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:00.608298051Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"collision-pool","id":"cnt-mock-0007","target":"https://github.com/test-org/backend-core"}
+e2e-playwright-1     |   ✓  17 [chromium] › specs/08-pool-edit-workflow.spec.ts:103:3 › Flow 08: Runner Pool Edit Workflow › rejects renaming onto an existing pool name with a server error banner (3.3s)
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:05.56287297Z","level":"INFO","msg":"reconciling idle runners for pool","module":"controller","pool":"default-pool","needed":1,"active":3,"queued":0,"target":4,"max_concurrency":5}
+e2e-mock-docker-1    | 2026/10/04 23:06:05 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:05.56369272Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0008","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.001890555Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-593da1","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.256241805Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-c0c4f2","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.518480097Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-dd6639","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.772980638Z","level":"INFO","msg":"recycled idle runners after spawn-identity change","module":"controller","pool":"default-pool","pool_id":1,"recycled":3}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.773138222Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"default-pool","id":"cnt-mock-0008","action":"die"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.773203055Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.773642347Z","level":"INFO","msg":"reconciling idle runners for pool","module":"controller","pool":"default-pool","needed":3,"active":1,"queued":0,"target":4,"max_concurrency":5}
+e2e-mock-docker-1    | 2026/10/04 23:06:08 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.774611597Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0009","target":"https://github.com/test-org/test-repo"}
+e2e-mock-docker-1    | 2026/10/04 23:06:08 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.775469805Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0010","target":"https://github.com/test-org/test-repo"}
+e2e-mock-docker-1    | 2026/10/04 23:06:08 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.776304138Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"default-pool","id":"cnt-mock-0011","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.776337513Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"default-pool","id":"cnt-mock-0006","action":"die"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.777776513Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"default-pool","id":"cnt-mock-0004","action":"die"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:08.962875722Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"default-pool","id":"cnt-mock-0005","action":"die"}
+e2e-playwright-1     |   ✓  18 [chromium] › specs/08-pool-edit-workflow.spec.ts:130:3 › Flow 08: Runner Pool Edit Workflow › spares busy runners when a spawn-identity edit recycles idle ones (9.4s)
+e2e-playwright-1     |   ✓  19 [chromium] › specs/08-pool-edit-workflow.spec.ts:237:3 › Flow 08: Runner Pool Edit Workflow › blocks wizard advance with inline errors from proto annotations (RUN-221) (2.5s)
+e2e-playwright-1     |   ✓  20 [chromium] › specs/08-pool-edit-workflow.spec.ts:270:1 › pool detail tabs live in the URL: back/forward restores tabs (RUN-258, path segments since RUN-285) (2.3s)
+e2e-playwright-1     |   ✓  21 [chromium] › specs/09-log-observability.spec.ts:11:3 › Flow 09: Log Observability › lists supervisor boot files and streams the current boot (2.3s)
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:20.653535255Z","level":"WARN","msg":"capturing exit logs before removal","module":"controller","id":"cnt-mock-0009","err":"compressing logs to /data/logs/cnt-mock-0009.log.jsonl.gz: reading container log stream: context canceled"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:06:20.653624588Z","level":"WARN","msg":"terminating runner container","module":"controller","id":"cnt-mock-0009","reason":"manual","err":"stopping container cnt-mock-0009: Post \"http://e2e-mock-docker:2375/v1.56/containers/cnt-mock-0009/stop?t=10\": context canceled"}
+e2e-playwright-1     |   ✓  22 [chromium] › specs/09-log-observability.spec.ts:38:3 › Flow 09: Log Observability › terminating a runner produces a removal record with capture navigation (4.0s)
+e2e-playwright-1     |   ✓  23 [chromium] › specs/10-session-control.spec.ts:4:3 › Flow 10: Session Control (Sessions Tab & Logout) › sessions tab lists the current session and logout invalidates it server-side (2.5s)
+e2e-playwright-1     |   ✓  24 [chromium] › specs/10-session-control.spec.ts:32:3 › Flow 10: Session Control (Sessions Tab & Logout) › sign out flows through the user menu and lands on the login form (4.1s)
+e2e-playwright-1     |   ✓  25 [chromium] › specs/11-stale-cookie-recovery.spec.ts:12:3 › Flow 11: Stale Session Cookie Self-Healing (RUN-244) › a browser carrying a dead session cookie can still reach /login and sign in (3.9s)
+e2e-playwright-1     |   ✓  26 [chromium] › specs/12-passkey.spec.ts:16:3 › Flow 12: Passkey (WebAuthn) Login › enrolls a passkey in the security tab and signs in with it (5.0s)
+e2e-playwright-1     |   ✓  27 [chromium] › specs/12-passkey.spec.ts:57:3 › Flow 12: Passkey (WebAuthn) Login › password fallback still signs in with a passkey enrolled (2.1s)
+e2e-playwright-1     |   ✓  28 [chromium] › specs/12-passkey.spec.ts:67:3 › Flow 12: Passkey (WebAuthn) Login › rejects an assertion for a removed credential (4.5s)
+e2e-playwright-1     |   ✓  29 [chromium] › specs/13-viewer-role.spec.ts:13:1 › admin creates a viewer, who sees the read-only surface (5.2s)
+e2e-playwright-1     |   ✓  30 [chromium] › specs/13-viewer-role.spec.ts:72:1 › promotes the viewer to admin; the change applies to their session (4.5s)
+e2e-playwright-1     |   ✓  31 [chromium] › specs/13-viewer-role.spec.ts:100:1 › a viewer's passkey signs in at viewer role (6.9s)
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:03.435327344Z","level":"INFO","msg":"reloading pool configurations and settings from database","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:03.437043344Z","level":"INFO","msg":"reconciling idle runners for pool","module":"controller","pool":"jobflow-pool","needed":2,"active":0,"queued":0,"target":2,"max_concurrency":5}
+e2e-mock-docker-1    | 2026/10/04 23:07:03 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:03.437856886Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"jobflow-pool","id":"cnt-mock-0012","target":"https://github.com/test-org/backend-core"}
+e2e-mock-docker-1    | 2026/10/04 23:07:03 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:03.438564386Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"jobflow-pool","id":"cnt-mock-0013","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:03.885073886Z","level":"INFO","msg":"accepted webhook workflow_job event","module":"cli","provider":"github","action":"queued","job_id":77055223882,"repo":"test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:03.885583761Z","level":"INFO","msg":"queued webhook covered by warm idle runner, skipping spawn","module":"controller","pool":"jobflow-pool","job_id":77055223882,"pending_demand":1,"idle_on_target":1}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:04.025582178Z","level":"INFO","msg":"accepted webhook workflow_job event","module":"cli","provider":"github","action":"in_progress","job_id":77055223882,"repo":"test-org/test-repo"}
+e2e-mock-docker-1    | 2026/10/04 23:07:04 [mock-docker] Unhandled POST /v1.56/networks/create
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:04.027086136Z","level":"INFO","msg":"spawned standby runner","module":"controller","pool":"jobflow-pool","id":"cnt-mock-0014","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:04.027106678Z","level":"INFO","msg":"replenished idle standby after runner pickup","module":"controller","pool":"jobflow-pool","runner":"runnero-jobflow-pool-e1d211","target":"https://github.com/test-org/test-repo","idle_before":0,"min_idle":2}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:04.343506303Z","level":"INFO","msg":"accepted webhook workflow_job event","module":"cli","provider":"github","action":"completed","job_id":77055223882,"repo":"test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:04.345352386Z","level":"INFO","msg":"handling container exit event","module":"controller","pool":"jobflow-pool","id":"cnt-mock-0013","action":"die"}
+e2e-playwright-1     |   ✓  32 [chromium] › specs/14-job-history-flow.spec.ts:123:3 › Flow 14: Job Execution History › drives a webhook job to completion and renders its history row and logs (6.1s)
+e2e-playwright-1     | 
+e2e-playwright-1     | [axe unauth-light]
+e2e-playwright-1     | axe scan summary: 1 page(s) scanned, 0 violation rule(s) across 0 node(s)
+e2e-playwright-1     |   /login → 0 violation(s) (critical 0, serious 0, moderate 0, minor 0)
+e2e-playwright-1     |   ✓  33 [chromium] › specs/15-a11y-scan.spec.ts:478:3 › a11y scan: unauthenticated pages (light) (2.4s)
+e2e-playwright-1     | 
+e2e-playwright-1     | [axe admin-light]
+e2e-playwright-1     | axe scan summary: 13 page(s) scanned, 13 violation rule(s) across 39 node(s)
+e2e-playwright-1     |   / → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.flex-1.grid
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools/2/runners → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools/2/config → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /logs → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history/2 → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.text-left
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /profiles → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /renovate → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /settings → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /settings/users → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/security → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/sessions → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   SKIP onboarding: system is onboarded; the wizard is not renderable on a seeded database (coverage via manual keyboard pass, docs/36 §4.2)
+e2e-playwright-1     |   ✓  34 [chromium] › specs/15-a11y-scan.spec.ts:482:3 › a11y scan: admin pages (light) (10.5s)
+e2e-playwright-1     | 
+e2e-playwright-1     | [axe viewer-light]
+e2e-playwright-1     | axe scan summary: 10 page(s) scanned, 10 violation rule(s) across 30 node(s)
+e2e-playwright-1     |   / → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.flex-1.grid
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools/2/runners → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /logs → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history/2 → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.text-left
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /renovate → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /settings → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/security → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/sessions → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   ✓  35 [chromium] › specs/15-a11y-scan.spec.ts:486:3 › a11y scan: viewer pages (light) (10.2s)
+e2e-playwright-1     | 
+e2e-playwright-1     | [axe unauth-dark]
+e2e-playwright-1     | axe scan summary: 1 page(s) scanned, 0 violation rule(s) across 0 node(s)
+e2e-playwright-1     |   /login → 0 violation(s) (critical 0, serious 0, moderate 0, minor 0)
+e2e-playwright-1     |   ✓  36 [chromium] › specs/15-a11y-scan.spec.ts:478:3 › a11y scan: unauthenticated pages (dark) (2.4s)
+e2e-playwright-1     | 
+e2e-playwright-1     | [axe admin-dark]
+e2e-playwright-1     | axe scan summary: 13 page(s) scanned, 13 violation rule(s) across 39 node(s)
+e2e-playwright-1     |   / → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.flex-1.grid
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools/2/runners → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools/2/config → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /logs → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history/2 → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.text-left
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /profiles → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /renovate → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /settings → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /settings/users → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/security → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/sessions → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   SKIP onboarding: system is onboarded; the wizard is not renderable on a seeded database (coverage via manual keyboard pass, docs/36 §4.2)
+e2e-playwright-1     |   ✓  37 [chromium] › specs/15-a11y-scan.spec.ts:482:3 › a11y scan: admin pages (dark) (10.5s)
+e2e-playwright-1     | 
+e2e-playwright-1     | [axe viewer-dark]
+e2e-playwright-1     | axe scan summary: 10 page(s) scanned, 10 violation rule(s) across 30 node(s)
+e2e-playwright-1     |   / → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.flex-1.grid
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /pools/2/runners → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /logs → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /history/2 → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.text-left
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /renovate → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .grid.leading-tight.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /settings → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/security → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   /account/sessions → 1 violation(s) (critical 0, serious 0, moderate 1, minor 0)
+e2e-playwright-1     |       [moderate] region ×3: All page content should be contained by landmarks
+e2e-playwright-1     |           ↳ div[data-slot="sidebar-header"] > ul > .group\/menu-item[data-slot="sidebar-menu-item"][data-sidebar="menu-item"] > .h-14.group-data-\[collapsible\=icon\]\:p-0\![data-size="lg"] > .leading-tight.grid.flex-1
+e2e-playwright-1     |           ↳ .no-scrollbar
+e2e-playwright-1     |           ↳ #base-ui-_r_l_
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |           ⚑ Fix any of the following: Some page content is not contained by landmarks
+e2e-playwright-1     |   ✓  38 [chromium] › specs/15-a11y-scan.spec.ts:486:3 › a11y scan: viewer pages (dark) (10.2s)
+e2e-playwright-1     | 
+e2e-playwright-1     |   38 passed (2.4m)
+[Ke2e-playwright-1 exited with code 0
+ Compose Stopping Aborting on container exit...
+ Container runnero-e2e-mechsoull-e2e-playwright-1 Stopping 
+ Container runnero-e2e-mechsoull-e2e-playwright-1 Stopped 
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Stopping 
+e2e-supervisor-1     | s6-rc: info: service legacy-services: stopping
+e2e-supervisor-1     | s6-rc: info: service legacy-cont-init: stopping
+e2e-supervisor-1     | s6-rc: info: service supervisor: stopping
+e2e-supervisor-1     | s6-rc: info: service legacy-services successfully stopped
+e2e-supervisor-1     | s6-rc: info: service fix-attrs: stopping
+e2e-supervisor-1     | s6-rc: info: service legacy-cont-init successfully stopped
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401250506Z","level":"INFO","msg":"control loop terminated by context","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401254464Z","level":"INFO","msg":"retention pruning scheduler stopped","module":"db"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401282964Z","level":"INFO","msg":"backup scheduler stopped","module":"db"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401271298Z","level":"INFO","msg":"shutdown signal received, draining http server and pool controller","module":"cli"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401366714Z","level":"INFO","msg":"http server stopped","module":"server"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401396756Z","level":"INFO","msg":"initiated graceful shutdown protocol (SIGTERM)","module":"controller","timeout":300000000000}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401417173Z","level":"INFO","msg":"terminating idle runner during graceful shutdown","module":"controller","pool":"default-pool","id":"cnt-mock-0009","name":"runnero-default-pool-4216e8"}
+e2e-supervisor-1     | s6-rc: info: service fix-attrs successfully stopped
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.401866423Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-4216e8","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.670972965Z","level":"INFO","msg":"terminating idle runner during graceful shutdown","module":"controller","pool":"default-pool","id":"cnt-mock-0010","name":"runnero-default-pool-65951f"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.671489465Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-65951f","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.933464506Z","level":"INFO","msg":"terminating idle runner during graceful shutdown","module":"controller","pool":"default-pool","id":"cnt-mock-0011","name":"runnero-default-pool-819372"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:53.934452465Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-default-pool-819372","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.204012506Z","level":"INFO","msg":"terminating idle runner during graceful shutdown","module":"controller","pool":"collision-pool","id":"cnt-mock-0007","name":"runnero-collision-pool-a96239"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.20528934Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-collision-pool-a96239","target":"https://github.com/test-org/backend-core"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.46437484Z","level":"INFO","msg":"terminating idle runner during graceful shutdown","module":"controller","pool":"jobflow-pool","id":"cnt-mock-0012","name":"runnero-jobflow-pool-f2ff43"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.465746132Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-jobflow-pool-f2ff43","target":"https://github.com/test-org/backend-core"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.726302173Z","level":"INFO","msg":"terminating idle runner during graceful shutdown","module":"controller","pool":"jobflow-pool","id":"cnt-mock-0014","name":"runnero-jobflow-pool-8a89d3"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.728062548Z","level":"INFO","msg":"successfully deregistered runner via provider API","module":"controller","runner":"runnero-jobflow-pool-8a89d3","target":"https://github.com/test-org/test-repo"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.983615715Z","level":"INFO","msg":"no active runners remaining, graceful shutdown completed cleanly","module":"controller"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.983646674Z","level":"INFO","msg":"supervisor daemon stopped","module":"cli"}
+e2e-supervisor-1     | {"time":"2026-10-04T23:07:54.983655215Z","level":"INFO","msg":"cron scheduler stopped","module":"cron"}
+e2e-supervisor-1     | s6-rc: info: service init-socket-perms: stopping
+e2e-supervisor-1     | s6-rc: info: service supervisor successfully stopped
+e2e-supervisor-1     | s6-rc: info: service s6rc-oneshot-runner is marked as essential, not stopping it
+e2e-supervisor-1     | s6-rc: info: service init-socket-perms successfully stopped
+ Container runnero-e2e-mechsoull-e2e-supervisor-1 Stopped 
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Stopping 
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Stopping 
+[Ke2e-supervisor-1 exited with code 137
+ Container runnero-e2e-mechsoull-e2e-mock-docker-1 Stopped 
+[Ke2e-mock-docker-1 exited with code 143
+ Container runnero-e2e-mechsoull-e2e-mock-provider-1 Stopped 
+[Ke2e-mock-provider-1 exited with code 143

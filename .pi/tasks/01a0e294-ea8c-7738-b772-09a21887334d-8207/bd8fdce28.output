@@ -1,0 +1,401 @@
+this path will be fetched (107.5 KiB download, 107.4 KiB unpacked):
+  /nix/store/qxkgsgsg0n5k61ndbpsy3sqf7s3rdkzp-bash-interactive-5.3p15-man
+copying path '/nix/store/qxkgsgsg0n5k61ndbpsy3sqf7s3rdkzp-bash-interactive-5.3p15-man' from 'https://cache.nixos.org'...
+=======================================================
+   🛡️ runnero Nix Development Shell Loaded 🛡️
+   Go:              go1.27.1
+   Node:            v24.19.0
+   pnpm:            v11.25.0
+   Make:            v4.4.1
+   golangci-lint:   2.13.2
+   hadolint:        2.14.0
+   oxlint:          1.80.0
+   shellcheck:      0.11.0
+   shfmt:           3.14.1
+=======================================================
+cd web && pnpm run build
+? Verifying lockfile against supply-chain policies (599 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +499
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Packages are cloned from the content-addressable store to the virtual store.
+  Content-addressable store is at: /Users/mechsoull/Library/pnpm/store/v11
+  Virtual store is at:             node_modules/.pnpm
+
+   ╭──────────────────────────────────────────────────────────────────────╮
+   │                                                                      │
+   │                 Update available! 11.25.0 → 12.6.0.                  │
+   │                 Changelog: https://pnpm.io/v/12.6.0                  │
+   │   To update, run: curl -fsSL https://get.pnpm.io/install.sh | sh -   │
+   │                                                                      │
+   ╰──────────────────────────────────────────────────────────────────────╯
+
+Progress: resolved 499, reused 89, downloaded 101, added 152
+Progress: resolved 499, reused 89, downloaded 385, added 385
+Progress: resolved 499, reused 89, downloaded 410, added 499, done
+✓ Lockfile passes supply-chain policies (599 entries in 3.8s)
+
+dependencies:
++ @base-ui/react 1.8.0
++ @bufbuild/protobuf 2.15.0
++ @bufbuild/protovalidate 1.3.0
++ @connectrpc/connect 2.2.0
++ @connectrpc/connect-web 2.2.0
++ @fontsource-variable/inter 5.3.0
++ @fontsource-variable/source-sans-3 5.3.0
++ @tanstack/react-form 1.33.5
++ @tanstack/react-query 5.103.1
++ @tanstack/react-router 1.170.38
++ @tanstack/react-table 9.2.4
++ class-variance-authority 0.7.1
++ clsx 2.1.1
++ cn 0.3.0
++ lucide-react 1.47.0
++ react 19.3.0
++ react-dom 19.3.0
++ recharts 3.10.1
++ shadcn 4.21.0
++ tailwind-merge 3.7.0
++ tw-animate-css 1.4.0
+
+devDependencies:
++ @tailwindcss/vite 4.3.3
++ @testing-library/jest-dom 7.0.1
++ @testing-library/react 16.3.3
++ @testing-library/user-event 14.6.7
++ @types/node 24.13.6
++ @types/react 19.3.0
++ @types/react-dom 19.3.0
++ @vitejs/plugin-react 6.1.1
++ axe-core 4.13.0
++ jsdom 30.1.0
++ oxfmt 0.68.0
++ oxlint 1.83.0
++ tailwindcss 4.3.3
++ typescript 7.0.2
++ vite 8.3.0
++ vitest 5.0.1
+
+Done in 4.1s using pnpm v11.25.0
+$ tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 3394 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-DjKymu5O.js                                      1,885.25 kB │ gzip: 518.52 kB
+
+✓ built in 476ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+go test ./...
+go: downloading github.com/go-viper/mapstructure/v2 v2.5.0
+go: downloading connectrpc.com/connect v1.21.0
+go: downloading github.com/knadh/koanf/parsers/toml v0.1.0
+go: downloading github.com/robfig/cron/v3 v3.0.1
+go: downloading github.com/knadh/koanf/parsers/yaml v1.1.1
+go: downloading github.com/knadh/koanf/providers/confmap v1.0.1
+go: downloading github.com/knadh/koanf/providers/env v1.1.0
+go: downloading github.com/knadh/koanf/providers/file v1.2.1
+go: downloading github.com/knadh/koanf/providers/posflag v1.0.2
+go: downloading github.com/pressly/goose/v3 v3.28.0
+go: downloading github.com/knadh/koanf/v2 v2.3.6
+go: downloading github.com/spf13/pflag v1.0.10
+go: downloading github.com/stretchr/testify v1.12.1
+go: downloading modernc.org/sqlite v1.59.0
+go: downloading buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2
+go: downloading tailscale.com v1.102.4
+go: downloading google.golang.org/protobuf v1.36.12
+go: downloading buf.build/go/protovalidate v1.4.0
+go: downloading github.com/containerd/errdefs v1.0.0
+go: downloading github.com/moby/moby/api v1.56.0
+go: downloading github.com/go-webauthn/webauthn v0.18.1
+go: downloading github.com/moby/moby/client v0.6.0
+go: downloading github.com/labstack/echo/v5 v5.3.1
+go: downloading golang.org/x/crypto v0.57.0
+go: downloading github.com/descope/virtualwebauthn v1.0.5
+go: downloading github.com/knadh/koanf/maps v0.1.2
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading github.com/pelletier/go-toml v1.9.5
+go: downloading github.com/mitchellh/copystructure v1.2.0
+go: downloading github.com/sethvargo/go-retry v0.4.0
+go: downloading github.com/stretchr/objx v0.5.3
+go: downloading cel.dev/cel-go v0.32.0
+go: downloading github.com/go-webauthn/x v0.3.1
+go: downloading github.com/golang-jwt/jwt/v5 v5.3.1
+go: downloading github.com/tinylib/msgp v1.6.4
+go: downloading github.com/google/go-tpm v0.9.8
+go: downloading github.com/docker/go-units v0.5.0
+go: downloading github.com/moby/docker-image-spec v1.3.1
+go: downloading github.com/opencontainers/image-spec v1.1.1
+go: downloading github.com/opencontainers/go-digest v1.0.0
+go: downloading github.com/containerd/errdefs/pkg v0.3.0
+go: downloading github.com/distribution/reference v0.6.0
+go: downloading github.com/docker/go-connections v0.8.1
+go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
+go: downloading go.opentelemetry.io/otel/trace v1.46.0
+go: downloading github.com/mfridman/interpolate v0.0.2
+go: downloading golang.org/x/sync v0.23.0
+go: downloading golang.org/x/sys v0.48.0
+go: downloading github.com/fxamacker/cbor/v2 v2.9.3
+go: downloading go.opentelemetry.io/otel v1.46.0
+go: downloading github.com/mitchellh/reflectwalk v1.0.2
+go: downloading google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688
+go: downloading cel.dev/expr v0.25.3
+go: downloading github.com/philhofer/fwd v1.2.0
+go: downloading golang.org/x/text v0.42.0
+go: downloading github.com/antlr4-go/antlr/v4 v4.13.1
+go: downloading github.com/felixge/httpsnoop v1.1.0
+go: downloading go.opentelemetry.io/otel/metric v1.46.0
+go: downloading github.com/x448/float16 v0.8.4
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a
+go: downloading golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa
+go: downloading github.com/tailscale/wireguard-go v0.0.0-20260715223240-2e01ba5b00f0
+go: downloading go4.org/mem v0.0.0-20240501181205-ae6ca9944745
+go: downloading github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433
+go: downloading github.com/tailscale/peercred v0.0.0-20250107143737-35a0c7bd7edc
+go: downloading github.com/gaissmai/bart v0.26.1
+go: downloading github.com/pires/go-proxyproto v0.8.1
+go: downloading go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
+go: downloading golang.org/x/net v0.58.0
+go: downloading gvisor.dev/gvisor v0.0.0-20260224225140-573d5e7127a8
+go: downloading golang.org/x/term v0.46.0
+go: downloading github.com/creachadair/msync v0.8.1
+go: downloading github.com/go-logr/logr v1.4.4
+go: downloading github.com/mitchellh/go-ps v1.0.0
+go: downloading github.com/hdevalence/ed25519consensus v0.2.0
+go: downloading github.com/coder/websocket v1.8.15
+go: downloading github.com/klauspost/compress v1.19.2
+go: downloading golang.org/x/oauth2 v0.36.0
+go: downloading github.com/tailscale/web-client-prebuilt v0.0.0-20250124233751-d4cd19a26976
+go: downloading github.com/tailscale/hujson v0.0.0-20260302212456-ecc657c15afd
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading filippo.io/edwards25519 v1.2.0
+go: downloading github.com/huin/goupnp v1.3.0
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading golang.org/x/time v0.15.0
+go: downloading github.com/google/btree v1.1.3
+go: downloading modernc.org/libc v1.75.7
+go: downloading github.com/ncruces/go-strftime v1.0.0
+go: downloading github.com/dustin/go-humanize v1.0.1
+go: downloading modernc.org/mathutil v1.7.1
+go: downloading modernc.org/memory v1.12.1
+go: downloading github.com/mattn/go-isatty v0.0.24
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+ok  	github.com/noosxe/runnero/cmd/runnero-supervisor	0.743s
+ok  	github.com/noosxe/runnero/internal/config	0.221s
+ok  	github.com/noosxe/runnero/internal/cron	0.493s
+ok  	github.com/noosxe/runnero/internal/db	6.390s
+ok  	github.com/noosxe/runnero/internal/keys	0.318s
+ok  	github.com/noosxe/runnero/internal/limits	0.513s
+ok  	github.com/noosxe/runnero/internal/logging	0.486s
+ok  	github.com/noosxe/runnero/internal/orchestrator	1.518s
+ok  	github.com/noosxe/runnero/internal/orchestrator/docker	0.640s
+ok  	github.com/noosxe/runnero/internal/pb/supervisor/v1	0.375s
+?   	github.com/noosxe/runnero/internal/pb/supervisor/v1/supervisorv1connect	[no test files]
+ok  	github.com/noosxe/runnero/internal/provider	0.283s
+ok  	github.com/noosxe/runnero/internal/provider/forgejo	0.392s
+ok  	github.com/noosxe/runnero/internal/provider/gitea	0.551s
+ok  	github.com/noosxe/runnero/internal/provider/github	0.745s
+ok  	github.com/noosxe/runnero/internal/registry	0.440s
+ok  	github.com/noosxe/runnero/internal/renovate	0.458s
+ok  	github.com/noosxe/runnero/internal/server	1.605s
+ok  	github.com/noosxe/runnero/internal/tailscale	0.411s
+?   	github.com/noosxe/runnero/internal/testsupport/fakedocker	[no test files]
+?   	github.com/noosxe/runnero/internal/testsupport/fakegithub	[no test files]
+ok  	github.com/noosxe/runnero/internal/webhook	0.296s
+?   	github.com/noosxe/runnero/tests/e2e/mock/docker	[no test files]
+?   	github.com/noosxe/runnero/tests/e2e/mock/provider	[no test files]
+?   	github.com/noosxe/runnero/web	[no test files]
+bash tests/unit/entrypoint_test.sh
+Running entrypoint unit tests...
+Test 1: GitHub provider mode... PASSED
+Test 2: Gitea provider mode... PASSED
+Test 3: Forgejo provider mode... PASSED
+Test 4: Missing RUNNER_TOKEN fails... PASSED
+Test 5: Missing Provider URL fails... PASSED
+Test 6: GitHub interrupt trap triggers de-registration... PASSED
+Test 7: Gitea interrupt trap triggers de-registration... PASSED
+Test 8: Forgejo interrupt trap triggers de-registration... PASSED
+Test 8: docker.sock group bootstrap and re-exec... PASSED
+Test 9: RUNNER_SOCK_GROUPS_SYNCED skips the socket block... PASSED
+Test 10: root stage usermod + setpriv drop... PASSED
+All entrypoint unit tests passed successfully!
+bash tests/unit/parity_packages_test.sh
+Test: manifest exists and is readable
+PASSED
+Test: manifest contains the full upstream-derived package set (69 entries)
+PASSED
+Test: every entry is a valid apt package name
+PASSED
+Test: no duplicate entries
+PASSED
+Test: entries are LC_ALL=C sorted within each section
+PASSED
+Test: dropped upstream packages are absent (docs/18 §3.2)
+PASSED
+Test: key parity packages are present
+PASSED
+Test: installer passes bash syntax check
+PASSED
+Test: installer runs update/clean around a single install transaction
+PASSED
+Test: installer passes exactly the not-yet-installed set to apt-get
+PASSED (65 packages in one transaction)
+Test: installer is idempotent when everything is installed
+PASSED
+Test: installer fails closed on invalid manifest entries
+PASSED
+All parity package unit tests passed successfully!
+bash tests/unit/playwright_lockstep_test.sh
+Test: pnpm lockfile is committed (tests/e2e/pnpm-lock.yaml)
+PASSED
+Test: @playwright/test is pinned to an exact version in package.json
+PASSED (exact pin: 1.55.1)
+Test: lockfile records @playwright/test at the pinned version
+PASSED
+Test: Dockerfile base image tag matches @playwright/test version
+PASSED (v1.55.1)
+Test: Dockerfile installs with --frozen-lockfile
+PASSED
+All playwright lockstep tests passed.
+cd web && pnpm test
+$ vitest run
+
+ RUN  v5.0.1 /Users/mechsoull/Projects/runnero/web
+
+
+ Test Files  47 passed (47)
+      Tests  269 passed (269)
+   Start at  12:58:05
+   Duration  4.99s (environment 38%, tests 23%, import 21%, transform 10%, setup 9%)
+
+Environment  jsdom was created 47 times · 21.49s total, 38% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+cd web && pnpm run build
+$ tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 3394 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-DjKymu5O.js                                      1,885.25 kB │ gzip: 518.52 kB
+
+✓ built in 315ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+golangci-lint run
+0 issues.
+cd web && pnpm run typecheck && pnpm run lint && pnpm run format:check
+$ tsc -b
+$ oxlint --deny-warnings
+$ oxfmt --check .
+Checking formatting...
+
+All matched files use the correct format.
+Finished in 110ms on 136 files using 14 threads.
+cd web && pnpm run build
+$ tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 3394 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-DjKymu5O.js                                      1,885.25 kB │ gzip: 518.52 kB
+
+✓ built in 299ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+go vet ./...
+cd web && pnpm run build
+$ tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 3394 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        1.15 kB │ gzip:   0.62 kB
+dist/assets/source-sans-3-greek-ext-wght-normal-BWSLJLk6.woff2         9.78 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2               10.25 kB
+dist/assets/source-sans-3-vietnamese-wght-normal-C1uRvKPU.woff2       10.32 kB
+dist/assets/source-sans-3-cyrillic-ext-wght-normal-DzyfIafT.woff2     10.67 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2                11.23 kB
+dist/assets/source-sans-3-greek-wght-normal-C9H9m1vD.woff2            14.60 kB
+dist/assets/source-sans-3-cyrillic-wght-normal-BMDVbyM7.woff2         18.49 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2                 18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                    18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2             25.96 kB
+dist/assets/source-sans-3-latin-wght-normal-BqRLTx4X.woff2            28.74 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                    48.25 kB
+dist/assets/source-sans-3-latin-ext-wght-normal-C8iNium2.woff2        60.08 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2                85.06 kB
+dist/assets/index-BUxLF2ky.css                                       131.66 kB │ gzip:  20.98 kB
+dist/assets/index-DjKymu5O.js                                      1,885.25 kB │ gzip: 518.52 kB
+
+✓ built in 279ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+go build -ldflags "-X main.version=v0.3.0-415-g7502359" -o bin/runnero-supervisor ./cmd/runnero-supervisor

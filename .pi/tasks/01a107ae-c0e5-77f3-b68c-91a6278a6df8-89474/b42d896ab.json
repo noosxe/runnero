@@ -1,0 +1,29 @@
+{
+  "id": "b42d896ab",
+  "name": "Watch E2E rerun PR375",
+  "command": "gh run watch 37311067443 --exit-status --interval 30; echo \"watch_exit=$status\"",
+  "description": "gh run watch on the Dependabot PR #375 E2E re-run (run 37311067443); exits when the run completes, exit-status reflects pass/fail",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/b42d896ab.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791213183685,
+  "endTime": 1791213535933,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 31755,
+  "bytesWritten": 5904,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 900,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}

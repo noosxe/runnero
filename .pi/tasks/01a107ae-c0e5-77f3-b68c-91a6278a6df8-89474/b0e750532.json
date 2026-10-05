@@ -1,0 +1,29 @@
+{
+  "id": "b0e750532",
+  "name": "Watch CI PR372",
+  "command": "gh pr checks 372 --watch --interval 30; echo \"checks_watch_exit=$status\"",
+  "description": "Watch all CI checks on Dependabot PR #372 (go_modules minor-and-patch group) until they conclude; no merge action",
+  "status": "killed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/b0e750532.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791213830919,
+  "endTime": 1791214761808,
+  "exitCode": null,
+  "signal": "SIGTERM",
+  "pid": 97530,
+  "bytesWritten": 62579,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2700,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}
