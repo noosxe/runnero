@@ -135,8 +135,11 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           # Exact pin: must match the golangci-lint version in the Nix dev
-          # shell (currently 2.12.2). Keep the two in sync on upgrades.
-          version: v2.12.2
+          # shell (currently 2.13.2). Keep the two in sync on upgrades.
+          # 2.13.x upstream binaries are built with go1.27, which the lint
+          # gate needs now that go.mod may target go >= 1.27 (an older
+          # go1.26-built binary refuses newer targets outright).
+          version: v2.13.2
   build-test:
     name: Build & Test (${{ matrix.arch }})
     needs: [changes, web-assets]
