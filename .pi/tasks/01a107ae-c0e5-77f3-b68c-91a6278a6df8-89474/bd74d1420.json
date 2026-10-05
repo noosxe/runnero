@@ -1,0 +1,29 @@
+{
+  "id": "bd74d1420",
+  "name": "Gates plus E2E retry",
+  "command": "nix develop --command bash -c \"make test && make test-scripts && make test-web && make lint && make lint-web && make vet && make build && shellcheck src/*.sh && shfmt -d src/*.sh && hadolint Dockerfile Dockerfile.supervisor && make test-e2e && make clean-e2e\"",
+  "status": "failed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/bd74d1420.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791154045728,
+  "endTime": 1791154078479,
+  "exitCode": 2,
+  "signal": null,
+  "pid": 44010,
+  "bytesWritten": 13740,
+  "isAgent": false,
+  "surviveReload": false,
+  "error": "Exited with code 2",
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2400,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}

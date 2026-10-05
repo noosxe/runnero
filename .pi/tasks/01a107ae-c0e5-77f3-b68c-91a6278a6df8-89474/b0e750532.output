@@ -1,0 +1,605 @@
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Detect Relevant Changes	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Build Web Assets	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Go Lint	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Detect E2E-Relevant Changes	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Build & Test (amd64)	pending	0	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+Playwright E2E	pending	0	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	
+Refreshing checks status every 30 seconds. Press Ctrl+C to quit.
+
+Go Lint	fail	24s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896146	
+Build Native Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838796939	
+Build Native Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838677808	
+Hadolint (${{ matrix.dockerfile }})	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681240	
+Lint, Test & Build (Web UI)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838674879	
+Merge Manifests & Publish Runner Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838791721	
+Merge Manifests & Publish Supervisor Image	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838675059	
+Detect Relevant Changes	pass	7s	https://github.com/noosxe/runnero/actions/runs/37332416726/job/111838578984	
+ShellCheck & Tests (src/*.sh)	skipping	0	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838681365	
+Build & Test (amd64)	pass	5m14s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896518	
+Build & Test (arm64)	pass	25s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838896407	
+Build Web Assets	pass	29s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838651328	
+Detect E2E-Relevant Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840171271	
+Playwright E2E	pass	6m18s	https://github.com/noosxe/runnero/actions/runs/37332417002/job/111840222732	
+Detect Go Changes	pending	6s	https://github.com/noosxe/runnero/actions/runs/37332416959/job/111838581631	
+Detect Lint Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417531/job/111838580381	
+Detect Supervisor Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332417001/job/111838580149	
+Detect Web Changes	pass	5s	https://github.com/noosxe/runnero/actions/runs/37332416836/job/111838579983	

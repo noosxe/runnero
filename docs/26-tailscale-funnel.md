@@ -154,13 +154,14 @@ is **outbound**: UDP (WireGuard, direct paths where NAT allows) and HTTPS 443
 ## 4. Configuration contract
 
 All options are `SUPERVISOR_TAILSCALE_*`; the feature is **off unless the auth
-key is present**. Values are trimmed; empty means default/off per row.
-
+key is present**. The funnel is additionally **opt-in (default `false`)**: it
+publishes a public endpoint, which only the deployment receiving provider
+webhooks needs. Values are trimmed; empty means default/off per row.
 | Variable | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
 | `SUPERVISOR_TAILSCALE_AUTHKEY` | String | *(empty = feature off)* | Tailscale auth key used once to enroll the node; ignored on later boots while node state exists (upstream behavior). **Required to enable anything below.** |
 | `SUPERVISOR_TAILSCALE_HOSTNAME` | String | `runnero` | Node hostname inside the tailnet; final DNS name is `<hostname>.<tailnet>.ts.net`. Must be unique per tailnet — set it when running more than one supervisor. |
-| `SUPERVISOR_TAILSCALE_FUNNEL` | Bool | `true` | Public funnel listener on `:443` for provider webhooks (FunnelOnly). |
+| `SUPERVISOR_TAILSCALE_FUNNEL` | Bool | `false` | Public funnel listener on `:443` for provider webhooks (FunnelOnly). Opt-in: only the deployment receiving provider webhooks needs a public endpoint. |
 | `SUPERVISOR_TAILSCALE_UI` | Bool | `true` | Tailnet-only HTTPS management listener (port: `SUPERVISOR_TAILSCALE_UI_PORT`, default `8443`). |
 | `SUPERVISOR_TAILSCALE_UI_PORT` | Int | `8443` | TCP port of the tailnet-only HTTPS management listener; any port 1–65535, must differ from `443` while the funnel is enabled (upstream serve/funnel same-port limitation, docs/38). |
 | `SUPERVISOR_TAILSCALE_STATE_DIR` | String | `<SUPERVISOR_DATA_DIR>/tailscale` | tsnet state directory (node identity, `tailscaled.state`). Lives inside the existing supervisor data volume. |

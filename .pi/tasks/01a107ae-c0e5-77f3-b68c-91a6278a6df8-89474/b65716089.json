@@ -1,0 +1,28 @@
+{
+  "id": "b65716089",
+  "name": "E2E suite direct run",
+  "command": "nix develop --command bash -c 'docker compose -f tests/e2e/docker-compose.e2e.yml down -v --remove-orphans && docker compose -f tests/e2e/docker-compose.e2e.yml up --build --force-recreate --renew-anon-volumes --abort-on-container-exit --exit-code-from e2e-playwright && make clean-e2e'",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/b65716089.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791154129736,
+  "endTime": 1791154325325,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 52065,
+  "bytesWritten": 98499,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 2400,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}

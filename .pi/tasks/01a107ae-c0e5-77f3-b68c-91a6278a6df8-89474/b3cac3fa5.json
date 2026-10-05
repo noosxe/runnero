@@ -1,0 +1,29 @@
+{
+  "id": "b3cac3fa5",
+  "name": "Watch PR372 E2E rerun",
+  "command": "gh run watch 37339206119 --exit-status --interval 30\necho \"e2e_rerun_exit=$status\"\ngh pr checks 372 2>&1 | grep -vE \"skipping|pass\\b\"\necho \"final_verdict_exit=$status\"",
+  "description": "Watch the re-run of PR #372's failed E2E job, then print the final checks verdict; no merge action",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/b3cac3fa5.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791217313789,
+  "endTime": 1791217732638,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 47375,
+  "bytesWritten": 6847,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 1800,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}

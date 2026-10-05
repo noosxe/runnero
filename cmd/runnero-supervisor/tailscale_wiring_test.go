@@ -162,6 +162,9 @@ func TestDaemonTailscaleEnabledServesBothListeners(t *testing.T) {
 	})
 	t.Setenv("SUPERVISOR_TAILSCALE_AUTHKEY", "tskey-authority-0123456789abcdef")
 	t.Setenv("SUPERVISOR_WEBHOOK_GITHUB_SECRET", testWebhookSecret)
+	// Funnel opted in explicitly: it is off by default (see
+	// TestDaemonTailscaleFunnelOffByDefault).
+	t.Setenv("SUPERVISOR_TAILSCALE_FUNNEL", "true")
 	_ = bootDaemonForTest(t)
 
 	lastTailscaleBoot.mu.Lock()
@@ -181,7 +184,7 @@ func TestDaemonTailscaleEnabledServesBothListeners(t *testing.T) {
 		t.Errorf("Hostname = %q, want default %q", cfg.Hostname, "runnero")
 	}
 	if !cfg.Funnel || !cfg.UI {
-		t.Errorf("Funnel/UI = %t/%t, want both true by default", cfg.Funnel, cfg.UI)
+		t.Errorf("Funnel/UI = %t/%t, want funnel true (opted in) and UI true (default)", cfg.Funnel, cfg.UI)
 	}
 	if base := filepath.Base(cfg.StateDir); base != "tailscale" || !filepath.IsAbs(cfg.StateDir) {
 		t.Errorf("StateDir = %q, want an absolute <data-dir>/tailscale", cfg.StateDir)
@@ -214,6 +217,38 @@ func TestDaemonTailscaleEnabledServesBothListeners(t *testing.T) {
 	if healthResp.StatusCode != http.StatusOK {
 		t.Fatalf("tailnet GET /healthz = %d, want 200", healthResp.StatusCode)
 	}
+}
+
+// TestDaemonTailscaleFunnelOffByDefault pins the opt-in posture: an auth
+// key alone constructs the node and serves the tailnet UI, but never the
+// public funnel listener — only the deployment that receives provider
+// webhooks opts in with SUPERVISOR_TAILSCALE_FUNNEL=true.
+func TestDaemonTailscaleFunnelOffByDefault(t *testing.T) {
+	overrideStartTailscale(t, fakeStartTailscale)
+	t.Cleanup(func() {
+		lastTailscaleBoot.mu.Lock()
+		node := lastTailscaleBoot.node
+		cfg := lastTailscaleBoot.cfg
+		lastTailscaleBoot.mu.Unlock()
+		if node == nil {
+			t.Error("no tailscale node was constructed")
+			return
+		}
+		if !node.isClosed() {
+			t.Error("tailscale node not closed after daemon shutdown")
+		}
+		if node.funnelLn != nil {
+			t.Error("funnel listener opened with default config, want opt-in only")
+		}
+		if cfg.Funnel {
+			t.Error("cfg.Funnel = true with default config, want false")
+		}
+		if !cfg.UI {
+			t.Error("cfg.UI = false with default config, want true")
+		}
+	})
+	t.Setenv("SUPERVISOR_TAILSCALE_AUTHKEY", "tskey-authority-0123456789abcdef")
+	_ = bootDaemonForTest(t)
 }
 
 // TestDaemonTailscaleBootFailureAbortsBoot pins fail-fast (docs/26 §3): a

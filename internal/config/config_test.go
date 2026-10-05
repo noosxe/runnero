@@ -488,8 +488,8 @@ func TestTailscaleOffByDefaultIgnoresEverything(t *testing.T) {
 }
 
 // TestTailscaleEnabledDefaults: an auth key alone enables the integration
-// with the documented defaults (runnero, both listeners on, state dir
-// derived under the data dir).
+// with the documented defaults (runnero, funnel off + tailnet UI on, state
+// dir derived under the data dir).
 func TestTailscaleEnabledDefaults(t *testing.T) {
 	t.Setenv(EnvDBEncryptionKey, testKey)
 	t.Setenv(EnvTailscaleAuthKey, "tskey-authority-0123456789abcdef")
@@ -503,8 +503,8 @@ func TestTailscaleEnabledDefaults(t *testing.T) {
 	if cfg.TailscaleHostname != DefaultTailscaleHostname {
 		t.Errorf("hostname = %q, want default %q", cfg.TailscaleHostname, DefaultTailscaleHostname)
 	}
-	if !cfg.TailscaleFunnelOn() {
-		t.Error("funnel off by default, want on")
+	if cfg.TailscaleFunnelOn() {
+		t.Error("funnel on by default, want off — opt in with SUPERVISOR_TAILSCALE_FUNNEL=true")
 	}
 	if addr := cfg.TailscaleUIAddr(); addr != ":8443" {
 		t.Errorf("ui addr = %q, want default %q", addr, ":8443")
@@ -593,10 +593,12 @@ func TestTailscaleUIPortValidation(t *testing.T) {
 // TestTailscaleUIPortFunnelConflict: the funnel is always :443 and
 // serve/funnel cannot share a port upstream, so funnel-on + UI port 443 is
 // a boot error (docs/38 §3.1); with the funnel off, UI on :443 is the
-// documented clean-URL case.
+// documented clean-URL case. The funnel is explicitly enabled in the first
+// leg because it is off by default.
 func TestTailscaleUIPortFunnelConflict(t *testing.T) {
 	t.Setenv(EnvDBEncryptionKey, testKey)
 	t.Setenv(EnvTailscaleAuthKey, "tskey-x")
+	t.Setenv(EnvTailscaleFunnel, "true")
 	t.Setenv(EnvTailscaleUIPort, "443")
 	_, err := Load(Options{})
 	wantErrContaining(t, err, "conflicts with the funnel listener")

@@ -1,0 +1,29 @@
+{
+  "id": "b71cdc271",
+  "name": "Watch PR372 after rebase",
+  "command": "set old (gh pr view 372 --json headRefOid --jq .headRefOid)\necho \"old_head=$old\"\nwhile true\n    set new (gh pr view 372 --json headRefOid --jq .headRefOid)\n    if test \"$new\" != \"$old\"\n        echo \"rebased_head=$new\"\n        break\n    end\n    sleep 30\nend\ngh pr checks 372 --watch --interval 30\necho \"checks_watch_exit=$status\"",
+  "description": "Wait for Dependabot to rebase PR #372 onto the golangci-lint fix, then watch all checks to conclusion; no merge action",
+  "status": "completed",
+  "outputPath": ".pi/tasks/01a107ae-c0e5-77f3-b68c-91a6278a6df8-89474/b71cdc271.output",
+  "cwd": "/Users/mechsoull/Projects/runnero",
+  "startTime": 1791216748080,
+  "endTime": 1791217244423,
+  "exitCode": 0,
+  "signal": null,
+  "pid": 90198,
+  "bytesWritten": 30102,
+  "isAgent": false,
+  "surviveReload": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 3600,
+  "shellPolicy": {
+    "policy": "inherit",
+    "executable": "/run/current-system/sw/bin/fish",
+    "argvPrefix": [
+      "-c"
+    ],
+    "dialect": "user-non-posix"
+  }
+}
