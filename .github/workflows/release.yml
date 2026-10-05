@@ -1,0 +1,177 @@
+name: Release
+
+# Single source of truth for publishing a release (RUN-288).
+#
+# The two multi-arch image workflows (build.yml, supervisor-build.yml)
+# build and push container images on v* tags; this workflow is the only
+# place that creates the GitHub Release. It waits for both image
+# workflows to conclude on the tagged commit, verifies the published
+# manifests, smoke-checks the supervisor binary, and only then cuts the
+# release — so a release can never point at unpublished or broken images,
+# and the historical create-release race between the two merge jobs is
+# gone by construction.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to (re-)release, e.g. v1.0.0'
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  # Never cancel a release run in favor of a duplicate trigger.
+  cancel-in-progress: false
+
+permissions:
+  # Create the GitHub Release.
+  contents: write
+  # Inspect the published GHCR manifests of this repository's packages.
+  packages: read
+
+jobs:
+  release:
+    name: Verify Images & Publish Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Resolve Tag and Commit
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            case "$DISPATCH_TAG" in
+              v*) tag="$DISPATCH_TAG" ;;
+              *) echo "error: '$DISPATCH_TAG' is not a v* release tag" >&2; exit 1 ;;
+            esac
+          else
+            tag="$REF_NAME"
+          fi
+          # Annotated tags list both the tag object and the peeled commit;
+          # prefer the peeled commit so head_sha matching works either way.
+          sha="$(git ls-remote origin "refs/tags/${tag}^{}" | cut -f1 | head -n1)"
+          if [ -z "$sha" ]; then
+            sha="$(git ls-remote origin "refs/tags/${tag}" | cut -f1 | head -n1)"
+          fi
+          if [ -z "$sha" ]; then
+            echo "error: tag '$tag' not found on origin" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # Both image workflows trigger on the same tag push. Wait until the
+      # latest run of each on this exact commit has completed successfully
+      # before anything is verified or published. Fail fast (with the run
+      # URL) if either concludes unsuccessfully; bounded by a 60-minute
+      # deadline so a hung run cannot pin the release forever.
+      - name: Wait for Image Workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_SHA: ${{ steps.resolve.outputs.sha }}
+          # Keep in sync with the top-level `name:` fields of the two
+          # image workflows.
+          WORKFLOWS: 'CI/CD Runner Multi-Arch Build|CI/CD Supervisor Multi-Arch Build'
+        run: |
+          deadline=$(( $(date +%s) + 60 * 60 ))
+          i=0
+          while :; do
+            i=$((i + 1))
+            pending=""
+            failed=""
+            IFS='|' read -r -a names <<< "$WORKFLOWS"
+            for name in "${names[@]}"; do
+              latest="$(gh api \
+                "repos/${{ github.repository }}/actions/runs?head_sha=${TAG_SHA}&per_page=100" \
+                | jq -r --arg n "$name" \
+                  '[.workflow_runs[] | select(.name == $n)] | sort_by(.run_number) | last // empty')"
+              if [ -z "$latest" ]; then
+                pending="$pending [$name: not started]"
+                continue
+              fi
+              status="$(echo "$latest" | jq -r .status)"
+              conclusion="$(echo "$latest" | jq -r .conclusion)"
+              run_url="$(echo "$latest" | jq -r .html_url)"
+              if [ "$status" != "completed" ]; then
+                pending="$pending [$name: $status]"
+              elif [ "$conclusion" != "success" ]; then
+                failed="$failed [$name: $conclusion, see $run_url]"
+              fi
+            done
+            if [ -n "$failed" ]; then
+              echo "error: image workflow failure - not publishing a release:$failed" >&2
+              exit 1
+            fi
+            if [ -z "$pending" ]; then
+              echo "both image workflows succeeded for $TAG_SHA"
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "error: timed out waiting for image workflows:$pending" >&2
+              exit 1
+            fi
+            echo "waiting (attempt $i):$pending"
+            sleep 30
+          done
+
+      # Both merge jobs publish <tag> and latest for their image; confirm
+      # all four manifests actually resolve before cutting the release.
+      - name: Verify Published Manifests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          export DOCKER_CLI_EXPERIMENTAL=enabled
+          for image in \
+            "ghcr.io/${{ github.repository_owner }}/runnero" \
+            "ghcr.io/${{ github.repository_owner }}/runnero-supervisor"
+          do
+            for ref in "$TAG" latest; do
+              echo "inspecting ${image}:${ref}"
+              docker manifest inspect "${image}:${ref}" >/dev/null
+            done
+          done
+
+      # The supervisor image stamps VERSION=<tag> at build time; pull the
+      # published image and confirm the binary reports exactly that.
+      - name: Smoke Check Supervisor Version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          output="$(docker run --rm --entrypoint /usr/local/bin/supervisor \
+            "ghcr.io/${{ github.repository_owner }}/runnero-supervisor:${TAG}" version)"
+          echo "$output"
+          case "$output" in
+            *"runnero-supervisor version $TAG") ;;
+            *) echo "error: version mismatch - expected '$TAG' in: $output" >&2; exit 1 ;;
+          esac
+
+      # Single release-creation site (the exists-guard makes manual re-runs
+      # idempotent rather than a fix for a creation race).
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "release $TAG already exists, skipping create (re-run)"
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --generate-notes
+          fi

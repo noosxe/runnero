@@ -149,13 +149,12 @@ jobs:
           if-no-files-found: error
 
   merge:
-    name: Merge Manifests & Publish Supervisor Release
+    name: Merge Manifests & Publish Supervisor Image
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
-      contents: write
       packages: write
 
     steps:
@@ -179,7 +178,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Stitch Manifests & Publish Release
+      - name: Stitch Manifests & Push to GHCR
         run: |
           cd /tmp/digests
           docker buildx imagetools create \
@@ -187,16 +186,3 @@ jobs:
             -t "${IMAGE_NAME}:latest" \
             $(printf "${IMAGE_NAME}@sha256:%s " *)
 
-      # Create or update official GitHub Release for the pushed tag
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release ${{ github.ref_name }} already exists, skipping create."
-          else
-            gh release create "${{ github.ref_name }}" \
-              --repo "${{ github.repository }}" \
-              --title "${{ github.ref_name }}" \
-              --generate-notes
-          fi
