@@ -1,11 +1,13 @@
 name: CI/CD Runner Multi-Arch Build
 
+# Image-recipe validation only (pull requests, main pushes, manual dispatch):
+# natively compiles the runner image for amd64 and arm64 WITHOUT pushing.
+# Releases publish this image from the self-contained release.yml — this
+# workflow never runs on tags.
 on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   pull_request:
     branches:
       - main
@@ -18,11 +20,6 @@ concurrency:
 # Define limited execution permissions for GITHUB_TOKEN
 permissions:
   contents: read
-  packages: write
-
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/runnero
-
 jobs:
   # Cheap gate job: detects whether any runner-image input changed.
   # The multi-arch build matrix is expensive (native arm64 + amd64), so it
@@ -30,8 +27,6 @@ jobs:
   # workflow itself is touched - not for orchestrator/frontend-only PRs.
   changes:
     name: Detect Relevant Changes
-    # Release tags skip detection entirely and build unconditionally
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -63,9 +58,8 @@ jobs:
   build:
     name: Build Native Image
     needs: changes
-    # Release tags always build; otherwise only when image inputs changed or manually triggered.
-    # always() keeps this job schedulable even though `changes` is skipped on tags.
-    if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || needs.changes.outputs.image == 'true') }}
+    # Runs on manual dispatch or when image inputs changed in a PR/push.
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.image == 'true' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -86,85 +80,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      # Log in to GitHub Container Registry (GHCR) only when creating a release (tag push)
-      - name: Log in to GitHub Container Registry
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Build the Docker image. If a tag is pushed, it pushes by digest directly to GHCR.
-      # If not a tag, it performs a native dry-run compilation locally to verify correctness.
-      - name: Build and Push Docker Image
-        id: build
+      # Native dry-run compilation to verify the image recipe builds.
+      - name: Build Docker Image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
-          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
-          outputs: ${{ startsWith(github.ref, 'refs/tags/v') && format('type=image,name={0},push-by-digest=true,name-canonical=true', env.IMAGE_NAME) || '' }}
+          push: false
           # Use Actions cache backend for extremely fast subsequent builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # Export the unique digest for manifest stitching on releases
-      - name: Export Digest
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
-
-      # Upload the digest file as an artifact
-      - name: Upload Digest Artifact
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v7
-        with:
-          name: digests-${{ matrix.platform-suffix }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-
-  merge:
-    name: Merge Manifests & Publish Runner Image
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      packages: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v7
-
-      # Set up Docker Buildx to enable imagetools execution
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      # Download all exported digests from parallel build matrix jobs
-      - name: Download Digest Artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: digests-*
-          path: /tmp/digests
-          merge-multiple: true
-
-      # Log in to GitHub Container Registry to authorize the release manifest push
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Merge all digests into a unified multi-architecture manifest and tag it
-      - name: Stitch Manifests & Push to GHCR
-        run: |
-          cd /tmp/digests
-          docker buildx imagetools create \
-            -t "${IMAGE_NAME}:${{ github.ref_name }}" \
-            -t "${IMAGE_NAME}:latest" \
-            $(printf "${IMAGE_NAME}@sha256:%s " *)

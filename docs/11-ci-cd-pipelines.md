@@ -17,7 +17,9 @@ The repository is organized as a unified monorepo hosting multiple interdependen
 ### Problem Statement
 Un-gated CI workflows execute all tests, linters, and multi-architecture Docker container builds (including native ARM64 runners on `ubuntu-24.04-arm`) regardless of what changed in a pull request. A documentation typo fix or isolated frontend tweak would unnecessarily spin up Go data-race tests and 3-minute multi-arch Docker image builds, consuming runner queues and delaying PR merges.
 
-A cost-optimization pass (September 2026) tightened the gates further: the supervisor image build uses a **narrow path filter on pull requests** and the broad filter only on `main` pushes and tags; the Go data-race detector runs on the **amd64 leg only**; `web/dist` is built **once** per run (`web-assets` job) and shared to both matrix legs as an artifact; pull-request gate jobs use a **shallow checkout** (push events keep full history); and every job declares an explicit `timeout-minutes` budget so a hung job can never burn the 6-hour default.
+A cost-optimization pass (September 2026) tightened the gates further: the supervisor image build uses a **narrow path filter on pull requests** and the broad filter only on `main` pushes; the Go data-race detector runs on the **amd64 leg only**; `web/dist` is built **once** per run (`web-assets` job) and shared to both matrix legs as an artifact; pull-request gate jobs use a **shallow checkout** (push events keep full history); and every job declares an explicit `timeout-minutes` budget so a hung job can never burn the 6-hour default.
+
+A consolidation pass (October 2026) made the release pipeline **self-contained**: `v*` tags trigger only `release.yml`, which builds and publishes both multi-arch images and cuts the GitHub Release in a single run (no cross-workflow waiting). `build.yml` and `supervisor-build.yml` are image-recipe **validation only** (pull requests, `main` pushes, dispatch — build without pushing) and never trigger on tags.
 
 Conversely, GitHub Actions' native top-level `on.pull_request.paths` has critical architectural flaws:
 1. **Missing Status Checks**: If a workflow is skipped via top-level `paths:`, GitHub completely omits reporting status checks for that workflow. If branch protection rulesets expect those checks, pull requests become permanently blocked waiting for checks that will never report.
@@ -66,9 +68,9 @@ graph TD
 
     subgraph "Container Build Pipelines"
         WF4 --> B1[Job: changes<br/>dorny/paths-filter@v4]
-        B1 -->|image == true| B2[Native Multi-Arch Build & Push]
+        B1 -->|image == true| B2[Native Multi-Arch Build, no push]
         WF5 --> S1[Job: changes<br/>dorny/paths-filter@v4]
-        S1 -->|image == true| S2[Native Multi-Arch Build & Push]
+        S1 -->|image == true| S2[Native Multi-Arch Build, no push]
     end
 ```
 
@@ -80,8 +82,6 @@ Every workflow implements a `changes` job on `ubuntu-latest`:
 jobs:
   changes:
     name: Detect Relevant Changes
-    # Release tags skip detection and build unconditionally
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -115,12 +115,13 @@ Downstream execution jobs specify `needs: changes` and evaluate:
   build-test:
     name: Build & Test
     needs: changes
-    # Runs if explicitly triggered via tag/dispatch OR if changes were detected in PR/push
-    if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || needs.changes.outputs.should_run == 'true') }}
+    # Runs on manual dispatch or when changes were detected in a PR/push
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.should_run == 'true' }}
 ```
 
 > [!NOTE]
-> The `always()` expression inside the `if` condition ensures the job is evaluated by GitHub Actions even when the gate job is skipped on release tags (`refs/tags/v*`).
+> Release tags (`refs/tags/v*`) never trigger these workflows at all: the release
+> pipeline is the self-contained `release.yml`, described in §4.
 
 ---
 
@@ -133,8 +134,8 @@ The table below defines the exact path filters evaluated across all workflows:
 | **Go CI** (`go.yml`) | `go` | `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Makefile`<br/>`.golangci.yml`<br/>`.github/workflows/go.yml` | Any modification to backend Go code, database queries/migrations, Protobuf schemas, Go module dependencies, build automation, the golangci-lint configuration, or the workflow itself. |
 | **Web CI** (`web.yml`) | `web` | `web/**`<br/>`proto/**`<br/>`.github/workflows/web.yml` | Any modification to the React SPA, frontend dependencies (`pnpm-lock.yaml`), shared Protobuf schemas, or the frontend workflow. |
 | **Lint CI** (`lint.yml`) | `scripts`<br/>`docker` | `src/**`<br/>`tests/**`<br/>`Dockerfile`<br/>`Dockerfile.supervisor`<br/>`.dockerignore`<br/>`.github/workflows/lint.yml` | `scripts`: Triggers `shellcheck` and script unit tests on runner bash scripts.<br/>`docker`: Triggers `hadolint` on container files. |
-| **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition, runner scripts, or release workflow. `tests/**` is excluded: script-test changes are validated by `Lint CI` and never enter the image. |
-| **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image`<br/>(event-dependent) | **Pull requests** (`image-pr`): `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`.github/workflows/supervisor-build.yml`<br/>**`main` pushes & dispatch** (`image-push`): PR set plus `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum` | PRs only need to prove the image recipe still builds — Go/web correctness is already covered by Go CI and Web CI. Pushes to `main` and releases validate the full build context (the embedded binary and web UI). |
+| **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition or runner scripts. `tests/**` is excluded: script-test changes are validated by `Lint CI` and never enter the image. |
+| **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image`<br/>(event-dependent) | **Pull requests** (`image-pr`): `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`.github/workflows/supervisor-build.yml`<br/>**`main` pushes & dispatch** (`image-push`): PR set plus `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum` | PRs only need to prove the image recipe still builds — Go/web correctness is already covered by Go CI and Web CI. Pushes to `main` validate the full build context (the embedded binary and web UI). Releases do not run this workflow: `release.yml` owns image publishing. |
 | **E2E Suite** (`e2e.yml`) | `e2e` | `tests/e2e/**`<br/>`web/**`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Dockerfile.supervisor`<br/>`Makefile`<br/>`.github/workflows/e2e.yml` | Anything that can change the behavior of the supervisor, the embedded web UI, the Playwright specs, or the compose stack the suite boots (docs/13). Runs on official GitHub-hosted runners (the project no longer dogsfoods its own runner pool for CI — RUN-291) and additionally on a nightly schedule that bypasses path filtering entirely — the rot guardian that would have caught the suite's earlier drift. |
 
 ### Handling Cross-Cutting Changes
@@ -152,7 +153,7 @@ The table below defines the exact path filters evaluated across all workflows:
 | :--- | :--- | :--- | :--- |
 | **Pull Request (`pull_request`)** | Evaluates diff against PR target (`main`). | Runs `dorny/paths-filter@v4` against the base SHA via the GitHub REST API (shallow checkout suffices). | Run **only** if matching paths were changed in the PR branch; the supervisor image build applies its narrow `image-pr` filter (see §3). |
 | **Push to `main` (`push`)** | Evaluates diff against previous commit (`github.event.before`); full-history checkout. | Runs `dorny/paths-filter@v4` against the prior SHA. | Run **only** for changed subsystems, avoiding duplicate builds on merge commits; the supervisor image build applies its broad `image-push` filter. |
-| **Git Tag Release (`refs/tags/v*`)** | Container release deployment. | Gatekeeper skipped (`if: ${{ !startsWith(...) }}`). | Run **unconditionally** to compile and publish immutable multi-arch images. |
+| **Git Tag Release (`refs/tags/v*`)** | Container release deployment. | No gatekeeper — only `release.yml` triggers on tags; the CI and image-validation workflows never do. | `release.yml` runs **unconditionally** and self-contained: builds and publishes both multi-arch images to GHCR, verifies the published manifests and the supervisor version stamp, and cuts the GitHub Release. Re-releases re-run it via `workflow_dispatch` with the `tag` input. |
 | **Manual Dispatch (`workflow_dispatch`)** | Operator manual verification. | Gatekeeper runs or passes through. | Run **unconditionally** upon manual trigger. |
 | **Nightly Schedule (`schedule`, `e2e.yml` only)** | Rot guardian for the Playwright suite (RUN-131). | Gatekeeper bypassed via the job-level `if`. | Run **unconditionally** — the nightly exercises the full suite even when path filtering would skip it, catching drift path filters cannot see (e.g. the pinned Playwright browser breaking against an updated base image). |
 
@@ -165,7 +166,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
 1. **Least Privilege Permissions**:
    - `changes` gate jobs require only `contents: read` and `pull-requests: read`.
    - `build-test`, `web-ci`, and `lint` jobs require only `contents: read`.
-   - `packages: write` is strictly restricted to container build workflows (`build.yml`, `supervisor-build.yml`) and is only utilized when pushing images to `ghcr.io`.
+   - `packages: write` is strictly restricted to the image jobs of `release.yml` and is only utilized when pushing images to `ghcr.io`; `build.yml` and `supervisor-build.yml` run read-only (`contents: read`).
 2. **Pinning Action Versions**:
    - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`, `golangci/golangci-lint-action@v9`). The golangci-lint **binary** version itself is pinned exactly (`v2.12.2`) to match the Nix dev shell so CI and local `make lint` can never disagree; keep the two in sync on upgrades.
 3. **Concurrency Control**:
