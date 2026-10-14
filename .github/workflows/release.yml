@@ -48,6 +48,11 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       sha: ${{ steps.resolve.outputs.sha }}
     steps:
+      # A shallow checkout is enough: the resolve step only queries the
+      # remote via `git ls-remote origin`, which requires a local repository
+      # (the `origin` alias) to exist.
+      - name: Checkout Code
+        uses: actions/checkout@v7
       - name: Resolve Tag and Commit
         id: resolve
         env:
