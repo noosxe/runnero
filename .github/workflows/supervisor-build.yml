@@ -1,11 +1,14 @@
 name: CI/CD Supervisor Multi-Arch Build
 
+# Supervisor-image recipe validation only (pull requests, main pushes, manual
+# dispatch): natively compiles the supervisor image for amd64 and arm64
+# WITHOUT pushing. Releases publish this image from the self-contained
+# release.yml — this workflow never runs on tags.
+
 on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   pull_request:
     branches:
       - main
@@ -18,17 +21,11 @@ concurrency:
 # Define limited execution permissions for GITHUB_TOKEN
 permissions:
   contents: read
-  packages: write
-
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/runnero-supervisor
-
 jobs:
   # Cheap gate job: detects whether supervisor-relevant inputs changed.
   # Native multi-arch matrix (amd64 + arm64) only runs when relevant files change.
   changes:
     name: Detect Supervisor Changes
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -91,7 +88,8 @@ jobs:
   build:
     name: Build Native Supervisor Image
     needs: changes
-    if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || needs.changes.outputs.image == 'true') }}
+    # Runs on manual dispatch or when supervisor inputs changed in a PR/push.
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.image == 'true' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -111,78 +109,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to GitHub Container Registry
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Docker Image
-        id: build
+      - name: Build Docker Image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile.supervisor
           platforms: ${{ matrix.platform }}
-          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
-          outputs: ${{ startsWith(github.ref, 'refs/tags/v') && format('type=image,name={0},push-by-digest=true,name-canonical=true', env.IMAGE_NAME) || '' }}
+          push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || github.sha }}
+            VERSION=${{ github.sha }}
 
-      - name: Export Digest
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
-
-      - name: Upload Digest Artifact
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v7
-        with:
-          name: supervisor-digests-${{ matrix.platform-suffix }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-
-  merge:
-    name: Merge Manifests & Publish Supervisor Image
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      packages: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Download Digest Artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: supervisor-digests-*
-          path: /tmp/digests
-          merge-multiple: true
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Stitch Manifests & Push to GHCR
-        run: |
-          cd /tmp/digests
-          docker buildx imagetools create \
-            -t "${IMAGE_NAME}:${{ github.ref_name }}" \
-            -t "${IMAGE_NAME}:latest" \
-            $(printf "${IMAGE_NAME}@sha256:%s " *)
 

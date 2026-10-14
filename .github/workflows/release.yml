@@ -1,15 +1,21 @@
 name: Release
 
-# Single source of truth for publishing a release (RUN-288).
+# Self-contained release pipeline — the ONLY workflow triggered by v* tags.
 #
-# The two multi-arch image workflows (build.yml, supervisor-build.yml)
-# build and push container images on v* tags; this workflow is the only
-# place that creates the GitHub Release. It waits for both image
-# workflows to conclude on the tagged commit, verifies the published
-# manifests, smoke-checks the supervisor binary, and only then cuts the
-# release — so a release can never point at unpublished or broken images,
-# and the historical create-release race between the two merge jobs is
-# gone by construction.
+# One run does everything, with no cross-workflow coordination: it builds both
+# container images natively for amd64 and arm64, stitches and publishes their
+# multi-arch manifests to GHCR, verifies what landed, and cuts the GitHub
+# Release. Nothing is reused from or delegated to other workflows, so a
+# release can never be blocked or broken by an unrelated workflow's behavior.
+#
+# Job graph:
+#
+#   resolve ──▶ runner-image (amd64 + arm64 matrix) ──▶ runner-merge ──┐
+#           └─▶ supervisor-image (amd64 + arm64 matrix) ──▶ supervisor-merge ──┴─▶ publish
+#
+# Re-releasing an existing tag (e.g. after a fix to this workflow) is a manual
+# dispatch with the `tag` input; the image jobs then check out the tagged
+# commit explicitly and the exists-guard keeps release creation idempotent.
 
 on:
   push:
@@ -27,22 +33,21 @@ concurrency:
   # Never cancel a release run in favor of a duplicate trigger.
   cancel-in-progress: false
 
-permissions:
-  # Create the GitHub Release.
-  contents: write
-  # Inspect the published GHCR manifests of this repository's packages.
-  packages: read
+env:
+  RUNNER_IMAGE: ghcr.io/${{ github.repository_owner }}/runnero
+  SUPERVISOR_IMAGE: ghcr.io/${{ github.repository_owner }}/runnero-supervisor
 
 jobs:
-  release:
-    name: Verify Images & Publish Release
+  resolve:
+    name: Resolve Tag
     runs-on: ubuntu-latest
-    timeout-minutes: 75
-
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.resolve.outputs.sha }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v7
-
       - name: Resolve Tag and Commit
         id: resolve
         env:
@@ -59,7 +64,8 @@ jobs:
             tag="$REF_NAME"
           fi
           # Annotated tags list both the tag object and the peeled commit;
-          # prefer the peeled commit so head_sha matching works either way.
+          # prefer the peeled commit so the build jobs check out exactly the
+          # tagged tree either way.
           sha="$(git ls-remote origin "refs/tags/${tag}^{}" | cut -f1 | head -n1)"
           if [ -z "$sha" ]; then
             sha="$(git ls-remote origin "refs/tags/${tag}" | cut -f1 | head -n1)"
@@ -71,73 +77,232 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      # Both image workflows trigger on the same tag push. Wait until the
-      # latest run of each on this exact commit has completed successfully
-      # before anything is verified or published. Fail fast (with the run
-      # URL) if either concludes unsuccessfully; bounded by a 60-minute
-      # deadline so a hung run cannot pin the release forever.
-      - name: Wait for Image Workflows
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_SHA: ${{ steps.resolve.outputs.sha }}
-          # Keep in sync with the top-level `name:` fields of the two
-          # image workflows.
-          WORKFLOWS: 'CI/CD Runner Multi-Arch Build|CI/CD Supervisor Multi-Arch Build'
-        run: |
-          deadline=$(( $(date +%s) + 60 * 60 ))
-          i=0
-          while :; do
-            i=$((i + 1))
-            pending=""
-            failed=""
-            IFS='|' read -r -a names <<< "$WORKFLOWS"
-            for name in "${names[@]}"; do
-              latest="$(gh api \
-                "repos/${{ github.repository }}/actions/runs?head_sha=${TAG_SHA}&per_page=100" \
-                | jq -r --arg n "$name" \
-                  '[.workflow_runs[] | select(.name == $n)] | sort_by(.run_number) | last // empty')"
-              if [ -z "$latest" ]; then
-                pending="$pending [$name: not started]"
-                continue
-              fi
-              status="$(echo "$latest" | jq -r .status)"
-              conclusion="$(echo "$latest" | jq -r .conclusion)"
-              run_url="$(echo "$latest" | jq -r .html_url)"
-              if [ "$status" != "completed" ]; then
-                pending="$pending [$name: $status]"
-              elif [ "$conclusion" != "success" ]; then
-                failed="$failed [$name: $conclusion, see $run_url]"
-              fi
-            done
-            if [ -n "$failed" ]; then
-              echo "error: image workflow failure - not publishing a release:$failed" >&2
-              exit 1
-            fi
-            if [ -z "$pending" ]; then
-              echo "both image workflows succeeded for $TAG_SHA"
-              break
-            fi
-            if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "error: timed out waiting for image workflows:$pending" >&2
-              exit 1
-            fi
-            echo "waiting (attempt $i):$pending"
-            sleep 30
-          done
+  # ---------------------------------------------------------------------------
+  # Runner image (Dockerfile): native amd64 + arm64 builds pushed by digest.
+  # ---------------------------------------------------------------------------
+  runner-image:
+    name: Build Runner Image (${{ matrix.platform-suffix }})
+    needs: resolve
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            platform-suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            platform-suffix: arm64
 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          # Always build the tagged commit, even on a manual dispatch from a
+          # branch checkout.
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          outputs: type=image,name=${{ env.RUNNER_IMAGE }},push-by-digest=true,name-canonical=true
+          # Use Actions cache backend for extremely fast subsequent builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Export Digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload Digest Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: runner-digests-${{ matrix.platform-suffix }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+
+  runner-merge:
+    name: Merge Runner Image Manifests
+    needs: [resolve, runner-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+
+    steps:
+      - name: Download Digest Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: runner-digests-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stitch Manifests & Push to GHCR
+        run: |
+          cd /tmp/digests
+          refs=()
+          for digest in *; do
+            refs+=("${RUNNER_IMAGE}@sha256:${digest}")
+          done
+          docker buildx imagetools create \
+            -t "${RUNNER_IMAGE}:${{ needs.resolve.outputs.tag }}" \
+            -t "${RUNNER_IMAGE}:latest" \
+            "${refs[@]}"
+
+  # ---------------------------------------------------------------------------
+  # Supervisor image (Dockerfile.supervisor): VERSION is stamped with the
+  # release tag so `supervisor version` reports it (verified by `publish`).
+  # ---------------------------------------------------------------------------
+  supervisor-image:
+    name: Build Supervisor Image (${{ matrix.platform-suffix }})
+    needs: resolve
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            platform-suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            platform-suffix: arm64
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.supervisor
+          platforms: ${{ matrix.platform }}
+          push: true
+          outputs: type=image,name=${{ env.SUPERVISOR_IMAGE }},push-by-digest=true,name-canonical=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.resolve.outputs.tag }}
+
+      - name: Export Digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload Digest Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: supervisor-digests-${{ matrix.platform-suffix }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+
+  supervisor-merge:
+    name: Merge Supervisor Image Manifests
+    needs: [resolve, supervisor-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+
+    steps:
+      - name: Download Digest Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: supervisor-digests-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stitch Manifests & Push to GHCR
+        run: |
+          cd /tmp/digests
+          refs=()
+          for digest in *; do
+            refs+=("${SUPERVISOR_IMAGE}@sha256:${digest}")
+          done
+          docker buildx imagetools create \
+            -t "${SUPERVISOR_IMAGE}:${{ needs.resolve.outputs.tag }}" \
+            -t "${SUPERVISOR_IMAGE}:latest" \
+            "${refs[@]}"
+
+  # ---------------------------------------------------------------------------
+  # Publish: verify what actually landed in GHCR, then cut the release. The
+  # `needs` chain replaces the old cross-workflow polling loop — by the time
+  # this job runs, all four manifests are guaranteed to exist.
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Verify Images & Publish Release
+    needs: [resolve, runner-merge, supervisor-merge]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: read
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+
+    steps:
       # Both merge jobs publish <tag> and latest for their image; confirm
       # all four manifests actually resolve before cutting the release.
       - name: Verify Published Manifests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           export DOCKER_CLI_EXPERIMENTAL=enabled
-          for image in \
-            "ghcr.io/${{ github.repository_owner }}/runnero" \
-            "ghcr.io/${{ github.repository_owner }}/runnero-supervisor"
-          do
+          for image in "$RUNNER_IMAGE" "$SUPERVISOR_IMAGE"; do
             for ref in "$TAG" latest; do
               echo "inspecting ${image}:${ref}"
               docker manifest inspect "${image}:${ref}" >/dev/null
@@ -149,11 +314,10 @@ jobs:
       - name: Smoke Check Supervisor Version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           output="$(docker run --rm --entrypoint /usr/local/bin/supervisor \
-            "ghcr.io/${{ github.repository_owner }}/runnero-supervisor:${TAG}" version)"
+            "${SUPERVISOR_IMAGE}:${TAG}" version)"
           echo "$output"
           case "$output" in
             *"runnero-supervisor version $TAG") ;;
@@ -165,7 +329,6 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             echo "release $TAG already exists, skipping create (re-run)"
