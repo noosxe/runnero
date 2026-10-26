@@ -135,11 +135,15 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           # Exact pin: must match the golangci-lint version in the Nix dev
-          # shell (currently 2.13.2). Keep the two in sync on upgrades.
-          # 2.13.x upstream binaries are built with go1.27, which the lint
-          # gate needs now that go.mod may target go >= 1.27 (an older
-          # go1.26-built binary refuses newer targets outright).
-          version: v2.13.2
+          # shell (currently 2.15.0). Keep the two in sync on upgrades.
+          # goinstall builds the linter from source with the Go toolchain
+          # set up above (go.mod's version), like nixpkgs does locally.
+          # Upstream release binaries are built with go1.27.0, which cannot
+          # read go1.27.3+ export data ("export data version 5 is greater
+          # than maximum supported version 4"), so a go.mod patch bump
+          # would otherwise break the lint gate.
+          version: v2.15.0
+          install-mode: goinstall
   build-test:
     name: Build & Test (${{ matrix.arch }})
     needs: [changes, web-assets]
