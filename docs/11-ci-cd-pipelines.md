@@ -49,7 +49,7 @@ graph TD
         WF1 --> G1[Job: changes<br/>dorny/paths-filter@v4<br/>ubuntu-latest ~4s]
         G1 -->|go == true| G4[Job: web-assets<br/>build web/dist once, share artifact]
         G4 --> G2[Job: Build & Test<br/>amd64 + arm64 matrix<br/>race detector on amd64 only]
-        G4 --> G5[Job: Go Lint<br/>golangci-lint v2.12.2<br/>default linters + gofmt formatter]
+        G4 --> G5[Job: Go Lint<br/>golangci-lint v2.15.0 (goinstall)<br/>default linters + gofmt formatter]
         G1 -->|go == false| G3[Skipped ~0s]
     end
 
@@ -168,7 +168,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - `build-test`, `web-ci`, and `lint` jobs require only `contents: read`.
    - `packages: write` is strictly restricted to the image jobs of `release.yml` and is only utilized when pushing images to `ghcr.io`; `build.yml` and `supervisor-build.yml` run read-only (`contents: read`).
 2. **Pinning Action Versions**:
-   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`, `golangci/golangci-lint-action@v9`). The golangci-lint **binary** version itself is pinned exactly (`v2.12.2`) to match the Nix dev shell so CI and local `make lint` can never disagree; keep the two in sync on upgrades.
+   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`, `golangci/golangci-lint-action@v9`). The golangci-lint version itself is pinned exactly (`v2.15.0`) to match the Nix dev shell so CI and local `make lint` can never disagree; keep the two in sync on upgrades. CI installs it with `install-mode: goinstall`, building it from source with the `go.mod` toolchain (as nixpkgs does locally) rather than downloading the upstream release binary: those are built with an older Go patch release and cannot read the export data of newer Go patch releases, so a `go.mod` patch bump would otherwise break the lint gate.
 3. **Concurrency Control**:
    - Every workflow specifies `concurrency: group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true` — with one deliberate exception: **E2E Suite** (`e2e.yml`) uses a repo-wide group `e2e-suite-v2` with `cancel-in-progress: false`. Since RUN-291 each `e2e` job boots its compose stack (fixed container names, project `runnero-e2e`) on its own ephemeral hosted VM, so concurrent suites cannot collide — the group is kept to bound concurrent suite spend, and an in-flight nightly guardian must never be killed by a PR landing mid-run (RUN-131).
    - If a developer pushes a new commit to an active PR, running jobs are automatically cancelled, preventing wasted runner resources.
