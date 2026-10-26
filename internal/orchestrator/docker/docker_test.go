@@ -1244,7 +1244,7 @@ func TestDockerClient_SpawnRunner_PidsLimit(t *testing.T) {
 			t.Fatalf("SpawnRunner failed: %v", err)
 		}
 		if (**hostCfg).PidsLimit != nil {
-			t.Fatalf("expected PidsLimit unset, got %d", (**hostCfg).PidsLimit)
+			t.Fatalf("expected PidsLimit unset, got %d", *(**hostCfg).PidsLimit)
 		}
 	})
 }

@@ -393,7 +393,9 @@ pools:
 		time.Sleep(20 * time.Millisecond)
 	}
 	cancel1()
-	<-done1
+	if err := <-done1; err != nil {
+		t.Fatalf("first boot: daemon returned %v after shutdown", err)
+	}
 
 	// RUN-149: the seeded pool's credentials must have been validated against
 	// the fake GitHub API, not the real api.github.com.
@@ -455,7 +457,9 @@ pools:
 		time.Sleep(20 * time.Millisecond)
 	}
 	cancel2()
-	<-done2
+	if err := <-done2; err != nil {
+		t.Fatalf("second boot: daemon returned %v after shutdown", err)
+	}
 
 	// Verify database was NOT changed (second-boot YAML ignored)
 	database2, err := db.Open(db.Options{Path: dbPath})
