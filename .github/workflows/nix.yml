@@ -1,0 +1,118 @@
+name: Nix CI
+
+# Flake gates (docs/39 §7): builds the supervisor package natively on amd64
+# and arm64 (proving vendorHash, the pnpm deps hash, and the embedded
+# frontend) and runs `nix flake check`, which includes the NixOS module VM
+# test. A PR that changes go.sum or web/pnpm-lock.yaml without updating the
+# hashes in nix/package.nix fails here (AGENTS.md hash procedure). Gated by
+# the same path filter pattern as the other workflows (docs/11); the
+# workflow always includes itself so CI definition changes are validated.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: these jobs only read the repository (AGENTS.md security rules)
+permissions:
+  contents: read
+
+jobs:
+  # Cheap gate job: detects whether the flake or any package input changed.
+  changes:
+    name: Detect Nix Changes
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      nix: ${{ steps.filter.outputs.nix }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          # Push events diff against the previous commit and need full
+          # history; pull_request events resolve changed files via the
+          # GitHub REST API (paths-filter, pull-requests: read) and only
+          # need a shallow checkout.
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
+
+      - name: Filter Changed Paths
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            nix:
+              - 'flake.*'
+              - 'nix/**'
+              - 'VERSION'
+              - 'go.mod'
+              - 'go.sum'
+              - 'cmd/**'
+              - 'internal/**'
+              - 'proto/**'
+              - 'web/**'
+              - '.github/workflows/nix.yml'
+
+  build:
+    name: Build Package (${{ matrix.arch }})
+    needs: changes
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.nix == 'true') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      # Report hash or build failures on both architectures instead of
+      # cancelling the sibling leg; native runners, no QEMU.
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Build runnero-supervisor
+        run: nix build -L .#runnero-supervisor
+
+      - name: Smoke Check Version
+        run: |
+          expected="runnero-supervisor version $(tr -d '[:space:]' < VERSION)"
+          output="$(./result/bin/runnero-supervisor version)"
+          echo "$output"
+          if [ "$output" != "$expected" ]; then
+            echo "error: expected '$expected'" >&2
+            exit 1
+          fi
+
+  # `nix flake check` evaluates every output and runs the NixOS VM test
+  # (checks.x86_64-linux.nixos-module); GitHub's amd64 runners expose KVM.
+  flake-check:
+    name: Flake Check (VM test)
+    needs: changes
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.nix == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: nix flake check
+        run: nix flake check -L
