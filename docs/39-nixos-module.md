@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | Related | docs/02 (architecture) · docs/05 (security & isolation) · docs/10 (reverse proxy) · docs/11 (CI/CD) · docs/26 (embedded Tailscale) · docs/28 (log persistence) · docs/backup-and-recovery |
-| Touches | `flake.nix` (outputs only), new `nix/package.nix`, `nix/module.nix`, `nix/tests/module.nix`, new `.github/workflows/nix.yml`, README, AGENTS.md (gates + hash procedure), docs/02, docs/11, docs/backup-and-recovery |
+| Touches | `flake.nix` (outputs only), new `nix/package.nix`, `nix/module.nix`, `nix/tests/module.nix`, new `VERSION`, `.github/workflows/release.yml` (one guard step), new `.github/workflows/nix.yml`, README, AGENTS.md (gates, hash procedure, release `VERSION` bump), docs/02, docs/11, docs/backup-and-recovery |
 
 ## 1. Problem
 
@@ -124,8 +124,8 @@ Two derivations, mirroring the two build stages of `Dockerfile.supervisor`:
    - `meta.mainProgram = "runnero-supervisor"`, `meta.platforms =
      lib.platforms.linux`.
 
-`version` is derived from the flake source (`self.shortRev` /
-`self.dirtyShortRev`), since the flake cannot see git tags; see §9.1.
+`version` comes from a new root-level `VERSION` file (§3.6), since a flake
+cannot see git tags.
 
 ### 3.3 Module (`nix/module.nix`) — options
 
@@ -241,7 +241,38 @@ and `--pty` keeps `reset-password`'s interactive prompt working. Concurrent
 use with the running daemon follows the existing semantics of each subcommand
 (unchanged; docs/backup-and-recovery).
 
-### 3.6 What stays unchanged
+### 3.6 Version file
+
+A flake build only sees the source tree, not git tags, so a build from
+`github:noosxe/runnero/v1.1.0` would otherwise report a commit hash. A new
+root-level **`VERSION`** file holds the release tag verbatim (e.g.
+`v1.1.0`, one line), and it becomes the single source both sides read:
+
+- **Flake:** `nix/package.nix` reads it with `lib.fileContents ../VERSION`.
+  The content is stamped into `main.version` unchanged, so
+  `runnero-supervisor version` prints exactly what the release image prints
+  (`runnero-supervisor version v1.1.0`). The Nix `version` attribute is the
+  same string without the leading `v`, per nixpkgs convention.
+- **Release workflow:** the `resolve` job in `release.yml` gains one guard:
+  the tag being released must equal the content of `VERSION` at the tagged
+  commit, otherwise the release fails before any image is built. The images
+  keep stamping `VERSION=<tag>` as today, which the guard makes identical to
+  the file. Tags cut before the file existed have no `VERSION`; the guard
+  skips them with a warning so `workflow_dispatch` re-releases of old tags
+  keep working.
+- **Release process:** bumping `VERSION` becomes part of cutting a release —
+  the bump lands on `main` via a PR, then that commit is tagged. AGENTS.md
+  documents the step.
+
+Accepted trade-off: between releases, a flake build from `main` reports the
+last released version, not a pre-release marker. Builds from a release tag
+— the supported way to consume the flake (§4) — report the exact tag. This
+is a trial: if the bump step proves error-prone or the `main` behavior
+confuses, the fallback is reporting `self.shortRev` (no file, no process
+step); switching only touches `nix/package.nix`, `release.yml`, and this
+section.
+
+### 3.7 What stays unchanged
 
 - **Runner networking.** Runners talk to the forge, never back to the
   supervisor; the supervisor-managed bridge network is created through the
@@ -402,6 +433,10 @@ pnpm lockfile without updating the hashes fails it.
 - **Evaluation tests** in the same check: a settings value containing
   `db-encryption-key` and a store-path `environmentFile` both fail evaluation
   with the documented messages.
+- **Release guard:** the new `release.yml` check is exercised with a
+  the first release cut after the implementation lands; a mismatch fails in
+  `resolve` before any image is built, so a wrong bump costs nothing but a
+  re-tag.
 - **CI:** a new `.github/workflows/nix.yml` runs `nix flake check` and both
   package builds, behind the same `dorny/paths-filter` gatekeeper pattern as
   the other workflows (docs/11), triggered by `flake.*`, `nix/**`, `go.mod`,
@@ -415,7 +450,8 @@ pnpm lockfile without updating the hashes fails it.
 
 One implementation issue, one PR (the pieces are not useful separately):
 
-1. `nix/package.nix` + flake outputs; hashes; `nix build` on both arches.
+1. `VERSION` file + `release.yml` guard; `nix/package.nix` + flake outputs;
+   hashes; `nix build` on both arches.
 2. `nix/module.nix`: options, assertions, user, unit, hardening,
    `runnero-admin`.
 3. `nix/tests/module.nix` + `checks` output.
@@ -423,20 +459,16 @@ One implementation issue, one PR (the pieces are not useful separately):
 5. Docs: README (Features entry, roadmap entry removed, a "NixOS" install
    section with the §4 example, security-note addition), docs/02 (deployment
    shapes), docs/11 (new workflow), docs/backup-and-recovery (native paths,
-   `runnero-admin backup`, key backup note), AGENTS.md (gates + hash
-   procedure).
+   `runnero-admin backup`, key backup note), AGENTS.md (gates, hash
+   procedure, `VERSION` bump in the release steps).
 
-## 9. Open questions for the product owner
+## 9. Decided follow-ups
 
-1. **Version string.** The flake cannot read git tags, so a build from
-   `github:noosxe/runnero/v1.1.0` would report a commit hash, not `v1.1.0`.
-   Options: (a) accept `<shortRev>`; (b) keep a `version` constant in
-   `nix/package.nix` that the release process bumps; (c) a `VERSION` file at
-   the repo root read by both the flake and the release workflow. The design
-   assumes (a) unless told otherwise.
-2. **Runner image version skew.** A native supervisor is pinned to a flake
-   revision while new pools default to `ghcr.io/noosxe/runnero:latest`. If the
-   supervisor↔runner contract changes, the two can drift. This is a
-   pre-existing property of the Compose deployment too (supervisor tag vs.
-   `:latest`), so the design leaves it alone; confirm whether it should be
-   filed as a separate issue.
+- **Version string:** decided — the `VERSION` file (§3.6), as a trial with a
+  documented fallback.
+- **Runner image version skew:** a native supervisor is pinned to a flake
+  revision while new pools default to `ghcr.io/noosxe/runnero:latest`, so the
+  supervisor and runner image can drift if their contract changes. This is a
+  pre-existing property of the Compose deployment too (supervisor tag vs.
+  `:latest`) and stays out of scope here; it is tracked as a separate Linear
+  issue for later.
