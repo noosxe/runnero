@@ -44,6 +44,7 @@ graph TD
     PR --> WF3[Lint CI: lint.yml]
     PR --> WF4[Runner Build: build.yml]
     PR --> WF5[Supervisor Build: supervisor-build.yml]
+    PR --> WF6[Nix CI: nix.yml]
 
     subgraph "Go CI Pipeline"
         WF1 --> G1[Job: changes<br/>dorny/paths-filter@v4<br/>ubuntu-latest ~4s]
@@ -71,6 +72,13 @@ graph TD
         B1 -->|image == true| B2[Native Multi-Arch Build, no push]
         WF5 --> S1[Job: changes<br/>dorny/paths-filter@v4]
         S1 -->|image == true| S2[Native Multi-Arch Build, no push]
+    end
+
+    subgraph "Nix CI Pipeline"
+        WF6 --> N1[Job: changes<br/>dorny/paths-filter@v4]
+        N1 -->|nix == true| N2[Job: Build Package<br/>amd64 + arm64 matrix]
+        N1 -->|nix == true| N3[Job: Flake Check<br/>NixOS VM test]
+        N1 -->|nix == false| N4[Skipped ~0s]
     end
 ```
 
@@ -137,13 +145,15 @@ The table below defines the exact path filters evaluated across all workflows:
 | **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition or runner scripts. `tests/**` is excluded: script-test changes are validated by `Lint CI` and never enter the image. |
 | **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image`<br/>(event-dependent) | **Pull requests** (`image-pr`): `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`.github/workflows/supervisor-build.yml`<br/>**`main` pushes & dispatch** (`image-push`): PR set plus `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum` | PRs only need to prove the image recipe still builds — Go/web correctness is already covered by Go CI and Web CI. Pushes to `main` validate the full build context (the embedded binary and web UI). Releases do not run this workflow: `release.yml` owns image publishing. |
 | **E2E Suite** (`e2e.yml`) | `e2e` | `tests/e2e/**`<br/>`web/**`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Dockerfile.supervisor`<br/>`Makefile`<br/>`.github/workflows/e2e.yml` | Anything that can change the behavior of the supervisor, the embedded web UI, the Playwright specs, or the compose stack the suite boots (docs/13). Runs on official GitHub-hosted runners (the project no longer dogsfoods its own runner pool for CI — RUN-291) and additionally on a nightly schedule that bypasses path filtering entirely — the rot guardian that would have caught the suite's earlier drift. |
+| **Nix CI** (`nix.yml`) | `nix` | `flake.*`<br/>`nix/**`<br/>`VERSION`<br/>`go.mod`<br/>`go.sum`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`.github/workflows/nix.yml` | Everything the flake package and NixOS module are built from (docs/39 §7). Builds `.#runnero-supervisor` natively on amd64 (`ubuntu-latest`) and arm64 (`ubuntu-24.04-arm`) with a version smoke check, and runs `nix flake check` (NixOS VM test, KVM on hosted amd64 runners). A `go.sum` or `web/pnpm-lock.yaml` change without the matching `vendorHash` / pnpm `hash` update in `nix/package.nix` fails here — including Dependabot bumps, whose hashes are fixed by hand (AGENTS.md). |
 
 ### Handling Cross-Cutting Changes
 - **Protobuf Schemas (`proto/**`)**: Modifying `proto/api.proto` triggers **both** `Go CI` and `Web CI` because code is generated into both `internal/pb/` and `web/src/lib/api/pb/`.
 - **Embedded Web Assets**: Modifying `web/**` triggers `Web CI` (lint/test/build). The `Supervisor Multi-Arch Build` picks it up on pushes to `main` (since `web/dist` is embedded into the supervisor binary) but **not** on pull requests, where frontend correctness is already validated by `Web CI`. It does **not** trigger `Go CI` unless Go sources or module files are also touched; inside `Go CI` itself, `web/dist` is built once by the `web-assets` job and shared with both matrix legs and the `lint` job.
 - **Runner Image vs. Script Tests**: `tests/**` changes no longer trigger the runner image build — they are validated by `Lint CI` (ShellCheck + script unit tests) and never enter the image context.
 - **Supervisor/UI changes vs. E2E Suite (`e2e.yml`)**: `cmd/**`, `internal/**`, `proto/**`, `web/**` all feed the supervisor-under-test that the E2E compose stack boots, so they trigger the suite alongside Go CI / Web CI. `tests/e2e/**` and `Dockerfile.supervisor` are also monitored directly. The suite runs on GitHub-hosted runners with a repo-wide serialization group (`e2e-suite-v2`) keeping at most one suite (and its cold image build) running at a time — see §5 Concurrency Control.
-- **Documentation Only (`docs/**`, `README.md`, `AGENTS.md`)**: All 6 workflows trigger their ~4-second `changes` gate job and immediately finish. All heavy matrix, container, and E2E suite runs are cleanly skipped.
+- **Supervisor sources vs. Nix CI (`nix.yml`)**: `cmd/**`, `internal/**`, `proto/**`, `web/**`, and the Go module files are the inputs of the flake package, so they trigger the Nix builds and the VM test alongside Go CI / Web CI; `flake.*`, `nix/**`, and `VERSION` trigger only Nix CI.
+- **Documentation Only (`docs/**`, `README.md`, `AGENTS.md`)**: All 7 workflows trigger their ~4-second `changes` gate job and immediately finish. All heavy matrix, container, and E2E suite runs are cleanly skipped.
 
 ---
 
@@ -153,7 +163,7 @@ The table below defines the exact path filters evaluated across all workflows:
 | :--- | :--- | :--- | :--- |
 | **Pull Request (`pull_request`)** | Evaluates diff against PR target (`main`). | Runs `dorny/paths-filter@v4` against the base SHA via the GitHub REST API (shallow checkout suffices). | Run **only** if matching paths were changed in the PR branch; the supervisor image build applies its narrow `image-pr` filter (see §3). |
 | **Push to `main` (`push`)** | Evaluates diff against previous commit (`github.event.before`); full-history checkout. | Runs `dorny/paths-filter@v4` against the prior SHA. | Run **only** for changed subsystems, avoiding duplicate builds on merge commits; the supervisor image build applies its broad `image-push` filter. |
-| **Git Tag Release (`refs/tags/v*`)** | Container release deployment. | No gatekeeper — only `release.yml` triggers on tags; the CI and image-validation workflows never do. | `release.yml` runs **unconditionally** and self-contained: builds and publishes both multi-arch images to GHCR, verifies the published manifests and the supervisor version stamp, and cuts the GitHub Release. Re-releases re-run it via `workflow_dispatch` with the `tag` input. |
+| **Git Tag Release (`refs/tags/v*`)** | Container release deployment. | No gatekeeper — only `release.yml` triggers on tags; the CI and image-validation workflows never do. | `release.yml` runs **unconditionally** and self-contained: its `resolve` job first refuses a tag that differs from the root `VERSION` file at the tagged commit (tags without the file are skipped with a warning; docs/39 §3.6), then it builds and publishes both multi-arch images to GHCR, verifies the published manifests and the supervisor version stamp, and cuts the GitHub Release. Re-releases re-run it via `workflow_dispatch` with the `tag` input. |
 | **Manual Dispatch (`workflow_dispatch`)** | Operator manual verification. | Gatekeeper runs or passes through. | Run **unconditionally** upon manual trigger. |
 | **Nightly Schedule (`schedule`, `e2e.yml` only)** | Rot guardian for the Playwright suite (RUN-131). | Gatekeeper bypassed via the job-level `if`. | Run **unconditionally** — the nightly exercises the full suite even when path filtering would skip it, catching drift path filters cannot see (e.g. the pinned Playwright browser breaking against an updated base image). |
 
@@ -168,7 +178,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - `build-test`, `web-ci`, and `lint` jobs require only `contents: read`.
    - `packages: write` is strictly restricted to the image jobs of `release.yml` and is only utilized when pushing images to `ghcr.io`; `build.yml` and `supervisor-build.yml` run read-only (`contents: read`).
 2. **Pinning Action Versions**:
-   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`, `golangci/golangci-lint-action@v9`). The golangci-lint version itself is pinned exactly (`v2.15.0`) to match the Nix dev shell so CI and local `make lint` can never disagree; keep the two in sync on upgrades. CI installs it with `install-mode: goinstall`, building it from source with the `go.mod` toolchain (as nixpkgs does locally) rather than downloading the upstream release binary: those are built with an older Go patch release and cannot read the export data of newer Go patch releases, so a `go.mod` patch bump would otherwise break the lint gate.
+   - All third-party GitHub Actions are pinned to verified major versions (`actions/checkout@v7`, `dorny/paths-filter@v4`, `actions/setup-go@v7`, `actions/setup-node@v7`, `pnpm/action-setup@v6`, `actions/upload-artifact@v7` / `actions/download-artifact@v8`, `hadolint/hadolint-action@v3.5.0`, `golangci/golangci-lint-action@v9`, `cachix/install-nix-action@v31`). The golangci-lint version itself is pinned exactly (`v2.15.0`) to match the Nix dev shell so CI and local `make lint` can never disagree; keep the two in sync on upgrades. CI installs it with `install-mode: goinstall`, building it from source with the `go.mod` toolchain (as nixpkgs does locally) rather than downloading the upstream release binary: those are built with an older Go patch release and cannot read the export data of newer Go patch releases, so a `go.mod` patch bump would otherwise break the lint gate.
 3. **Concurrency Control**:
    - Every workflow specifies `concurrency: group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true` — with one deliberate exception: **E2E Suite** (`e2e.yml`) uses a repo-wide group `e2e-suite-v2` with `cancel-in-progress: false`. Since RUN-291 each `e2e` job boots its compose stack (fixed container names, project `runnero-e2e`) on its own ephemeral hosted VM, so concurrent suites cannot collide — the group is kept to bound concurrent suite spend, and an in-flight nightly guardian must never be killed by a PR landing mid-run (RUN-131).
    - If a developer pushes a new commit to an active PR, running jobs are automatically cancelled, preventing wasted runner resources.
@@ -178,7 +188,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - **E2E fork guard (`e2e.yml`)**: the `e2e` job carries an explicit fork guard — `pull_request` events from forked repositories never run the suite (RUN-131). Since the RUN-291 hosted-runner switch this is a cost/discipline measure only: the job carries no secrets and runs on an ephemeral VM. Same-repository branch PRs and pushes are unaffected.
 
 5. **Runner Time Budgets**:
-   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate jobs and the fast shell/Docker lint jobs, 10 for the Go Lint job — golangci-lint compiles the module — and 10–15 for test jobs, 30 for image builds and the E2E suite, whose compose stack builds four images before running the Playwright specs), so a single hung job can never burn the 6-hour default in runner time.
+   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate jobs and the fast shell/Docker lint jobs, 10 for the Go Lint job — golangci-lint compiles the module — and 10–15 for test jobs, 30 for image builds, the Nix package builds, and the E2E suite, 45 for the Nix flake check that boots the NixOS VM test, whose compose stack builds four images before running the Playwright specs), so a single hung job can never burn the 6-hour default in runner time.
 ---
 
 ## 6. Verification & Operational Guidelines
@@ -191,6 +201,7 @@ When implementing or updating workflow path filters:
    - `go vet ./...` and `go test ./...` on both matrix legs, plus `go test -race ./...` on the **amd64 leg only** (matches `make vet`, `make test`, `make test-race`). The standalone `go build ./...` step was dropped — `vet`/`test` already compile the module — and `web/dist` is built once by the `web-assets` job and shared with both legs and the lint job as an artifact.
    - `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm test`, `pnpm run build` (matches `make lint-web`, `make test-web`).
    - `shellcheck src/*.sh`, `bash tests/unit/entrypoint_test.sh` (matches `make test-scripts`).
+   - `nix build .#runnero-supervisor` and `nix flake check` in `nix.yml` (the same commands AGENTS.md lists as local gates for PRs touching the flake inputs).
 3. **Status Check Monitoring**:
    - Pull requests monitored via `gh pr checks <PR_NUMBER> --watch` report green immediately for skipped workflows without hanging.
 

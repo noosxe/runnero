@@ -60,12 +60,59 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 - **Viewer Role & Multi-User Management:** Real viewer accounts with read-only observability (dashboards, job history, runner logs) and an admin-only user-management surface — create, role changes, admin password reset, deletion — with structural last-admin and no-self-delete guard rails. Role changes apply to live sessions on the next request; the procedure-role matrix, audited denials, and per-user session scoping come from the docs/32 foundation (design in [docs/35-viewer-role.md](docs/35-viewer-role.md)).
 - **User Account Page (RUN-282, docs/37):** A dedicated `/account` surface — the sidebar footer identity row is a real menu item (avatar, username, live role label) opening the account page, with **Security** (change password + passkeys) and **Sessions** (device list, revoke, revoke-all-others) as path-based tab URLs (`/account/security`, `/account/sessions` — no `?tab=` params). Passkey support is discoverable by design: the passkeys card shows for every role when WebAuthn is configured, and for admins as a shadcn `Empty` state naming `SUPERVISOR_WEBAUTHN_RP_ID`/`SUPERVISOR_WEBAUTHN_ORIGINS` when it is not — the old settings Security tab silently hid it on unconfigured stacks. The `/settings` Security tab is gone; viewers land on Instance. (design in [docs/37-user-account-page.md](docs/37-user-account-page.md))
 
+- **NixOS Module (docs/39):** A system-level NixOS module (`services.runnero`, exported as `nixosModules.default` from this flake) that runs the supervisor natively as a hardened systemd service built from source: typed `settings` rendered to the existing config file, secrets via a consumer-provided `environmentFile` (sops-nix, agenix, or by hand — store paths and secrets in `settings` are evaluation errors), `SupplementaryGroups=docker` scoped to the service instead of s6 socket-group setup, journal logging, `openFirewall`, and a `runnero-admin` wrapper for the CLI subcommands. Covered by a NixOS VM test in `nix flake check`; see [❄️ NixOS](#️-nixos) ([docs/39-nixos-module.md](docs/39-nixos-module.md)).
 
 ---
 
-## 🗺️ Roadmap
+## ❄️ NixOS
 
-- **NixOS Module (docs/39):** *[Design Phase]* — a system-level NixOS module (`services.runnero`, exported as `nixosModules.default` from this flake) that runs the supervisor natively as a hardened systemd service built from source: typed `settings` rendered to the existing config file, secrets via a consumer-provided `environmentFile` (sops-nix, agenix, or by hand — never in the Nix store), `SupplementaryGroups=docker` instead of s6 socket-group setup, journal logging, `openFirewall`, and a `runnero-admin` wrapper for the CLI subcommands. Runner images are still pulled from ghcr.io; Docker only; distributed from the flake only ([docs/39-nixos-module.md](docs/39-nixos-module.md)).
+On NixOS the supervisor can run natively as a hardened systemd service instead of a container, through the `services.runnero` module exported by this flake ([docs/39-nixos-module.md](docs/39-nixos-module.md)). The supervisor is built from source pinned by your `flake.lock`; runner images are still pulled from ghcr.io per pool, and Docker is required.
+
+```nix
+# flake.nix of the host configuration
+inputs.runnero.url = "github:noosxe/runnero/v1.1.0"; # pin a release tag
+
+# configuration.nix
+{ inputs, config, ... }: {
+  imports = [ inputs.runnero.nixosModules.default ];
+
+  virtualisation.docker.enable = true;
+
+  services.runnero = {
+    enable = true;
+    openFirewall = true;
+    environmentFile = "/run/secrets/runnero.env";
+    settings = {
+      port = 8090;
+      log-level = "info";
+      backup-retention-count = 14;
+      webauthn-rp-id = "runnero.example.ts.net";
+    };
+  };
+}
+```
+
+`settings` takes the daemon's config-file keys (the same names as the `SUPERVISOR_*` variables, lower-case with dashes) and is rendered into the world-readable Nix store, so **secrets never go there** — the module refuses `db-encryption-key`, the webhook secrets, and `tailscale-auth-key` in `settings`. They go in `environmentFile`, a dotenv file outside the store that systemd loads into the service's environment (store paths are rejected):
+
+```
+SUPERVISOR_DB_ENCRYPTION_KEY=<openssl rand -base64 32>
+SUPERVISOR_WEBHOOK_GITHUB_SECRET=<optional>
+SUPERVISOR_TAILSCALE_AUTHKEY=<optional>
+```
+
+Provisioning that file is up to you; the module never generates or stores a key. With [sops-nix](https://github.com/Mic92/sops-nix) templates:
+
+```nix
+sops.secrets.runnero-db-key = { };
+sops.templates."runnero.env" = {
+  content = ''
+    SUPERVISOR_DB_ENCRYPTION_KEY=${config.sops.placeholder.runnero-db-key}
+  '';
+};
+services.runnero.environmentFile = config.sops.templates."runnero.env".path;
+```
+
+State lives in `/var/lib/runnero` (owned by the `runnero` system user, mode `0750`), logs go to the journal (`journalctl -u runnero`), and the CLI subcommands run through the `runnero-admin` wrapper as root, with the service's identity, config, and secrets: `sudo runnero-admin reset-password`, `sudo runnero-admin backup`, `sudo runnero-admin version`. A `nixos-rebuild switch` that changes the package or settings restarts the service, which — like a container recreate — fails in-flight jobs on that host; set `systemd.services.runnero.restartIfChanged = false` to schedule restarts yourself. Back up the encryption key separately from `/var/lib/runnero` ([docs/backup-and-recovery.md](docs/backup-and-recovery.md)).
 
 ## 🔐 Security Notes
 
@@ -80,5 +127,7 @@ The supervisor mounts the **host Docker daemon socket read-write** (see `docker-
 - **Socket proxy:** front the daemon with a least-privilege Docker API proxy (e.g. [Tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)) that allows only the endpoint families the supervisor needs (container inspect/create/start/remove, image pull, events, and the supervisor-managed bridge network), and point `SUPERVISOR_DOCKER_HOST` at it (`tcp://socket-proxy:2375`).
 - **Host isolation:** keep the supervisor stack on a dedicated engine/host, separate from unrelated workloads, so a socket compromise cannot pivot further.
 - **Rootless runtimes** (rootless Docker, Podman, Sysbox) remain **future work** ([docs/05 §4](docs/05-security-and-isolation.md#4-docker-socket-isolation-dood-safety)) and are not supported today.
+
+**NixOS deployments.** The native service ([❄️ NixOS](#️-nixos)) has no container boundary around it. The `docker` group membership is scoped to the unit via `SupplementaryGroups` — the `runnero` user itself is not in `docker`, so `runnero-admin` and any other process running as `runnero` get no engine access — and the unit's systemd hardening (`ProtectSystem=strict`, syscall and address-family filters, no new privileges, …) limits what a compromised daemon can do to the host directly. By construction it cannot limit what the daemon can do through the socket: the socket-proxy and host-isolation advice above applies unchanged (point `services.runnero.settings.docker-host` at the proxy).
 
 Runner-side socket exposure — what workflow containers can and cannot do — is covered separately in [docs/05 §4](docs/05-security-and-isolation.md#4-docker-socket-isolation-dood-safety).

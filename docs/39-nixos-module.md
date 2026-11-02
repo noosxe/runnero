@@ -231,8 +231,16 @@ runnero-admin <subcommand> [args…]
       --uid=runnero --gid=runnero \
       -p EnvironmentFile=<environmentFile> \
       -p WorkingDirectory=/var/lib/runnero \
-      <package>/bin/runnero-supervisor --config <configFile> <subcommand> [args…]
+      --setenv=SUPERVISOR_CONFIG=<configFile> \
+      <package>/bin/runnero-supervisor <subcommand> [args…]
 ```
+
+The config file reaches the CLI through `SUPERVISOR_CONFIG` rather than the
+root `--config` flag: `import` defines its own local `--config` (the file to
+import), which shadows the root flag, so `--config <configFile> import
+--config <file>` would silently drop the settings file and fall back to the
+`/data` default. The environment variable is the same config layer (docs/02
+§4) and leaves every subcommand's own flags untouched.
 
 It must be run as root (or via sudo), which is the right bar for resetting an
 admin password or decrypting an export. `systemd-run` means the wrapper never
@@ -430,17 +438,33 @@ pnpm lockfile without updating the hashes fails it.
   - the generated key string does not appear in the system closure (no store
     leak).
   The test creates no pools, so it pulls no images and needs no network.
+  A second node runs headscale (the NixOS `services.headscale` module behind
+  nginx with a self-signed certificate) as the tsnet control server; the
+  supervisor's environment file carries a headscale pre-auth key and
+  `TS_CONTROL_URL`, so the embedded node enrolls under the full hardening set;
+  the test asserts it is registered and reaches the `Running` state. The
+  daemon then aborts opening its tailnet HTTPS listener because headscale
+  cannot issue ts.net certificates (a control-server limit, asserted by its
+  error message), so the remaining assertions run in a second phase with the
+  auth key removed from the environment file. The control URL uses headscale's VM
+  IP: tsnet resolves the control host through DNS, not `/etc/hosts`. Because the
+  unprivileged daemon cannot set `SO_MARK`, tsnet binds its control dials to
+  the default-route interface, so the test routes the default via the test
+  network rather than QEMU's user-mode interface; on a real host the default
+  route reaches the control server anyway.
 - **Evaluation tests** in the same check: a settings value containing
   `db-encryption-key` and a store-path `environmentFile` both fail evaluation
   with the documented messages.
-- **Release guard:** the new `release.yml` check is exercised with a
+- **Release guard:** the new `release.yml` check is exercised by
   the first release cut after the implementation lands; a mismatch fails in
   `resolve` before any image is built, so a wrong bump costs nothing but a
   re-tag.
 - **CI:** a new `.github/workflows/nix.yml` runs `nix flake check` and both
   package builds, behind the same `dorny/paths-filter` gatekeeper pattern as
-  the other workflows (docs/11), triggered by `flake.*`, `nix/**`, `go.mod`,
-  `go.sum`, `cmd/**`, `internal/**`, `proto/**`, `web/**`. GitHub's
+  the other workflows (docs/11), triggered by `flake.*`, `nix/**`, `VERSION`,
+  `go.mod`, `go.sum`, `cmd/**`, `internal/**`, `proto/**`, `web/**` (plus
+  the workflow file itself). The package builds also smoke-check that the
+  binary reports `runnero-supervisor version <VERSION>`. GitHub's
   `ubuntu-latest` runners expose KVM, which the VM test needs.
 - **Local gate:** AGENTS.md adds `nix build .#runnero-supervisor` (and
   `nix flake check` when `nix/` changes) to the pre-push gates for PRs that

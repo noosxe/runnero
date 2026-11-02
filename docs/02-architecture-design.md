@@ -68,6 +68,24 @@ graph TD
     SD -.->|7. Maintain Target Pools| DB
 ```
 
+### 1.1 Deployment Shapes
+
+The same daemon (one CGO-free binary with the SPA embedded via `web/embed.go`) ships in two shapes. Runners are always containers on the host Docker engine, pulled from the registry per pool; only the supervisor's packaging differs.
+
+| | Container (default) | NixOS module ([docs/39](39-nixos-module.md)) |
+| :--- | :--- | :--- |
+| Distribution | `ghcr.io/noosxe/runnero-supervisor` image (`Dockerfile.supervisor`), Compose stack | `nixosModules.default` from this flake; built from source (`nix/package.nix`), pinned by the consumer's `flake.lock` |
+| Process supervision | s6-overlay inside the container | systemd unit `runnero.service` (`Restart=on-failure`, hardened sandbox) |
+| Identity | `supervisor` user via `s6-setuidgid` | static system user/group `runnero` |
+| Docker socket access | s6 `init-socket-perms` joins the socket's group at start | `SupplementaryGroups=docker`, scoped to the unit (the user is not in `docker`); omitted for a `tcp://` `docker-host` |
+| Data dir | `/data` (volume) | `/var/lib/runnero` (`StateDirectory`, `0750`, read-only option) |
+| Configuration | `.env` / `SUPERVISOR_*` environment | typed `services.runnero.settings` rendered to YAML and passed as `--config`; secrets via `environmentFile` (never in the store) |
+| Logs | Docker log driver (+ the docs/28 files under the data dir) | journal (+ the docs/28 files under the data dir) |
+| CLI subcommands | `docker exec … supervisor <cmd>` | `sudo runnero-admin <cmd>` (`systemd-run` as `runnero` with the unit's environment file) |
+| Version string | release tag via the `VERSION` build arg | content of the root `VERSION` file (docs/39 §3.6) |
+
+Configuration precedence (flags > environment > config file > defaults) is the same in both shapes, which is why the module's environment file can carry secrets without any code change.
+
 ## 2. Directory & Package Structure (Go Backend)
 
 To support clean architecture and swappable components, the Go-based supervisor daemon is structured as follows:
