@@ -2,9 +2,12 @@ name: Nix CI
 
 # Flake gates (docs/39 §7): builds the supervisor package natively on amd64
 # and arm64 (proving vendorHash, the pnpm deps hash, and the embedded
-# frontend) and runs `nix flake check`, which includes the NixOS module VM
-# test. A PR that changes go.sum or web/pnpm-lock.yaml without updating the
-# hashes in nix/package.nix fails here (AGENTS.md hash procedure). Gated by
+# frontend) and evaluates every flake output with `nix flake check
+# --no-build`, which also runs the module's evaluation assertions. The NixOS
+# VM test (checks.x86_64-linux.nixos-module) is deliberately NOT built here:
+# it is a local pre-push gate (AGENTS.md). A PR that changes go.sum or
+# web/pnpm-lock.yaml without updating the hashes in nix/package.nix fails
+# here (AGENTS.md hash procedure). Gated by
 # the same path filter pattern as the other workflows (docs/11); the
 # workflow always includes itself so CI definition changes are validated.
 on:
@@ -99,14 +102,15 @@ jobs:
             exit 1
           fi
 
-  # `nix flake check` evaluates every output and runs the NixOS VM test
-  # (checks.x86_64-linux.nixos-module); GitHub's amd64 runners expose KVM.
+  # Evaluation only: --no-build evaluates every output, including the module's
+  # evaluation assertions (secret keys in settings, store-path
+  # environmentFile), without building any derivation — so no VM boots.
   flake-check:
-    name: Flake Check (VM test)
+    name: Flake Check (evaluation only)
     needs: changes
     if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.nix == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -114,5 +118,5 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
 
-      - name: nix flake check
-        run: nix flake check -L
+      - name: nix flake check --no-build
+        run: nix flake check --no-build

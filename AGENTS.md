@@ -113,7 +113,15 @@ Work is tracked in Linear via the Linear MCP server, not GitHub issues:
 
   ```bash
   nix build .#runnero-supervisor
-  nix flake check   # includes the NixOS VM test; needs KVM
+  nix flake check --no-build
+  ```
+
+  PRs touching `flake.*`, `nix/**`, or the module's behavior additionally
+  run the NixOS VM test locally before pushing — it is **not** run in CI
+  (needs KVM, a few minutes):
+
+  ```bash
+  nix build -L .#checks.x86_64-linux.nixos-module
   ```
 
   Flakes only see files tracked by git: `git add` new files before

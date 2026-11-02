@@ -77,7 +77,7 @@ graph TD
     subgraph "Nix CI Pipeline"
         WF6 --> N1[Job: changes<br/>dorny/paths-filter@v4]
         N1 -->|nix == true| N2[Job: Build Package<br/>amd64 + arm64 matrix]
-        N1 -->|nix == true| N3[Job: Flake Check<br/>NixOS VM test]
+        N1 -->|nix == true| N3[Job: Flake Check<br/>evaluation only, no VM]
         N1 -->|nix == false| N4[Skipped ~0s]
     end
 ```
@@ -145,14 +145,14 @@ The table below defines the exact path filters evaluated across all workflows:
 | **Runner Multi-Arch** (`build.yml`) | `image` | `Dockerfile`<br/>`.dockerignore`<br/>`src/**`<br/>`.github/workflows/build.yml` | Modifications to the `runnero` container definition or runner scripts. `tests/**` is excluded: script-test changes are validated by `Lint CI` and never enter the image. |
 | **Supervisor Multi-Arch** (`supervisor-build.yml`) | `image`<br/>(event-dependent) | **Pull requests** (`image-pr`): `Dockerfile.supervisor`<br/>`.dockerignore`<br/>`deploy/supervisor/**`<br/>`.github/workflows/supervisor-build.yml`<br/>**`main` pushes & dispatch** (`image-push`): PR set plus `cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`go.mod`<br/>`go.sum` | PRs only need to prove the image recipe still builds — Go/web correctness is already covered by Go CI and Web CI. Pushes to `main` validate the full build context (the embedded binary and web UI). Releases do not run this workflow: `release.yml` owns image publishing. |
 | **E2E Suite** (`e2e.yml`) | `e2e` | `tests/e2e/**`<br/>`web/**`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`go.mod`<br/>`go.sum`<br/>`Dockerfile.supervisor`<br/>`Makefile`<br/>`.github/workflows/e2e.yml` | Anything that can change the behavior of the supervisor, the embedded web UI, the Playwright specs, or the compose stack the suite boots (docs/13). Runs on official GitHub-hosted runners (the project no longer dogsfoods its own runner pool for CI — RUN-291) and additionally on a nightly schedule that bypasses path filtering entirely — the rot guardian that would have caught the suite's earlier drift. |
-| **Nix CI** (`nix.yml`) | `nix` | `flake.*`<br/>`nix/**`<br/>`VERSION`<br/>`go.mod`<br/>`go.sum`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`.github/workflows/nix.yml` | Everything the flake package and NixOS module are built from (docs/39 §7). Builds `.#runnero-supervisor` natively on amd64 (`ubuntu-latest`) and arm64 (`ubuntu-24.04-arm`) with a version smoke check, and runs `nix flake check` (NixOS VM test, KVM on hosted amd64 runners). A `go.sum` or `web/pnpm-lock.yaml` change without the matching `vendorHash` / pnpm `hash` update in `nix/package.nix` fails here — including Dependabot bumps, whose hashes are fixed by hand (AGENTS.md). |
+| **Nix CI** (`nix.yml`) | `nix` | `flake.*`<br/>`nix/**`<br/>`VERSION`<br/>`go.mod`<br/>`go.sum`<br/>`cmd/**`<br/>`internal/**`<br/>`proto/**`<br/>`web/**`<br/>`.github/workflows/nix.yml` | Everything the flake package and NixOS module are built from (docs/39 §7). Builds `.#runnero-supervisor` natively on amd64 (`ubuntu-latest`) and arm64 (`ubuntu-24.04-arm`) with a version smoke check, and runs `nix flake check --no-build` (evaluates every output and the module's evaluation assertions without building anything). The NixOS VM test (`checks.x86_64-linux.nixos-module`) is **not** run in CI by product-owner decision; it is a local pre-push gate (AGENTS.md). A `go.sum` or `web/pnpm-lock.yaml` change without the matching `vendorHash` / pnpm `hash` update in `nix/package.nix` fails here — including Dependabot bumps, whose hashes are fixed by hand (AGENTS.md). |
 
 ### Handling Cross-Cutting Changes
 - **Protobuf Schemas (`proto/**`)**: Modifying `proto/api.proto` triggers **both** `Go CI` and `Web CI` because code is generated into both `internal/pb/` and `web/src/lib/api/pb/`.
 - **Embedded Web Assets**: Modifying `web/**` triggers `Web CI` (lint/test/build). The `Supervisor Multi-Arch Build` picks it up on pushes to `main` (since `web/dist` is embedded into the supervisor binary) but **not** on pull requests, where frontend correctness is already validated by `Web CI`. It does **not** trigger `Go CI` unless Go sources or module files are also touched; inside `Go CI` itself, `web/dist` is built once by the `web-assets` job and shared with both matrix legs and the `lint` job.
 - **Runner Image vs. Script Tests**: `tests/**` changes no longer trigger the runner image build — they are validated by `Lint CI` (ShellCheck + script unit tests) and never enter the image context.
 - **Supervisor/UI changes vs. E2E Suite (`e2e.yml`)**: `cmd/**`, `internal/**`, `proto/**`, `web/**` all feed the supervisor-under-test that the E2E compose stack boots, so they trigger the suite alongside Go CI / Web CI. `tests/e2e/**` and `Dockerfile.supervisor` are also monitored directly. The suite runs on GitHub-hosted runners with a repo-wide serialization group (`e2e-suite-v2`) keeping at most one suite (and its cold image build) running at a time — see §5 Concurrency Control.
-- **Supervisor sources vs. Nix CI (`nix.yml`)**: `cmd/**`, `internal/**`, `proto/**`, `web/**`, and the Go module files are the inputs of the flake package, so they trigger the Nix builds and the VM test alongside Go CI / Web CI; `flake.*`, `nix/**`, and `VERSION` trigger only Nix CI.
+- **Supervisor sources vs. Nix CI (`nix.yml`)**: `cmd/**`, `internal/**`, `proto/**`, `web/**`, and the Go module files are the inputs of the flake package, so they trigger the Nix package builds and flake evaluation alongside Go CI / Web CI; `flake.*`, `nix/**`, and `VERSION` trigger only Nix CI.
 - **Documentation Only (`docs/**`, `README.md`, `AGENTS.md`)**: All 7 workflows trigger their ~4-second `changes` gate job and immediately finish. All heavy matrix, container, and E2E suite runs are cleanly skipped.
 
 ---
@@ -188,7 +188,7 @@ Adhering to the security guardrails established in [docs/05-security-and-isolati
    - **E2E fork guard (`e2e.yml`)**: the `e2e` job carries an explicit fork guard — `pull_request` events from forked repositories never run the suite (RUN-131). Since the RUN-291 hosted-runner switch this is a cost/discipline measure only: the job carries no secrets and runs on an ephemeral VM. Same-repository branch PRs and pushes are unaffected.
 
 5. **Runner Time Budgets**:
-   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate jobs and the fast shell/Docker lint jobs, 10 for the Go Lint job — golangci-lint compiles the module — and 10–15 for test jobs, 30 for image builds, the Nix package builds, and the E2E suite, 45 for the Nix flake check that boots the NixOS VM test, whose compose stack builds four images before running the Playwright specs), so a single hung job can never burn the 6-hour default in runner time.
+   - Every job in every workflow declares an explicit `timeout-minutes` (5 for gate jobs and the fast shell/Docker lint jobs, 10 for the Go Lint job — golangci-lint compiles the module — and 10–15 for test jobs, 30 for image builds, the Nix package builds, and the E2E suite, 10 for the evaluation-only Nix flake check, whose compose stack builds four images before running the Playwright specs), so a single hung job can never burn the 6-hour default in runner time.
 ---
 
 ## 6. Verification & Operational Guidelines
@@ -201,7 +201,7 @@ When implementing or updating workflow path filters:
    - `go vet ./...` and `go test ./...` on both matrix legs, plus `go test -race ./...` on the **amd64 leg only** (matches `make vet`, `make test`, `make test-race`). The standalone `go build ./...` step was dropped — `vet`/`test` already compile the module — and `web/dist` is built once by the `web-assets` job and shared with both legs and the lint job as an artifact.
    - `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm test`, `pnpm run build` (matches `make lint-web`, `make test-web`).
    - `shellcheck src/*.sh`, `bash tests/unit/entrypoint_test.sh` (matches `make test-scripts`).
-   - `nix build .#runnero-supervisor` and `nix flake check` in `nix.yml` (the same commands AGENTS.md lists as local gates for PRs touching the flake inputs).
+   - `nix build .#runnero-supervisor` and `nix flake check --no-build` in `nix.yml` (the same commands AGENTS.md lists as local gates for PRs touching the flake inputs); the NixOS VM test runs locally only.
 3. **Status Check Monitoring**:
    - Pull requests monitored via `gh pr checks <PR_NUMBER> --watch` report green immediately for skipped workflows without hanging.
 
