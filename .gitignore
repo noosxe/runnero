@@ -34,3 +34,7 @@ node_modules/
 # Direnv
 .direnv/
 .envrc.local
+
+# Nix build output links
+/result
+/result-*
