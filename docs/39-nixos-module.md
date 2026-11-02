@@ -470,5 +470,4 @@ One implementation issue, one PR (the pieces are not useful separately):
   revision while new pools default to `ghcr.io/noosxe/runnero:latest`, so the
   supervisor and runner image can drift if their contract changes. This is a
   pre-existing property of the Compose deployment too (supervisor tag vs.
-  `:latest`) and stays out of scope here; it is tracked as a separate Linear
-  issue for later.
+  `:latest`) and stays out of scope here; it is tracked separately as RUN-307.
