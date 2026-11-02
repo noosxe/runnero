@@ -459,16 +459,20 @@ pnpm lockfile without updating the hashes fails it.
   the first release cut after the implementation lands; a mismatch fails in
   `resolve` before any image is built, so a wrong bump costs nothing but a
   re-tag.
-- **CI:** a new `.github/workflows/nix.yml` runs `nix flake check` and both
-  package builds, behind the same `dorny/paths-filter` gatekeeper pattern as
+- **CI:** a new `.github/workflows/nix.yml` runs both package builds and
+  `nix flake check --no-build` (evaluation only: every output plus the
+  evaluation tests above, no VM), behind the same `dorny/paths-filter` gatekeeper pattern as
   the other workflows (docs/11), triggered by `flake.*`, `nix/**`, `VERSION`,
   `go.mod`, `go.sum`, `cmd/**`, `internal/**`, `proto/**`, `web/**` (plus
   the workflow file itself). The package builds also smoke-check that the
-  binary reports `runnero-supervisor version <VERSION>`. GitHub's
-  `ubuntu-latest` runners expose KVM, which the VM test needs.
-- **Local gate:** AGENTS.md adds `nix build .#runnero-supervisor` (and
-  `nix flake check` when `nix/` changes) to the pre-push gates for PRs that
-  touch the trigger paths above.
+  binary reports `runnero-supervisor version <VERSION>`. The VM test is
+  **not** run in CI (product-owner decision during implementation): it is a
+  local pre-push gate.
+- **Local gate:** AGENTS.md adds `nix build .#runnero-supervisor` and
+  `nix flake check --no-build` to the pre-push gates for PRs that touch the
+  trigger paths above, plus the VM test
+  (`nix build .#checks.x86_64-linux.nixos-module`) for PRs that touch the
+  flake or the module.
 
 ## 8. Implementation plan
 
