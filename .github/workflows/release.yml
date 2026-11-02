@@ -81,6 +81,26 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      # The root VERSION file is the version source of the Nix flake build
+      # (docs/39 §3.6): refuse to release a tag that disagrees with it, before
+      # any image is built. Tags cut before the file existed are skipped so
+      # re-releases of old tags keep working.
+      - name: Verify VERSION Matches Tag
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          git fetch --depth=1 origin "$SHA"
+          if ! git cat-file -e "${SHA}:VERSION" 2>/dev/null; then
+            echo "::warning::tag '$TAG' has no VERSION file; skipping the VERSION guard"
+            exit 0
+          fi
+          file_version="$(git show "${SHA}:VERSION" | tr -d '[:space:]')"
+          if [ "$file_version" != "$TAG" ]; then
+            echo "error: VERSION at ${SHA} is '$file_version', but the tag is '$TAG'; bump VERSION on main and re-tag" >&2
+            exit 1
+          fi
+          echo "VERSION matches tag $TAG"
 
   # ---------------------------------------------------------------------------
   # Runner image (Dockerfile): native amd64 + arm64 builds pushed by digest.
