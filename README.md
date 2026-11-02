@@ -63,6 +63,10 @@ A lightweight, secure, and self-contained self-hosted runner and orchestrator st
 
 ---
 
+## 🗺️ Roadmap
+
+- **NixOS Module (docs/39):** *[Design Phase]* — a system-level NixOS module (`services.runnero`, exported as `nixosModules.default` from this flake) that runs the supervisor natively as a hardened systemd service built from source: typed `settings` rendered to the existing config file, secrets via a consumer-provided `environmentFile` (sops-nix, agenix, or by hand — never in the Nix store), `SupplementaryGroups=docker` instead of s6 socket-group setup, journal logging, `openFirewall`, and a `runnero-admin` wrapper for the CLI subcommands. Runner images are still pulled from ghcr.io; Docker only; distributed from the flake only ([docs/39-nixos-module.md](docs/39-nixos-module.md)).
+
 ## 🔐 Security Notes
 
 ### Docker daemon socket (`/var/run/docker.sock`)
