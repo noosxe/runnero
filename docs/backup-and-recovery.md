@@ -13,7 +13,7 @@ The AIO Supervisor persists its critical state (encrypted credentials, runner po
   ```text
   <DATA_DIR>/backups/supervisor-<timestamp>.db
   ```
-  Example: `/data/backups/supervisor-20260903-004500.db`
+  Example: `/data/backups/supervisor-20260903-004500.db` (container) or `/var/lib/runnero/backups/supervisor-20260903-004500.db` (NixOS module, docs/39 — the data dir is fixed to `/var/lib/runnero` there).
 - **Retention**: By default, the supervisor retains the newest **7** snapshots.
   - Older snapshots are automatically pruned after each snapshot creation.
   - Configurable via the `SUPERVISOR_BACKUP_RETENTION_COUNT` environment variable.
@@ -30,12 +30,20 @@ supervisor backup
 
 # Or via docker exec on the host:
 docker exec -it supervisor supervisor backup
+
+# NixOS module (docs/39): runs as the runnero user with the service's
+# config and environment file
+sudo runnero-admin backup
 ```
 
 Output:
 ```text
 Successfully created backup snapshot at /data/backups/supervisor-20260903-120000.db
 ```
+
+### Back up the encryption key separately
+
+Every stored credential (PATs, GitHub App keys, forge tokens) is encrypted with a key derived from `SUPERVISOR_DB_ENCRYPTION_KEY`. Snapshots are useless without it, and losing it means re-entering every credential. Keep a copy of the key **outside** the data dir and its backups — in the secret manager that provisions it (sops-nix/agenix secrets in your configuration repository, a password manager, …) — and never store it next to the database: a key in the same backup as the data it protects defeats the encryption for anyone holding that backup. On NixOS the key lives in the module's `environmentFile` (outside `/var/lib/runnero` by design); in the container it lives in the `.env` file next to `docker-compose.yml`.
 
 ---
 
@@ -47,7 +55,7 @@ If the SQLite database file becomes corrupted (e.g. host kernel crash, ungracefu
 ERROR database corrupted path=/data/supervisor.db err="database file is corrupted: file is not a database (26); refuse to start; restore from a backup in DATA_DIR/backups (OQ #21)"
 ```
 
-Follow this procedure to restore the database from a backup snapshot:
+Follow this procedure to restore the database from a backup snapshot. Paths below use the container data dir `/data`; on the NixOS module substitute `/var/lib/runnero` and run the commands as root.
 
 ### Step 1: Stop the Supervisor
 Stop the supervisor container so no processes access `/data`:
@@ -55,6 +63,8 @@ Stop the supervisor container so no processes access `/data`:
 docker stop supervisor
 # Or with docker compose:
 docker compose stop supervisor
+# Or on the NixOS module:
+systemctl stop runnero
 ```
 
 ### Step 2: Identify the Latest Valid Snapshot
@@ -79,12 +89,16 @@ cp /data/backups/supervisor-20260903-004500.db /data/supervisor.db
 rm -f /data/supervisor.db-wal /data/supervisor.db-shm
 ```
 
+On the NixOS module, keep the restored file owned by the service user: `install -o runnero -g runnero -m 0640 <snapshot> /var/lib/runnero/supervisor.db`.
+
 ### Step 4: Restart the Supervisor
 Start the supervisor container:
 ```bash
 docker start supervisor
 # Or with docker compose:
 docker compose up -d supervisor
+# Or on the NixOS module:
+systemctl start runnero
 ```
 
 ### Step 5: Verify Health

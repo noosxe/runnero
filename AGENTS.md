@@ -107,6 +107,40 @@ Work is tracked in Linear via the Linear MCP server, not GitHub issues:
   nix develop --command bash -c "make test && make test-scripts && make test-web && make lint && make lint-web && make vet && make build && shellcheck src/*.sh && shfmt -d src/*.sh && hadolint Dockerfile Dockerfile.supervisor"
   ```
 
+  PRs touching the flake package inputs (`flake.*`, `nix/**`, `VERSION`,
+  `go.mod`, `go.sum`, `cmd/**`, `internal/**`, `proto/**`, `web/**`) also
+  run the flake gates (the same ones as `nix.yml`, docs/11):
+
+  ```bash
+  nix build .#runnero-supervisor
+  nix flake check   # includes the NixOS VM test; needs KVM
+  ```
+
+  Flakes only see files tracked by git: `git add` new files before
+  building.
+
+## Nix flake — hash maintenance
+
+`nix/package.nix` pins the Go modules (`vendorHash`) and the pnpm store
+(`pnpmDeps.hash`) by hash (docs/39 §6). Any change to `go.sum` or
+`web/pnpm-lock.yaml` — including every Dependabot `gomod` / `npm` bump —
+invalidates one of them, and `nix.yml` fails until it is fixed. Fix it by
+hand on the same PR:
+
+1. Set the stale hash in `nix/package.nix` to `lib.fakeHash`.
+2. Run `nix build .#runnero-supervisor`: the build fails and prints the
+   correct hash (`got: sha256-…`).
+3. Paste it back and rebuild to confirm.
+
+## Cutting a release
+
+The root `VERSION` file holds the release tag verbatim (e.g. `v1.1.0`) and is
+the version the Nix flake build stamps (docs/39 §3.6). `release.yml` refuses
+to release a tag that differs from `VERSION` at the tagged commit, so:
+
+1. Bump `VERSION` to the new tag in a PR and get it merged to `main`.
+2. Tag that merged commit with exactly the same string and push the tag.
+
 ## Debugging & verification
 
 All verification happens inside the Nix dev shell; the `Makefile` is the
