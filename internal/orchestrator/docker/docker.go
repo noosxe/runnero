@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -55,8 +56,28 @@ type Client struct {
 	dockerHostID  string // Groundwork for multi-host Docker pools (OQ #22)
 	ownerInstance string // supervisor instance id stamped as com.runnero.owner (RUN-240, docs/33 §3.4)
 	healthTracker *orchestrator.DockerHealthTracker
+	logger        *slog.Logger
 	mu            sync.RWMutex
+
+	// Pull-if-missing dedup (docs/02 §3.1): one in-flight pull per image
+	// reference, shared by every concurrent spawn that hit the miss.
+	pullMu      sync.Mutex
+	pulls       map[string]*inflightPull
+	pullTimeout time.Duration
 }
+
+// inflightPull is a pull-if-missing shared by concurrent spawns of one image.
+// done closes once err is set; waiters (guarded by Client.pullMu) counts the
+// spawns blocked on it.
+type inflightPull struct {
+	done    chan struct{}
+	err     error
+	waiters int
+}
+
+// DefaultMissingImagePullTimeout bounds a pull-if-missing triggered by a
+// spawn; it matches the manual "Pull Update" deadline (image_update.go).
+const DefaultMissingImagePullTimeout = 15 * time.Minute
 
 // Option configures the Docker orchestrator Client.
 type Option func(*options)
@@ -70,6 +91,23 @@ type options struct {
 	apiClient     APIClient
 	healthTracker *orchestrator.DockerHealthTracker
 	alertHandler  func(orchestrator.DockerAlert)
+	logger        *slog.Logger
+	pullTimeout   time.Duration
+}
+
+// WithLogger sets the logger used for pull-if-missing events. Defaults to
+// slog.Default().
+func WithLogger(logger *slog.Logger) Option {
+	return func(o *options) {
+		o.logger = logger
+	}
+}
+
+// WithMissingImagePullTimeout overrides DefaultMissingImagePullTimeout.
+func WithMissingImagePullTimeout(d time.Duration) Option {
+	return func(o *options) {
+		o.pullTimeout = d
+	}
 }
 
 // WithHost configures a custom Docker host endpoint (e.g. unix:///var/run/docker.sock or tcp://remote:2376).
@@ -133,10 +171,14 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		certPath:     os.Getenv("DOCKER_CERT_PATH"),
 		verifyTLS:    os.Getenv("DOCKER_TLS_VERIFY") != "",
 		dockerHostID: "default",
+		pullTimeout:  DefaultMissingImagePullTimeout,
 	}
 
 	for _, opt := range opts {
 		opt(&cfg)
+	}
+	if cfg.logger == nil {
+		cfg.logger = slog.Default()
 	}
 
 	tracker := cfg.healthTracker
@@ -151,6 +193,8 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 			dockerHostID:  cfg.dockerHostID,
 			ownerInstance: cfg.ownerInstance,
 			healthTracker: tracker,
+			logger:        cfg.logger,
+			pullTimeout:   cfg.pullTimeout,
 		}, nil
 	}
 
@@ -178,6 +222,8 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		dockerHostID:  cfg.dockerHostID,
 		ownerInstance: cfg.ownerInstance,
 		healthTracker: tracker,
+		logger:        cfg.logger,
+		pullTimeout:   cfg.pullTimeout,
 	}, nil
 }
 
@@ -359,12 +405,23 @@ func (c *Client) spawn(ctx context.Context, config orchestrator.RunnerConfig, ta
 		}
 	}
 
-	createResp, err := docker.ContainerCreate(ctx, client.ContainerCreateOptions{
+	createOpts := client.ContainerCreateOptions{
 		Config:           containerConfig,
 		HostConfig:       hostConfig,
 		NetworkingConfig: networkingConfig,
 		Name:             containerName,
-	})
+	}
+	createResp, err := docker.ContainerCreate(ctx, createOpts)
+	if err != nil && cerrdefs.IsNotFound(err) && c.imageMissing(ctx, docker, image) {
+		// Pull-if-missing (docs/02 §3.1): the image was never present on
+		// this host. Fetch it once, then retry the create once. Present
+		// images are never re-pulled here; updates stay with the
+		// update-check / "Pull Update" flow.
+		if pullErr := c.pullMissingImage(ctx, image, config.PoolName); pullErr != nil {
+			return "", fmt.Errorf("creating container %q: %w", containerName, pullErr)
+		}
+		createResp, err = docker.ContainerCreate(ctx, createOpts)
+	}
 	if err != nil {
 		return "", fmt.Errorf("creating container %q: %w", containerName, err)
 	}
@@ -375,6 +432,72 @@ func (c *Client) spawn(ctx context.Context, config orchestrator.RunnerConfig, ta
 	}
 
 	return createResp.ID, nil
+}
+
+// imageMissing reports whether img is absent from the Docker host. A
+// ContainerCreate 404 can also name a missing network, so the miss is
+// confirmed with an inspect before pulling.
+func (c *Client) imageMissing(ctx context.Context, docker APIClient, img string) bool {
+	_, err := docker.ImageInspect(ctx, img)
+	return cerrdefs.IsNotFound(err)
+}
+
+// pullMissingImage pulls img, deduplicating concurrent callers onto one
+// in-flight pull. The pull runs on a context detached from the caller's
+// cancellation and bounded by pullTimeout, so a caller giving up does not
+// abort the pull other spawns are waiting on. Errors wrap
+// orchestrator.ErrImagePullFailed.
+func (c *Client) pullMissingImage(ctx context.Context, img, poolName string) error {
+	c.pullMu.Lock()
+	p, joined := c.pulls[img]
+	if !joined {
+		if c.pulls == nil {
+			c.pulls = make(map[string]*inflightPull)
+		}
+		p = &inflightPull{done: make(chan struct{})}
+		c.pulls[img] = p
+		go c.runMissingImagePull(context.WithoutCancel(ctx), img, poolName, p)
+	}
+	p.waiters++
+	c.pullMu.Unlock()
+
+	select {
+	case <-p.done:
+		return p.err
+	case <-ctx.Done():
+		return fmt.Errorf("%w: waiting for pull of %s: %w", orchestrator.ErrImagePullFailed, img, ctx.Err())
+	}
+}
+
+func (c *Client) runMissingImagePull(ctx context.Context, img, poolName string, p *inflightPull) {
+	timeout := c.pullTimeout
+	if timeout <= 0 {
+		timeout = DefaultMissingImagePullTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	logger := c.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger.Info("runner image missing on docker host, pulling", "image", img, "pool", poolName)
+	start := time.Now()
+	err := c.PullImage(ctx, img)
+
+	c.pullMu.Lock()
+	delete(c.pulls, img)
+	waiters := p.waiters
+	c.pullMu.Unlock()
+
+	if err != nil {
+		logger.Error("pulling missing runner image failed", "image", img, "pool", poolName, "waiters", waiters, "err", err)
+		err = fmt.Errorf("%w: %w", orchestrator.ErrImagePullFailed, err)
+	} else {
+		logger.Info("pulled missing runner image", "image", img, "pool", poolName, "waiters", waiters, "duration", time.Since(start).Round(time.Millisecond))
+	}
+	p.err = err
+	close(p.done)
 }
 
 // isRemovalRace reports whether err is a benign "already gone or removal in
@@ -733,7 +856,11 @@ func (c *Client) PullImage(ctx context.Context, img string) error {
 	}
 	defer func() { _ = rc.Close() }()
 
-	_, _ = io.Copy(io.Discard, rc)
+	// Wait drains the progress stream and surfaces errors the daemon
+	// reports in-stream (auth, manifest unknown) after a 200 response.
+	if err := rc.Wait(ctx); err != nil {
+		return fmt.Errorf("pulling image %s: %w", img, err)
+	}
 	return nil
 }
 

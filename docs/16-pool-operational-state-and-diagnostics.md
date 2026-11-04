@@ -93,7 +93,7 @@ To enable actionable frontend error categorization, errors are tagged with struc
 | `TARGET_NOT_FOUND` | Repository or organization URL 404 or inaccessible | Verify repository URL and App installation permissions |
 | `REGISTRATION_TOKEN_FAILED` | Failed to mint runner registration token | Check API rate limits and runner admin permissions |
 | `DOCKER_ENGINE_ERROR` | Docker socket unreachable, out of memory, or disk full | Check Docker daemon status and host disk/memory quotas |
-| `IMAGE_PULL_FAILED` | Configured runner image does not exist or requires auth | Verify runner image tag or configure registry credentials |
+| `IMAGE_PULL_FAILED` | Configured runner image is missing from the host and the pull-if-missing (docs/02 §3.1) failed: the tag does not exist, or the registry requires auth | Verify the runner image tag. Spawn-time pulls send no registry credentials, so pre-pull private images on the Docker host |
 | `GLOBAL_QUOTA_SATURATED` | Global `Total Allowed Runners` limit reached | Increase global runner limit or wait for active runners to finish |
 
 ---

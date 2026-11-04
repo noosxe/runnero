@@ -3,6 +3,7 @@ package orchestrator_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -84,6 +85,21 @@ func TestClassifyReconcileError(t *testing.T) {
 		{
 			name:         "image pull failure",
 			err:          errors.New("image pull failed: manifest unknown for tag v1"),
+			expectedCode: orchestrator.ErrCodeImagePullFailed,
+		},
+		{
+			name:         "missing image on create",
+			err:          errors.New(`spawning runner for pool "kraken-runners": creating container "runnero-kraken-runners-c201c9": Error response from daemon: No such image: ghcr.io/noosxe/runnero:latest`),
+			expectedCode: orchestrator.ErrCodeImagePullFailed,
+		},
+		{
+			name:         "typed pull-if-missing failure with registry auth wording",
+			err:          fmt.Errorf("creating container %q: %w: pulling image x: unauthorized: authentication required", "c", orchestrator.ErrImagePullFailed),
+			expectedCode: orchestrator.ErrCodeImagePullFailed,
+		},
+		{
+			name:         "typed pull-if-missing failure with not-found wording",
+			err:          fmt.Errorf("%w: pulling image x: manifest for x not found", orchestrator.ErrImagePullFailed),
 			expectedCode: orchestrator.ErrCodeImagePullFailed,
 		},
 		{

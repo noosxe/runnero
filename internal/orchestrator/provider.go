@@ -78,6 +78,13 @@ type RunnerStatus struct {
 // error and must treat it as benign rather than warning (RUN-121).
 var ErrLogsUnavailable = errors.New("container logs unavailable: already removed or removal in progress")
 
+// ErrImagePullFailed wraps a failed pull-if-missing during SpawnRunner /
+// SpawnTask: the pool's image was absent from the Docker host and fetching
+// it from the registry failed. ClassifyReconcileError maps it to
+// ErrCodeImagePullFailed regardless of the registry's message wording
+// (docs/02 §3.1).
+var ErrImagePullFailed = errors.New("image pull failed")
+
 // ContainerProvider abstracts container lifecycle operations from the underlying container engine.
 // See docs/02-architecture-design.md §3.1.
 type ContainerProvider interface {
