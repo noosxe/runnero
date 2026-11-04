@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRouterMock } from "@/test/router-mock";
 import { render, screen } from "@testing-library/react";
 import { DashboardPage } from "./dashboard";
+import { PoolHealthStatus } from "../gen/api_pb";
 
 const mockStats = {
   totalActiveRunners: 3,
@@ -202,5 +203,36 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     expect(screen.getByText(/Runner Image Update Available/i)).toBeInTheDocument();
+  });
+
+  it("lays out the degraded-pool alert without crushing or overlapping its text", () => {
+    const lastError =
+      'loading auth profile 1: decrypting private key for profile "runnero-on-kraken": decryption failed: wrong key or tampered ciphertext';
+    currentPools = [
+      {
+        ...mockPools[0],
+        name: "kraken-runners",
+        healthStatus: PoolHealthStatus.DEGRADED,
+        lastError,
+      },
+    ];
+
+    render(<DashboardPage />);
+
+    expect(screen.getByText('Runner Pool "kraken-runners" is Degraded')).toBeInTheDocument();
+    // The error detail sits in the text column beside the icon and wraps
+    // instead of truncating: a nowrap child in the icon's auto column
+    // widens it to the full error length and crushes the text column.
+    const detail = screen.getByTestId("degraded-pool-error");
+    expect(detail).toHaveTextContent(lastError);
+    expect(detail).toHaveClass("col-start-2", "min-w-0", "whitespace-pre-wrap", "wrap-anywhere");
+    expect(detail).not.toHaveClass("truncate");
+    const alert = screen.getByRole("alert");
+    expect(alert.querySelector('[data-slot="alert-description"]')).toHaveClass("col-start-2");
+    // The action flows below the text instead of floating over the title.
+    const action = alert.querySelector('[data-slot="alert-action"]');
+    expect(action).toHaveClass("static", "col-start-2");
+    expect(action).not.toHaveClass("absolute");
+    expect(screen.getByText(/Inspect Diagnostics/)).toBeInTheDocument();
   });
 });

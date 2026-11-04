@@ -104,23 +104,29 @@ export function DashboardPage() {
 
       {/* Degraded Pool Warning Banner */}
       {degradedPools.length > 0 && (
-        <Alert variant="destructive">
+        // The action stays in flow below the text (not the absolute top-right
+        // slot): the alert's reserved right padding is too narrow for the
+        // button, and the long error detail must never run under it.
+        <Alert variant="destructive" className="has-data-[slot=alert-action]:pr-4">
           <AlertTriangle />
           <AlertTitle className="font-semibold">
             {degradedPools.length === 1
               ? `Runner Pool "${degradedPools[0].name}" is Degraded`
               : `${degradedPools.length} Runner Pools are Degraded`}
           </AlertTitle>
-          <AlertDescription className="text-xs">
+          <AlertDescription className="col-start-2 text-xs">
             Runner provisioning or reconciliation encountered errors. Inspect diagnostics to resolve
             configuration or credential issues.
           </AlertDescription>
           {degradedPools.length === 1 && degradedPools[0].lastError && (
-            <p className="mt-1 truncate font-mono text-[11px] text-destructive">
+            <p
+              data-testid="degraded-pool-error"
+              className="col-start-2 mt-2 min-w-0 whitespace-pre-wrap wrap-anywhere rounded-md border border-destructive/20 bg-background/80 px-2.5 py-1.5 font-mono text-[11px] text-destructive"
+            >
               {degradedPools[0].lastError}
             </p>
           )}
-          <AlertAction>
+          <AlertAction className="static col-start-2 mt-3">
             <LinkButton
               to={degradedPools.length === 1 ? "/pools/$poolId" : "/pools"}
               params={
