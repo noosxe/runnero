@@ -46,9 +46,11 @@ supervisor **natively as a systemd service**, built from source by the flake.
   passwordless sudo so workflows can `apt-get install`), which `dockerTools`
   cannot reproduce, and an activation-time `docker build` would be impure and
   networked. The image is also per-pool database state (default
-  `ghcr.io/noosxe/runnero:latest`), already pulled and update-checked by the
-  supervisor (`internal/server/image_update.go`). The module does not touch
-  it.
+  `ghcr.io/noosxe/runnero:latest`). The supervisor pulls it from the
+  registry on the first spawn when it is missing from the host
+  (pull-if-missing, docs/02 §3.1). Later updates go through the
+  update-check / "Pull Update" flow (`internal/server/image_update.go`,
+  docs/03 §6). The module does not touch it.
 - **Distributed only from this flake.** No nixpkgs submission.
 - **Docker only.** Podman and rootless runtimes remain unsupported (docs/05
   §4); the module asserts Docker.
@@ -396,8 +398,8 @@ daemon socket"). Two differences from the container:
 - The frontend build runs in the Nix sandbox without network. pnpm
   lifecycle scripts follow the existing `allowBuilds` policy in
   `web/pnpm-workspace.yaml` (esbuild only).
-- Runner images are still pulled from ghcr.io, governed by the existing
-  image-update flow; no change.
+- Runner images are still pulled from ghcr.io: on first spawn when missing
+  (docs/02 §3.1), then through the existing image-update flow.
 
 ## 6. Hash maintenance
 

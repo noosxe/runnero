@@ -159,6 +159,11 @@ type ContainerProvider interface {
 ```
 
 - **Docker Provider**: Utilizes the official Docker Go SDK via `/var/run/docker.sock` to manage sibling containers. Podman and Kubernetes are not planned for support at this stage.
+- **Pull-if-missing**: `SpawnRunner` / `SpawnTask` never require a pre-pulled image. When `ContainerCreate` fails with a 404 and an `ImageInspect` confirms the image is absent from the host (a 404 can also name a missing network, which is not pulled for), the provider pulls the image and retries the create exactly once. Present images are never re-pulled on spawn; moving a tag to a newer digest stays with the image-update flow (docs/03 §6).
+  - **Single pull per image**: concurrent spawns that hit the same miss join one in-flight pull instead of starting parallel ones.
+  - **Bounded**: the pull runs on a context detached from the spawning caller and capped at 15 minutes (the "Pull Update" deadline). A caller whose own context ends first gives up without aborting the shared pull, and the next reconcile joins it. Reconciliation is sequential, so a cold first pull holds up the reconcile loop until it completes or times out.
+  - **Diagnostics**: a failed pull wraps `orchestrator.ErrImagePullFailed`, so the pool reports `IMAGE_PULL_FAILED` (docs/16 §3) whatever the registry's error wording. The pull consumes the daemon's progress stream and surfaces errors reported in-stream (auth, manifest unknown). The provider logs the start, completion, and failure of each pull with the image and pool.
+  - **Registry auth**: pulls send no registry credentials. Only images the Docker daemon can pull anonymously (public ghcr.io / Docker Hub images) are fetched automatically. For a private registry, pre-pull the image on the host.
 
 ### 3.2 Git Provider Abstraction
 

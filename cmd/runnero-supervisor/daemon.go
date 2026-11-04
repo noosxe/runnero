@@ -172,7 +172,7 @@ func runDaemonContext(ctx context.Context) error {
 	if cfg.DockerHost != "" {
 		dockerOpts = append(dockerOpts, docker.WithHost(cfg.DockerHost))
 	}
-	dockerOpts = append(dockerOpts, docker.WithOwnerInstance(instanceID))
+	dockerOpts = append(dockerOpts, docker.WithOwnerInstance(instanceID), docker.WithLogger(logger))
 	dockerClient, err := docker.NewClient(ctx, dockerOpts...)
 	if err != nil {
 		return fmt.Errorf("daemon: docker client: %w", err)

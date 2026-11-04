@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -73,6 +74,10 @@ func ClassifyReconcileError(err error) (string, string) {
 
 	code := ErrCodeReconcileFailed
 	switch {
+	// Typed pull-if-missing failures first: registry messages ("unauthorized",
+	// "not found") would otherwise match the provider-auth / target cases.
+	case errors.Is(err, ErrImagePullFailed):
+		code = ErrCodeImagePullFailed
 	case strings.Contains(lower, "decryption") || strings.Contains(lower, "cipher") || strings.Contains(lower, "wrong key"):
 		code = ErrCodeAuthDecryptionFailed
 	case strings.Contains(lower, "401") || strings.Contains(lower, "bad credentials") || strings.Contains(lower, "unauthorized") || strings.Contains(lower, "invalid token"):
@@ -81,7 +86,8 @@ func ClassifyReconcileError(err error) (string, string) {
 		code = ErrCodeTargetNotFound
 	case strings.Contains(lower, "registration token") || strings.Contains(lower, "rate limit"):
 		code = ErrCodeRegistrationToken
-	case strings.Contains(lower, "image") && (strings.Contains(lower, "pull") || strings.Contains(lower, "manifest") || strings.Contains(lower, "not found")):
+	case strings.Contains(lower, "no such image") ||
+		(strings.Contains(lower, "image") && (strings.Contains(lower, "pull") || strings.Contains(lower, "manifest") || strings.Contains(lower, "not found"))):
 		code = ErrCodeImagePullFailed
 	case strings.Contains(lower, "docker") || strings.Contains(lower, "daemon") || strings.Contains(lower, "socket") || strings.Contains(lower, "container"):
 		code = ErrCodeDockerEngineError
