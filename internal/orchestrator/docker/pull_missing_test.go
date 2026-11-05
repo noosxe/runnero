@@ -134,6 +134,33 @@ func TestSpawnRunner_NotFoundWithPresentImageIsNotPulled(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
+// A create that misses the image while a concurrent spawn's pull lands
+// before the inspect sees the image present: the create is retried once
+// instead of failing the spawn with the stale "No such image".
+func TestSpawnRunner_ImageLandsBetweenCreateAndInspectRetriesCreate(t *testing.T) {
+	ctx := context.Background()
+	m := docker.NewMockDockerAPIClient()
+	expectDefaultNetwork(m)
+
+	m.On("ContainerCreate", mock.Anything, mock.Anything).
+		Return(client.ContainerCreateResult{}, noSuchImage()).Once()
+	m.On("ImageInspect", mock.Anything, missingTestImage, mock.Anything).
+		Return(client.ImageInspectResult{}, nil).Once()
+	m.On("ContainerCreate", mock.Anything, mock.Anything).
+		Return(client.ContainerCreateResult{ID: "cnt-after-race"}, nil).Once()
+	m.On("ContainerStart", mock.Anything, "cnt-after-race", mock.Anything).
+		Return(client.ContainerStartResult{}, nil).Once()
+
+	c, err := docker.NewClient(ctx, docker.WithAPIClient(m))
+	require.NoError(t, err)
+
+	id, err := c.SpawnRunner(ctx, missingImageConfig("runnero-kraken-runners-g"))
+	require.NoError(t, err)
+	assert.Equal(t, "cnt-after-race", id)
+	m.AssertNotCalled(t, "ImagePull", mock.Anything, mock.Anything, mock.Anything)
+	m.AssertExpectations(t)
+}
+
 func TestSpawnRunner_MissingImagePullFailure(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -412,15 +412,23 @@ func (c *Client) spawn(ctx context.Context, config orchestrator.RunnerConfig, ta
 		Name:             containerName,
 	}
 	createResp, err := docker.ContainerCreate(ctx, createOpts)
-	if err != nil && cerrdefs.IsNotFound(err) && c.imageMissing(ctx, docker, image) {
-		// Pull-if-missing (docs/02 §3.1): the image was never present on
-		// this host. Fetch it once, then retry the create once. Present
-		// images are never re-pulled here; updates stay with the
-		// update-check / "Pull Update" flow.
-		if pullErr := c.pullMissingImage(ctx, image, config.PoolName); pullErr != nil {
-			return "", fmt.Errorf("creating container %q: %w", containerName, pullErr)
+	if err != nil && cerrdefs.IsNotFound(err) {
+		switch {
+		case c.imageMissing(ctx, docker, image):
+			// Pull-if-missing (docs/02 §3.1): the image was never present
+			// on this host. Fetch it once, then retry the create once.
+			// Present images are never re-pulled here; updates stay with
+			// the update-check / "Pull Update" flow.
+			if pullErr := c.pullMissingImage(ctx, image, config.PoolName); pullErr != nil {
+				return "", fmt.Errorf("creating container %q: %w", containerName, pullErr)
+			}
+			createResp, err = docker.ContainerCreate(ctx, createOpts)
+		case isNoSuchImage(err):
+			// The create missed the image, but it is present now: a
+			// concurrent spawn's pull landed between the create and the
+			// inspect. Retry the create once instead of failing the spawn.
+			createResp, err = docker.ContainerCreate(ctx, createOpts)
 		}
-		createResp, err = docker.ContainerCreate(ctx, createOpts)
 	}
 	if err != nil {
 		return "", fmt.Errorf("creating container %q: %w", containerName, err)
@@ -440,6 +448,13 @@ func (c *Client) spawn(ctx context.Context, config orchestrator.RunnerConfig, ta
 func (c *Client) imageMissing(ctx context.Context, docker APIClient, img string) bool {
 	_, err := docker.ImageInspect(ctx, img)
 	return cerrdefs.IsNotFound(err)
+}
+
+// isNoSuchImage reports whether a ContainerCreate 404 names a missing image
+// (the daemon's "No such image: <ref>") rather than another missing object
+// such as a network.
+func isNoSuchImage(err error) bool {
+	return strings.Contains(strings.ToLower(err.Error()), "no such image")
 }
 
 // pullMissingImage pulls img, deduplicating concurrent callers onto one
