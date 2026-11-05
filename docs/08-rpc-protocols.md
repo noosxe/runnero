@@ -314,8 +314,10 @@ message UpdatePoolResponse {
 > name label until they recycle naturally (RUN-126). Duplicate names return
 > `CodeAlreadyExists`; unknown ids `CodeNotFound`.
 > Spawn-identity edits (targets, labels, image, `allow_docker`, resource
-> limits, auth profile) recycle the pool's idle runners before the write —
-> busy runners are never terminated by an edit. `pool_targets` rows are
+> limits, auth profile) recycle the pool's idle runners in the background
+> after the write: the RPC answers once the row is persisted, and the recycle
+> progress shows up through `WatchPools` (pool intent) and the runner stream
+> (docs/22 §6.2) — busy runners are never terminated by an edit. `pool_targets` rows are
 > rewritten only when the normalized target set changed, and the `pool.update`
 > audit entry records before/after values restricted to changed fields.
 

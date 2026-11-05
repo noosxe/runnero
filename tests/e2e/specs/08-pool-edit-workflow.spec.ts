@@ -56,7 +56,7 @@ test.describe("Flow 08: Runner Pool Edit Workflow", () => {
     await page.getByLabel("Runner Labels").fill("self-hosted,linux,e2e");
     await page.getByRole("button", { name: /Review & Confirm/i }).click();
 
-    await expect(page.getByText(/will be recycled to apply the new configuration/i)).toBeVisible();
+    await expect(page.getByText(/will be recycled in the background after saving/i)).toBeVisible();
     await expect(page.getByText(/running jobs are not affected/i)).toBeVisible();
 
     await page.getByRole("button", { name: "Save Changes" }).click();
@@ -175,7 +175,7 @@ test.describe("Flow 08: Runner Pool Edit Workflow", () => {
     await page.getByLabel("Runner Labels").fill("self-hosted,linux,busy-safe");
     await page.getByRole("button", { name: /Review & Confirm/i }).click();
 
-    await expect(page.getByText(/will be recycled to apply the new configuration/i)).toBeVisible();
+    await expect(page.getByText(/will be recycled in the background after saving/i)).toBeVisible();
     await expect(page.getByText(/running jobs are not affected/i)).toBeVisible();
 
     await page.getByRole("button", { name: "Save Changes" }).click();

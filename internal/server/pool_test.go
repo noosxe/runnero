@@ -62,16 +62,15 @@ func (m *mockStatsProvider) Reload(ctx context.Context) error {
 	return nil
 }
 
-// RecycleIdleRunners records recycle requests so tests can assert the
-// spawn-identity/rename recycling behavior of UpdatePool (docs/22 §5.2).
-func (m *mockStatsProvider) RecycleIdleRunners(ctx context.Context, poolID int64) error {
+// ScheduleIdleRecycle records recycle requests so tests can assert the
+// spawn-identity recycling behavior of UpdatePool (docs/22 §5.2).
+func (m *mockStatsProvider) ScheduleIdleRecycle(poolID int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.recycled = append(m.recycled, poolID)
-	return nil
 }
 
-// recycledCount reports how often RecycleIdleRunners was called for poolName.
+// recycledCount reports how often ScheduleIdleRecycle was called for poolID.
 func (m *mockStatsProvider) recycledCount(poolID int64) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -346,11 +345,16 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 		t.Errorf("UpdatePool mismatch: %+v", updateRes.Msg.Pool)
 	}
 
+	// A spawn-identity edit schedules a background recycle, whose pass ends
+	// with the reconcile — the RPC itself does not reload (docs/22 §5.5).
 	stats.mu.Lock()
-	if stats.reloadsCount != 2 {
-		t.Errorf("expected 2 reloads, got: %d", stats.reloadsCount)
+	if stats.reloadsCount != 1 {
+		t.Errorf("expected 1 reload, got: %d", stats.reloadsCount)
 	}
 	stats.mu.Unlock()
+	if got := stats.recycledCount(createdPool.Id); got != 1 {
+		t.Errorf("expected 1 scheduled recycle, got: %d", got)
+	}
 
 	// 6. DeletePool removes the pool and triggers reload
 	deleteReq := connect.NewRequest(&supervisorv1.DeletePoolRequest{
@@ -366,8 +370,8 @@ func TestPoolServiceCRUDAndValidation(t *testing.T) {
 	}
 
 	stats.mu.Lock()
-	if stats.reloadsCount != 3 {
-		t.Errorf("expected 3 reloads, got: %d", stats.reloadsCount)
+	if stats.reloadsCount != 2 {
+		t.Errorf("expected 2 reloads, got: %d", stats.reloadsCount)
 	}
 	stats.mu.Unlock()
 
@@ -1246,7 +1250,10 @@ func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 		t.Errorf("unchanged target set must not rewrite pool_targets: before=%v after=%v", targetIDsBefore, got)
 	}
 
-	// 2. Spawn-identity edit (labels): recycles idle runners.
+	// 2. Spawn-identity edit (labels): schedules an idle recycle.
+	stats.mu.Lock()
+	reloadsBeforeIdentity := stats.reloadsCount
+	stats.mu.Unlock()
 	identity := editPoolPayload(poolID, profile.ID, "edit-pool")
 	identity.Labels = []string{"self-hosted", "gpu"}
 	if _, err := updatePool(t, client, rawCookie, identity); err != nil {
@@ -1254,6 +1261,15 @@ func TestPoolServiceUpdatePoolEditSemantics(t *testing.T) {
 	}
 	if got := stats.recycledCount(poolID); got != 1 {
 		t.Errorf("spawn-identity edit must recycle idle runners once, got %d recycles", got)
+	}
+	// The scheduled recycle pass ends with the reconcile, so the RPC itself
+	// must not Reload — that would queue it behind the recycle (docs/22 §5.5).
+	stats.mu.Lock()
+	reloadsAfterIdentity := stats.reloadsCount
+	stats.mu.Unlock()
+	if reloadsAfterIdentity != reloadsBeforeIdentity {
+		t.Errorf("spawn-identity edit must leave the reload to the recycle pass, reloads %d -> %d",
+			reloadsBeforeIdentity, reloadsAfterIdentity)
 	}
 
 	// 3. Provider is immutable.

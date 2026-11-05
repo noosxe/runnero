@@ -632,7 +632,7 @@ The pool create and edit flows share a single **4-step guided wizard** (`web/src
   - **Renovate Bot (Optional)**: Enable toggle, cron schedule (`0 2 * * *`), and container image (`renovate/renovate:latest`).
 - **Step 4: Review & Confirmation** *(create)* / **Review & Save** *(edit)*
   - Create: summary card displaying pool name, provider, scope, list of selected target URLs, runner image, quotas, and labels before final submission to `PoolService.CreatePool`.
-  - Edit: **changed-fields diff** (old → strikethrough → new, restricted to fields that actually changed) plus impact banners computed from the field classes in docs/22 §5.2 — spawn-identity changes show the idle-runner recycle count, renames show the busy-runner guard warning. Submits the full Pool message (including `id`) to `PoolService.UpdatePool`; server rejections (e.g. `already_exists`, `failed_precondition`) render as banner text.
+  - Edit: **changed-fields diff** (old → strikethrough → new, restricted to fields that actually changed) plus impact banners computed from the field classes in docs/22 §5.2 — spawn-identity changes show the idle-runner recycle count (recycled in the background after saving), renames show the busy-runner guard warning. Submits the full Pool message (including `id`) to `PoolService.UpdatePool`; server rejections (e.g. `already_exists`, `failed_precondition`) render as banner text.
 
 **Edit-mode deltas (docs/22 §7):**
 - Entry points: **Edit** action on each pool card (`/pools`) and **Edit Configuration** in the pool detail Config tab.
@@ -710,7 +710,7 @@ sequenceDiagram
     UI->>User: Show Success Toast & Update Active Count
 ```
 
-**Edit semantics (docs/22 §5.5):** before the DB write, the server validates the payload, rejects provider changes (`CodeInvalidArgument`), guards renames on zero busy runners via `PoolStats` (`CodeFailedPrecondition`), and — when a spawn-identity field changed or the pool is renamed — asks the controller to `RecycleIdleRunners` so respawns pick up the new configuration. Busy runners are never touched. Duplicate names surface as `CodeAlreadyExists`; `pool_targets` rows are rewritten only when the normalized target set changed; the audit entry records before/after values restricted to changed fields.
+**Edit semantics (docs/22 §5.5):** before the DB write, the server validates the payload, rejects provider changes (`CodeInvalidArgument`), guards renames on zero busy runners via `PoolStats` (`CodeFailedPrecondition`), and — after the write, when a spawn-identity field changed — asks the controller to `ScheduleIdleRecycle` so respawns pick up the new configuration. The recycle runs in the background: the RPC answers once the row is persisted, the edit dialog closes on that response, and the pool intent (`WatchPools`) plus the runner stream show the recycle as it progresses. Busy runners are never touched. Duplicate names surface as `CodeAlreadyExists`; `pool_targets` rows are rewritten only when the normalized target set changed; the audit entry records before/after values restricted to changed fields.
 
 ---
 

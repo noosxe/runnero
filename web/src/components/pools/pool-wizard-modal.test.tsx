@@ -483,7 +483,7 @@ describe("PoolWizardModal (edit mode)", () => {
     expect(screen.getByText(/linux, self-hosted/i)).toBeInTheDocument();
     expect(screen.getByText(/gpu, self-hosted/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/2 idle runners will be recycled to apply the new configuration/i),
+      screen.getByText(/2 idle runners will be recycled in the background after saving/i),
     ).toBeInTheDocument();
   });
 

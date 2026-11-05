@@ -65,10 +65,12 @@ type PoolStatsProvider interface {
 // interface; PoolService discovers it by interface assertion on statsProvider so
 // absent controllers (unit fakes, web-only operation) degrade to a no-op.
 type IdleRecycler interface {
-	// RecycleIdleRunners deregisters and terminates all non-busy tracked runners
-	// of poolID so the next reconcile respawns them with the pool's current
-	// configuration. Busy runners are never touched.
-	RecycleIdleRunners(ctx context.Context, poolID int64) error
+	// ScheduleIdleRecycle queues a background recycle of poolID's non-busy
+	// tracked runners, followed by a reconcile that respawns them with the
+	// pool's current configuration, and returns immediately. The recycle runs
+	// on the controller's lifecycle, never the request context; busy runners
+	// are never touched; failures are logged by the controller.
+	ScheduleIdleRecycle(poolID int64)
 }
 
 // PoolDrainer tears down a deleted pool's runners after the pool row is gone
@@ -613,9 +615,9 @@ func (s *PoolService) CreatePool(ctx context.Context, req *connect.Request[super
 }
 
 // UpdatePool updates an existing runner pool per docs/22 §5.5: validate, load the
-// existing row, guard renames on busy runners, recycle idle runners when spawn
-// identity changes, persist with mapped error codes, audit before/after, and
-// notify the controller loop.
+// existing row, guard renames on busy runners, persist with mapped error codes,
+// audit before/after, then schedule a background idle recycle when spawn
+// identity changed (or notify the controller loop otherwise).
 func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[supervisorv1.UpdatePoolRequest]) (*connect.Response[supervisorv1.UpdatePoolResponse], error) {
 	pool := req.Msg.Pool
 	if err := validatePoolInput(pool); err != nil {
@@ -705,8 +707,8 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 	// up the new configuration; busy runners are never touched (docs/22 §5.2).
 	// The pool row, renovate config, and target set land in a single
 	// transaction (RUN-129) — sequential writes left mixed state on a
-	// mid-sequence failure — and recycling runs only after the commit, so a
-	// failed update does not churn idle runners.
+	// mid-sequence failure — and recycling is scheduled only after the
+	// commit, so a failed update does not churn idle runners.
 	updated, err := s.db.UpdatePool(ctx, db.PoolUpdate{
 		Pool:     params,
 		Renovate: renovate,
@@ -722,17 +724,19 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("updating runner pool: %w", err))
 	}
 
-	if identityChanged {
-		s.recycleIdleRunners(ctx, existing.ID)
-	}
-
 	recordAuditLog(ctx, s.db, "pool.update", "runner_pool", &updated.ID, map[string]any{
 		"name":     updated.Name,
 		"provider": updated.Provider,
 		"changes":  poolConfigChanges(existing, existingTargets, updated, newTargets, pool, renovateBefore, renovateBeforeErr),
 	})
 
-	if s.statsProvider != nil {
+	// The response must not wait on the recycle (docs/22 §5.5): deregistering
+	// and removing containers takes seconds and changes host network links
+	// mid-response. When a recycle is scheduled, its pass ends with the
+	// reconcile that Reload would run, so the RPC skips the synchronous Reload
+	// — it would otherwise queue behind the recycle on the provisioning lock.
+	recycleScheduled := identityChanged && s.scheduleIdleRecycle(existing.ID)
+	if s.statsProvider != nil && !recycleScheduled {
 		_ = s.statsProvider.Reload(ctx)
 	}
 
@@ -741,18 +745,16 @@ func (s *PoolService) UpdatePool(ctx context.Context, req *connect.Request[super
 	}), nil
 }
 
-// recycleIdleRunners asks the controller (when present) to recycle the pool's
-// idle runners so respawns pick up the updated configuration. Best-effort:
-// failures are logged and the update proceeds — recycled runners respawn on
-// the next reconcile tick either way (docs/22 §5.5).
-func (s *PoolService) recycleIdleRunners(ctx context.Context, poolID int64) {
+// scheduleIdleRecycle asks the controller (when present) to recycle the
+// pool's idle runners in the background so respawns pick up the updated
+// configuration, and reports whether a recycle was scheduled (docs/22 §5.5).
+func (s *PoolService) scheduleIdleRecycle(poolID int64) bool {
 	recycler, ok := s.statsProvider.(IdleRecycler)
 	if !ok || recycler == nil {
-		return
+		return false
 	}
-	if err := recycler.RecycleIdleRunners(ctx, poolID); err != nil {
-		s.logger.Warn("failed recycling idle runners after pool update", "pool_id", poolID, "err", err)
-	}
+	recycler.ScheduleIdleRecycle(poolID)
+	return true
 }
 
 // DeletePool removes a runner pool from the database, emits an audit log, and notifies the controller.

@@ -1550,7 +1550,8 @@ export function PoolWizardModal({
                 <AlertCircle className="size-4 shrink-0" />
                 <span>
                   {pool?.idleRunners ?? 0} idle runner{pool?.idleRunners === 1 ? "" : "s"} will be
-                  recycled to apply the new configuration; running jobs are not affected.
+                  recycled in the background after saving to apply the new configuration; running
+                  jobs are not affected.
                 </span>
               </div>
             )}
