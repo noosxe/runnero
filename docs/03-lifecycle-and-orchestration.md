@@ -167,13 +167,102 @@ To ensure environments are kept up-to-date securely:
 - **First pull vs. updates**: an image that was never present on the host is fetched on demand by the spawn path (pull-if-missing, docs/02 §3.1). This flow only handles *updates* to an image that is already present; spawns never re-pull a present tag.
 - **Non-Disruptive Handoff**: Image updates do not disrupt running workflows. Any active runners using the old image are allowed to finish their current job. However, any *newly* provisioned runner container for that pool will instantly use the updated image.
 
-## 7. Graceful Shutdown Protocol
+## 7. Shutdown Protocol
 
-Upon receiving a termination signal, the daemon executes a structured shutdown. The behavior depends on the signal received:
+A supervisor restart must never interrupt a job. On `SIGTERM` or `SIGINT`, the
+daemon runs the configured **shutdown mode**. The mode is set by
+`SUPERVISOR_SHUTDOWN_MODE` (config key `shutdown-mode`, NixOS
+`services.runnero.settings.shutdown-mode`) and read at boot:
 
-### Graceful Shutdown (`SIGTERM`)
+| Mode | Runner containers on shutdown | Use for |
+|---|---|---|
+| `detach` (default) | Left running and registered, idle and busy alike | Restarts, upgrades, `nixos-rebuild switch`, Compose recreates |
+| `drain` | Idle runners are deregistered and removed; busy runners get up to `shutdown_timeout_seconds` to finish, then are force-terminated | Decommissioning a host |
 
-Triggered by `docker stop`, orchestrator updates, or planned maintenance. The supervisor allows active runners time to complete their current job:
+**Both signals behave the same.** `SIGTERM` is what systemd, `docker stop`
+and orchestrators send. `SIGINT` (`Ctrl+C` on a foreground daemon) follows the
+same mode, so an interactive stop cannot kill runners by surprise either.
+There is no signal-specific immediate-kill path. To get rid of runners at
+once, stop them through the UI/API (`TerminateRunner`, pool delete) or with
+`docker rm -f`.
+
+**Why a config setting, not a CLI subcommand.** Shutdown is driven by
+whatever signals the process (systemd, Docker, s6), so the behavior has to be
+fixed before the signal arrives. A subcommand would need a control channel
+into the running daemon, which does not exist. A boot-time setting works the
+same under every service manager, and the opt-in is explicit: set it to
+`drain`, restart once to load it, then stop.
+
+### Detach shutdown (default)
+
+```mermaid
+sequenceDiagram
+    participant OS as Operating System
+    participant SV as Supervisor Engine
+    participant RC as Runner Containers
+
+    OS->>SV: SIGTERM / SIGINT
+    SV->>SV: Stop HTTP server, Tailscale, background loops
+    SV->>SV: Pause control loop, wait for in-flight reconcile cycle (bounded)
+    Note over SV,RC: No deregistration, no container stop or removal
+    SV->>OS: Exit cleanly (code 0), within 10s
+    Note over RC: Jobs keep running
+    OS->>SV: Start (next lifetime)
+    SV->>RC: Boot adoption (§2): rebuild tracking from com.runnero.* labels
+```
+
+1. Stop the HTTP server and the embedded Tailscale node.
+2. Pause the control loop, so no new reconcile cycle or container-event reap
+   starts. Cancel background work (idle recycles). Wait, bounded by the 10s
+   budget, for an in-flight cycle to finish.
+3. Mark the controller stopped and log the busy and idle counts left running.
+4. Exit. Nothing is deregistered, stopped or removed.
+
+**Persisted state.** Adoption needs nothing beyond what is always durable:
+the container labels (§2), the database (pools, tombstones, open
+`job_history` rows), and the forge's registrations. No extra state is written
+on the way out.
+
+**What the next boot restores (§2):**
+
+- **Tracking and pool targets.** Adopted containers are tracked from the
+  first audit on. Idle runners count toward `min_idle_runners`, so nothing is
+  double-spawned.
+- **Busy classification.** The forge listing re-classifies busy runners
+  before any scaling decision (docs/19 §2.3). If that listing is unavailable
+  right after boot, the provider's busy veto (RUN-182) keeps a scale-down from
+  draining a runner that is mid-job: it is preserved and re-marked busy.
+- **Job history.** Boot recovery (docs/21 §5.4) leaves the open rows of
+  adopted runners open. The busy→idle transition or the reap of the exited
+  container closes them with the real outcome, so a job spanning a restart
+  stays one row. Only rows whose container is gone are closed as
+  `interrupted`.
+- **Lifetime limits.** An adopted running container is anchored at its spawn
+  time (docs/23 §4.4.1), so `max_runner_lifetime_seconds` still bounds a job
+  that started before the restart.
+- **Ghost sweep.** Adopted runners are tracked, so the sweep never touches
+  them (docs/20). Registrations whose containers died during the outage are
+  swept as usual.
+- **Engine ownership.** Strict mode (docs/33 §3.5) adopts the instance's own
+  containers: their pools exist in this database. Containers of foreign pools
+  stay untouched, as before.
+
+Runners whose job finished during the outage have exited (one job per
+container). The first audit reaps them and records the outcome. If the
+supervisor stays down for a long time, idle runners stay registered and keep
+taking jobs. That is intended: the runners do not need the supervisor to run
+a job.
+
+**Service managers.** Runner containers are children of the Docker engine,
+not of the supervisor process. Stopping the supervisor's unit or container
+cannot kill them. Under systemd they live in Docker's cgroups, not
+`runnero.service`'s, which the NixOS VM test checks (docs/39 §7). Before
+detach mode, a Compose stop only left runners alive by accident: s6-overlay
+and `docker stop` SIGKILLed the daemon before its drain finished. Under
+systemd the drain finished, and every `nixos-rebuild switch` killed the jobs
+on the host.
+
+### Drain shutdown (opt-in)
 
 ```mermaid
 sequenceDiagram
@@ -181,8 +270,8 @@ sequenceDiagram
     participant SV as Supervisor Engine
     participant GP as Git Provider API
     participant RC as Runner Containers
-    
-    OS->>SV: SIGTERM
+
+    OS->>SV: SIGTERM / SIGINT (shutdown-mode: drain)
     SV->>SV: Pause pool replenishing loop
     SV->>GP: Deregister & terminate IDLE runners
     SV->>RC: Allow ACTIVE runners to complete (up to shutdown_timeout_seconds)
@@ -199,16 +288,14 @@ sequenceDiagram
     end
 ```
 
-### Immediate Shutdown (`SIGINT`)
+The daemon's shutdown budget in drain mode is `shutdown_timeout_seconds` plus
+10s for the HTTP stop and the final force-terminate pass. The service
+manager's stop timeout must cover it: the NixOS module raises
+`TimeoutStopSec` to 6 minutes in drain mode (docs/39 §3.4). Compose needs a
+`stop_grace_period` at least that long, or `docker stop` SIGKILLs the drain
+partway.
 
-Triggered by `Ctrl+C` or emergency stop. The supervisor drains immediately without waiting for active jobs:
-
-1. Pause the pool replenishing loop.
-2. Deregister and terminate all IDLE runners immediately.
-3. Send `SIGTERM` to all ACTIVE runner containers (Docker's default 10s stop grace period applies).
-4. Exit.
-
-> **Note**: The per-pool `max_runner_lifetime_seconds` continues to apply independently during normal operation — a busy runner's job exceeding its lifetime is force-killed regardless of shutdown state (busy-anchored per docs/23). The `shutdown_timeout_seconds` setting only governs the maximum wait during a graceful `SIGTERM` shutdown.
+> **Note**: The per-pool `max_runner_lifetime_seconds` continues to apply independently during normal operation — a busy runner's job exceeding its lifetime is force-killed regardless of shutdown state (busy-anchored per docs/23). The `shutdown_timeout_seconds` setting only governs the maximum wait during a drain shutdown.
 
 > **Ghost registrations**: no shutdown path can deregister runners whose containers died ungracefully (OOM kills, `docker kill`, host power loss bypass the agent's trap and `--ephemeral` cleanup). The audit loop sweeps such orphaned registrations via the provider's deregistration API — see **[docs/20-ghost-runner-sweep.md](20-ghost-runner-sweep.md)**.
 

@@ -254,14 +254,53 @@ func (d *DB) CloseTransitionJob(ctx context.Context, poolID int64, runnerName, s
 	return nil
 }
 
-// CloseInterruptedOpenJobs force-closes every open job_history row as
-// 'interrupted' (docs/21 §5.4 boot recovery). Returns the number of rows closed.
-func (d *DB) CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error) {
-	rows, err := d.CloseAllOpenJobsInterrupted(ctx, sql.NullTime{Time: completedAt.UTC(), Valid: true})
-	if err != nil {
-		return 0, fmt.Errorf("closing interrupted job rows: %w", err)
+// JobRunnerKey identifies the runner an open job_history row belongs to.
+type JobRunnerKey struct {
+	PoolID     int64
+	RunnerName string
+}
+
+// CloseInterruptedOpenJobs force-closes open job_history rows as
+// 'interrupted' (docs/21 §5.4 boot recovery), except the rows of runners in
+// keep: containers the boot audit found still on the engine, whose jobs
+// survived the restart (docs/03 §7 detach). Their rows stay open, so the
+// busy-state sync and the reap path close them with the real outcome.
+// Returns the number of rows closed.
+func (d *DB) CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time, keep []JobRunnerKey) (int64, error) {
+	kept := make(map[JobRunnerKey]struct{}, len(keep))
+	for _, k := range keep {
+		kept[k] = struct{}{}
 	}
-	return rows, nil
+
+	tx, err := d.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("starting interrupted job recovery: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	q := d.WithTx(tx)
+	open, err := q.ListOpenJobRows(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("listing open job rows: %w", err)
+	}
+	var closed int64
+	for _, row := range open {
+		if _, ok := kept[JobRunnerKey{PoolID: row.PoolID, RunnerName: row.RunnerName}]; ok {
+			continue
+		}
+		n, err := q.CloseJobRowInterrupted(ctx, CloseJobRowInterruptedParams{
+			CompletedAt: sql.NullTime{Time: completedAt.UTC(), Valid: true},
+			ID:          row.ID,
+		})
+		if err != nil {
+			return 0, fmt.Errorf("closing interrupted job row %d: %w", row.ID, err)
+		}
+		closed += n
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("committing interrupted job recovery: %w", err)
+	}
+	return closed, nil
 }
 
 // CloseStaleOpenJobs force-closes open job_history rows for a pool whose

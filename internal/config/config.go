@@ -61,6 +61,12 @@ const (
 	// at boot only.
 	EnvEngineOwnership = EnvPrefix + "ENGINE_OWNERSHIP"
 
+	// EnvShutdownMode selects what SIGTERM/SIGINT do to runner containers
+	// (docs/03 §7): detach (the default) leaves them running for the next
+	// boot to adopt; drain deregisters idle runners and waits for busy ones
+	// before force-terminating, for decommissioning a host.
+	EnvShutdownMode = EnvPrefix + "SHUTDOWN_MODE"
+
 	// Durable log persistence (RUN-186, docs/28 §5.5).
 	EnvLogPersistenceEnabled      = EnvPrefix + "LOG_PERSISTENCE_ENABLED"
 	EnvLogSupervisorRotationBytes = EnvPrefix + "LOG_SUPERVISOR_ROTATION_BYTES"
@@ -98,6 +104,13 @@ const (
 	EngineOwnershipStrict   = "strict"
 	EngineOwnershipAdoptAll = "adopt-all"
 	DefaultEngineOwnership  = EngineOwnershipStrict
+
+	// Shutdown modes (docs/03 §7). Detach is the default so a restart or
+	// redeploy never kills a runner mid-job; drain is the explicit opt-in
+	// for taking a host out of service.
+	ShutdownModeDetach  = "detach"
+	ShutdownModeDrain   = "drain"
+	DefaultShutdownMode = ShutdownModeDetach
 
 	// Web session defaults (RUN-230, docs/32 sections 3-4): two clocks
 	// (sliding idle + absolute cap), Secure-cookie auto-detection, bcrypt
@@ -159,6 +172,7 @@ var envKeys = map[string]string{
 	EnvWebAuthnRPID:           "webauthn-rp-id",
 	EnvWebAuthnOrigins:        "webauthn-origins",
 	EnvEngineOwnership:        "engine-ownership",
+	EnvShutdownMode:           "shutdown-mode",
 
 	EnvTailscaleAuthKey:           "tailscale-auth-key",
 	EnvTailscaleHostname:          "tailscale-hostname",
@@ -185,7 +199,10 @@ type Config struct {
 	DockerHost      string `koanf:"docker-host"`
 	// EngineOwnership selects the cross-instance engine safety mode (RUN-241,
 	// docs/33 §3.5): EngineOwnershipStrict (default) or EngineOwnershipAdoptAll.
-	EngineOwnership      string `koanf:"engine-ownership"`
+	EngineOwnership string `koanf:"engine-ownership"`
+	// ShutdownMode selects the signal-shutdown behavior (docs/03 §7):
+	// ShutdownModeDetach (default) or ShutdownModeDrain.
+	ShutdownMode         string `koanf:"shutdown-mode"`
 	DataDir              string `koanf:"data-dir"`
 	BackupIntervalHours  int    `koanf:"backup-interval-hours"`
 	BackupRetentionCount int    `koanf:"backup-retention-count"`
@@ -348,6 +365,7 @@ func defaults() map[string]any {
 		"webauthn-rp-id":           "",
 		"webauthn-origins":         "", // empty resolves to https://<rp_id>
 		"engine-ownership":         DefaultEngineOwnership,
+		"shutdown-mode":            DefaultShutdownMode,
 
 		"log-persistence-enabled":            DefaultLogPersistenceEnabled,
 		"log-supervisor-rotation-bytes":      DefaultLogSupervisorRotationBytes,
@@ -422,6 +440,10 @@ func (c *Config) normalize() {
 		c.EngineOwnership = DefaultEngineOwnership
 	}
 	c.EngineOwnership = strings.ToLower(strings.TrimSpace(c.EngineOwnership))
+	c.ShutdownMode = strings.ToLower(strings.TrimSpace(c.ShutdownMode))
+	if c.ShutdownMode == "" {
+		c.ShutdownMode = DefaultShutdownMode
+	}
 	c.WebhookGiteaSecret = strings.TrimSpace(c.WebhookGiteaSecret)
 	c.WebhookForgejoSecret = strings.TrimSpace(c.WebhookForgejoSecret)
 	c.WebAuthnRPID = strings.ToLower(strings.TrimSpace(c.WebAuthnRPID))

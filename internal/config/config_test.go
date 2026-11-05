@@ -790,3 +790,39 @@ func TestLoadEngineOwnership(t *testing.T) {
 		}
 	})
 }
+
+// TestLoadShutdownMode covers the docs/03 §7 shutdown contract: detach is the
+// default (restarts never kill runners), drain is opt-in, anything else is
+// rejected at load time.
+func TestLoadShutdownMode(t *testing.T) {
+	t.Setenv(EnvDBEncryptionKey, testKey)
+
+	cases := []struct {
+		name, env, want string
+	}{
+		{"defaults to detach", "", ShutdownModeDetach},
+		{"drain from environment", "drain", ShutdownModeDrain},
+		{"case-insensitive", "  DRAIN ", ShutdownModeDrain},
+		{"explicit detach", "detach", ShutdownModeDetach},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(EnvShutdownMode, tc.env)
+			cfg, err := Load(Options{})
+			if err != nil {
+				t.Fatalf("loading: %v", err)
+			}
+			if cfg.ShutdownMode != tc.want {
+				t.Errorf("shutdown-mode = %q, want %q", cfg.ShutdownMode, tc.want)
+			}
+		})
+	}
+
+	t.Run("invalid mode rejected", func(t *testing.T) {
+		t.Setenv(EnvShutdownMode, "kill")
+		_, err := Load(Options{})
+		if err == nil || !strings.Contains(err.Error(), "shutdown mode") {
+			t.Fatalf("want invalid shutdown mode rejection, got: %v", err)
+		}
+	})
+}

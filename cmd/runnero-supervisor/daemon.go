@@ -38,9 +38,11 @@ import (
 	"github.com/noosxe/runnero/internal/webhook"
 )
 
-// daemonShutdownTimeout bounds the HTTP drain window on SIGTERM/SIGINT:
-// in-flight health requests are trivially short, and later milestones
-// (M6, RUN-41) layer their own component shutdowns under the same budget.
+// daemonShutdownTimeout bounds the default (detach) shutdown on
+// SIGTERM/SIGINT: the HTTP drain, Tailscale, and the pool controller's stop
+// all share it. Runner containers are left running (docs/03 §7), so nothing
+// here waits on a job. The opt-in drain mode adds the pool controller's
+// drain timeout on top.
 const daemonShutdownTimeout = 10 * time.Second
 
 // startTailscale boots the embedded Tailscale node (RUN-155); the
@@ -56,6 +58,8 @@ func newDaemonCommand() *cobra.Command {
 }
 
 // runDaemon boots the supervisor daemon and blocks until SIGINT/SIGTERM.
+// Both signals run the configured shutdown mode (docs/03 §7): the default
+// detach leaves runner containers running for the next boot to adopt.
 func runDaemon(cmd *cobra.Command, _ []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -357,8 +361,16 @@ func runDaemonContext(ctx context.Context) error {
 		serving = true // graceful block below owns the teardown from here
 	}
 
-	logger.Info("shutdown signal received, draining http server and pool controller")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), daemonShutdownTimeout)
+	drain := cfg.ShutdownMode == config.ShutdownModeDrain
+	logger.Info("shutdown signal received, stopping http server and pool controller", "shutdown_mode", cfg.ShutdownMode)
+	budget := daemonShutdownTimeout
+	if drain {
+		// The drain waits for busy runners up to the drain timeout; the
+		// extra daemonShutdownTimeout covers the HTTP drain and the final
+		// force-terminate pass (docs/03 §7).
+		budget += poolCtrl.DrainTimeout(context.Background())
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Warn("http server graceful shutdown error", "err", err)
@@ -370,8 +382,24 @@ func runDaemonContext(ctx context.Context) error {
 			logger.Warn("tailscale shutdown error", "err", err)
 		}
 	}
-	if err := poolCtrl.GracefulShutdown(shutdownCtx); err != nil {
-		logger.Warn("pool controller graceful shutdown error", "err", err)
+	if drain {
+		if err := poolCtrl.GracefulShutdown(shutdownCtx); err != nil {
+			logger.Warn("pool controller drain shutdown error", "err", err)
+		}
+	} else if err := poolCtrl.DetachShutdown(shutdownCtx); err != nil {
+		logger.Warn("pool controller detach shutdown error", "err", err)
+	}
+	// The loops already saw the signal through daemonCtx; wait for them
+	// (bounded) so none outlives the database close below.
+	loopsDone := make(chan struct{})
+	go func() {
+		bootLoops.Wait()
+		close(loopsDone)
+	}()
+	select {
+	case <-loopsDone:
+	case <-shutdownCtx.Done():
+		logger.Warn("shutdown proceeding with the control loop still exiting", "err", shutdownCtx.Err())
 	}
 	logger.Info("supervisor daemon stopped")
 	return nil

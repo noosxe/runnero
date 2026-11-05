@@ -132,11 +132,16 @@ WHERE pool_id = ?
   AND runner_name = ?
   AND completed_at IS NULL;
 
--- name: CloseAllOpenJobsInterrupted :execrows
+-- name: ListOpenJobRows :many
+SELECT id, pool_id, runner_name FROM job_history
+WHERE completed_at IS NULL;
+
+-- name: CloseJobRowInterrupted :execrows
 UPDATE job_history
 SET completed_at = ?,
     status = 'interrupted'
-WHERE completed_at IS NULL;
+WHERE id = ?
+  AND completed_at IS NULL;
 
 -- name: CloseStaleOpenJobsSince :execrows
 UPDATE job_history

@@ -192,9 +192,17 @@ restores of `/var/lib/runnero` simple.
   answers `degraded`, docs/02 §5); `requires` would bounce the supervisor on
   every engine restart for no benefit.
 - `Restart = "on-failure"`, `RestartSec = "5s"`.
-- `TimeoutStopSec = "30s"`: the daemon bounds its own shutdown at 10 s
-  (`daemonShutdownTimeout` in `cmd/runnero-supervisor/daemon.go`); 30 s
-  leaves margin before systemd escalates to SIGKILL.
+- `TimeoutStopSec = "30s"` in the default `detach` shutdown mode: the
+  daemon bounds its own shutdown at 10 s (`daemonShutdownTimeout` in
+  `cmd/runnero-supervisor/daemon.go`), and 30 s leaves margin before systemd
+  escalates to SIGKILL. With `settings.shutdown-mode = "drain"` it becomes
+  `"6min"`: the default 300 s `shutdown_timeout_seconds` plus the 10 s
+  budget, with margin (docs/03 §7). Both are `mkDefault`. An operator who
+  raises `shutdown_timeout_seconds` raises `TimeoutStopSec` with it.
+- `KillMode` stays the default `control-group`. That is safe because runner
+  containers are children of the Docker engine and live in Docker's cgroups,
+  not `runnero.service`'s. Stopping the unit can only kill the daemon. The VM
+  test (§7) asserts this.
 - `AmbientCapabilities = CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ]`
   **only** when `settings.port < 1024`; otherwise both are empty.
 - Hardening: `NoNewPrivileges`, `ProtectSystem = "strict"`, `ProtectHome`,
@@ -212,13 +220,17 @@ restores of `/var/lib/runnero` simple.
 
 **Restart on `nixos-rebuild switch`.** NixOS restarts a unit whose definition
 changed (`restartIfChanged`, default true), and any package or settings change
-changes it. A restart is a normal SIGTERM shutdown (docs/03 §7): idle runners
-are deregistered and removed, and busy runners are force-terminated when the
-10 s window ends — **in-flight jobs on this host fail**, exactly as with a
-Compose container recreate today. The module keeps the NixOS default (config
-changes must apply) and documents it; an operator who prefers to schedule
-restarts can set `systemd.services.runnero.restartIfChanged = false` in their
-own config.
+changes it. In the default `detach` shutdown mode (docs/03 §7), a restart
+leaves every runner container running and registered, idle and busy alike.
+The new process adopts them at boot: in-flight jobs finish, idle runners
+count toward pool targets, and job history continues. A deploy costs only the
+few seconds the control plane (UI, webhooks, scaling) is down. The module
+keeps the NixOS default, since config changes must apply.
+
+To decommission a host, set `settings.shutdown-mode = "drain"` and switch.
+That switch restarts the unit in drain mode and still detaches. The next
+`systemctl stop runnero` then deregisters idle runners and waits for busy
+ones before terminating them.
 
 ### 3.5 Admin CLI (`runnero-admin`)
 
@@ -438,7 +450,12 @@ pnpm lockfile without updating the hashes fails it.
   - `runnero-admin version` prints the package version and
     `runnero-admin backup` writes a snapshot;
   - the generated key string does not appear in the system closure (no store
-    leak).
+    leak);
+  - a container carrying the `com.runnero.*` labels keeps running across
+    `systemctl restart runnero` and `systemctl stop runnero`. It is outside
+    the unit's cgroup, the stopping daemon logs that it detached, and the next
+    boot logs that it adopted the container (docs/03 §7). The container runs
+    a `dockerTools`-built busybox image loaded from the store.
   The test creates no pools, so it pulls no images and needs no network.
   A second node runs headscale (the NixOS `services.headscale` module behind
   nginx with a self-signed certificate) as the tsnet control server; the

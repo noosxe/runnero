@@ -282,63 +282,6 @@ func (s *ControllerTestSuite) TestQuota_GlobalQuotaSaturationAndFairQueueDrain()
 	s.Assert().Equal(3, countFinal)
 }
 
-func (s *ControllerTestSuite) TestLifecycle_ImmediateShutdownTerminatesAll() {
-	pool := db.RunnerPool{
-		ID:             117,
-		Name:           "shutdown-pool",
-		Provider:       "github",
-		Scope:          "repo",
-		AuthProfileID:  10,
-		MinIdleRunners: 2,
-		MaxConcurrency: 4,
-	}
-
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/repo"}}}
-
-	spawnedContainers := make([]string, 0)
-	var spawnMu sync.Mutex
-	s.mockEngine.SpawnRunnerFn = func(ctx context.Context, cfg orchestrator.RunnerConfig) (string, error) {
-		spawnMu.Lock()
-		defer spawnMu.Unlock()
-		id := "cnt-" + cfg.Name
-		spawnedContainers = append(spawnedContainers, id)
-		return id, nil
-	}
-
-	terminated := make([]string, 0)
-	var termMu sync.Mutex
-	s.mockEngine.TerminateRunnerFn = func(ctx context.Context, containerID string) error {
-		termMu.Lock()
-		defer termMu.Unlock()
-		terminated = append(terminated, containerID)
-		return nil
-	}
-
-	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
-		DB:               repo,
-		ContainerEngine:  s.mockEngine,
-		ProviderResolver: s.resolver,
-		Reconciler:       s.reconciler,
-	})
-
-	err := ctrl.Boot(s.ctx)
-	s.Require().NoError(err)
-
-	spawnMu.Lock()
-	spawnCount := len(spawnedContainers)
-	spawnMu.Unlock()
-	s.Require().Equal(2, spawnCount)
-
-	// Immediate shutdown terminates all containers without waiting
-	err = ctrl.ImmediateShutdown(s.ctx)
-	s.Require().NoError(err)
-
-	termMu.Lock()
-	termCount := len(terminated)
-	termMu.Unlock()
-	s.Assert().Equal(2, termCount)
-}
-
 func TestControllerTestSuite(t *testing.T) {
 	suite.Run(t, new(ControllerTestSuite))
 }

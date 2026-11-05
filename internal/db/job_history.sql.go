@@ -58,15 +58,21 @@ func (q *Queries) AttachWebhookToTransition(ctx context.Context, arg AttachWebho
 	return result.RowsAffected()
 }
 
-const closeAllOpenJobsInterrupted = `-- name: CloseAllOpenJobsInterrupted :execrows
+const closeJobRowInterrupted = `-- name: CloseJobRowInterrupted :execrows
 UPDATE job_history
 SET completed_at = ?,
     status = 'interrupted'
-WHERE completed_at IS NULL
+WHERE id = ?
+  AND completed_at IS NULL
 `
 
-func (q *Queries) CloseAllOpenJobsInterrupted(ctx context.Context, completedAt sql.NullTime) (int64, error) {
-	result, err := q.db.ExecContext(ctx, closeAllOpenJobsInterrupted, completedAt)
+type CloseJobRowInterruptedParams struct {
+	CompletedAt sql.NullTime `json:"completed_at"`
+	ID          int64        `json:"id"`
+}
+
+func (q *Queries) CloseJobRowInterrupted(ctx context.Context, arg CloseJobRowInterruptedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, closeJobRowInterrupted, arg.CompletedAt, arg.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -656,6 +662,40 @@ func (q *Queries) ListJobHistoryByPoolId(ctx context.Context, arg ListJobHistory
 			&i.Source,
 			&i.CreatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenJobRows = `-- name: ListOpenJobRows :many
+SELECT id, pool_id, runner_name FROM job_history
+WHERE completed_at IS NULL
+`
+
+type ListOpenJobRowsRow struct {
+	ID         int64  `json:"id"`
+	PoolID     int64  `json:"pool_id"`
+	RunnerName string `json:"runner_name"`
+}
+
+func (q *Queries) ListOpenJobRows(ctx context.Context) ([]ListOpenJobRowsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenJobRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenJobRowsRow{}
+	for rows.Next() {
+		var i ListOpenJobRowsRow
+		if err := rows.Scan(&i.ID, &i.PoolID, &i.RunnerName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

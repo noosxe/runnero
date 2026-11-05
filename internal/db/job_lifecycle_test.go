@@ -166,7 +166,7 @@ func TestCloseInterruptedOpenJobs(t *testing.T) {
 		}
 	}
 
-	closed, err := database.CloseInterruptedOpenJobs(ctx, now)
+	closed, err := database.CloseInterruptedOpenJobs(ctx, now, nil)
 	if err != nil || closed != 3 {
 		t.Fatalf("CloseInterruptedOpenJobs = %d (err=%v), want 3", closed, err)
 	}
@@ -178,6 +178,38 @@ func TestCloseInterruptedOpenJobs(t *testing.T) {
 		if r.Status != "interrupted" || !r.CompletedAt.Valid {
 			t.Fatalf("row not interrupted: %+v", r)
 		}
+	}
+}
+
+// TestCloseInterruptedOpenJobsKeepsAdopted verifies boot recovery leaves the
+// rows of runners that survived the restart open (docs/03 §7 detach,
+// docs/21 §5.4): only rows of runners gone from the engine are interrupted.
+func TestCloseInterruptedOpenJobsKeepsAdopted(t *testing.T) {
+	database, poolID, cleanup := newJobLifecycleDB(t)
+	defer cleanup()
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	for _, name := range []string{"runnero-k-alive", "runnero-k-gone"} {
+		if err := database.OpenTransitionJob(ctx, poolID, name, now); err != nil {
+			t.Fatalf("OpenTransitionJob(%s) failed: %v", name, err)
+		}
+	}
+
+	keep := []JobRunnerKey{
+		{PoolID: poolID, RunnerName: "runnero-k-alive"},
+		// Same name in another pool must not shield this pool's row.
+		{PoolID: poolID + 1, RunnerName: "runnero-k-gone"},
+	}
+	closed, err := database.CloseInterruptedOpenJobs(ctx, now, keep)
+	if err != nil || closed != 1 {
+		t.Fatalf("CloseInterruptedOpenJobs = %d (err=%v), want 1", closed, err)
+	}
+	if _, err := database.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: "runnero-k-alive"}); err != nil {
+		t.Fatalf("adopted runner's row must stay open: %v", err)
+	}
+	if _, err := database.GetOpenJobRow(ctx, GetOpenJobRowParams{PoolID: poolID, RunnerName: "runnero-k-gone"}); err == nil {
+		t.Fatal("vanished runner's row must be closed as interrupted")
 	}
 }
 

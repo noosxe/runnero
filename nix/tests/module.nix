@@ -55,6 +55,18 @@ let
     ) "runnero: a secret key in settings did not fail evaluation as documented"
     && lib.assertMsg (!storePathEnvFile.success) "runnero: a store-path environmentFile was accepted";
 
+  # Stand-in runner container for the restart check: any long-running
+  # process carrying the runnero labels is adopted on boot (docs/03 §2).
+  sleeperImage = pkgs.dockerTools.buildImage {
+    name = "runnero-vm-sleeper";
+    tag = "latest";
+    copyToRoot = [ pkgs.busybox ];
+    config.Cmd = [
+      "sleep"
+      "3600"
+    ];
+  };
+
   # --- VM test --------------------------------------------------------------
   # tsnet resolves the control URL through DNS, not /etc/hosts, so the
   # control server is addressed by its VM IP (first node on vlan 1).
@@ -122,6 +134,7 @@ pkgs.testers.runNixOSTest {
       imports = [ self.nixosModules.default ];
 
       virtualisation.memorySize = 2048;
+      virtualisation.additionalPaths = [ sleeperImage ];
       virtualisation.docker.enable = true;
       security.pki.certificateFiles = [ "${tlsCert}/cert.pem" ];
       environment.systemPackages = [ pkgs.curl ];
@@ -236,9 +249,41 @@ pkgs.testers.runNixOSTest {
             ).strip()
             assert hits == "", f"secret found in the store: {hits}"
 
+    with subtest("restart leaves runner containers running and adopts them"):
+        machine.succeed("docker load < ${sleeperImage}")
+        machine.succeed(
+            "docker run -d --name runnero-vm-pool-sleeper "
+            "--label com.runnero.managed=true --label com.runnero.pool-name=vm-pool "
+            "runnero-vm-sleeper:latest"
+        )
+        cpid = machine.succeed(
+            "docker inspect -f '{{.State.Pid}}' runnero-vm-pool-sleeper"
+        ).strip()
+        cgroup = machine.succeed(f"cat /proc/{cpid}/cgroup")
+        assert "runnero.service" not in cgroup, f"runner container is in the unit's cgroup: {cgroup}"
+        machine.succeed("systemctl restart runnero.service")
+        machine.wait_until_succeeds("curl -fsS http://127.0.0.1:8090/readyz", timeout=120)
+        state = machine.succeed(
+            "docker inspect -f '{{.State.Status}}' runnero-vm-pool-sleeper"
+        ).strip()
+        assert state == "running", f"runner container is {state!r} after a restart"
+        machine.succeed(
+            "journalctl -u runnero.service --no-pager | grep -F 'detached from runner containers'"
+        )
+        machine.wait_until_succeeds(
+            "journalctl -u runnero.service --no-pager"
+            " | grep -F 'adopted runner container from previous supervisor lifetime'"
+            " | grep -F runnero-vm-pool-sleeper",
+            timeout=60,
+        )
+
     with subtest("clean stop"):
         machine.succeed("systemctl stop runnero.service")
         result = machine.succeed("systemctl show -P Result runnero.service").strip()
         assert result == "success", f"runnero.service stopped with result {result!r}"
+        state = machine.succeed(
+            "docker inspect -f '{{.State.Status}}' runnero-vm-pool-sleeper"
+        ).strip()
+        assert state == "running", f"runner container is {state!r} after a stop"
   '';
 }
