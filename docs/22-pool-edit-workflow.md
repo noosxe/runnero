@@ -143,6 +143,14 @@ finish their job and exit — natural convergence, zero job disruption.
 Recycling only ever follows a successful write: a failed update leaves the
 pool untouched and skips the recycle churn entirely.
 
+**The recycle runs in the background.** `UpdatePool` answers as soon as the
+row is persisted and audited; it never waits on deregistrations or container
+removals (§5.5, §6.2). Synchronous recycling took seconds and — when the UI
+was served through the embedded tsnet node (docs/26) — lost the RPC
+response: removing a container removes its host network interface, tsnet
+reacts to the link change mid-response, and the browser saw a bare
+`NetworkError` although the edit had been applied.
+
 ### 5.3 Provider Immutability
 
 Provider is a product of the auth-profile family chosen at creation; switching
@@ -197,12 +205,20 @@ ID-keyed tracking (§11, RUN-126).
 1. validatePoolInput(req.pool)                // shape, targets, scope, cron, provider immutability
 2. GetRunnerPoolById(id)                      → CodeNotFound; capture "before"
 3. if renamed: busy-check (PoolStats)         → CodeFailedPrecondition
-4. if spawn-identity changed OR renamed:
-       RecycleIdleRunners(oldName)            // best-effort, logged; no-op when no controller
-5. UpdateRunnerPool / renovate upsert / conditional target rewrite
-6. recordAuditLog("pool.update", before→after changed fields)
-7. statsProvider.Reload(ctx)                  // converge min_idle/max_concurrency, respawn recycled idle
+4. UpdatePool transaction: pool row / renovate upsert / conditional target rewrite
+5. recordAuditLog("pool.update", before→after changed fields)
+6. if spawn-identity changed:
+       ScheduleIdleRecycle(id)                // returns at once; recycle + reconcile run in the background
+   else:
+       statsProvider.Reload(ctx)              // converge min_idle/max_concurrency synchronously
+7. respond with the persisted pool
 ```
+
+When a recycle is scheduled the RPC skips the synchronous `Reload`: the
+background pass ends with the same reconcile, and a `Reload` issued from the
+RPC would only queue behind the recycle on the controller's provisioning
+lock — blocking the response all over again. Renames are metadata-only
+(§5.4) and take the `Reload` branch.
 
 ## 6. Backend Changes
 
@@ -232,17 +248,47 @@ to a logged no-op:
 ```go
 // Implemented by orchestrator.PoolController; consumed by PoolService.
 type IdleRecycler interface {
-    // RecycleIdleRunners deregisters and terminates all non-busy tracked
-    // runners of poolName so the next reconcile respawns them with the
-    // pool's current configuration. Busy runners are never touched.
-    RecycleIdleRunners(ctx context.Context, poolName string) error
+    // ScheduleIdleRecycle queues a background recycle of poolID's non-busy
+    // tracked runners, followed by a reconcile that respawns them with the
+    // pool's current configuration, and returns immediately. Busy runners
+    // are never touched; failures are logged by the controller.
+    ScheduleIdleRecycle(poolID int64)
 }
 ```
 
-`PoolController.RecycleIdleRunners` iterates `TrackedPoolRunners(poolName)`,
-skips `IsBusy`, and for each idle runner runs the same
-deregister → terminate → untrack sequence as `drainPool`, holding
-`provisionMu` for the sweep. No schema, queue, or state-machine changes.
+`PoolController.ScheduleIdleRecycle` starts (or reuses) a per-pool worker
+that runs **recycle passes**. Each pass calls `RecycleIdleRunners(poolID)` —
+iterate `TrackedPoolRunners(poolID)`, skip `IsBusy`, and for each idle runner
+run the same deregister → terminate → untrack sequence as `drainPool`,
+holding `provisionMu` for the sweep — then `Reconcile` to respawn the warm
+pool. Properties:
+
+- **Detached from the request.** Passes run on a controller-owned lifecycle
+  context, never the RPC context; the control loop's context ending, or
+  `GracefulShutdown` / `ImmediateShutdown`, cancels it. Shutdown cancels
+  in-flight passes and waits for the workers (bounded by the shutdown
+  context) before its own teardown; a recycle requested after shutdown began
+  is dropped with a warning.
+- **Bounded.** Each pass runs under `DefaultIdleRecycleTimeout` (5 min); a
+  stuck provider or Docker API aborts the pass, and the regular reconcile and
+  audit cycles converge leftovers.
+- **Serialized and coalesced per pool.** At most one pass per pool is in
+  flight. Edits landing during a pass set a rerun flag, so any number of
+  back-to-back edits yield exactly one follow-up pass, which picks up runners
+  spawned under the intermediate configuration. Different pools recycle
+  independently (still serialized by `provisionMu` for the sweep itself).
+- **Best-effort.** Failures (deregistration, removal, deadline) are logged
+  by the controller with the pool id and never surface to the finished RPC.
+- **Observable.** While a pass sweeps, the pool's diagnostics carry
+  `PROVISIONING` with the intent *"Recycling N idle runner(s) to apply the
+  new configuration"*; the follow-up reconcile replaces it. `WatchPools`
+  streams health and intent, and the runner list streams the recycled and
+  respawned runners, so the UI follows the recycle without new transport.
+  Each removal lands in the removal log with reason `recycle` (docs/28), and
+  the summary log line *"recycled idle runners after spawn-identity change"*
+  closes the pass.
+
+No schema or proto changes.
 
 ### 6.3 Data Access
 
@@ -275,15 +321,18 @@ in edit mode:
 - **Step 4 (Review):** retitled **Review & Save**; renders a
   **changed-fields diff** (old → new per field) instead of a plain summary.
 - **Impact banners** (computed client-side from the field classes in §5.2):
-  - spawn-identity fields changed → *"N idle runner(s) will be recycled to
-    apply the new configuration; running jobs are not affected."*
+  - spawn-identity fields changed → *"N idle runner(s) will be recycled in
+    the background after saving to apply the new configuration; running
+    jobs are not affected."*
   - name changed → *"Renaming recycles idle runners and requires no busy
     runners."*
 - **Submit:** `useUpdatePool` with the full Pool message (id + all writable
   fields). `CodeFailedPrecondition` (busy runner appeared during rename) and
   `CodeAlreadyExists` (duplicate name) render as actionable banner text.
-  Success closes the modal; existing `queryKeys.pools` invalidation
-  prefix-cascades to detail, runners, and stats queries.
+  Success closes the modal on the RPC response — the dialog never waits on
+  the recycle (§6.2); existing `queryKeys.pools` invalidation
+  prefix-cascades to detail, runners, and stats queries, and the streams
+  reflect the recycle as it progresses.
 - The Renovate tab remains the shortcut for renovate-only edits and benefits
   transparently from the hardened handler (notably: no more target churn).
 
@@ -297,7 +346,7 @@ in edit mode:
 | Target injection | Re-validation on every update via `validatePoolInput`: URL parsing, scope homogeneity, provider/`allow_docker` coupling (docs/05 §4). |
 | Privilege drift via auth profile | Repointing `auth_profile_id` recycles idle runners so no stale registration outlives the edit; selector is family-locked. |
 | Audit integrity | Before/after changed-field metadata replaces the current 4-field snapshot; delete/create pairs no longer masquerade as edits. |
-| Resource exhaustion | No new upstream call paths in edit (discovery reuse is rate-limited per docs/14 §3.2); recycle is bounded by the pool's tracked runner set. |
+| Resource exhaustion | No new upstream call paths in edit (discovery reuse is rate-limited per docs/14 §3.2); recycle is bounded by the pool's tracked runner set. Background recycles are coalesced per pool (at most one in flight plus one pending rerun) and time-bounded, so rapid edits cannot pile up goroutines or provider calls. |
 
 ## 9. Test Plan
 
@@ -305,13 +354,21 @@ in edit mode:
   (audit + idle recycle + reload ordering); rename with busy runners →
   `CodeFailedPrecondition`; duplicate name → `CodeAlreadyExists`; unknown id →
   `CodeNotFound`; provider change → `CodeInvalidArgument`; spawn-identity
-  change triggers `RecycleIdleRunners`, control-field change does not;
+  change schedules `ScheduleIdleRecycle` and skips the synchronous reload,
+  control-field change does neither; against a real controller with a
+  blocking engine, `UpdatePool` answers while the recycle is still in flight,
+  the recycle completes afterwards, a failing removal does not fail the RPC,
+  and shutdown mid-recycle does not hang (`pool_recycle_test.go`);
   unchanged target set → no target rewrite; invalid cron/URL/scope →
   `CodeInvalidArgument` **before** any write (assert no row touched).
 - **Controller unit (`internal/orchestrator/`):** `RecycleIdleRunners`
   deregisters/terminates only non-busy runners and untracks them; busy runners
   untouched; reconcile afterwards respawns to `min_idle`; empty/unknown pool
-  name is a no-op.
+  name is a no-op. `ScheduleIdleRecycle` (`idle_recycle_test.go`) returns
+  before the pass completes and publishes progress in the pool intent;
+  passes of one pool are serialized and mid-pass edits coalesce into a
+  rerun; failures and deadlines do not wedge the worker; shutdown cancels an
+  in-flight pass and drops later requests.
 - **Frontend (Vitest):** edit modal prefills all steps from `pool`; auth
   selector family-locked; review step shows diff; spawn-identity change shows
   recycle banner; rename shows rename banner; submit sends full Pool with id;

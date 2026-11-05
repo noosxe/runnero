@@ -67,6 +67,12 @@ const (
 	// drained busy runners whose deleted pool set no max_runner_lifetime
 	// (docs/25 §4.4, §8.3): drained leftovers can never outlive this cap.
 	DefaultDrainBackstop = 6 * time.Hour
+	// DefaultIdleRecycleTimeout bounds one background idle-recycle pass —
+	// deregistrations, container removals, and the follow-up reconcile —
+	// scheduled by a spawn-identity edit (docs/22 §6.2). A stuck provider or
+	// Docker API gives up after this long; the regular reconcile and audit
+	// cycles converge whatever is left.
+	DefaultIdleRecycleTimeout = 5 * time.Minute
 )
 
 // ProvisionRequest represents a queued runner provisioning request when the global quota is saturated.
@@ -181,7 +187,10 @@ type ControllerOptions struct {
 	RemovalLog *RemovalLogger
 	// CaptureTimeout bounds each runner log capture attempt (RUN-186,
 	// docs/28 §5.2). Zero defaults to 10s.
-	CaptureTimeout               time.Duration
+	CaptureTimeout time.Duration
+	// IdleRecycleTimeout bounds one background idle-recycle pass (docs/22
+	// §6.2). Zero applies DefaultIdleRecycleTimeout.
+	IdleRecycleTimeout           time.Duration
 	GlobalMaxRunners             int
 	ShutdownTimeout              time.Duration
 	ShutdownPollInterval         time.Duration
@@ -254,6 +263,16 @@ type PoolController struct {
 
 	diagMu      sync.RWMutex
 	diagnostics map[int64]PoolDiagnosticState
+
+	// Background idle recycle (docs/22 §6.2): spawn-identity edits schedule a
+	// per-pool recycle pass on bgCtx — the controller's lifecycle, never the
+	// request — so the UpdatePool RPC returns as soon as the row is persisted.
+	bgCtx              context.Context
+	bgCancel           context.CancelFunc
+	idleRecycleTimeout time.Duration
+	recycleMu          sync.Mutex
+	recycleRuns        map[int64]bool // pool id -> pass in flight; true = rerun requested by a newer edit
+	recycleWG          sync.WaitGroup
 }
 
 // NewPoolController creates a new lifecycle control loop engine.
@@ -319,6 +338,12 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		captureTimeout = DefaultRunnerCaptureTimeout
 	}
 
+	recycleTimeout := opts.IdleRecycleTimeout
+	if recycleTimeout <= 0 {
+		recycleTimeout = DefaultIdleRecycleTimeout
+	}
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+
 	ctrl := PoolController{
 		db:                      opts.DB,
 		jobRecorder:             jobRec,
@@ -351,6 +376,10 @@ func NewPoolController(opts ControllerOptions) *PoolController {
 		foreignPools:            make(map[int64]ForeignPool),
 		foreignWarned:           make(map[int64]bool),
 		diagnostics:             make(map[int64]PoolDiagnosticState),
+		bgCtx:                   bgCtx,
+		bgCancel:                bgCancel,
+		idleRecycleTimeout:      recycleTimeout,
+		recycleRuns:             make(map[int64]bool),
 	}
 
 	// Legacy adoption (RUN-126): containers spawned before the pool-id label
@@ -1121,6 +1150,11 @@ func (c *PoolController) Start(ctx context.Context) error {
 		}
 	}
 
+	// Background work (idle recycles) is bound to the control loop's
+	// lifecycle: when the loop's context ends, in-flight passes abort.
+	stopBg := context.AfterFunc(ctx, c.bgCancel)
+	defer stopBg()
+
 	if c.eventListener != nil {
 		go func() {
 			_ = c.eventListener.Listen(ctx, func(evt ContainerEvent) {
@@ -1172,6 +1206,7 @@ func (c *PoolController) ReadinessCheck() server.Check {
 // 4. Force-terminates any remaining containers if timeout expires
 // 5. Exits cleanly with state StateStopped.
 func (c *PoolController) GracefulShutdown(ctx context.Context) error {
+	c.stopBackground(ctx)
 	c.provisionMu.Lock()
 	defer c.provisionMu.Unlock()
 
@@ -1279,6 +1314,7 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 // 3. Sends SIGTERM to all ACTIVE runner containers (Docker's 10s grace period applies)
 // 4. Transitions controller to StateStopped.
 func (c *PoolController) ImmediateShutdown(ctx context.Context) error {
+	c.stopBackground(ctx)
 	c.provisionMu.Lock()
 	defer c.provisionMu.Unlock()
 
@@ -2571,18 +2607,23 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) e
 	c.provisionMu.Lock()
 	defer c.provisionMu.Unlock()
 
-	// Summary log for auditability (RUN-164): the per-runner deregistration
-	// is silent on success, and a recycle without a summary is
-	// indistinguishable from an unknown removal path in production logs.
-	poolName := ""
-	recycled := 0
+	var idle []RunnerStatus
 	for _, r := range c.reconciler.TrackedPoolRunners(poolID) {
-		if r.IsBusy || r.State != "running" {
-			continue
+		if !r.IsBusy && r.State == "running" {
+			idle = append(idle, r)
 		}
-		if poolName == "" {
-			poolName = r.PoolName
-		}
+	}
+	if len(idle) == 0 {
+		return nil
+	}
+	poolName := idle[0].PoolName
+	// Progress for the UI (WatchPools streams the intent); the follow-up
+	// reconcile replaces it once respawns are under way.
+	c.setPoolProvisioning(poolName, poolID,
+		fmt.Sprintf("Recycling %d idle runner(s) to apply the new configuration", len(idle)))
+
+	recycled := 0
+	for _, r := range idle {
 		// RUN-182: stale local idle state must not kill a runner the provider
 		// still considers mid-job — preserve it and converge the classification.
 		deregErr := c.deregisterRunner(ctx, r)
@@ -2602,10 +2643,96 @@ func (c *PoolController) RecycleIdleRunners(ctx context.Context, poolID int64) e
 		}
 		recycled++
 	}
+	// Summary log for auditability (RUN-164): the per-runner deregistration
+	// is silent on success, and a recycle without a summary is
+	// indistinguishable from an unknown removal path in production logs.
 	if recycled > 0 {
 		c.logger.Info("recycled idle runners after spawn-identity change", "pool", poolName, "pool_id", poolID, "recycled", recycled)
 	}
-	return nil
+	// A pass cut short by its deadline or by shutdown reports why; the
+	// runners it did not reach stay tracked for the next cycle.
+	return ctx.Err()
+}
+
+// ScheduleIdleRecycle queues a background recycle of the pool's idle runners
+// followed by a reconcile that respawns them under the pool's current
+// configuration (docs/22 §6.2). It returns immediately: UpdatePool must not
+// block on deregistrations and container removals — removing a container
+// changes host network links mid-response, which the embedded tsnet node
+// reacts to (docs/22 §5.5). Passes are serialized per pool; an edit landing
+// while a pass is in flight coalesces into exactly one rerun. Progress is
+// published through the pool diagnostics (current intent), which WatchPools
+// streams to the UI.
+func (c *PoolController) ScheduleIdleRecycle(poolID int64) {
+	c.recycleMu.Lock()
+	defer c.recycleMu.Unlock()
+	if c.bgCtx.Err() != nil {
+		c.logger.Warn("idle recycle not scheduled: controller is shutting down", "pool_id", poolID)
+		return
+	}
+	if _, inFlight := c.recycleRuns[poolID]; inFlight {
+		c.recycleRuns[poolID] = true
+		return
+	}
+	c.recycleRuns[poolID] = false
+	c.recycleWG.Add(1)
+	go c.runIdleRecycle(poolID)
+}
+
+// runIdleRecycle is the per-pool recycle worker: it runs passes until no
+// newer edit requested a rerun, or the controller shuts down.
+func (c *PoolController) runIdleRecycle(poolID int64) {
+	defer c.recycleWG.Done()
+	for {
+		c.idleRecyclePass(poolID)
+
+		c.recycleMu.Lock()
+		if !c.recycleRuns[poolID] || c.bgCtx.Err() != nil {
+			delete(c.recycleRuns, poolID)
+			c.recycleMu.Unlock()
+			return
+		}
+		c.recycleRuns[poolID] = false
+		c.recycleMu.Unlock()
+	}
+}
+
+// idleRecyclePass runs one bounded recycle + reconcile. Failures are logged
+// and never surface to the RPC that scheduled the pass: the next reconcile
+// tick and audit cycle converge leftovers.
+func (c *PoolController) idleRecyclePass(poolID int64) {
+	ctx, cancel := context.WithTimeout(c.bgCtx, c.idleRecycleTimeout)
+	defer cancel()
+
+	if err := c.RecycleIdleRunners(ctx, poolID); err != nil {
+		c.logger.Warn("background idle recycle failed", "pool_id", poolID, "err", err)
+	}
+	if ctx.Err() != nil {
+		c.logger.Warn("background idle recycle aborted", "pool_id", poolID, "err", ctx.Err())
+		return
+	}
+	if err := c.Reconcile(ctx); err != nil {
+		c.logger.Warn("reconcile after idle recycle failed", "pool_id", poolID, "err", err)
+	}
+}
+
+// stopBackground cancels background work (idle recycles) and waits for the
+// workers to exit, bounded by ctx, so shutdown never races a recycle pass.
+func (c *PoolController) stopBackground(ctx context.Context) {
+	c.recycleMu.Lock()
+	c.bgCancel()
+	c.recycleMu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		c.recycleWG.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		c.logger.Warn("shutdown proceeding with idle recycle still in flight", "err", ctx.Err())
+	}
 }
 
 var _ server.IdleRecycler = (*PoolController)(nil)
