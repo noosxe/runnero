@@ -136,8 +136,14 @@ export function useCompleteOnboarding() {
 // onboarding wizard (one transient network error, e.g. a tailscale blip). A fresh
 // install is identified exclusively by a SUCCESSFUL response with adminCreated=false.
 // Route guards render GuardErrorPage (web/src/routes/guard-error.tsx) on failure.
+//
+// Both guard fetchers use qc.query, not ensureQueryData: ensureQueryData returns
+// cached data even after invalidateQueries, so a mutation that invalidates and
+// then navigates (CompleteOnboarding -> "/") would have the guard decide on the
+// pre-mutation status. qc.query treats an invalidated entry as stale and joins
+// the background refetch the invalidation started.
 export async function fetchOnboardingStatus(qc: QueryClient) {
-  return await qc.ensureQueryData({
+  return await qc.query({
     queryKey: queryKeys.onboardingStatus,
     queryFn: async () => {
       const res = await onboardingClient.getOnboardingStatus({});
@@ -149,7 +155,7 @@ export async function fetchOnboardingStatus(qc: QueryClient) {
 
 export async function fetchSession(qc: QueryClient) {
   try {
-    return await qc.ensureQueryData({
+    return await qc.query({
       queryKey: queryKeys.session,
       queryFn: async () => {
         const res = await authClient.getSession({});

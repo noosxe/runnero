@@ -1,6 +1,13 @@
+import { createElement, type ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { QueryClient } from "@tanstack/react-query";
-import { fetchOnboardingStatus, fetchSession } from "./lib/api/query-hooks";
+import { renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  fetchOnboardingStatus,
+  fetchSession,
+  useCompleteOnboarding,
+  useOnboardingStatus,
+} from "./lib/api/query-hooks";
 import { onboardingClient, authClient } from "./lib/api/transport";
 import { loginRoute, onboardingRoute, authenticatedRoute, queryClient } from "./router";
 
@@ -234,6 +241,75 @@ describe("Route Guards & Redirect Matrix Logic", () => {
         authenticatedRoute.options.beforeLoad?.({
           location: { pathname: "/pools" },
         } as any),
+      ).rejects.toThrow("connection lost");
+    });
+  });
+
+  // Flow 02 E2E flake: the wizard invalidates the cached status
+  // (setupComplete=false) on CompleteOnboarding and navigates to "/" right
+  // away, while the background refetch is still in flight. The guard must
+  // honor the invalidation and wait for the fresh status instead of
+  // redirecting back to /onboarding on the stale cache.
+  describe("Guards after an invalidating mutation", () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const incomplete = {
+      setupComplete: false,
+      adminCreated: true,
+      authProfileExists: true,
+      poolExists: false,
+      onboardingCompleted: false,
+    };
+
+    async function mountWizardStatus() {
+      const status = renderHook(() => useOnboardingStatus(), { wrapper });
+      await waitFor(() => expect(status.result.current.data?.setupComplete).toBe(false));
+      return status;
+    }
+
+    it("authenticated guard sees setupComplete=true right after CompleteOnboarding", async () => {
+      const getStatus = vi
+        .spyOn(onboardingClient, "getOnboardingStatus")
+        .mockResolvedValue(incomplete as any);
+      vi.spyOn(authClient, "getSession").mockResolvedValue({ username: "admin" } as any);
+      vi.spyOn(onboardingClient, "completeOnboarding").mockResolvedValue({ success: true } as any);
+      await mountWizardStatus();
+
+      // The post-mutation refetch is slow: the guard runs before it lands.
+      let landRefetch!: () => void;
+      getStatus.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            landRefetch = () =>
+              resolve({ ...incomplete, setupComplete: true, onboardingCompleted: true } as any);
+          }),
+      );
+
+      const complete = renderHook(() => useCompleteOnboarding(), { wrapper });
+      await complete.result.current.mutateAsync();
+
+      const guard = authenticatedRoute.options.beforeLoad?.({
+        location: { pathname: "/" },
+      } as any);
+      landRefetch();
+
+      await expect(guard).resolves.toMatchObject({ onboarding: { setupComplete: true } });
+    });
+
+    it("fails closed when the post-invalidation refetch errors", async () => {
+      const getStatus = vi
+        .spyOn(onboardingClient, "getOnboardingStatus")
+        .mockResolvedValue(incomplete as any);
+      vi.spyOn(onboardingClient, "completeOnboarding").mockResolvedValue({ success: true } as any);
+      await mountWizardStatus();
+
+      getStatus.mockRejectedValue(new Error("connection lost"));
+      const complete = renderHook(() => useCompleteOnboarding(), { wrapper });
+      await complete.result.current.mutateAsync();
+
+      await expect(
+        authenticatedRoute.options.beforeLoad?.({ location: { pathname: "/" } } as any),
       ).rejects.toThrow("connection lost");
     });
   });
