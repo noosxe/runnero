@@ -17,7 +17,7 @@ type Querier interface {
 	// (docs/21 section 5.5 merge rule 3). queued_at is adopted from the forge event -
 	// real data, never fabricated.
 	AttachWebhookToTransition(ctx context.Context, arg AttachWebhookToTransitionParams) (int64, error)
-	CloseAllOpenJobsInterrupted(ctx context.Context, completedAt sql.NullTime) (int64, error)
+	CloseJobRowInterrupted(ctx context.Context, arg CloseJobRowInterruptedParams) (int64, error)
 	CloseOpenJobRow(ctx context.Context, arg CloseOpenJobRowParams) (int64, error)
 	// Webhook 'completed' fallback: no row carries the external id (poll-opened
 	// transition row only) - close it and enrich it with the job id (docs/21 section 5.5).
@@ -133,6 +133,7 @@ type Querier interface {
 	ListJobHistory(ctx context.Context, arg ListJobHistoryParams) ([]JobHistory, error)
 	ListJobHistoryByPoolId(ctx context.Context, arg ListJobHistoryByPoolIdParams) ([]JobHistory, error)
 	ListLoginRateFailuresSince(ctx context.Context, failedAt time.Time) ([]ListLoginRateFailuresSinceRow, error)
+	ListOpenJobRows(ctx context.Context) ([]ListOpenJobRowsRow, error)
 	ListPoolTargetsByPoolId(ctx context.Context, poolID int64) ([]PoolTarget, error)
 	ListPoolsByTargetUrl(ctx context.Context, targetUrl string) ([]RunnerPool, error)
 	ListRenovateConfigs(ctx context.Context) ([]RenovateConfig, error)

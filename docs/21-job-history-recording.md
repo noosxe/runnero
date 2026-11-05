@@ -140,9 +140,15 @@ RunnerLatestJobs(ctx, scope, targetURL, runnerID int64) ([]RunnerJob{ID, Conclus
 
 Open rows must not survive forever:
 
-- At boot, after the initial convergence pass: any row with `started_at` set and
-  `completed_at` NULL whose runner is not currently tracked-busy is closed as
-  `interrupted` with `completed_at=now`.
+- At boot, right after the engine state rebuild (docs/03 §2): any open row
+  whose runner has no container on the engine (in any state) is closed as
+  `interrupted` with `completed_at=now`. Rows of adopted runners stay open. A
+  default shutdown detaches from runners instead of killing them (docs/03
+  §7), so their jobs survive the restart. The busy→idle transition or the reap
+  of the exited container closes those rows with the real outcome, and a job
+  spanning a restart stays one row. Recovery is skipped on a boot attempt
+  whose engine listing failed: without the listing every surviving job would
+  be misrecorded, and the next boot attempt runs it.
 - Belt-and-braces: a row open longer than `2 × max_runner_lifetime_seconds`
   (pool-configured, when set) is force-closed as `interrupted` by the audit loop.
 

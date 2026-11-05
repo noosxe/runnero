@@ -97,6 +97,22 @@ in
               engine) skips the local Docker assertion and the `docker` group.
             '';
           };
+          shutdown-mode = lib.mkOption {
+            type = lib.types.enum [
+              "detach"
+              "drain"
+            ];
+            default = "detach";
+            description = ''
+              What stopping the unit does to runner containers (docs/03 §7).
+              `detach` leaves every runner running and registered: the next
+              start adopts them, so a restart or a `nixos-rebuild switch`
+              never interrupts a job. `drain` deregisters idle runners and
+              waits for busy ones (up to the `shutdown_timeout_seconds` app
+              setting, default 300s) before force-terminating them: use it
+              to take the host out of service.
+            '';
+          };
           data-dir = lib.mkOption {
             type = lib.types.str;
             default = stateDir;
@@ -204,8 +220,12 @@ in
 
         Restart = "on-failure";
         RestartSec = "5s";
-        # The daemon bounds its own shutdown at 10s (daemonShutdownTimeout).
-        TimeoutStopSec = "30s";
+        # Detach (the default) bounds its own shutdown at 10s
+        # (daemonShutdownTimeout); runner containers live in Docker's cgroups,
+        # not this unit's, so stopping the unit never kills them. Drain waits
+        # for busy runners up to shutdown_timeout_seconds (default 300s) plus
+        # the same 10s: raise this if you raise that setting (docs/39 §3.4).
+        TimeoutStopSec = lib.mkDefault (if cfg.settings.shutdown-mode == "drain" then "6min" else "30s");
 
         AmbientCapabilities = lib.optional privilegedPort "CAP_NET_BIND_SERVICE";
         CapabilityBoundingSet = lib.optional privilegedPort "CAP_NET_BIND_SERVICE";

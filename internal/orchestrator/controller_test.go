@@ -679,6 +679,9 @@ type mockJobRecorder struct {
 		logPath    string
 	}
 	interrupted int64
+	// recoveryKeep is the keep set passed to the last boot recovery call.
+	recoveryKeep  []db.JobRunnerKey
+	recoveryCalls int
 
 	webhookQueued    []webhookQueuedCall
 	webhookStarted   []webhookStartedCall
@@ -1136,18 +1139,21 @@ func TestPoolController_GracefulShutdown_TimeoutExceeded(t *testing.T) {
 	}
 }
 
-func TestPoolController_ImmediateShutdown_SIGINT(t *testing.T) {
+// TestPoolController_DetachShutdown_LeavesRunners covers the default signal
+// shutdown (docs/03 §7): idle and busy runners alike stay running and
+// registered - no deregistration, no termination.
+func TestPoolController_DetachShutdown_LeavesRunners(t *testing.T) {
 	ctx := context.Background()
 
 	pool := db.RunnerPool{
 		ID:            122,
-		Name:          "immediate-pool",
+		Name:          "detach-pool",
 		Provider:      "github",
 		Scope:         "repo",
 		AuthProfileID: 1,
 	}
 
-	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/immediate-repo"}}}
+	repo := &mockPoolRepo{pools: []db.RunnerPool{pool}, targets: map[int64][]string{pool.ID: {"https://github.com/owner/detach-repo"}}}
 	gitProv := &mockGitProvider{}
 	resolver := &mockGitProviderResolver{
 		providers: map[int64]provider.GitProvider{1: gitProv},
@@ -1170,28 +1176,64 @@ func TestPoolController_ImmediateShutdown_SIGINT(t *testing.T) {
 	})
 
 	r1 := orchestrator.RunnerStatus{
-		PoolID: 122, ID: "runner-idle", Name: "r-idle", PoolName: "immediate-pool", State: "running", IsBusy: false}
+		PoolID: 122, ID: "runner-idle", Name: "r-idle", PoolName: "detach-pool", State: "running", IsBusy: false}
 	r2 := orchestrator.RunnerStatus{
-		PoolID: 122, ID: "runner-busy", Name: "r-busy", PoolName: "immediate-pool", State: "running", IsBusy: true}
+		PoolID: 122, ID: "runner-busy", Name: "r-busy", PoolName: "detach-pool", State: "running", IsBusy: true}
 	reconciler.TrackRunner(r1)
 	reconciler.TrackRunner(r2)
 
-	// Immediate shutdown: all containers terminated immediately
-	if err := ctrl.ImmediateShutdown(ctx); err != nil {
-		t.Fatalf("ImmediateShutdown failed: %v", err)
+	if err := ctrl.DetachShutdown(ctx); err != nil {
+		t.Fatalf("DetachShutdown failed: %v", err)
 	}
 
 	if ctrl.State() != orchestrator.StateStopped {
 		t.Errorf("expected StateStopped, got %v", ctrl.State())
 	}
-
-	if len(terminated) != 2 {
-		t.Fatalf("expected both runners terminated immediately, got %d", len(terminated))
+	if len(terminated) != 0 {
+		t.Fatalf("detach must not terminate runners, got %v", terminated)
+	}
+	if gitProv.deregCalls != 0 {
+		t.Errorf("detach must not deregister runners, got %v", gitProv.deregistered)
 	}
 
-	// Deregistered called for both
-	if len(gitProv.deregistered) != 2 {
-		t.Errorf("expected both runners deregistered with provider, got %d", len(gitProv.deregistered))
+	// A stopped controller ignores late container events and reconcile
+	// ticks: nothing on the way out may reap or replace a runner.
+	if err := ctrl.HandleContainerEvent(ctx, orchestrator.ContainerEvent{
+		ContainerID: "runner-idle", PoolID: 122, PoolName: "detach-pool", Action: "die",
+	}); err != nil {
+		t.Fatalf("HandleContainerEvent failed: %v", err)
+	}
+	if err := ctrl.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile failed: %v", err)
+	}
+	if len(terminated) != 0 || len(mockEngine.SpawnedRunners) != 0 {
+		t.Fatalf("stopped controller acted: terminated=%v spawned=%d", terminated, len(mockEngine.SpawnedRunners))
+	}
+	if got := len(reconciler.TrackedPoolRunners(122)); got != 2 {
+		t.Errorf("tracked runners after detach = %d, want 2", got)
+	}
+}
+
+// TestPoolController_DrainTimeoutFromAppSettings covers the drain budget
+// (docs/03 §7): the shutdown_timeout_seconds app setting wins over the
+// controller default when set and positive.
+func TestPoolController_DrainTimeoutFromAppSettings(t *testing.T) {
+	ctx := context.Background()
+	repo := &mockPoolRepo{settings: map[string]string{}}
+	ctrl := orchestrator.NewPoolController(orchestrator.ControllerOptions{
+		DB:              repo,
+		ShutdownTimeout: 42 * time.Second,
+	})
+	if got := ctrl.DrainTimeout(ctx); got != 42*time.Second {
+		t.Errorf("DrainTimeout without setting = %v, want 42s", got)
+	}
+	repo.settings["shutdown_timeout_seconds"] = "120"
+	if got := ctrl.DrainTimeout(ctx); got != 120*time.Second {
+		t.Errorf("DrainTimeout with setting = %v, want 120s", got)
+	}
+	repo.settings["shutdown_timeout_seconds"] = "0"
+	if got := ctrl.DrainTimeout(ctx); got != 42*time.Second {
+		t.Errorf("DrainTimeout with non-positive setting = %v, want 42s fallback", got)
 	}
 }
 
@@ -1870,7 +1912,9 @@ func (m *mockJobRecorder) CloseTransitionJob(ctx context.Context, poolID int64, 
 	return nil
 }
 
-func (m *mockJobRecorder) CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error) {
+func (m *mockJobRecorder) CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time, keep []db.JobRunnerKey) (int64, error) {
+	m.recoveryCalls++
+	m.recoveryKeep = keep
 	n := m.interrupted
 	m.interrupted = 0
 	return n, nil

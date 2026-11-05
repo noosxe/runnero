@@ -108,6 +108,12 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid engine ownership mode %q: want strict or adopt-all (key 'engine-ownership', env %s); strict is the default and keeps cross-instance protection on (docs/33 §3.5)", c.EngineOwnership, EnvEngineOwnership)
 	}
 
+	switch c.ShutdownMode {
+	case ShutdownModeDetach, ShutdownModeDrain:
+	default:
+		return fmt.Errorf("invalid shutdown mode %q: want detach or drain (key 'shutdown-mode', env %s); detach is the default and leaves runners running across restarts (docs/03 §7)", c.ShutdownMode, EnvShutdownMode)
+	}
+
 	if c.SessionIdleTimeout <= 0 {
 		return fmt.Errorf("session idle timeout must be positive, got %s (key 'session-idle-timeout', env %s)", c.SessionIdleTimeout, EnvSessionIdleTimeout)
 	}

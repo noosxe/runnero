@@ -91,7 +91,7 @@ type JobHistoryRecorder interface {
 	RecordJobTimeout(ctx context.Context, poolID int64, runnerName, logPath string, startedAt, completedAt time.Time) error
 	OpenTransitionJob(ctx context.Context, poolID int64, runnerName string, startedAt time.Time) error
 	CloseTransitionJob(ctx context.Context, poolID int64, runnerName, status string, jobID int64, logPath string, completedAt time.Time) error
-	CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time) (int64, error)
+	CloseInterruptedOpenJobs(ctx context.Context, completedAt time.Time, keep []db.JobRunnerKey) (int64, error)
 	CloseStaleOpenJobs(ctx context.Context, poolID int64, cutoff, completedAt time.Time) (int64, error)
 
 	// Webhook enrichment (docs/21 §5.5): upsert/merge/close rows keyed by the
@@ -473,21 +473,36 @@ func (c *PoolController) Boot(ctx context.Context) error {
 			"hint", "SUPERVISOR_ENGINE_OWNERSHIP=adopt-all is a one-shot recovery switch - remove it after the orphans are claimed so strict protection returns on the next boot")
 	}
 
-	// 1. Rebuild state by querying supervisor-managed containers
+	// 1. Rebuild state by querying supervisor-managed containers. Runners a
+	// previous lifetime detached from on shutdown (docs/03 §7) are adopted
+	// here and count toward pool targets from the first reconcile on.
+	rebuilt := c.reconciler == nil
 	if c.reconciler != nil {
 		report, err := c.reconciler.RebuildState(ctx)
 		if err != nil {
 			c.logger.Warn("failed to rebuild state from engine during boot", "err", err)
 		} else {
+			rebuilt = true
 			c.logger.Info("boot state sync completed", "adopted", len(report.Adopted), "active", len(report.Active))
+			for _, r := range report.Adopted {
+				c.logger.Info("adopted runner container from previous supervisor lifetime",
+					"pool", r.PoolName, "pool_id", r.PoolID, "id", r.ID, "name", r.Name, "state", r.State)
+			}
 		}
 	}
 
-	// Crash recovery (docs/21 §5.4): any job_history row still open from a
-	// previous supervisor lifetime is closed as 'interrupted' before the
-	// initial convergence pass re-opens rows for currently-busy runners.
-	if c.jobRecorder != nil {
-		if n, err := c.jobRecorder.CloseInterruptedOpenJobs(ctx, time.Now().UTC()); err != nil {
+	// Crash recovery (docs/21 §5.4): a job_history row still open from a
+	// previous supervisor lifetime is closed as 'interrupted' unless its
+	// runner's container was just adopted - that job survived the restart,
+	// and the busy-state sync or the reap path closes the row with the real
+	// outcome. Skipped while the engine listing is unavailable: without it
+	// every surviving job would be misrecorded, and Start re-runs Boot.
+	if c.jobRecorder != nil && rebuilt {
+		var keep []db.JobRunnerKey
+		if c.reconciler != nil {
+			keep = c.reconciler.TrackedJobKeys()
+		}
+		if n, err := c.jobRecorder.CloseInterruptedOpenJobs(ctx, time.Now().UTC(), keep); err != nil {
 			c.logger.Warn("boot job-row recovery failed", "err", err)
 		} else if n > 0 {
 			c.logger.Info("closed interrupted job rows from previous run", "count", n)
@@ -1199,11 +1214,77 @@ func (c *PoolController) ReadinessCheck() server.Check {
 	})
 }
 
-// GracefulShutdown executes the structured SIGTERM shutdown sequence (docs/03 §7, OQ #24):
+// DetachShutdown is the default signal shutdown (docs/03 §7): it stops the
+// controller and leaves every runner container - idle and busy - running and
+// registered, for the next boot to adopt (docs/03 §2). Nothing is
+// deregistered or terminated. It waits, bounded by ctx, for background work
+// and any in-flight reconcile cycle to finish, so no cycle races the process
+// exit.
+func (c *PoolController) DetachShutdown(ctx context.Context) error {
+	c.Pause()
+	c.stopBackground(ctx)
+
+	locked := make(chan struct{})
+	go func() {
+		c.provisionMu.Lock()
+		close(locked)
+	}()
+	select {
+	case <-locked:
+		defer c.provisionMu.Unlock()
+	case <-ctx.Done():
+		// The in-flight cycle runs on the daemon's cancelled context and
+		// fails fast; the goroutine above takes and leaks the mutex, which
+		// is harmless on the way out.
+		c.logger.Warn("detach shutdown proceeding with a reconcile cycle still in flight", "err", ctx.Err())
+	}
+
+	c.mu.Lock()
+	c.state = StateStopped
+	c.mu.Unlock()
+
+	busy, idle := 0, 0
+	if c.reconciler != nil {
+		c.reconciler.mu.RLock()
+		for _, poolMap := range c.reconciler.tracked {
+			for _, r := range poolMap {
+				if r.State != "running" {
+					continue
+				}
+				if r.IsBusy {
+					busy++
+				} else {
+					idle++
+				}
+			}
+		}
+		c.reconciler.mu.RUnlock()
+	}
+	c.logger.Info("detached from runner containers; they keep running and are adopted on next boot",
+		"busy", busy, "idle", idle)
+	return nil
+}
+
+// DrainTimeout returns how long a drain shutdown waits for busy runners:
+// the shutdown_timeout_seconds app setting when set and positive, else the
+// controller's configured ShutdownTimeout (docs/03 §7).
+func (c *PoolController) DrainTimeout(ctx context.Context) time.Duration {
+	if reader, ok := c.db.(AppSettingsReader); ok {
+		if setting, err := reader.GetAppSetting(ctx, "shutdown_timeout_seconds"); err == nil {
+			if val, err := strconv.Atoi(setting.Value); err == nil && val > 0 {
+				return time.Duration(val) * time.Second
+			}
+		}
+	}
+	return c.shutdownTimeout
+}
+
+// GracefulShutdown is the opt-in drain shutdown (shutdown-mode: drain,
+// docs/03 §7, OQ #24), for taking a host out of service:
 // 1. Pauses the pool replenishing loop
 // 2. Immediately deregisters and terminates all IDLE runners
-// 3. Waits up to shutdownTimeout (polling every shutdownPollInterval) for ACTIVE runners to complete
-// 4. Force-terminates any remaining containers if timeout expires
+// 3. Waits up to DrainTimeout (polling every shutdownPollInterval) for ACTIVE runners to complete
+// 4. Force-terminates any remaining containers if the timeout or ctx expires
 // 5. Exits cleanly with state StateStopped.
 func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 	c.stopBackground(ctx)
@@ -1211,7 +1292,8 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 	defer c.provisionMu.Unlock()
 
 	c.Pause()
-	c.logger.Info("initiated graceful shutdown protocol (SIGTERM)", "timeout", c.shutdownTimeout)
+	timeout := c.DrainTimeout(ctx)
+	c.logger.Info("initiated drain shutdown protocol", "timeout", timeout)
 
 	if c.reconciler == nil || c.engine == nil {
 		c.mu.Lock()
@@ -1262,10 +1344,10 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 		return nil
 	}
 
-	c.logger.Info("waiting for active runners to complete", "count", len(activeRunners), "timeout", c.shutdownTimeout)
+	c.logger.Info("waiting for active runners to complete", "count", len(activeRunners), "timeout", timeout)
 
-	// 2. Poll active containers every shutdownPollInterval up to shutdownTimeout
-	timeoutChan := time.After(c.shutdownTimeout)
+	// 2. Poll active containers every shutdownPollInterval up to the drain timeout
+	timeoutChan := time.After(timeout)
 	ticker := time.NewTicker(c.shutdownPollInterval)
 	defer ticker.Stop()
 
@@ -1280,7 +1362,7 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 			return ctx.Err()
 
 		case <-timeoutChan:
-			c.logger.Warn("shutdown timeout exceeded, force-terminating remaining active runners", "timeout", c.shutdownTimeout)
+			c.logger.Warn("shutdown timeout exceeded, force-terminating remaining active runners", "timeout", timeout)
 			c.forceTerminateRemaining(ctx)
 			c.mu.Lock()
 			c.state = StateStopped
@@ -1306,29 +1388,6 @@ func (c *PoolController) GracefulShutdown(ctx context.Context) error {
 			c.logger.Info("active runners still in progress", "remaining", c.TotalActiveRunners())
 		}
 	}
-}
-
-// ImmediateShutdown executes the immediate SIGINT (Ctrl+C) shutdown protocol (docs/03 §7):
-// 1. Pauses the pool replenishing loop
-// 2. Immediately deregisters and terminates all IDLE runners
-// 3. Sends SIGTERM to all ACTIVE runner containers (Docker's 10s grace period applies)
-// 4. Transitions controller to StateStopped.
-func (c *PoolController) ImmediateShutdown(ctx context.Context) error {
-	c.stopBackground(ctx)
-	c.provisionMu.Lock()
-	defer c.provisionMu.Unlock()
-
-	c.Pause()
-	c.logger.Info("initiated immediate shutdown protocol (SIGINT)")
-
-	c.forceTerminateRemaining(ctx)
-
-	c.mu.Lock()
-	c.state = StateStopped
-	c.mu.Unlock()
-
-	c.logger.Info("immediate shutdown completed cleanly")
-	return nil
 }
 
 func (c *PoolController) forceTerminateRemaining(ctx context.Context) {

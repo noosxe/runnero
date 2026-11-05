@@ -115,6 +115,7 @@ Before proceeding with the implementation of the AIO Supervisor, the following a
 ## 24. Graceful Shutdown Timeout
 - The shutdown sequence diagram shows the supervisor waiting for active runners to finish, but doesn't define: what's the maximum wait duration? What happens if a runner is stuck and never exits? Is there a configurable `shutdown_timeout_seconds` with a force-kill fallback?
 > **✅ Resolved**: Added configurable `shutdown_timeout_seconds` (default: 300s) to `app_settings`. Shutdown behavior is signal-dependent: `SIGTERM` = graceful wait up to timeout then force-kill; `SIGINT` = immediate drain with Docker's default 10s stop grace period. See updated `03-lifecycle-and-orchestration.md`.
+> **Superseded**: restarts must never kill runners, so the default shutdown now *detaches* from runners and the next boot adopts them. The wait-then-force-kill sequence is the opt-in `SUPERVISOR_SHUTDOWN_MODE=drain`, and `SIGINT` follows the same mode as `SIGTERM` (docs/03 §7).
 
 ---
 

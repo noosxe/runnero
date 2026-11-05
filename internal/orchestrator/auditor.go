@@ -6,6 +6,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/noosxe/runnero/internal/db"
 )
 
 const (
@@ -195,6 +197,27 @@ func (r *Reconciler) TrackedPoolRunners(poolID int64) []RunnerStatus {
 		return runners[i].SpawnedAt.Before(runners[j].SpawnedAt)
 	})
 	return runners
+}
+
+// TrackedJobKeys returns the (pool id, runner name) identity of every tracked
+// container, whatever its state. Boot recovery keeps these runners' open job
+// rows (docs/21 §5.4): their containers survived the restart (docs/03 §7).
+func (r *Reconciler) TrackedJobKeys() []db.JobRunnerKey {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var keys []db.JobRunnerKey
+	for poolID, poolMap := range r.tracked {
+		if poolID == 0 {
+			continue // unresolved pool: no job row can belong to it
+		}
+		for _, s := range poolMap {
+			if s.Name != "" {
+				keys = append(keys, db.JobRunnerKey{PoolID: poolID, RunnerName: s.Name})
+			}
+		}
+	}
+	return keys
 }
 
 // TrackRunner registers a newly spawned runner into tracking.
