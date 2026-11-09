@@ -69,7 +69,7 @@ buildGo127Module {
     ];
   };
 
-  vendorHash = "sha256-Z1bzsE0zyIkN61HSMHrkwDm2EODLJhPV6z4a3kATorM=";
+  vendorHash = "sha256-n9vhrKxHiBUNYqEOQ3lfA4H3FWpWoVeYISwZv4dXBX0=";
 
   subPackages = [ "cmd/runnero-supervisor" ];
 
