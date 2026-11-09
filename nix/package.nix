@@ -36,7 +36,7 @@ let
       sourceRoot = "${finalAttrs.src.name}/web";
       pnpm = pnpm_11;
       fetcherVersion = 5;
-      hash = "sha256-06mBQlV0IJFZ3DtINtts24D3DSuVBgElR+hZA0+KvBs=";
+      hash = "sha256-eY3d963d/OP/WldW/tpXS8OayeM/Kb0JlSn51WOAQsU=";
     };
 
     nativeBuildInputs = [
